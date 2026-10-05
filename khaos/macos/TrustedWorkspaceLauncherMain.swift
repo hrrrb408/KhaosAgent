@@ -317,23 +317,22 @@ enum TrustedWorkspaceLauncherMain {
         guard state.generation == admittedGeneration else {
             throw LauncherError.operationRejected("stale_approval")
         }
-        var details = candidateDetails(candidate, validity: "30 days after activation")
+        var details = candidateDetails(
+            candidate,
+            validity: "30 days after activation",
+            generation: admittedGeneration
+        )
         details += "\nCaptured source SHA-256: \(plugin.sourceDigest)"
         details += "\nTarget slot: primary"
         if let active = state.active {
             details += "\nCurrent active will become the rollback target:\n"
-                + candidateDetails(active, validity: approvalExpiry(active))
+                + candidateDetails(
+                    active,
+                    validity: approvalExpiry(active),
+                    generation: state.generation
+                )
         } else {
             details += "\nNo current active Plugin; there is no rollback target yet."
-        }
-        guard approvePluginAction(
-            title: "Activate this Plugin?",
-            action: "Activate for 30 days",
-            workspace: nil,
-            details: details,
-            digest: candidate.candidateDigest
-        ) else {
-            throw TrustedWorkspacePickerError.cancelled
         }
         let request = KernelWorkspaceXPC.PluginLifecycleRequest.activate(
             candidateDigest: candidate.candidateDigest,
@@ -341,7 +340,23 @@ enum TrustedWorkspaceLauncherMain {
             scopeDigest: candidate.scopeDigest,
             expectedGeneration: admittedGeneration
         )
-        let activated = try parsePluginState(invokePluginKernel(request))
+        let requestID = KernelWorkspaceXPC.newRequestID()
+        let invocation = try KernelWorkspaceXPC.encodeInvocation(
+            request: request,
+            requestID: requestID
+        )
+        guard approvePluginAction(
+            title: "Activate this Plugin?",
+            action: "Activate for 30 days",
+            workspace: nil,
+            details: details,
+            digest: KernelWorkspaceXPC.sha256Hex(invocation)
+        ) else {
+            throw TrustedWorkspacePickerError.cancelled
+        }
+        let activated = try parsePluginState(
+            invokePluginKernel(request, requestID: requestID)
+        )
         guard activated.active?.candidateDigest == candidate.candidateDigest else {
             throw LauncherError.operationRejected("activation_not_confirmed")
         }
@@ -428,13 +443,19 @@ enum TrustedWorkspaceLauncherMain {
             scopeDigest: active.scopeDigest,
             expectedGeneration: state.generation
         )
+        let requestID = KernelWorkspaceXPC.newRequestID()
         let invocation = try KernelWorkspaceXPC.encodeInvocation(
             request: request,
-            requestID: KernelWorkspaceXPC.newRequestID(),
+            requestID: requestID,
             bookmark: selection.bookmark
         )
-        let details = candidateDetails(active, validity: approvalExpiry(active))
+        let details = candidateDetails(
+            active,
+            validity: approvalExpiry(active),
+            generation: state.generation
+        )
             + "\nThe Kernel will run this exact active Candidate in an isolated Runner."
+        writeDiagnostic("plugin-run-review=presented")
         guard approvePluginAction(
             title: "Run the active Plugin in this workspace?",
             action: "Run active Plugin",
@@ -446,7 +467,20 @@ enum TrustedWorkspaceLauncherMain {
         }
         selection.scopeURL.stopAccessingSecurityScopedResource()
         scopeReleased = true
-        let output = try invokePluginKernel(request, bookmark: selection.bookmark)
+        try requireWorkspaceOpenResult(
+            workspace: selection.scopeURL,
+            fileName: ".",
+            flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
+            expectOpen: false,
+            mismatchCode: "plugin_picker_scope_retained",
+            unexpectedErrorCode: "plugin_picker_scope_release_failed"
+        )
+        writeDiagnostic("plugin-picker-scope=released")
+        let output = try invokePluginKernel(
+            request,
+            requestID: requestID,
+            bookmark: selection.bookmark
+        )
         let result = try parseWorkspaceResult(output)
         guard result.returncode == 0 else {
             throw LauncherError.operationRejected("plugin_exit_\(result.returncode)")
@@ -460,26 +494,41 @@ enum TrustedWorkspaceLauncherMain {
             throw LauncherError.operationRejected("invalid_rollback_target")
         }
         let details = "Current active Plugin:\n"
-            + candidateDetails(active, validity: approvalExpiry(active))
+            + candidateDetails(
+                active,
+                validity: approvalExpiry(active),
+                generation: state.generation
+            )
             + "\n\nRollback target (future runs only):\n"
-            + candidateDetails(previous, validity: approvalExpiry(previous))
+            + candidateDetails(
+                previous,
+                validity: approvalExpiry(previous),
+                generation: state.generation
+            )
             + "\n\nThe rollback changes the primary slot after approval."
-        guard approvePluginAction(
-            title: "Roll back the active Plugin?",
-            action: "Roll back",
-            workspace: nil,
-            details: details,
-            digest: previous.candidateDigest
-        ) else {
-            throw TrustedWorkspacePickerError.cancelled
-        }
         let request = KernelWorkspaceXPC.PluginLifecycleRequest.rollback(
             candidateDigest: previous.candidateDigest,
             manifestDigest: previous.manifestDigest,
             scopeDigest: previous.scopeDigest,
             expectedGeneration: state.generation
         )
-        let updated = try parsePluginState(invokePluginKernel(request))
+        let requestID = KernelWorkspaceXPC.newRequestID()
+        let invocation = try KernelWorkspaceXPC.encodeInvocation(
+            request: request,
+            requestID: requestID
+        )
+        guard approvePluginAction(
+            title: "Roll back the active Plugin?",
+            action: "Roll back",
+            workspace: nil,
+            details: details,
+            digest: KernelWorkspaceXPC.sha256Hex(invocation)
+        ) else {
+            throw TrustedWorkspacePickerError.cancelled
+        }
+        let updated = try parsePluginState(
+            invokePluginKernel(request, requestID: requestID)
+        )
         guard updated.active?.candidateDigest == previous.candidateDigest else {
             throw LauncherError.operationRejected("rollback_not_confirmed")
         }
@@ -606,7 +655,8 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func candidateDetails(
         _ candidate: PluginCandidateReview,
-        validity: String
+        validity: String,
+        generation: Int
     ) -> String {
         let readPaths = candidate.readScope.isEmpty
             ? "(none)"
@@ -619,6 +669,8 @@ enum TrustedWorkspaceLauncherMain {
         return "Plugin: \(candidate.identifier)\n"
             + "Candidate SHA-256: \(candidate.candidateDigest)\n"
             + "Manifest SHA-256: \(candidate.manifestDigest)\n"
+            + "Scope SHA-256: \(candidate.scopeDigest)\n"
+            + "Expected slot generation: \(generation)\n"
             + "Capability: process.exec\n"
             + "Readable paths:\n\(readPaths)\n"
             + "Committable paths:\n\(writePaths)\n"
@@ -1163,6 +1215,7 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func invokePluginKernel(
         _ request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        requestID: KernelWorkspaceXPC.RequestID = KernelWorkspaceXPC.newRequestID(),
         bookmark: Data? = nil
     ) throws -> String {
         guard request.needsBookmark == (bookmark != nil) else {
@@ -1174,7 +1227,6 @@ enum TrustedWorkspaceLauncherMain {
         let target = try connectKernel(bundleID: bundleID)
         let snapshotBrokerEndpoint = bookmark == nil
             ? nil : try KernelSnapshotBrokerBootstrapClient.endpoint()
-        let requestID = KernelWorkspaceXPC.newRequestID()
         let reply = try KernelWorkspaceClient.request(
             target,
             requestID: requestID,

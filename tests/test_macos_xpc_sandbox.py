@@ -10,6 +10,7 @@ import platform
 from pathlib import Path
 import plistlib
 import re
+import select
 import secrets
 import shlex
 import shutil
@@ -18,11 +19,14 @@ import socket
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import time
 import unittest
 import uuid
 from unittest.mock import patch
+
+from khaos.kernel.plugin_lifecycle import activation_state, active_candidate
 
 
 PROBE_SOURCES = Path(__file__).with_name("macos_xpc_probe")
@@ -598,6 +602,22 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     product_app,
                     workspace,
                 )
+            if os.environ.get("KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI") == "1":
+                plugin_store = self._plugin_store_path_for_requirement(
+                    product_requirement
+                )
+                self.assertFalse(
+                    plugin_store.exists(),
+                    f"refusing to reuse Plugin state at {plugin_store}",
+                )
+                self.addCleanup(self._remove_plugin_store, plugin_store)
+                self._assert_product_plugin_lifecycle_ui(
+                    product_app=product_app,
+                    product_launcher=product_launcher,
+                    product_requirement=product_requirement,
+                    scratch=root,
+                )
+                self._remove_plugin_store(plugin_store)
 
             self._assert_product_xpc_request_attacks(
                 swiftc=swiftc,
@@ -4048,6 +4068,7 @@ def run():
         return subprocess.Popen(
             [
                 "/usr/bin/open",
+                "-n",
                 "-W",
                 "-a",
                 str(product_app),
@@ -4231,6 +4252,424 @@ def run():
         self.assertFalse(
             list(python_framework.rglob("__pycache__")),
             "product writeback must not mutate the signed Python framework",
+        )
+
+    def _assert_product_plugin_lifecycle_ui(
+        self,
+        *,
+        product_app: Path,
+        product_launcher: Path,
+        product_requirement: str,
+        scratch: Path,
+    ) -> None:
+        plugin_store = self._plugin_store_path_for_requirement(product_requirement)
+        workspace = scratch / "persistent-plugin-workspace"
+        workspace.mkdir()
+        approved_bytes = b"approved plugin input\n"
+        (workspace / "approved-input.txt").write_bytes(approved_bytes)
+        unapproved_bytes = b"outside Plugin read scope\n"
+        (workspace / "unapproved-canary.txt").write_bytes(unapproved_bytes)
+
+        def package(letter: str) -> dict[str, object]:
+            plugin_id = f"plugin-{letter.lower()}"
+            output_name = f"{plugin_id}-output.txt"
+            evidence_name = f"{plugin_id}-evidence.json"
+            manifest = {
+                "abi_version": 6,
+                "id": plugin_id,
+                "process_exec": True,
+                "read": ["approved-input.txt"],
+                "write": [output_name, evidence_name],
+            }
+            manifest_bytes = json.dumps(
+                manifest, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+            runner_source = textwrap.dedent(
+                f"""\
+                import errno
+                import json
+                import os
+                import time
+                from khaos.ipc import IPCProtocolError
+                from khaos.runner_sdk import (
+                    fs_list, fs_read, fs_write, process_exec, workspace_commit,
+                )
+
+                PLUGIN_ID = {plugin_id!r}
+                OUTPUT = {output_name!r}
+                EVIDENCE = {evidence_name!r}
+                ACTIVATION = {str(plugin_store / "activation.json")!r}
+                CANDIDATES = {str(plugin_store / "candidates")!r}
+                LIVE_INPUT = {str(workspace / "approved-input.txt")!r}
+
+                def denied(operation):
+                    try:
+                        operation()
+                    except OSError as error:
+                        return error.errno in (errno.EPERM, errno.EACCES)
+                    return False
+
+                def open_and_close(path, flags):
+                    descriptor = os.open(path, flags | os.O_CLOEXEC)
+                    os.close(descriptor)
+
+                def append_activation():
+                    descriptor = os.open(
+                        ACTIVATION, os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC,
+                    )
+                    try:
+                        os.write(descriptor, b"forged")
+                    finally:
+                        os.close(descriptor)
+
+                def run():
+                    approved = fs_read("approved-input.txt")
+                    if approved != {approved_bytes!r}:
+                        raise SystemExit(61)
+                    listed = sorted(entry["name"] for entry in fs_list())
+                    if listed != ["approved-input.txt"]:
+                        raise SystemExit(62)
+                    try:
+                        fs_read("unapproved-canary.txt")
+                    except IPCProtocolError as error:
+                        if "path_not_readable" not in str(error):
+                            raise
+                    else:
+                        raise SystemExit(63)
+
+                    nonce = str(time.time_ns())
+                    report = {{
+                        "plugin_id": PLUGIN_ID,
+                        "nonce": nonce,
+                        "approved_input": approved.decode("utf-8"),
+                        "listed": listed,
+                        "unapproved_read_denied": True,
+                        "denials": {{
+                            "activation_state_read": denied(
+                                lambda: open_and_close(ACTIVATION, os.O_RDONLY)
+                            ),
+                            "activation_state_write": denied(append_activation),
+                            "candidate_store_read": denied(
+                                lambda: os.listdir(CANDIDATES)
+                            ),
+                            "candidate_store_chmod": denied(
+                                lambda: os.chmod(CANDIDATES, 0o777)
+                            ),
+                            "live_workspace_direct_read": denied(
+                                lambda: open_and_close(
+                                    LIVE_INPUT, os.O_RDONLY | os.O_NOFOLLOW,
+                                )
+                            ),
+                        }},
+                    }}
+                    fs_write(OUTPUT, (PLUGIN_ID + ":" + nonce + "\\n").encode())
+                    fs_write(EVIDENCE, json.dumps(report, sort_keys=True).encode())
+                    if process_exec(("/bin/bash", "-c", ":"))["returncode"] != 0:
+                        raise SystemExit(64)
+                    workspace_commit()
+                    return 0
+                """
+            ).encode("utf-8")
+            compile(runner_source.decode("utf-8"), f"<{plugin_id}>", "exec")
+
+            scope_body = json.dumps(
+                {
+                    "id": plugin_id,
+                    "process_exec": True,
+                    "read": ["approved-input.txt"],
+                    "write": sorted(manifest["write"]),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            result = {
+                "id": plugin_id,
+                "package": scratch / f"{plugin_id}.package",
+                "source": runner_source,
+                "manifest": manifest_bytes,
+                "candidate": hashlib.sha256(
+                    b"Khaos Seed Plugin Candidate v1\0"
+                    + len(manifest_bytes).to_bytes(8, "big")
+                    + manifest_bytes
+                    + len(runner_source).to_bytes(8, "big")
+                    + runner_source
+                ).hexdigest(),
+                "manifest_digest": hashlib.sha256(manifest_bytes).hexdigest(),
+                "scope_digest": hashlib.sha256(
+                    b"Khaos Seed capability scope v1\0" + scope_body
+                ).hexdigest(),
+                "output": output_name,
+                "evidence": evidence_name,
+            }
+            result["package"].mkdir()
+            (result["package"] / "manifest.json").write_bytes(manifest_bytes)
+            (result["package"] / "plugin.py").write_bytes(runner_source)
+            return result
+
+        packages = {name: package(name) for name in ("A", "B")}
+        logs = scratch / "plugin-lifecycle-logs"
+        logs.mkdir()
+        launch_index = 0
+
+        def start(label: str, *arguments: str):
+            nonlocal launch_index
+            launch_index += 1
+            stdout_path = logs / f"{launch_index}-{label}.stdout"
+            stderr_path = logs / f"{launch_index}-{label}.stderr"
+            process = self._launch_product_app(
+                product_app, stdout_path, stderr_path, *arguments
+            )
+            return process, stdout_path, stderr_path
+
+        def finish(label: str, started, expected_error: str | None = None) -> str:
+            process, stdout_path, stderr_path = started
+            try:
+                process.communicate(timeout=600)
+            except subprocess.TimeoutExpired:
+                self._terminate_product_executable(product_launcher)
+                process.kill()
+                process.communicate(timeout=5)
+                self.fail(f"{label} timed out; diagnostics={stderr_path.read_text(errors='replace') if stderr_path.exists() else ''}")
+            diagnostics = (
+                stderr_path.read_text(encoding="utf-8", errors="replace")
+                if stderr_path.exists()
+                else ""
+            )
+            if expected_error:
+                self.assertIn(
+                    f"workspace-command=failed code={expected_error}",
+                    diagnostics,
+                )
+            elif label.startswith("run-"):
+                self.assertIn("workspace-plugin=passed", diagnostics)
+                self.assertIn(
+                    "workspace-kernel-smoke=plugin-picker-scope=released",
+                    diagnostics,
+                )
+            else:
+                self.assertNotIn("workspace-command=failed", diagnostics)
+            return diagnostics
+
+        def wait_for_review(started) -> None:
+            process, _, stderr_path = started
+            deadline = time.monotonic() + 300
+            marker = "workspace-kernel-smoke=plugin-run-review=presented"
+            while time.monotonic() < deadline:
+                if stderr_path.is_file() and marker in stderr_path.read_text(
+                    encoding="utf-8", errors="replace"
+                ):
+                    return
+                if process.poll() is not None:
+                    break
+                time.sleep(0.1)
+            self.fail(
+                f"Plugin run did not reach approval; "
+                f"{stderr_path.read_text(errors='replace') if stderr_path.exists() else ''}"
+            )
+
+        def gate(message: str) -> None:
+            print(message, flush=True)
+            ready, _, _ = select.select([sys.stdin], [], [], 300)
+            self.assertTrue(ready, "timed out at the stale-generation UI gate")
+            self.assertNotEqual(sys.stdin.readline(), "", "test input closed")
+
+        def snapshot() -> dict[str, str]:
+            result = {}
+            for entry in workspace.iterdir():
+                self.assertFalse(entry.is_symlink(), entry.name)
+                self.assertTrue(entry.is_file(), entry.name)
+                self.assertEqual(entry.stat().st_nlink, 1, entry.name)
+                result[entry.name] = hashlib.sha256(entry.read_bytes()).hexdigest()
+            return result
+
+        def check_active(letter: str, generation: int) -> None:
+            expected = packages[letter]
+            active, _, actual_generation = activation_state(plugin_store)
+            self.assertEqual(actual_generation, generation)
+            self.assertIsNotNone(active)
+            self.assertEqual(active.candidate_digest, expected["candidate"])
+            candidate, activation = active_candidate(plugin_store)
+            self.assertEqual(candidate.source, expected["source"])
+            self.assertEqual(candidate.manifest_digest, expected["manifest_digest"])
+            self.assertEqual(candidate.scope_digest, expected["scope_digest"])
+            self.assertEqual(candidate.manifest.read_scope, ("approved-input.txt",))
+            self.assertEqual(
+                candidate.manifest.write_scope,
+                tuple(sorted((expected["output"], expected["evidence"]))),
+            )
+            self.assertEqual(activation.candidate_digest, expected["candidate"])
+
+        def verify_signature() -> None:
+            result = subprocess.run(
+                ["codesign", "--verify", "--deep", "--strict", str(product_app)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            framework = (
+                product_app / "Contents" / "XPCServices"
+                / "KernelProduction.xpc" / "Contents" / "Frameworks"
+                / "Python.framework"
+            )
+            self.assertFalse(list(framework.rglob("__pycache__")))
+
+        def show_expected(letter: str, generation: int) -> None:
+            expected = packages[letter]
+            print(
+                f"Expected {expected['id']}: candidate={expected['candidate']} "
+                f"manifest={expected['manifest_digest']} "
+                f"scope={expected['scope_digest']} generation={generation}",
+                flush=True,
+            )
+
+        def activate(letter: str, generation: int, label: str) -> None:
+            expected = packages[letter]
+            show_expected(letter, generation)
+            print(
+                f"Use the signed product package Picker to select "
+                f"{expected['package']} (Command-Shift-G), then verify all four "
+                "bindings in the approval dialog, approve, and dismiss success.",
+                flush=True,
+            )
+            finish(
+                label,
+                start(label, "--plugin-install"),
+            )
+            check_active(letter, generation + 1)
+            verify_signature()
+
+        def run_plugin(letter: str, generation: int, label: str) -> None:
+            expected = packages[letter]
+            check_active(letter, generation)
+            before = snapshot()
+            show_expected(letter, generation)
+            print(
+                f"Select {workspace} in the signed product workspace Picker, "
+                "verify the four approval bindings, approve, and dismiss the "
+                "result alert for parent-side workspace checks.",
+                flush=True,
+            )
+            diagnostics = finish(label, start(label, "--plugin-run"))
+            after = snapshot()
+            self.assertEqual(
+                {name for name in set(before) | set(after) if before.get(name) != after.get(name)},
+                {expected["output"], expected["evidence"]},
+            )
+            report = json.loads(
+                (workspace / expected["evidence"]).read_text(encoding="utf-8")
+            )
+            self.assertEqual(report["plugin_id"], expected["id"])
+            self.assertEqual(report["approved_input"], approved_bytes.decode())
+            self.assertEqual(report["listed"], ["approved-input.txt"])
+            self.assertTrue(report["unapproved_read_denied"])
+            self.assertEqual(
+                report["denials"],
+                {
+                    "activation_state_read": True,
+                    "activation_state_write": True,
+                    "candidate_store_read": True,
+                    "candidate_store_chmod": True,
+                    "live_workspace_direct_read": True,
+                },
+            )
+            output = (workspace / expected["output"]).read_text(encoding="utf-8")
+            self.assertRegex(output, rf"^{expected['id']}:[0-9]+\n$")
+            self.assertEqual(output.rstrip().split(":", 1)[1], report["nonce"])
+            self.assertEqual(
+                (workspace / "approved-input.txt").read_bytes(), approved_bytes
+            )
+            self.assertEqual(
+                (workspace / "unapproved-canary.txt").read_bytes(),
+                unapproved_bytes,
+            )
+            self.assertIn(
+                "workspace-plugin=passed", diagnostics
+            )
+            check_active(letter, generation)
+            verify_signature()
+
+        self.assertFalse(plugin_store.exists(), f"unexpected Plugin state: {plugin_store}")
+        self.addCleanup(self._remove_plugin_store, plugin_store)
+        self.addCleanup(self._terminate_product_executable, product_launcher)
+        self.assertEqual(
+            set(snapshot()),
+            {"approved-input.txt", "unapproved-canary.txt"},
+        )
+        print(
+            "Real signed Launcher, KernelProduction.xpc, Plugin lifecycle, "
+            "Seatbelt Runner and Kernel writeback; parent checks workspace bytes "
+            "after every run.\n",
+            flush=True,
+        )
+
+        activate("A", 0, "activate-a")
+        run_plugin("A", 1, "run-a")
+
+        before_stale = snapshot()
+        show_expected("A", 1)
+        print(
+            f"Start another A run and select {workspace}; leave its generation-1 "
+            "approval open. The test waits for the product review marker.",
+            flush=True,
+        )
+        stale_run = start("run-a-stale", "--plugin-run")
+        wait_for_review(stale_run)
+        gate(
+            "Confirm the pending approval shows Candidate A at generation 1, "
+            "leave it open, then press Return to activate B."
+        )
+
+        activate("B", 1, "activate-b-racing-a")
+
+        gate(
+            "B is active at generation 2. Approve the still-open A run, dismiss "
+            "the stale_approval alert, then press Return."
+        )
+        finish("run-a-stale", stale_run, expected_error="stale_approval")
+        self.assertEqual(snapshot(), before_stale)
+        check_active("B", 2)
+        verify_signature()
+
+        run_plugin("B", 2, "run-b")
+
+        active, previous, generation = activation_state(plugin_store)
+        self.assertEqual(generation, 2)
+        self.assertEqual(active.candidate_digest, packages["B"]["candidate"])
+        self.assertEqual(previous.candidate_digest, packages["A"]["candidate"])
+        show_expected("A", generation)
+        print(
+            "Approve rollback to Candidate A at expected generation 2, then "
+            "dismiss success.",
+            flush=True,
+        )
+        finish("rollback", start("rollback", "--plugin-rollback"))
+        check_active("A", 3)
+        verify_signature()
+
+        run_plugin("A", 3, "run-a-after-rollback")
+        active, previous, generation = activation_state(plugin_store)
+        self.assertEqual(generation, 3)
+        self.assertEqual(active.candidate_digest, packages["A"]["candidate"])
+        self.assertEqual(previous.candidate_digest, packages["B"]["candidate"])
+        self.assertEqual(
+            set(snapshot()),
+            {
+                "approved-input.txt",
+                "unapproved-canary.txt",
+                packages["A"]["output"],
+                packages["A"]["evidence"],
+                packages["B"]["output"],
+                packages["B"]["evidence"],
+            },
+        )
+        verify_signature()
+        print(
+            "signed-product lifecycle passed: activate A → run A → activate B "
+            "→ run B → rollback → run A; stale A run rejected without writes.",
+            flush=True,
         )
 
     def _compile_agent_host_model_probe(self, scratch: Path) -> Path:

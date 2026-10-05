@@ -388,6 +388,22 @@ captures its path-free stderr diagnostics, and waits for the app to exit. Select
 the disposable workspace remains a user action. Do not run it while another Khaos
 Seed Picker is waiting for a selection.
 
+Run the opt-in signed-product Plugin lifecycle acceptance check on macOS with:
+
+```bash
+KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+This opens actual package, workspace, and approval dialogs for `activate A → run A →
+activate B → run B → rollback → run A`. Follow the printed paths and expected Candidate,
+Manifest, scope, and generation bindings. At the stale-generation gate, leave the A run's
+generation-1 approval open while activating B, then submit that stale approval when prompted.
+The test verifies the exact workspace changes and deep bundle signature in the parent process.
+It requires manual Picker and approval actions; do not run it while another Khaos Seed Picker
+is waiting for a selection.
+
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against
 the real Kernel XPC service. Scope attacks use a valid Runner source digest and no
