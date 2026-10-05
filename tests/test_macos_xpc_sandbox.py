@@ -10,6 +10,7 @@ from pathlib import Path
 import plistlib
 import re
 import secrets
+import shlex
 import shutil
 import signal
 import socket
@@ -3132,6 +3133,30 @@ def run():
             capture_output=True,
             text=True,
         )
+        search_list = subprocess.run(
+            ["security", "list-keychains", "-d", "user"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        original_keychains = shlex.split(search_list.stdout)
+        (directory / "original-keychain-search-list.json").write_text(
+            json.dumps(original_keychains), encoding="utf-8"
+        )
+        subprocess.run(
+            [
+                "security",
+                "list-keychains",
+                "-d",
+                "user",
+                "-s",
+                *original_keychains,
+                str(keychain),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
         fingerprint = subprocess.run(
             [
                 "openssl",
@@ -3157,6 +3182,24 @@ def run():
         directory: Path, cleanup_directory: Callable[[], None]
     ) -> None:
         keychain = directory / "xpc-test.keychain"
+        saved_search_list = directory / "original-keychain-search-list.json"
+        if saved_search_list.exists():
+            original_keychains = json.loads(
+                saved_search_list.read_text(encoding="utf-8")
+            )
+            subprocess.run(
+                [
+                    "security",
+                    "list-keychains",
+                    "-d",
+                    "user",
+                    "-s",
+                    *original_keychains,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
         subprocess.run(
             ["security", "delete-keychain", str(keychain)],
             check=False,
