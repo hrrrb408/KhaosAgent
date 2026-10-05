@@ -118,7 +118,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(
                 result.stdout.strip(),
-                "kernel-workspace-response-versions=7-and-8-separated;"
+                "kernel-workspace-response-versions=8-and-9-separated;"
                 "bridge-input=one-request-frame-plus-bookmark",
             )
 
@@ -340,6 +340,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     "khaos/kernel/__init__.py",
                     "khaos/kernel/broker.py",
                     "khaos/kernel/macos_seatbelt.py",
+                    "khaos/kernel/plugin_lifecycle.py",
                     "khaos/kernel/peer_identity.py",
                     "khaos/kernel/worker.py",
                     "khaos/kernel/workspace_changes.py",
@@ -2129,6 +2130,18 @@ def run():
                         service_info["KhaosWorkspaceCallerRequirement"] = (
                             peer_requirement
                         )
+                        if name == "KernelProduction":
+                            plugin_store = self._plugin_store_path_for_requirement(
+                                peer_requirement
+                            )
+                            self.assertFalse(
+                                plugin_store.exists(),
+                                f"refusing to reuse Plugin state at {plugin_store}",
+                            )
+                            self.addCleanup(
+                                self._remove_plugin_store,
+                                plugin_store,
+                            )
                         service_info["KhaosBootstrapRequirement"] = host_requirement
                         if name == "KernelExecution":
                             service_info["KhaosKernelServiceMode"] = "execution"
@@ -2266,6 +2279,18 @@ def run():
                     grant_info["KhaosWorkspaceCallerRequirement"] = (
                         workspace_grant_requirement
                     )
+                    if service_name == "KernelProduction":
+                        plugin_store = self._plugin_store_path_for_requirement(
+                            workspace_grant_requirement
+                        )
+                        self.assertFalse(
+                            plugin_store.exists(),
+                            f"refusing to reuse Plugin state at {plugin_store}",
+                        )
+                        self.addCleanup(
+                            self._remove_plugin_store,
+                            plugin_store,
+                        )
                     grant_info["KhaosBootstrapRequirement"] = (
                         workspace_grant_requirement
                     )
@@ -3035,6 +3060,24 @@ def run():
                 f"designated requirement is not a stable publisher identity: {requirement}"
             )
         return requirement
+
+    @staticmethod
+    def _remove_plugin_store(path: Path) -> None:
+        if not path.exists():
+            return
+        for directory, _, _ in os.walk(path):
+            os.chmod(directory, 0o700)
+        shutil.rmtree(path)
+
+    @staticmethod
+    def _plugin_store_path_for_requirement(requirement: str) -> Path:
+        namespace = hashlib.sha256(requirement.encode("utf-8")).hexdigest()
+        return (
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / f"org.khaos.Seed.PluginStore-{namespace}"
+        )
 
     @staticmethod
     def _compile_workspace_grant_probe(
@@ -4381,6 +4424,15 @@ def run():
             service_info.get("KhaosWorkspaceCallerRequirement"),
             product_requirement,
         )
+        plugin_store = self._plugin_store_path_for_requirement(product_requirement)
+        self.assertFalse(
+            plugin_store.exists(),
+            f"refusing to reuse Plugin state at {plugin_store}",
+        )
+        self.addCleanup(
+            self._remove_plugin_store,
+            plugin_store,
+        )
         signature = subprocess.run(
             ["codesign", "--verify", "--deep", "--strict", str(product_app)],
             check=False,
@@ -4429,6 +4481,8 @@ def run():
             "malformed-and-over-budget-rejected-before-bookmark\n"
             "production-xpc-authority-fields="
             "approval-and-capability-claims-rejected-before-bookmark\n"
+            "production-xpc-plugin-lifecycle="
+            "admit-activate-stale-reject-rollback-persisted\n"
             "production-xpc-after-invalid-requests=responsive",
         )
         if verify_missing_broker:

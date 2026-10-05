@@ -1,9 +1,10 @@
 # Kernel Runner ABI v6
 
 This document records the current development ABI between the one-shot Kernel
-worker and its isolated Runner. It can execute one untrusted Python `run()`
-entrypoint in the Runner process. It is a bounded protocol contract, not a
-production capability-grant or Candidate-admission system.
+worker and its isolated Runner. Runner ABI v6 executes one untrusted Python
+`run()` entrypoint. The separate native Workspace XPC operation ABI v9 now
+provides a minimal, fixed-slot Candidate lifecycle around that Runner. This is
+Seed product behavior, not a complete production Plugin platform.
 
 The transport, session, operation, and Native macOS Workspace XPC sections below
 define the current normative wire contracts. The dated sections after the ABI
@@ -20,11 +21,14 @@ standard output; its public functions do not accept descriptor overrides.
 After the ping, the Kernel sends one `plugin.start` frame containing up to
 10 KiB of UTF-8 source. The Runner executes it inside its Seatbelt process;
 Python source execution is not itself a security boundary.
-The opt-in product `--plugin-run` path captures a strict Manifest and source
-through a trusted package Picker, shows their digests in a one-run approval,
-and sends the captured source through this same ABI. That manual operation
-has no installed Candidate, active slot, persistent grant, or rollback state;
-the Kernel still retains the final workspace scopes.
+The product `--plugin-install` path captures a strict Manifest and source
+through a trusted package Picker and asks the Kernel to admit an immutable,
+content-addressed Candidate. A separate user confirmation activates the exact
+Candidate, Manifest, and normalized capability-scope digests at the reviewed
+slot generation. The Kernel fixes the slot to `primary` and validity to 30 days.
+`--plugin-run` asks the Kernel to load source and scopes from that active slot;
+the request cannot supply either. `--plugin-rollback` routes future runs to the
+verified previous Candidate. Runner ABI v6 remains unchanged.
 
 The Runner Seatbelt profile is default-deny and grants no Mach service lookup;
 it permits only the exact private AF_UNIX peer socket. A real macOS attack test
@@ -377,13 +381,13 @@ before retrying or cleaning them.
 The Runner cannot open the snapshot directly. `fs.read` and `fs.list` are
 explicit Kernel-mediated data flows; their results are still untrusted workspace
 data. They do not classify secrets and do not authorize sending content to a
-remote model. This ABI has no per-Plugin identity or capability handle, Manifest
-or digest admission, user approval, or durable operation lifecycle. The
-development launcher fixes the workspace and enables `process.exec` for the
-session; the Runner selects bounded argv within that implicit capability.
-Per-Plugin grants are required before exposing this path to a production Agent Host.
+remote model. Runner ABI v6 itself has no Plugin identity or capability handle.
+The development `workspace.run` path still enables `process.exec` for one
+trusted workspace request. The product `plugin.run` wrapper resolves source and
+scope from the active Candidate inside the trusted Kernel before invoking this
+ABI. The local Agent Host does not call the Plugin lifecycle API.
 
-## Native macOS Workspace XPC operation ABI v8
+## Native macOS Workspace XPC operation ABI v9
 
 `khaos/macos/KernelWorkspaceXPC.swift` contains the shared bounded wire,
 bookmark-transfer implementation, and `KernelWorkspaceBootstrapEndpoint` protocol
@@ -394,12 +398,12 @@ executor callback. `khaos/macos/KernelWorkspacePythonExecutor.swift` is the shar
 fixed executor: it starts the bundled Python bridge in a separate process and passes
 only the request stream, pinned workspace-root descriptor, and request-bound
 cancellation descriptor. `khaos/kernel/workspace_xpc_bridge.py` validates the bounded
-Workspace XPC v8 envelope, rechecks the Runner source digest, and calls the current
-Runner IPC v6 `run_workspace_command()` path. The bounded XPC payload carries a
+Workspace XPC v9 envelope and calls the current Runner IPC v6
+`run_workspace_command()` path. The bounded `workspace.run` payload carries a
 separate `workspace_write_scope`; the product Launcher source supplies one
 generated marker path and makes its fixed Runner verify an exact `fs.write` plus
-an out-of-scope sibling denial. This remains a fixed smoke flow, not general
-file editing or user-approved Plugin authority. The Python workspace path reads
+an out-of-scope sibling denial. The same signed XPC service handles the fixed
+Candidate lifecycle operations below. The Python workspace path reads
 the source APFS type and case semantics from its pinned root descriptor with
 Darwin `fgetattrlist`; a real HFS+ volume is rejected. For brokered snapshots,
 the Python executor relies on the authenticated live Snapshot Broker lease for
@@ -474,15 +478,76 @@ correct `KernelProduction` peer still answers the bootstrap probe. This is curre
 test-bundle evidence, not a shipped Launcher or release identity. Apple documents this
 client-side use in the [`NSXPCConnection.setCodeSigningRequirement` example](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement%28_%3A%29).
 
+### Candidate lifecycle operations
+
+The outer `NSXPC` method version remains `8`; the JSON operation envelope and
+bridge response version are `9`. The exact operation schemas are:
+
+| Operation | Exact payload | Workspace bookmark | Kernel behavior |
+|---|---|---:|---|
+| `workspace.run` | `timeout_seconds`, `runner_source`, `runner_source_sha256`, `workspace_read_scope`, `workspace_write_scope` | Required | Existing bounded one-request workspace path |
+| `plugin.admit` | `manifest_base64`, `source_base64` | Forbidden | Validate and store a content-addressed Candidate; return digest/scope summary |
+| `plugin.activate` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Forbidden | Verify bindings and generation, then activate fixed `primary` slot for 30 days |
+| `plugin.state` | empty | Forbidden | Return verified active/previous metadata without source bytes |
+| `plugin.rollback` | the same four fields as activation | Forbidden | Verify the previous Candidate and generation, then route future runs to it |
+| `plugin.run` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Required | Match the reviewed active slot under the state lock; load source/scopes from Kernel state, then use the existing Broker/Runner/commit path with a fixed 30-second timeout |
+
+Lifecycle operations reject unexpected fields and transfer bytes. In
+particular, `plugin.run` accepts only the reviewed Candidate digests and slot
+generation, never source or scope from its caller. The Kernel checks those
+bindings and resolves the Candidate under the same store lock, so a concurrent
+slot switch between confirmation and the run request fails as stale. Admission
+and activation use the same signed Launcher-to-Kernel XPC endpoint as workspace
+operations; there is no new trusted process or endpoint. The Kernel store is a
+per-caller-requirement directory beneath the user's `Library/Application
+Support`, with read-only content-addressed Candidate files revalidated when
+loaded, plus a serialized and atomically replaced activation record. The record
+retains active and previous Candidates, generation, approval ID, and fixed
+expiry. Its HMAC detects edits
+only while the key remains intact; the user-owned store does not resist an
+arbitrary same-UID process that can alter both key and data.
+
+The Launcher confirms exact Candidate, Manifest, and scope digests plus the
+fixed slot and validity before activation; the Kernel independently checks the
+digests and reviewed generation. No caller-supplied `approved` field exists.
+Rollback is bound to the previous Candidate's exact digests and reviewed
+generation. It only changes routing for future runs; it cannot reverse effects
+of prior runs.
+
+**2026-10-05 signed-product lifecycle evidence:** The headless
+`test_seed_app_builds_and_authenticates_its_kernel_service` test passed against
+the locally signed product's real `KernelProduction.xpc`. It admitted two
+different Candidate contents, rejected a Manifest digest mismatch and stale
+generation, activated each exact Candidate, read back persisted active/previous
+state, rejected a forged approval field, rejected a wrong or stale rollback
+target, then rolled back to the first Candidate. It also confirmed lifecycle
+metadata does not reveal source and that `plugin.run` without a workspace
+bookmark is rejected. The test cleans its signer-namespaced Application Support
+store. It does not open the Picker or run the persistently activated Candidate
+in a selected workspace; the current product `--plugin-run` Picker route still
+needs a correlated end-to-end run.
+
+The real macOS test `test_real_runner_executes_a_b_rollback_a_and_cannot_self_activate`
+also proves the replacement sequence using the stored Candidate bytes and the
+existing Kernel `run_workspace_command()` → Seatbelt Runner → changeset commit
+path: it activates and runs A, activates and runs B, rolls back, then runs A
+again. Each Candidate attempts to list and chmod the Candidate store, read and
+append to activation state, and look up the live `com.apple.cfprefsd.agent`
+Mach service. Those operations are denied in the Runner; an unconfined
+positive-control lookup succeeds. Its only committed writes are the exact
+Manifest paths. This validates the Python Kernel/Runner composition on this
+host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
+
 ### Product APFS snapshot broker handoff
 
-The outer Kernel XPC protocol is ABI version `7`. Before submitting `workspace.run`,
+The outer Kernel XPC method version is `8`. Before submitting `workspace.run`
+or `plugin.run`,
 the signed Launcher registers one `NSXPCListenerEndpoint` for the snapshot broker on
 the same authenticated Kernel connection. Kernel binds the pending endpoint to that
 connection, consumes it for that connection's next request, and clears it if the
 connection is interrupted or invalidated. The endpoint is out-of-band XPC metadata; it
 is not a caller-supplied identity, capability string, or field in the bounded JSON
-request. The JSON `workspace.run` operation frame is version `8`.
+request. The JSON operation frame is version `9`.
 
 The current signed product keeps `KernelProduction.xpc` outside App Sandbox:
 a signed App Sandbox helper on this Mac received `sandbox_apply: Operation not
@@ -591,14 +656,14 @@ loopback is available, the probe also proves the host control works before check
 the Runner denial. The standalone real-Seatbelt attack continues to exercise the
 default-deny profile against a live loopback listener outside App Sandbox.
 
-`workspace.run` carries operation ABI version `8`, a request ID as two fixed-width
+`workspace.run` carries operation ABI version `9`, a request ID as two fixed-width
 unsigned 64-bit values, and an `NSFileHandle` for a stream socket. Request
 fields and the workspace bookmark stay out of XPC object decoding. The client
-sends a bounded Workspace XPC v8 `workspace.run` frame followed by one bookmark:
+sends a bounded Workspace XPC v9 `workspace.run` frame followed by one bookmark:
 
 ```text
 uint32 request_frame_length
-Workspace_XPC_v8_workspace.run_frame
+Workspace_XPC_v9_workspace.run_frame
 uint32 bookmark_length
 workspace_bookmark_bytes
 ```
@@ -615,7 +680,9 @@ before reading the bookmark; the separate Python bridge rechecks the binding bef
 starting the Worker. A mismatch returns `invalid_request` before bookmark resolution or
 Runner launch. This is content-integrity binding only: the current fixed Launcher
 computes the digest for its built-in source; there is no user approval, Manifest digest,
-Candidate admission, or capability grant bound to it. The bridge forwards the validated
+Candidate admission, or capability grant bound to it for direct `workspace.run`.
+The separate `plugin.admit`/`plugin.activate` operations bind installed content and
+scope; `plugin.run` reads them from Kernel state. The bridge forwards validated
 source and remaining operation fields into the existing Runner IPC v6 path. The inner
 request ID must match the fixed-width ID on the outer XPC call.
 The JSON body is limited to eight structural nesting levels before Foundation parses it;

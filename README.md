@@ -4,7 +4,7 @@ Khaos Seed is a macOS-only security prototype. It builds a sandboxed local
 Launcher, a separately sandboxed untrusted Agent Host XPC service, and a signed Kernel XPC
 service around the existing Seatbelt Runner path, with a separate XPC service
 for APFS snapshot mounting. The Launcher offers a fixed Kernel-mediated
-writeback smoke, a one-shot shell command, manual one-shot Plugin loading, and
+writeback smoke, a one-shot shell command, a persistent single-slot Plugin lifecycle, and
 a small local Agent Loop. The smoke Runner receives one generated marker path for SDK
 `fs.write`; acceptance runs may also receive an exact fixture read/list scope,
 while an ordinary no-argument launch uses deny-all read scope. The Agent Loop
@@ -115,27 +115,47 @@ run. Some shell tools, including `/bin/cp`, try to copy extended attributes and
 may fail under the current metadata-write denial. It does not install or
 activate a Plugin.
 
-To load one disposable Plugin package into an isolated Runner, run:
+To install and activate a Plugin package, run:
 
 ```bash
-/tmp/KhaosSeed.app/Contents/MacOS/KhaosSeed --plugin-run
+/tmp/KhaosSeed.app/Contents/MacOS/KhaosSeed --plugin-install
 ```
 
-Choose a package folder, then a workspace. The example package is
+Choose a package folder. The example package is
 [`examples/seed-writer`](examples/seed-writer). A package has exactly
 `manifest.json` and `plugin.py` as its admitted inputs. The manifest must be
 canonical sorted-key JSON (an optional final newline is accepted), with
 `abi_version: 6`, a lowercase ASCII ID, `process_exec: true`, and exact
 `read` / `write` path arrays. The Launcher captures both regular, single-link
 files without following symlinks, caps their sizes at 4 KiB and 10 KiB, and
-releases the package Picker scope. Its confirmation shows the Plugin ID,
-Manifest and source SHA-256 digests, requested scopes, process execution, and
-the digest of the selected workspace invocation. Only a user-confirmed run
-passes the captured source to the existing Kernel XPC path. The Runner and its
-private snapshot are discarded after that run, so unloading requires no
-persistent Plugin state. The Manifest requests scope; the trusted Launcher
-and Kernel still decide the actual bounded operation. This is manual,
-one-time execution, not Candidate installation, activation, or rollback.
+releases the package Picker scope. The Kernel validates and stores the package
+as a read-only, content-addressed Candidate, then revalidates its content when
+loading it. The activation confirmation
+shows its Candidate, Manifest, and capability-scope digests, the requested
+read/write paths, the fixed `primary` slot, and the 30-day validity. The Kernel
+accepts activation only for those exact digests and the slot generation shown
+before the confirmation. Candidate state persists under the signed product's
+Application Support namespace.
+
+To run the active Candidate, choose a workspace and approve the displayed
+Candidate digest, scopes, validity, and invocation:
+
+```bash
+/tmp/KhaosSeed.app/Contents/MacOS/KhaosSeed --plugin-run
+```
+
+The request binds the review to the active Candidate digests and slot
+generation. The Kernel loads source and scope from its active slot; the run
+request cannot provide either. To route future runs to the previous Candidate,
+run:
+
+```bash
+/tmp/KhaosSeed.app/Contents/MacOS/KhaosSeed --plugin-rollback
+```
+
+Rollback changes the active slot and does not undo workspace changes or other
+effects from earlier runs. The Manifest requests scope; only the trusted
+Kernel grants it to the isolated Runner.
 
 For an interactive local conversation, start the signed Launcher from a terminal:
 
@@ -209,10 +229,14 @@ KHAOS_RUN_PRODUCT_WRITEBACK_UI=1 python3 -m unittest discover -s tests \
 ```
 
 The focused test also sends headless malformed, over-budget, and caller-asserted
-authority requests to the signed Kernel XPC service. Real Runner isolation,
-writeback rejection, and cancellation attacks run in the canonical suite. The
-single interactive route is the product writeback acceptance above; it exercises
-the selected-workspace XPC path without a second test-only Picker driver.
+authority requests to the signed Kernel XPC service. It exercises real XPC
+Candidate admission, exact-digest activation, stale-generation rejection,
+persisted slot state, rollback, and missing-bookmark rejection for `plugin.run`.
+This lifecycle check does not open a Picker or execute a Candidate in a selected
+workspace. Real Runner isolation, writeback rejection, and cancellation attacks
+run in the canonical suite. The single interactive route is the product
+writeback acceptance above; it exercises the selected-workspace XPC path without
+a second test-only Picker driver.
 
 ## Current status
 
@@ -223,8 +247,9 @@ from a private snapshot. Its fixed Runner also exercises bounded `fs.read` and
 `fs.list` in acceptance mode with a one-file fixture scope; an ordinary
 no-argument launch passes an empty read scope. The one-shot command mode now
 uses the same XPC request and Kernel commit path with user-reviewed scopes.
-The product is not yet a general coding assistant. Its manual Plugin path
-captures arbitrary source only after user package selection and approval.
+The product is not yet a general coding assistant. The Launcher provides one
+persistent `primary` Candidate slot with explicit activation, execution, and
+rollback confirmations; the local Agent Host does not manage or invoke Plugins.
 
 `KernelProduction.xpc` has no App Sandbox entitlement: a signed App Sandbox
 helper on this Mac cannot apply the nested Seatbelt policy needed for the
@@ -344,10 +369,16 @@ same-UID writer; this is not global write exclusion.
 
 ## Not implemented or not guaranteed
 
-- A selected-workspace product run through both Plugin and workspace Pickers is
-  still awaiting correlated runtime evidence.
-- Candidate digest and Manifest admission, capability grants, activation
-  approval, Trusted Promoter, rollback, or Plugin-based Memory/Context/Tools.
+- A selected-workspace `--plugin-run` through the signed product Launcher and
+  Kernel XPC is still awaiting correlated runtime evidence. The signed-product
+  test exercises admission, activation, stale-approval rejection, and rollback;
+  a separate real macOS Seatbelt test runs persisted Candidate A, then B, then A
+  after rollback through the Kernel Runner path. That test also confirms a
+  Candidate cannot read or write lifecycle storage or look up the tested live
+  Mach service.
+- Trusted Promoter, multiple Plugin slots, Plugin-based Memory/Context/Tools,
+  and protection from arbitrary same-UID edits to user-owned Application
+  Support state.
 - App Sandbox enforcement for the snapshot-mount Broker. The signed-product
   headless test proves its authenticated APFS lease and cleanup path on this Mac,
   but the Broker process itself retains broader authority and remains trusted code.

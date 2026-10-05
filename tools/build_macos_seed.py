@@ -30,6 +30,7 @@ SEED_PYTHON_SOURCES = (
     "khaos/kernel/__init__.py",
     "khaos/kernel/broker.py",
     "khaos/kernel/macos_seatbelt.py",
+    "khaos/kernel/plugin_lifecycle.py",
     "khaos/kernel/peer_identity.py",
     "khaos/kernel/worker.py",
     "khaos/kernel/workspace_changes.py",

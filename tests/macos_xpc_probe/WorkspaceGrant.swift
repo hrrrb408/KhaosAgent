@@ -1,6 +1,12 @@
 import Darwin
 import Foundation
 
+private struct PluginCandidateState {
+    let candidateDigest: String
+    let manifestDigest: String
+    let scopeDigest: String
+}
+
 private enum KernelService {
     case execution
     case production
@@ -139,6 +145,7 @@ struct WorkspaceGrant {
         let authorityFieldEvidence = try rejectCallerSuppliedAuthorityFields(
             endpoint: endpoint
         )
+        let pluginLifecycleEvidence = try exercisePluginLifecycle(endpoint: endpoint)
         try requireIdleCancellation(endpoint: endpoint)
         return [
             "production-xpc-bootstrap=authenticated",
@@ -147,8 +154,300 @@ struct WorkspaceGrant {
             nestingEvidence,
             scopeEvidence,
             authorityFieldEvidence,
+            pluginLifecycleEvidence,
             "production-xpc-after-invalid-requests=responsive",
         ].joined(separator: "\n")
+    }
+
+    private static func exercisePluginLifecycle(
+        endpoint: KernelWorkspaceTarget
+    ) throws -> String {
+        let manifest = Data(
+            #"{"abi_version":6,"id":"fixture-plugin","process_exec":true,"read":["probe-input.txt"],"write":["probe-output.txt"]}"#.utf8
+        )
+        let sourceA = Data("def run():\n    return 'private-source-a'\n".utf8)
+        let sourceB = Data("def run():\n    return 'private-source-b'\n".utf8)
+        let firstAdmission = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .admit(manifest: manifest, source: sourceA)
+        )
+        let candidateA = try parseAdmittedCandidate(firstAdmission)
+        let generationA = try parseGeneration(firstAdmission)
+        guard generationA == 0 else {
+            throw ProbeError.clientFailed("first Candidate admission changed slot generation")
+        }
+        let badManifest = KernelWorkspaceXPC.PluginLifecycleRequest.activate(
+            candidateDigest: candidateA.candidateDigest,
+            manifestDigest: String(repeating: "0", count: 64),
+            scopeDigest: candidateA.scopeDigest,
+            expectedGeneration: 0
+        )
+        try requirePluginError(
+            endpoint: endpoint,
+            request: badManifest,
+            expected: "approval_binding_mismatch"
+        )
+        _ = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .activate(
+                candidateDigest: candidateA.candidateDigest,
+                manifestDigest: candidateA.manifestDigest,
+                scopeDigest: candidateA.scopeDigest,
+                expectedGeneration: 0
+            )
+        )
+
+        let secondAdmission = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .admit(manifest: manifest, source: sourceB)
+        )
+        let candidateB = try parseAdmittedCandidate(secondAdmission)
+        let generationB = try parseGeneration(secondAdmission)
+        guard candidateA.candidateDigest != candidateB.candidateDigest,
+              generationB == 1 else {
+            throw ProbeError.clientFailed("changed source did not create a new Candidate")
+        }
+        try requirePluginError(
+            endpoint: endpoint,
+            request: .activate(
+                candidateDigest: candidateB.candidateDigest,
+                manifestDigest: candidateB.manifestDigest,
+                scopeDigest: candidateB.scopeDigest,
+                expectedGeneration: 0
+            ),
+            expected: "stale_approval"
+        )
+        _ = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .activate(
+                candidateDigest: candidateB.candidateDigest,
+                manifestDigest: candidateB.manifestDigest,
+                scopeDigest: candidateB.scopeDigest,
+                expectedGeneration: 1
+            )
+        )
+        let stateBeforeRollback = try pluginState(
+            try sendPluginRequest(endpoint: endpoint, request: .state)
+        )
+        guard stateBeforeRollback.generation == 2,
+              stateBeforeRollback.active?.candidateDigest == candidateB.candidateDigest,
+              stateBeforeRollback.previous?.candidateDigest == candidateA.candidateDigest
+        else {
+            throw ProbeError.clientFailed("signed Kernel did not persist both slot entries")
+        }
+        try requirePluginError(
+            endpoint: endpoint,
+            request: .rollback(
+                candidateDigest: candidateB.candidateDigest,
+                manifestDigest: candidateB.manifestDigest,
+                scopeDigest: candidateB.scopeDigest,
+                expectedGeneration: 2
+            ),
+            expected: "approval_binding_mismatch"
+        )
+        try requirePluginError(
+            endpoint: endpoint,
+            request: .rollback(
+                candidateDigest: candidateA.candidateDigest,
+                manifestDigest: candidateA.manifestDigest,
+                scopeDigest: candidateA.scopeDigest,
+                expectedGeneration: 1
+            ),
+            expected: "stale_approval"
+        )
+        _ = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .rollback(
+                candidateDigest: candidateA.candidateDigest,
+                manifestDigest: candidateA.manifestDigest,
+                scopeDigest: candidateA.scopeDigest,
+                expectedGeneration: 2
+            )
+        )
+        let stateAfterRollback = try pluginState(
+            try sendPluginRequest(endpoint: endpoint, request: .state)
+        )
+        guard stateAfterRollback.generation == 3,
+              stateAfterRollback.active?.candidateDigest == candidateA.candidateDigest,
+              stateAfterRollback.previous?.candidateDigest == candidateB.candidateDigest
+        else {
+            throw ProbeError.clientFailed("signed Kernel did not persist rollback state")
+        }
+
+        let forgedID = KernelWorkspaceXPC.newRequestID()
+        let forgedFrame = try rawPluginRequestFrame(
+            requestID: forgedID,
+            operation: "plugin.activate",
+            payload: [
+                "candidate_digest": candidateA.candidateDigest,
+                "manifest_digest": candidateA.manifestDigest,
+                "scope_digest": candidateA.scopeDigest,
+                "expected_generation": 3,
+                "approved": true,
+            ]
+        )
+        try rejectUnbookmarkedWorkspaceRequest(
+            endpoint: endpoint,
+            requestID: forgedID,
+            requestFrame: forgedFrame,
+            attack: "a self-asserted Plugin approval field"
+        )
+        let runID = KernelWorkspaceXPC.newRequestID()
+        let runFrame = try KernelWorkspaceXPC.PluginLifecycleRequest.run(
+            candidateDigest: candidateA.candidateDigest,
+            manifestDigest: candidateA.manifestDigest,
+            scopeDigest: candidateA.scopeDigest,
+            expectedGeneration: 3
+        ).encodeFrame(requestID: runID)
+        try rejectUnbookmarkedWorkspaceRequest(
+            endpoint: endpoint,
+            requestID: runID,
+            requestFrame: runFrame,
+            attack: "an active Plugin run without a workspace bookmark",
+            expectedCode: "invalid_bookmark"
+        )
+        guard let secondOutput = secondAdmission.output,
+              !secondOutput.contains("private-source") else {
+            throw ProbeError.clientFailed("Candidate source leaked through lifecycle metadata")
+        }
+        return "production-xpc-plugin-lifecycle=admit-activate-stale-reject-rollback-persisted"
+    }
+
+    private static func sendPluginRequest(
+        endpoint: KernelWorkspaceTarget,
+        request: KernelWorkspaceXPC.PluginLifecycleRequest
+    ) throws -> KernelWorkspaceXPC.Reply {
+        let requestID = KernelWorkspaceXPC.newRequestID()
+        return try requestWorkspaceReply(endpoint: endpoint, requestID: requestID) {
+            proxy, withReply in
+            try KernelWorkspaceXPC.submit(
+                proxy,
+                requestID: requestID,
+                request: request,
+                withReply: withReply
+            )
+        }
+    }
+
+    private static func requirePluginError(
+        endpoint: KernelWorkspaceTarget,
+        request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        expected: String
+    ) throws {
+        let reply = try sendPluginRequest(endpoint: endpoint, request: request)
+        guard reply.errorCode == expected,
+              reply.output == nil,
+              reply.cancellationAccepted == nil
+        else {
+            throw ProbeError.clientFailed(
+                "Plugin lifecycle request did not reject as \(expected)"
+            )
+        }
+    }
+
+    private static func parseAdmittedCandidate(
+        _ reply: KernelWorkspaceXPC.Reply
+    ) throws -> PluginCandidateState {
+        let value = try lifecycleObject(reply)
+        guard Set(value.keys) == ["candidate", "generation"],
+              let candidate = value["candidate"] as? [String: Any]
+        else {
+            throw ProbeError.clientFailed("admission response schema is invalid")
+        }
+        return try parseCandidate(candidate)
+    }
+
+    private static func parseGeneration(
+        _ reply: KernelWorkspaceXPC.Reply
+    ) throws -> Int {
+        let value = try lifecycleObject(reply)
+        guard let generation = value["generation"] as? Int, generation >= 0 else {
+            throw ProbeError.clientFailed("admission generation is invalid")
+        }
+        return generation
+    }
+
+    private static func pluginState(
+        _ reply: KernelWorkspaceXPC.Reply
+    ) throws -> (
+        active: PluginCandidateState?,
+        previous: PluginCandidateState?,
+        generation: Int
+    ) {
+        let value = try lifecycleObject(reply)
+        guard Set(value.keys) == ["active", "previous", "generation"],
+              let generation = value["generation"] as? Int,
+              generation >= 0
+        else {
+            throw ProbeError.clientFailed("slot-state response schema is invalid")
+        }
+        return (
+            try optionalCandidate(value["active"]),
+            try optionalCandidate(value["previous"]),
+            generation
+        )
+    }
+
+    private static func optionalCandidate(
+        _ value: Any?
+    ) throws -> PluginCandidateState? {
+        if value is NSNull { return nil }
+        guard let candidate = value as? [String: Any] else {
+            throw ProbeError.clientFailed("slot Candidate metadata is invalid")
+        }
+        return try parseCandidate(candidate)
+    }
+
+    private static func parseCandidate(
+        _ value: [String: Any]
+    ) throws -> PluginCandidateState {
+        guard let candidateDigest = value["candidate_digest"] as? String,
+              let manifestDigest = value["manifest_digest"] as? String,
+              let scopeDigest = value["scope_digest"] as? String,
+              candidateDigest.count == 64,
+              manifestDigest.count == 64,
+              scopeDigest.count == 64
+        else {
+            throw ProbeError.clientFailed("Candidate digest metadata is invalid")
+        }
+        return PluginCandidateState(
+            candidateDigest: candidateDigest,
+            manifestDigest: manifestDigest,
+            scopeDigest: scopeDigest
+        )
+    }
+
+    private static func lifecycleObject(
+        _ reply: KernelWorkspaceXPC.Reply
+    ) throws -> [String: Any] {
+        guard reply.errorCode == nil,
+              let output = reply.output,
+              let data = output.data(using: .utf8),
+              let value = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any]
+        else {
+            throw ProbeError.clientFailed(
+                "Plugin lifecycle reply failed: \(reply.errorCode ?? "missing output")"
+            )
+        }
+        return value
+    }
+
+    private static func rawPluginRequestFrame(
+        requestID: KernelWorkspaceXPC.RequestID,
+        operation: String,
+        payload: [String: Any]
+    ) throws -> Data {
+        let body = try JSONSerialization.data(
+            withJSONObject: [
+                "version": KernelWorkspaceXPC.operationProtocolVersion,
+                "request_id": requestID.token,
+                "operation": operation,
+                "payload": payload,
+            ],
+            options: [.sortedKeys]
+        )
+        return try WorkspaceProbeRequest.rawJSONWorkspaceRequestFrame(body: body)
     }
 
     private static func runProductionMissingBrokerCheck(
@@ -431,7 +730,8 @@ struct WorkspaceGrant {
         endpoint: KernelWorkspaceTarget,
         requestID: KernelWorkspaceXPC.RequestID,
         requestFrame: Data,
-        attack: String
+        attack: String,
+        expectedCode: String = "invalid_request"
     ) throws {
         var descriptors: [Int32] = [-1, -1]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &descriptors) == 0 else {
@@ -497,12 +797,12 @@ struct WorkspaceGrant {
                 withReply: withReply
             )
         }
-        guard reply.errorCode == "invalid_request",
+        guard reply.errorCode == expectedCode,
               reply.output == nil,
               reply.cancellationAccepted == nil
         else {
             throw ProbeError.clientFailed(
-                "Kernel did not reject \(attack) before bookmark handling"
+                "Kernel did not reject \(attack) as \(expectedCode)"
             )
         }
     }

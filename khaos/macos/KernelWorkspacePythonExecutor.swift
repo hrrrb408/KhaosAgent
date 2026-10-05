@@ -19,30 +19,73 @@ enum KernelWorkspacePythonExecutor {
         _ invocation: KernelWorkspaceXPC.WorkspaceInvocation,
         cancellation: WorkspaceCancellationSignal
     ) throws -> String {
-        guard let snapshotBrokerEndpoint = invocation.snapshotBrokerEndpoint else {
-            throw KernelWorkspaceServiceError.snapshotBrokerUnavailable(
-                .configurationMissing
-            )
-        }
         let bundle: (executable: URL, resources: URL)
         do {
             bundle = try pythonBundle()
         } catch {
             throw KernelWorkspaceServiceError.pythonRuntimeUnavailable
         }
+        if case let .pluginLifecycle(request) = invocation.request,
+           !request.needsBookmark {
+            guard !cancellation.isRequested else {
+                throw KernelWorkspaceServiceError.processCancelled
+            }
+            let input = try KernelWorkspaceXPC.encodeBridgeInput(
+                request: request,
+                requestID: invocation.requestID
+            )
+            let rootDescriptor = Darwin.open("/dev/null", O_RDONLY | O_CLOEXEC)
+            guard rootDescriptor >= 0 else {
+                throw KernelWorkspaceServiceError.pythonBridgeFailed
+            }
+            defer { _ = Darwin.close(rootDescriptor) }
+            let value = try runBridge(
+                bundle: bundle,
+                workspace: URL(fileURLWithPath: "/"),
+                rootDescriptor: rootDescriptor,
+                invocation: input,
+                snapshotLease: nil,
+                pluginStoreRoot: try pluginStoreRoot().path,
+                cancellation: cancellation
+            )
+            return try decodeBridgeResponse(
+                value,
+                requestID: invocation.requestID,
+                validateWorkspaceResult: false
+            )
+        }
+        guard let snapshotBrokerEndpoint = invocation.snapshotBrokerEndpoint else {
+            throw KernelWorkspaceServiceError.snapshotBrokerUnavailable(
+                .configurationMissing
+            )
+        }
+        guard let bookmark = invocation.bookmark else {
+            throw KernelWorkspaceServiceError.workspaceRejected
+        }
+        let bridgeRequest: KernelWorkspaceXPC.InvocationRequest = invocation.request
         let access: (value: Data, stale: Bool, refreshed: Bool)
         do {
-            access = try KernelWorkspaceRoot.withScopedBookmark(invocation.bookmark) {
+            access = try KernelWorkspaceRoot.withScopedBookmark(bookmark) {
                 workspace, rootDescriptor, activeBookmark in
                 do {
                     guard !cancellation.isRequested else {
                         throw KernelWorkspaceServiceError.processCancelled
                     }
-                    let bridgeInput = try KernelWorkspaceXPC.encodeBridgeInput(
-                        request: invocation.request,
-                        requestID: invocation.requestID,
-                        bookmark: activeBookmark
-                    )
+                    let bridgeInput: Data
+                    switch bridgeRequest {
+                    case let .workspaceRun(request):
+                        bridgeInput = try KernelWorkspaceXPC.encodeBridgeInput(
+                            request: request,
+                            requestID: invocation.requestID,
+                            bookmark: activeBookmark
+                        )
+                    case let .pluginLifecycle(request):
+                        bridgeInput = try KernelWorkspaceXPC.encodeBridgeInput(
+                            request: request,
+                            requestID: invocation.requestID,
+                            bookmark: activeBookmark
+                        )
+                    }
                     let caseSensitive = try workspaceCaseSensitivity(
                         workspace,
                         cancellation: cancellation
@@ -73,6 +116,7 @@ enum KernelWorkspacePythonExecutor {
                             rootDescriptor: rootDescriptor,
                             invocation: bridgeInput,
                             snapshotLease: lease,
+                            pluginStoreRoot: try pluginStoreRoot().path,
                             cancellation: cancellation
                         )
                     } catch {
@@ -110,16 +154,51 @@ enum KernelWorkspacePythonExecutor {
         } catch {
             throw KernelWorkspaceServiceError.workspaceRejected
         }
-        guard access.value.count >= KernelWorkspaceXPC.transferLengthBytes else {
+        return try decodeBridgeResponse(
+            access.value,
+            requestID: invocation.requestID,
+            validateWorkspaceResult: true
+        )
+    }
+
+    private static let pluginLifecycleErrorCodes: Set<String> = [
+        "activation_outcome_uncertain", "activation_state_corrupt",
+        "activation_state_unavailable", "approval_binding_mismatch",
+        "approval_expired", "candidate_corrupt", "candidate_missing",
+        "candidate_store_failed", "invalid_rollback_target", "invalid_time",
+        "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
+        "plugin_source_rejected", "stale_approval", "store_unavailable",
+    ]
+
+    private static func pluginStoreRoot() throws -> URL {
+        guard let callerRequirement = Bundle.main.object(
+            forInfoDictionaryKey: "KhaosWorkspaceCallerRequirement"
+        ) as? String, !callerRequirement.isEmpty else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(ENOENT))
+        }
+        let namespace = KernelWorkspaceXPC.sha256Hex(Data(callerRequirement.utf8))
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent(
+                "org.khaos.Seed.PluginStore-\(namespace)",
+                isDirectory: true
+            )
+    }
+
+    private static func decodeBridgeResponse(
+        _ value: Data,
+        requestID: KernelWorkspaceXPC.RequestID,
+        validateWorkspaceResult: Bool
+    ) throws -> String {
+        guard value.count >= KernelWorkspaceXPC.transferLengthBytes else {
             logger.error(
-                "executor=python-bridge-invalid-frame reason=short actual-bytes=\(access.value.count, privacy: .public)"
+                "executor=python-bridge-invalid-frame reason=short actual-bytes=\(value.count, privacy: .public)"
             )
             throw KernelWorkspaceServiceError.pythonBridgeFailed
         }
-        let responseBody = Data(
-            access.value.dropFirst(KernelWorkspaceXPC.transferLengthBytes)
-        )
-        let declaredLength = Int(readUInt32(access.value))
+        let responseBody = Data(value.dropFirst(KernelWorkspaceXPC.transferLengthBytes))
+        let declaredLength = Int(readUInt32(value))
         guard declaredLength == responseBody.count else {
             logger.error(
                 "executor=python-bridge-invalid-frame reason=length-mismatch declared-bytes=\(declaredLength, privacy: .public) actual-bytes=\(responseBody.count, privacy: .public)"
@@ -128,12 +207,12 @@ enum KernelWorkspacePythonExecutor {
         }
         guard let reply = KernelWorkspaceXPC.decode(
             responseBody,
-            requestID: invocation.requestID,
+            requestID: requestID,
             protocolVersion: KernelWorkspaceXPC.operationProtocolVersion
         ) else {
             Self.logInvalidBridgeEnvelope(
                 responseBody,
-                requestID: invocation.requestID,
+                requestID: requestID,
                 protocolVersion: KernelWorkspaceXPC.operationProtocolVersion
             )
             throw KernelWorkspaceServiceError.pythonBridgeFailed
@@ -170,6 +249,19 @@ enum KernelWorkspacePythonExecutor {
                 || code.hasPrefix("workspace_rejected_"):
                 logger.error("executor=python-bridge-rejected category=workspace")
                 throw KernelWorkspaceServiceError.workspaceRejected
+            case let code where Self.pluginLifecycleErrorCodes.contains(code)
+                || code.hasPrefix("activation_")
+                || code.hasPrefix("approval_")
+                || code.hasPrefix("candidate_")
+                || code == "invalid_rollback_target"
+                || code == "invalid_time"
+                || code == "manifest_rejected"
+                || code == "no_active_candidate"
+                || code == "plugin_lifecycle_failed"
+                || code == "plugin_source_rejected"
+                || code == "stale_approval"
+                || code == "store_unavailable":
+                throw KernelWorkspaceServiceError.pluginLifecycleRejected(code)
             case let code where code.hasPrefix("kernel_")
                 || code.hasPrefix("snapshot_broker_"):
                 logger.error(
@@ -186,7 +278,11 @@ enum KernelWorkspacePythonExecutor {
             throw KernelWorkspaceServiceError.pythonBridgeFailed
         }
         do {
-            try validateResult(output)
+            if validateWorkspaceResult {
+                try validateResult(output)
+            } else {
+                try validateLifecycleResult(output)
+            }
         } catch {
             logger.error("executor=python-bridge-output-invalid")
             throw KernelWorkspaceServiceError.pythonBridgeFailed
@@ -289,7 +385,8 @@ enum KernelWorkspacePythonExecutor {
         workspace: URL,
         rootDescriptor: Int32,
         invocation: Data,
-        snapshotLease: KernelSnapshotBrokerLease,
+        snapshotLease: KernelSnapshotBrokerLease?,
+        pluginStoreRoot: String,
         cancellation: WorkspaceCancellationSignal
     ) throws -> Data {
         let input = Pipe()
@@ -369,14 +466,19 @@ enum KernelWorkspacePythonExecutor {
         ]
         var arguments = try KernelCStringArray.create(argumentValues)
         defer { KernelCStringArray.release(arguments) }
-        // Reuse the container temp root where this request's Broker storage was created.
-        var environment = try KernelCStringArray.create([
+        var environmentValues = [
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
-            "TMPDIR=\(snapshotLease.temporaryDirectory.path)",
-            "KHAOS_SNAPSHOT_MOUNT_PATH=\(snapshotLease.mountPath.path)",
-            "KHAOS_SNAPSHOT_STORAGE_BYTES=\(snapshotStorageBytes)",
+            "KHAOS_PLUGIN_STORE_PATH=\(pluginStoreRoot)",
             "PYTHONDONTWRITEBYTECODE=1",
-        ])
+        ]
+        if let snapshotLease {
+            environmentValues.append(contentsOf: [
+                "TMPDIR=\(snapshotLease.temporaryDirectory.path)",
+                "KHAOS_SNAPSHOT_MOUNT_PATH=\(snapshotLease.mountPath.path)",
+                "KHAOS_SNAPSHOT_STORAGE_BYTES=\(snapshotStorageBytes)",
+            ])
+        }
+        var environment = try KernelCStringArray.create(environmentValues)
         defer { KernelCStringArray.release(environment) }
 
         var attributes: posix_spawnattr_t? = nil
@@ -616,6 +718,72 @@ enum KernelWorkspacePythonExecutor {
         else {
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
         }
+    }
+
+    private static func validateLifecycleResult(_ output: String) throws {
+        guard let data = output.data(using: .utf8),
+              data.count <= KernelWorkspaceXPC.maximumMessageBytes,
+              let result = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any]
+        else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
+        }
+        if Set(result.keys) == ["candidate", "generation"],
+           let candidate = result["candidate"] as? [String: Any],
+           let generation = integer(result["generation"]), generation >= 0,
+           validCandidateSummary(candidate, activation: false) {
+            return
+        }
+        guard Set(result.keys) == ["active", "previous", "generation"],
+              let generation = integer(result["generation"]), generation >= 0,
+              validSlot(result["active"]), validSlot(result["previous"]) else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
+        }
+    }
+
+    private static func validSlot(_ value: Any?) -> Bool {
+        if value is NSNull { return true }
+        guard let slot = value as? [String: Any] else { return false }
+        return validCandidateSummary(slot, activation: true)
+    }
+
+    private static func validCandidateSummary(
+        _ value: [String: Any],
+        activation: Bool
+    ) -> Bool {
+        let candidateKeys: Set<String> = [
+            "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
+            "process_exec", "read_scope", "write_scope",
+        ]
+        let activationKeys = candidateKeys.union([
+            "slot", "approved_at", "expires_at", "approval_validity_seconds",
+        ])
+        guard Set(value.keys) == (activation ? activationKeys : candidateKeys),
+              let pluginID = value["plugin_id"] as? String,
+              pluginID.range(of: #"^[a-z][a-z0-9-]{0,63}$"#, options: .regularExpression) != nil,
+              ["candidate_digest", "manifest_digest", "scope_digest"].allSatisfy({ key in
+                  guard let digest = value[key] as? String else { return false }
+                  return digest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+              }),
+              let process = value["process_exec"] as? NSNumber,
+              CFGetTypeID(process) == CFBooleanGetTypeID(), process.boolValue,
+              let readScope = value["read_scope"] as? [String],
+              let writeScope = value["write_scope"] as? [String],
+              readScope.count + writeScope.count <= 8,
+              (readScope + writeScope).allSatisfy({ !$0.isEmpty && !$0.contains("\0") })
+        else {
+            return false
+        }
+        guard activation else { return true }
+        guard value["slot"] as? String == "primary",
+              let approvedAt = integer(value["approved_at"]), approvedAt >= 0,
+              let expiresAt = integer(value["expires_at"]),
+              expiresAt - approvedAt == 30 * 24 * 60 * 60,
+              integer(value["approval_validity_seconds"]) == 30 * 24 * 60 * 60
+        else {
+            return false
+        }
+        return true
     }
 
     private static func integer(_ value: Any?) -> Int? {

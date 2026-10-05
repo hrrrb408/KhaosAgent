@@ -250,7 +250,11 @@ private func executeWorkspaceCommand(
     let executionProbe = contents.appendingPathComponent(
         "Resources/kernel_workspace_probe.py"
     )
-    let access = try KernelWorkspaceRoot.withScopedBookmark(invocation.bookmark) {
+    guard case let .workspaceRun(executionRequest) = invocation.request,
+          let bookmark = invocation.bookmark else {
+        throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+    }
+    let access = try KernelWorkspaceRoot.withScopedBookmark(bookmark) {
         workspace, workspaceDescriptor, _ in
         let descriptorWorkspace = workspace.appendingPathComponent(
             "kernel-descriptor-scope",
@@ -287,7 +291,7 @@ private func executeWorkspaceCommand(
             pythonHome: pythonHome,
             probe: executionProbe,
             additionalArguments: ["198"],
-            requestFrame: try invocation.request.encodeFrame(
+            requestFrame: try executionRequest.encodeFrame(
                 requestID: invocation.requestID
             ),
             cancellation: cancellation

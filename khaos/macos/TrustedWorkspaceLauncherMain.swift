@@ -18,7 +18,27 @@ private struct PluginRun {
     let identifier: String
     let manifestDigest: String
     let sourceDigest: String
-    let request: KernelWorkspaceXPC.WorkspaceRunRequest
+    let manifestData: Data
+    let sourceData: Data
+    let readScope: [String]
+    let writeScope: [String]
+}
+
+private struct PluginCandidateReview {
+    let identifier: String
+    let candidateDigest: String
+    let manifestDigest: String
+    let scopeDigest: String
+    let readScope: [String]
+    let writeScope: [String]
+    let approvedAt: Int?
+    let expiresAt: Int?
+}
+
+private struct PluginStateReview {
+    let active: PluginCandidateReview?
+    let previous: PluginCandidateReview?
+    let generation: Int
 }
 
 private struct WorkspaceResult {
@@ -119,6 +139,8 @@ enum TrustedWorkspaceLauncherMain {
         let isBootstrapCheck = arguments == ["--bootstrap-check"]
         let isCommandRun = arguments.first == "--command"
         let isPluginRun = arguments == ["--plugin-run"]
+        let isPluginInstall = arguments == ["--plugin-install"]
+        let isPluginRollback = arguments == ["--plugin-rollback"]
         let isAgentRun = arguments == ["--agent"]
         var acceptanceRunID: String?
         do {
@@ -134,10 +156,20 @@ enum TrustedWorkspaceLauncherMain {
                 return
             }
             if isPluginRun {
-                let result = try runPlugin()
+                let result = try runActivePlugin()
                 logger.info("workspace-plugin=passed")
                 fputs("workspace-plugin=passed\n", stderr)
                 showCommandSuccess(result)
+                return
+            }
+            if isPluginInstall {
+                try installPlugin()
+                showPluginSuccess("Plugin candidate activated.")
+                return
+            }
+            if isPluginRollback {
+                try rollbackPlugin()
+                showPluginSuccess("Plugin slot rolled back.")
                 return
             }
             let initialDirectory: URL?
@@ -275,7 +307,47 @@ enum TrustedWorkspaceLauncherMain {
         }
     }
 
-    private static func runPlugin() throws -> WorkspaceResult {
+    private static func installPlugin() throws {
+        let plugin = try selectPluginPackage()
+        let candidateOutput = try invokePluginKernel(
+            .admit(manifest: plugin.manifestData, source: plugin.sourceData)
+        )
+        let (candidate, admittedGeneration) = try parseAdmittedCandidate(candidateOutput)
+        let state = try parsePluginState(invokePluginKernel(.state))
+        guard state.generation == admittedGeneration else {
+            throw LauncherError.operationRejected("stale_approval")
+        }
+        var details = candidateDetails(candidate, validity: "30 days after activation")
+        details += "\nCaptured source SHA-256: \(plugin.sourceDigest)"
+        details += "\nTarget slot: primary"
+        if let active = state.active {
+            details += "\nCurrent active will become the rollback target:\n"
+                + candidateDetails(active, validity: approvalExpiry(active))
+        } else {
+            details += "\nNo current active Plugin; there is no rollback target yet."
+        }
+        guard approvePluginAction(
+            title: "Activate this Plugin?",
+            action: "Activate for 30 days",
+            workspace: nil,
+            details: details,
+            digest: candidate.candidateDigest
+        ) else {
+            throw TrustedWorkspacePickerError.cancelled
+        }
+        let request = KernelWorkspaceXPC.PluginLifecycleRequest.activate(
+            candidateDigest: candidate.candidateDigest,
+            manifestDigest: candidate.manifestDigest,
+            scopeDigest: candidate.scopeDigest,
+            expectedGeneration: admittedGeneration
+        )
+        let activated = try parsePluginState(invokePluginKernel(request))
+        guard activated.active?.candidateDigest == candidate.candidateDigest else {
+            throw LauncherError.operationRejected("activation_not_confirmed")
+        }
+    }
+
+    private static func selectPluginPackage() throws -> PluginRun {
         let packageURL = try TrustedWorkspacePicker.selectPluginPackage()
         var packageScopeReleased = false
         defer {
@@ -315,38 +387,275 @@ enum TrustedWorkspaceLauncherMain {
               let readScope = manifest["read"] as? [String],
               let writeScope = manifest["write"] as? [String],
               readScope.count + writeScope.count <= 8,
-              let source = String(data: sourceData, encoding: .utf8)
+              String(data: sourceData, encoding: .utf8) != nil
         else {
-            throw LauncherError.operationRejected("plugin_package_rejected")
-        }
-        let sourceDigest = KernelWorkspaceXPC.sha256Hex(sourceData)
-        let request = KernelWorkspaceXPC.WorkspaceRunRequest(
-            timeoutSeconds: 30,
-            runnerSource: source,
-            runnerSourceSHA256: sourceDigest,
-            workspaceReadScope: readScope,
-            workspaceWriteScope: writeScope
-        )
-        do {
-            _ = try request.encodeFrame(requestID: KernelWorkspaceXPC.newRequestID())
-        } catch {
             throw LauncherError.operationRejected("plugin_package_rejected")
         }
         let plugin = PluginRun(
             identifier: identifier,
             manifestDigest: KernelWorkspaceXPC.sha256Hex(manifestData),
-            sourceDigest: sourceDigest,
-            request: request
+            sourceDigest: KernelWorkspaceXPC.sha256Hex(sourceData),
+            manifestData: manifestData,
+            sourceData: sourceData,
+            readScope: readScope,
+            writeScope: writeScope
         )
-        let details = "Plugin: \(plugin.identifier)\n"
-            + "Manifest SHA-256: \(plugin.manifestDigest)\n"
-            + "Source SHA-256: \(plugin.sourceDigest)\n"
-            + "Process execution: allowed once"
         packageURL.stopAccessingSecurityScopedResource()
         packageScopeReleased = true
-        return try runReviewedRequest(
-            request, title: "Run this plugin once?", details: details
+        return plugin
+    }
+
+    private static func runActivePlugin() throws -> WorkspaceResult {
+        let state = try parsePluginState(invokePluginKernel(.state))
+        guard let active = state.active else {
+            throw LauncherError.operationRejected("no_active_candidate")
+        }
+        let selection = try TrustedWorkspacePicker.selectWorkspace(
+            message: "Choose the workspace for the active Plugin."
         )
+        var scopeReleased = false
+        defer {
+            if !scopeReleased {
+                selection.scopeURL.stopAccessingSecurityScopedResource()
+            }
+        }
+        guard reviewable(selection.scopeURL.path) else {
+            throw LauncherError.operationRejected("workspace_rejected")
+        }
+        let request = KernelWorkspaceXPC.PluginLifecycleRequest.run(
+            candidateDigest: active.candidateDigest,
+            manifestDigest: active.manifestDigest,
+            scopeDigest: active.scopeDigest,
+            expectedGeneration: state.generation
+        )
+        let invocation = try KernelWorkspaceXPC.encodeInvocation(
+            request: request,
+            requestID: KernelWorkspaceXPC.newRequestID(),
+            bookmark: selection.bookmark
+        )
+        let details = candidateDetails(active, validity: approvalExpiry(active))
+            + "\nThe Kernel will run this exact active Candidate in an isolated Runner."
+        guard approvePluginAction(
+            title: "Run the active Plugin in this workspace?",
+            action: "Run active Plugin",
+            workspace: selection.scopeURL,
+            details: details,
+            digest: KernelWorkspaceXPC.sha256Hex(invocation)
+        ) else {
+            throw TrustedWorkspacePickerError.cancelled
+        }
+        selection.scopeURL.stopAccessingSecurityScopedResource()
+        scopeReleased = true
+        let output = try invokePluginKernel(request, bookmark: selection.bookmark)
+        let result = try parseWorkspaceResult(output)
+        guard result.returncode == 0 else {
+            throw LauncherError.operationRejected("plugin_exit_\(result.returncode)")
+        }
+        return result
+    }
+
+    private static func rollbackPlugin() throws {
+        let state = try parsePluginState(invokePluginKernel(.state))
+        guard let active = state.active, let previous = state.previous else {
+            throw LauncherError.operationRejected("invalid_rollback_target")
+        }
+        let details = "Current active Plugin:\n"
+            + candidateDetails(active, validity: approvalExpiry(active))
+            + "\n\nRollback target (future runs only):\n"
+            + candidateDetails(previous, validity: approvalExpiry(previous))
+            + "\n\nThe rollback changes the primary slot after approval."
+        guard approvePluginAction(
+            title: "Roll back the active Plugin?",
+            action: "Roll back",
+            workspace: nil,
+            details: details,
+            digest: previous.candidateDigest
+        ) else {
+            throw TrustedWorkspacePickerError.cancelled
+        }
+        let request = KernelWorkspaceXPC.PluginLifecycleRequest.rollback(
+            candidateDigest: previous.candidateDigest,
+            manifestDigest: previous.manifestDigest,
+            scopeDigest: previous.scopeDigest,
+            expectedGeneration: state.generation
+        )
+        let updated = try parsePluginState(invokePluginKernel(request))
+        guard updated.active?.candidateDigest == previous.candidateDigest else {
+            throw LauncherError.operationRejected("rollback_not_confirmed")
+        }
+    }
+
+    private static func parseAdmittedCandidate(
+        _ output: String
+    ) throws -> (PluginCandidateReview, Int) {
+        guard let value = try? JSONSerialization.jsonObject(with: Data(output.utf8))
+                as? [String: Any],
+              Set(value.keys) == ["candidate", "generation"],
+              let candidateValue = value["candidate"] as? [String: Any],
+              let generation = integerValue(value["generation"]),
+              generation >= 0
+        else {
+            throw LauncherError.operationRejected("invalid_kernel_response")
+        }
+        return (try parseCandidateReview(candidateValue, activation: false), generation)
+    }
+
+    private static func integerValue(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(),
+              number.doubleValue.rounded(.towardZero) == number.doubleValue
+        else {
+            return nil
+        }
+        return number.intValue
+    }
+
+    private static func isDigest(_ value: String) -> Bool {
+        value.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+    }
+
+    private static func parsePluginState(_ output: String) throws -> PluginStateReview {
+        guard let value = try? JSONSerialization.jsonObject(with: Data(output.utf8))
+                as? [String: Any],
+              Set(value.keys) == ["active", "previous", "generation"],
+              let generation = integerValue(value["generation"]),
+              generation >= 0
+        else {
+            throw LauncherError.operationRejected("invalid_kernel_response")
+        }
+        return PluginStateReview(
+            active: try parseOptionalCandidate(value["active"]),
+            previous: try parseOptionalCandidate(value["previous"]),
+            generation: generation
+        )
+    }
+
+    private static func parseOptionalCandidate(
+        _ value: Any?
+    ) throws -> PluginCandidateReview? {
+        if value is NSNull { return nil }
+        guard let dictionary = value as? [String: Any] else {
+            throw LauncherError.operationRejected("invalid_kernel_response")
+        }
+        return try parseCandidateReview(dictionary, activation: true)
+    }
+
+    private static func parseCandidateReview(
+        _ value: [String: Any],
+        activation: Bool
+    ) throws -> PluginCandidateReview {
+        let candidateKeys: Set<String> = [
+            "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
+            "process_exec", "read_scope", "write_scope",
+        ]
+        let activationKeys = candidateKeys.union([
+            "slot", "approved_at", "expires_at", "approval_validity_seconds",
+        ])
+        guard Set(value.keys) == (activation ? activationKeys : candidateKeys),
+              let identifier = value["plugin_id"] as? String,
+              identifier.range(
+                of: #"^[a-z][a-z0-9-]{0,63}$"#,
+                options: .regularExpression
+              ) != nil,
+              let candidateDigest = value["candidate_digest"] as? String,
+              isDigest(candidateDigest),
+              let manifestDigest = value["manifest_digest"] as? String,
+              isDigest(manifestDigest),
+              let scopeDigest = value["scope_digest"] as? String,
+              isDigest(scopeDigest),
+              let processExec = value["process_exec"] as? NSNumber,
+              CFGetTypeID(processExec) == CFBooleanGetTypeID(),
+              processExec.boolValue,
+              let readScope = value["read_scope"] as? [String],
+              let writeScope = value["write_scope"] as? [String],
+              readScope.count + writeScope.count <= 8,
+              (readScope + writeScope).allSatisfy({
+                  !$0.isEmpty && !$0.hasPrefix("/") && !$0.contains("\0")
+              })
+        else {
+            throw LauncherError.operationRejected("invalid_kernel_response")
+        }
+        let approvedAt: Int?
+        let expiresAt: Int?
+        if activation {
+            guard value["slot"] as? String == "primary",
+                  let approved = integerValue(value["approved_at"]), approved >= 0,
+                  let expires = integerValue(value["expires_at"]),
+                  expires - approved == 30 * 24 * 60 * 60,
+                  integerValue(value["approval_validity_seconds"]) == 30 * 24 * 60 * 60
+            else {
+                throw LauncherError.operationRejected("invalid_kernel_response")
+            }
+            approvedAt = approved
+            expiresAt = expires
+        } else {
+            approvedAt = nil
+            expiresAt = nil
+        }
+        return PluginCandidateReview(
+            identifier: identifier,
+            candidateDigest: candidateDigest,
+            manifestDigest: manifestDigest,
+            scopeDigest: scopeDigest,
+            readScope: readScope,
+            writeScope: writeScope,
+            approvedAt: approvedAt,
+            expiresAt: expiresAt
+        )
+    }
+
+    private static func candidateDetails(
+        _ candidate: PluginCandidateReview,
+        validity: String
+    ) -> String {
+        let readPaths = candidate.readScope.isEmpty
+            ? "(none)"
+            : candidate.readScope.map { String(reflecting: $0) }
+                .joined(separator: "\n")
+        let writePaths = candidate.writeScope.isEmpty
+            ? "(none)"
+            : candidate.writeScope.map { String(reflecting: $0) }
+                .joined(separator: "\n")
+        return "Plugin: \(candidate.identifier)\n"
+            + "Candidate SHA-256: \(candidate.candidateDigest)\n"
+            + "Manifest SHA-256: \(candidate.manifestDigest)\n"
+            + "Capability: process.exec\n"
+            + "Readable paths:\n\(readPaths)\n"
+            + "Committable paths:\n\(writePaths)\n"
+            + "Approval validity: \(validity)"
+    }
+
+    private static func approvalExpiry(_ candidate: PluginCandidateReview) -> String {
+        guard let expiresAt = candidate.expiresAt else { return "not activated" }
+        let date = Date(timeIntervalSince1970: TimeInterval(expiresAt))
+        return ISO8601DateFormatter().string(from: date)
+    }
+
+    private static func approvePluginAction(
+        title: String,
+        action: String,
+        workspace: URL?,
+        details: String,
+        digest: String
+    ) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        let workspaceText = workspace.map { "Workspace: \($0.path)\n\n" } ?? ""
+        alert.informativeText = workspaceText + details
+            + "\n\nReviewed operation SHA-256: \(digest)"
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: action)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
+    private static func showPluginSuccess(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Kernel operation completed"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private static func readPackageFile(
@@ -850,6 +1159,56 @@ enum TrustedWorkspaceLauncherMain {
             throw LauncherError.operationRejected("missing_workspace_result")
         }
         return output
+    }
+
+    private static func invokePluginKernel(
+        _ request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        bookmark: Data? = nil
+    ) throws -> String {
+        guard request.needsBookmark == (bookmark != nil) else {
+            throw LauncherError.operationRejected("invalid_plugin_operation")
+        }
+        guard let bundleID = Bundle.main.bundleIdentifier else {
+            throw LauncherError.operationRejected("bundle_identity_unavailable")
+        }
+        let target = try connectKernel(bundleID: bundleID)
+        let snapshotBrokerEndpoint = bookmark == nil
+            ? nil : try KernelSnapshotBrokerBootstrapClient.endpoint()
+        let requestID = KernelWorkspaceXPC.newRequestID()
+        let reply = try KernelWorkspaceClient.request(
+            target,
+            requestID: requestID,
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        ) { proxy, withReply in
+            try KernelWorkspaceXPC.submit(
+                proxy,
+                requestID: requestID,
+                request: request,
+                bookmark: bookmark,
+                withReply: withReply
+            )
+        }
+        if let errorCode = reply.errorCode {
+            throw LauncherError.operationRejected(safePluginErrorCode(errorCode))
+        }
+        guard let output = reply.output else {
+            throw LauncherError.operationRejected("missing_kernel_result")
+        }
+        return output
+    }
+
+    private static func safePluginErrorCode(_ code: String) -> String {
+        switch code {
+        case "activation_outcome_uncertain", "activation_state_corrupt",
+             "activation_state_unavailable", "approval_binding_mismatch",
+             "approval_expired", "candidate_corrupt", "candidate_missing",
+             "candidate_store_failed", "invalid_rollback_target", "invalid_time",
+             "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
+             "plugin_source_rejected", "stale_approval", "store_unavailable":
+            return code
+        default:
+            return safeWorkspaceErrorCode(code)
+        }
     }
 
     private static func parseWorkspaceResult(_ output: String) throws -> WorkspaceResult {

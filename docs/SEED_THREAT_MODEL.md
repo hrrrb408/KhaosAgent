@@ -8,6 +8,35 @@ attacker model, enforcement boundary, executable evidence, and limits. Detailed
 macOS experiments and upstream research remain in
 [`SEED_BACKEND_RESEARCH.md`](SEED_BACKEND_RESEARCH.md).
 
+## 2026-10-05 persistent single-slot Candidate lifecycle
+
+The signed Launcher and existing `KernelProduction.xpc` now provide Candidate
+admission, activation, state inspection, execution request, and rollback for one
+fixed `primary` slot. Admission validates and stores read-only content-addressed
+Candidates. Activation and rollback bind exact Candidate, Manifest, and scope
+digests to the reviewed slot generation and a fixed 30-day validity. The Kernel
+loads `plugin.run` source and scopes from the active Candidate under the store
+lock; its caller can provide reviewed digests and generation but no source or
+scope. Rollback changes future routing only. The store and HMAC key remain
+user-owned and are not protected against a same-UID process that can replace
+both.
+
+The headless signed-product lifecycle test passed against the real
+`KernelProduction.xpc`, including admission, mismatched and stale approval
+rejection, persisted slot state, rollback, source non-disclosure, and rejection
+of `plugin.run` without a workspace bookmark. The full canonical macOS suite
+passed all 276 tests in 496.541 seconds on this host, including the signed
+product lifecycle test, Runner/Seatbelt attacks, and XPC peer/container identity
+checks. Swift type checks for the Launcher and Kernel service and the XPC probe
+compile passed; focused Candidate lifecycle and bridge suites passed 20 and 15
+tests. A separate real macOS Seatbelt test now activates and runs Candidate A,
+activates and runs B, rolls back, and runs A again through the existing Kernel
+Runner and changeset path. Each Candidate's attempts to read or alter the store
+and to resolve a live Mach service are denied; an unconfined positive control
+resolves that service. This is Python Kernel/Runner evidence, not a successful
+signed product XPC `plugin.run` with a selected workspace. That UI-to-Runner
+path remains unverified.
+
 ## 2026-10-04 signed product boundary and interactive acceptance
 
 The trusted `KernelProduction.xpc` is now signed without App Sandbox so that it
@@ -459,7 +488,7 @@ process boundaries and remain trusted because they carry enforcement authority.
 | --- | --- |
 | Launcher: `TrustedWorkspaceLauncherMain.swift`, `TrustedWorkspacePicker.swift`, `KernelWorkspaceClient.swift`, `KernelSnapshotBrokerBootstrapClient.swift`, `KernelSnapshotBrokerBootstrapXPC.swift`, `KernelWorkspaceXPC.swift`, `XPCPeerIdentity.swift`, `AgentHostClient.swift`, `AgentHostProtocol.swift` | Obtains the user's selected folder/bookmark, presents and constrains each request, retains the requested scopes, and authenticates service endpoints. Model/Plugin proposals remain untrusted and must pass Launcher review and Kernel validation. |
 | `KernelProduction.xpc`: `KernelWorkspaceXPC.swift`, `KernelWorkspaceService.swift`, `KernelWorkspaceBootstrap.swift`, `KernelWorkspaceRoot.swift`, `KernelWorkspacePythonExecutor.swift`, `KernelWorkspaceServiceMain.swift`, `KernelWorkspaceClient.swift`, `KernelSnapshotBrokerXPC.swift`, `KernelSnapshotBrokerClient.swift`, `KernelSnapshotStoragePolicy.swift`, `KernelCStringArray.swift`, `XPCPeerIdentity.swift` | Authenticates Launcher and Snapshot Broker, validates bounded requests, binds the selected workspace to a descriptor, retains cancellation and lease state, and launches the trusted Python execution path. |
-| Kernel Python execution path: `khaos/ipc.py`, `khaos/launcher.py`, `khaos/kernel/broker.py`, `khaos/kernel/macos_seatbelt.py`, `khaos/kernel/peer_identity.py`, `khaos/kernel/worker.py`, `khaos/kernel/workspace_changes.py`, `khaos/kernel/workspace_snapshot.py`, `khaos/kernel/workspace_xpc_bridge.py` | Provides bounded IPC and peer checks, OS sandboxing, exact read/write scope, private snapshots, process-tree cleanup, complete changeset validation, and the only live-workspace writeback path. |
+| Kernel Python execution path: `khaos/ipc.py`, `khaos/launcher.py`, `khaos/kernel/broker.py`, `khaos/kernel/macos_seatbelt.py`, `khaos/kernel/plugin_lifecycle.py`, `khaos/kernel/peer_identity.py`, `khaos/kernel/worker.py`, `khaos/kernel/workspace_changes.py`, `khaos/kernel/workspace_snapshot.py`, `khaos/kernel/workspace_xpc_bridge.py` | Provides bounded IPC and peer checks, OS sandboxing, exact read/write scope, private snapshots, process-tree cleanup, complete changeset validation, and the only live-workspace writeback path. `plugin_lifecycle.py` also validates immutable Candidates and binds active-slot changes and runs to persisted digests and generations. |
 | `KernelSnapshotBroker.xpc`: `KernelSnapshotBrokerXPC.swift`, `KernelSnapshotBrokerBootstrapXPC.swift`, `KernelSnapshotStoragePolicy.swift`, `KernelSnapshotBrokerSandbox.swift`, `XPCPeerIdentity.swift`, `KernelCStringArray.swift`, `KernelSnapshotBrokerToolRunner.swift`, `KernelSnapshotBrokerService.swift`, `KernelSnapshotBrokerServiceMain.swift` | Restricts and authenticates the APFS mount helper, validates lease identity and capacity, and bounds/cancels tool process groups. This separate trusted process exists for its narrower platform policy; it is an internal Kernel implementation. |
 
 The builder's explicit source allowlist and the signed-product test define and
@@ -796,11 +825,11 @@ The prototype does not yet establish the following required properties:
 - a distribution-signed, installed Trusted Launcher and Kernel service. The current
   locally signed app checks that a direct write-open is denied after Picker scope
   release, but it has no distribution identity or installation protection;
-- selected-workspace product evidence for the new manual `--plugin-run` route.
-  The route captures user-selected Plugin source and Manifest in the normal
-  signed Launcher, but its two Picker interactions have not completed in a
-  single verifiable product run. A test-only driver in a temporary signed app
-  copy has exercised the same XPC/Worker/Runner chain;
+- selected-workspace product evidence for running a persistently activated
+  Candidate through `--plugin-run`. The 2026-10-05 user-selected run exercised
+  the earlier one-shot package path; it does not verify the current install,
+  active-slot lookup, run binding, workspace Picker, and Runner in one product
+  session;
 - a shipped composition connecting that Launcher and authenticated Kernel service
   to the existing Python Worker. [`KernelWorkspaceServiceMain.swift`](../khaos/macos/KernelWorkspaceServiceMain.swift)
   now fixes that service composition in shared source and has run in a temporary copy
@@ -809,12 +838,12 @@ The prototype does not yet establish the following required properties:
   still explicitly assumes a trusted Python caller and must not be exposed directly to
   an untrusted Host;
 - production Kernel service identity, protected installation, update, revocation,
-  or restart policy;
-- durable user approval bound to a Candidate digest, Manifest digest, capability
-  scope, target slot, and validity period;
-- persistent Plugin identity-bound capability handles, Candidate admission,
-  activation, rollback, or a production Plugin lifecycle; the one-run package
-  selection is not a persistent grant;
+  or restart policy. The current local Seed lifecycle has a fixed primary slot,
+  digest/scope/generation-bound activation and rollback, and a 30-day expiry,
+  but user-owned Application Support state is not protected from a same-UID
+  process that can alter both its data and integrity key;
+- a Trusted Promoter, multiple slots, general Plugin capability handles,
+  Plugin-based Memory/Context/Tools, or a production Plugin platform;
 - exclusive write control against other same-user workspace writers;
 - a per-command aggregate memory quota or cleanup after simultaneous launcher and
   operating-system failure;

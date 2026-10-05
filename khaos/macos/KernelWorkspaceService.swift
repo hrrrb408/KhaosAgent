@@ -16,6 +16,7 @@ enum KernelWorkspaceServiceError: Error {
     case runnerFailed
     case pythonBridgeFailed
     case pythonRuntimeUnavailable
+    case pluginLifecycleRejected(String)
     case sandboxUnavailable(KernelWorkspaceSandboxDiagnosticStage?)
     case snapshotBrokerUnavailable(SnapshotBrokerFailureCode)
     case workspaceRejected
@@ -276,6 +277,11 @@ final class KernelWorkspaceService: NSObject, KernelWorkspaceEndpoint {
                 response = KernelWorkspaceXPC.failure(
                     requestID: requestID,
                     code: "kernel_runtime_unavailable"
+                )
+            } catch let KernelWorkspaceServiceError.pluginLifecycleRejected(code) {
+                response = KernelWorkspaceXPC.failure(
+                    requestID: requestID,
+                    code: code
                 )
             } catch let KernelWorkspaceServiceError.sandboxUnavailable(stage) {
                 let code = stage.map {

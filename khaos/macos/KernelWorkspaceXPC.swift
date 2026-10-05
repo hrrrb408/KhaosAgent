@@ -8,8 +8,8 @@ import Foundation
 }
 
 enum KernelWorkspaceXPC {
-    static let version = 7
-    static let operationProtocolVersion = 8
+    static let version = 8
+    static let operationProtocolVersion = 9
     static let maximumMessageBytes = 64 * 1024
     static let transferLengthBytes = 4
     static let maximumRequestFrameBytes = maximumMessageBytes + transferLengthBytes
@@ -55,10 +55,110 @@ enum KernelWorkspaceXPC {
         }
     }
 
+    enum PluginLifecycleRequest {
+        case admit(manifest: Data, source: Data)
+        case activate(
+            candidateDigest: String,
+            manifestDigest: String,
+            scopeDigest: String,
+            expectedGeneration: Int
+        )
+        case state
+        case rollback(
+            candidateDigest: String,
+            manifestDigest: String,
+            scopeDigest: String,
+            expectedGeneration: Int
+        )
+        case run(
+            candidateDigest: String,
+            manifestDigest: String,
+            scopeDigest: String,
+            expectedGeneration: Int
+        )
+
+        var needsBookmark: Bool {
+            if case .run = self { return true }
+            return false
+        }
+
+        func encodeFrame(requestID: RequestID) throws -> Data {
+            let operation: String
+            let payload: [String: Any]
+            switch self {
+            case let .admit(manifest, source):
+                guard !manifest.isEmpty, manifest.count <= 4_096,
+                      !source.isEmpty, source.count <= 10_240,
+                      String(data: manifest, encoding: .utf8) != nil,
+                      String(data: source, encoding: .utf8) != nil else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+                }
+                operation = "plugin.admit"
+                payload = [
+                    "manifest_base64": manifest.base64EncodedString(),
+                    "source_base64": source.base64EncodedString(),
+                ]
+            case let .activate(candidate, manifest, scope, generation):
+                operation = "plugin.activate"
+                payload = try KernelWorkspaceXPC.approvalPayload(
+                    candidate: candidate,
+                    manifest: manifest,
+                    scope: scope,
+                    generation: generation
+                )
+            case .state:
+                operation = "plugin.state"
+                payload = [:]
+            case let .rollback(candidate, manifest, scope, generation):
+                operation = "plugin.rollback"
+                payload = try KernelWorkspaceXPC.approvalPayload(
+                    candidate: candidate,
+                    manifest: manifest,
+                    scope: scope,
+                    generation: generation
+                )
+            case let .run(candidate, manifest, scope, generation):
+                operation = "plugin.run"
+                payload = try KernelWorkspaceXPC.approvalPayload(
+                    candidate: candidate,
+                    manifest: manifest,
+                    scope: scope,
+                    generation: generation
+                )
+            }
+            return try KernelWorkspaceXPC.encodeFrame(
+                operation: operation,
+                payload: payload,
+                requestID: requestID
+            )
+        }
+    }
+
+    enum InvocationRequest {
+        case workspaceRun(WorkspaceRunRequest)
+        case pluginLifecycle(PluginLifecycleRequest)
+
+        var needsBookmark: Bool {
+            switch self {
+            case .workspaceRun: return true
+            case let .pluginLifecycle(request): return request.needsBookmark
+            }
+        }
+
+        func encodeFrame(requestID: RequestID) throws -> Data {
+            switch self {
+            case let .workspaceRun(request):
+                return try request.encodeFrame(requestID: requestID)
+            case let .pluginLifecycle(request):
+                return try request.encodeFrame(requestID: requestID)
+            }
+        }
+    }
+
     struct WorkspaceInvocation {
         let requestID: RequestID
-        let request: WorkspaceRunRequest
-        let bookmark: Data
+        let request: InvocationRequest
+        let bookmark: Data?
         let snapshotBrokerEndpoint: NSXPCListenerEndpoint?
     }
 
@@ -89,12 +189,41 @@ enum KernelWorkspaceXPC {
         request: WorkspaceRunRequest,
         requestID: RequestID
     ) throws -> Data {
-        let requestFrame = try request.encodeFrame(requestID: requestID)
+        try encodeInvocationPrefix(
+            requestFrame: request.encodeFrame(requestID: requestID)
+        )
+    }
+
+    static func encodeInvocationPrefix(
+        request: PluginLifecycleRequest,
+        requestID: RequestID
+    ) throws -> Data {
+        try encodeInvocationPrefix(
+            requestFrame: request.encodeFrame(requestID: requestID)
+        )
+    }
+
+    private static func encodeInvocationPrefix(requestFrame: Data) throws -> Data {
         var prefix = Data()
         prefix.reserveCapacity(transferLengthBytes + requestFrame.count)
         appendUInt32(UInt32(requestFrame.count), to: &prefix)
         prefix.append(requestFrame)
         return prefix
+    }
+
+    static func encodeInvocation(
+        request: PluginLifecycleRequest,
+        requestID: RequestID,
+        bookmark: Data? = nil
+    ) throws -> Data {
+        guard request.needsBookmark == (bookmark != nil) else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+        }
+        var frame = try encodeInvocationPrefix(request: request, requestID: requestID)
+        if let bookmark {
+            try appendBookmarkTransfer(bookmark, to: &frame)
+        }
+        return frame
     }
 
     // Share one bookmark limit and check it before either side allocates a frame body.
@@ -115,6 +244,76 @@ enum KernelWorkspaceXPC {
         frame.reserveCapacity(frame.count + transferLengthBytes + bookmarkLength)
         appendUInt32(UInt32(bookmarkLength), to: &frame)
         frame.append(bookmark)
+    }
+
+    static func encodeBridgeInput(
+        request: PluginLifecycleRequest,
+        requestID: RequestID,
+        bookmark: Data? = nil
+    ) throws -> Data {
+        guard request.needsBookmark == (bookmark != nil) else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+        }
+        var frame = try request.encodeFrame(requestID: requestID)
+        if let bookmark {
+            try appendBookmarkTransfer(bookmark, to: &frame)
+        }
+        return frame
+    }
+
+    static func encodeFrame(
+        operation: String,
+        payload: [String: Any],
+        requestID: RequestID
+    ) throws -> Data {
+        let object: [String: Any] = [
+            "version": operationProtocolVersion,
+            "request_id": requestID.token,
+            "operation": operation,
+            "payload": payload,
+        ]
+        guard let body = try? JSONSerialization.data(
+            withJSONObject: object,
+            options: [.sortedKeys]
+        ), !body.isEmpty, body.count <= maximumMessageBytes else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EMSGSIZE))
+        }
+        var frame = Data()
+        frame.reserveCapacity(transferLengthBytes + body.count)
+        appendUInt32(UInt32(body.count), to: &frame)
+        frame.append(body)
+        return frame
+    }
+
+    static func submit(
+        _ proxy: KernelWorkspaceEndpoint,
+        version: Int = KernelWorkspaceXPC.version,
+        requestID: RequestID = KernelWorkspaceXPC.newRequestID(),
+        request: PluginLifecycleRequest,
+        bookmark: Data? = nil,
+        withReply reply: @escaping (Data) -> Void
+    ) throws {
+        let transfer = try WorkspaceInvocationTransfer(
+            request: request,
+            requestID: requestID,
+            bookmark: bookmark
+        )
+        proxy.runWorkspaceCommand(
+            version,
+            requestIDHigh: requestID.high,
+            requestIDLow: requestID.low,
+            invocationStream: transfer.reader
+        ) { data in
+            transfer.closeWriter()
+            reply(data)
+        }
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                try transfer.send()
+            } catch {
+                transfer.closeWriter()
+            }
+        }
     }
 
     struct RequestID: Equatable {
@@ -324,26 +523,35 @@ enum KernelWorkspaceXPC {
                 count: requestLength,
                 deadline: deadline
               ),
-              let request = decodeRunRequest(requestFrame, requestID: requestID)
+              let request = decodeInvocationRequest(requestFrame, requestID: requestID)
         else {
             return (nil, "invalid_request")
         }
-        guard let bookmarkLengthBytes = readExactly(
-            descriptor,
-            count: transferLengthBytes,
-            deadline: deadline
-        ),
-        let bookmarkLength = try? boundedBookmarkLength(
-            Int(readUInt32(bookmarkLengthBytes, offset: 0))
-        ),
-        let bookmark = readExactly(
-            descriptor,
-            count: bookmarkLength,
-            deadline: deadline
-        ),
-        reachesEOF(descriptor, deadline: deadline)
-        else {
-            return (nil, "invalid_bookmark")
+        let bookmark: Data?
+        if request.needsBookmark {
+            guard let bookmarkLengthBytes = readExactly(
+                descriptor,
+                count: transferLengthBytes,
+                deadline: deadline
+            ),
+            let bookmarkLength = try? boundedBookmarkLength(
+                Int(readUInt32(bookmarkLengthBytes, offset: 0))
+            ),
+            let transferredBookmark = readExactly(
+                descriptor,
+                count: bookmarkLength,
+                deadline: deadline
+            ),
+            reachesEOF(descriptor, deadline: deadline)
+            else {
+                return (nil, "invalid_bookmark")
+            }
+            bookmark = transferredBookmark
+        } else {
+            guard reachesEOF(descriptor, deadline: deadline) else {
+                return (nil, "invalid_request")
+            }
+            bookmark = nil
         }
         return (
             WorkspaceInvocation(
@@ -360,6 +568,42 @@ enum KernelWorkspaceXPC {
         _ frame: Data,
         requestID: RequestID? = nil
     ) -> WorkspaceRunRequest? {
+        guard case let .workspaceRun(request)? = decodeInvocationRequest(
+            frame,
+            requestID: requestID
+        ) else { return nil }
+        return request
+    }
+
+    static func decodeInvocationRequest(
+        _ frame: Data,
+        requestID: RequestID? = nil
+    ) -> InvocationRequest? {
+        guard let (operation, payload) = decodeEnvelope(frame, requestID: requestID)
+        else { return nil }
+        if operation == "workspace.run" {
+            return decodeWorkspaceRequest(payload).map(InvocationRequest.workspaceRun)
+        }
+        guard let request = decodePluginLifecycleRequest(
+            operation: operation,
+            payload: payload
+        ) else { return nil }
+        return .pluginLifecycle(request)
+    }
+
+    static func decodePluginRequest(
+        _ frame: Data,
+        requestID: RequestID? = nil
+    ) -> PluginLifecycleRequest? {
+        guard let (operation, payload) = decodeEnvelope(frame, requestID: requestID),
+              operation != "workspace.run" else { return nil }
+        return decodePluginLifecycleRequest(operation: operation, payload: payload)
+    }
+
+    private static func decodeEnvelope(
+        _ frame: Data,
+        requestID: RequestID? = nil
+    ) -> (String, [String: Any])? {
         guard frame.count > transferLengthBytes,
               frame.count <= maximumRequestFrameBytes
         else {
@@ -384,20 +628,28 @@ enum KernelWorkspaceXPC {
               let token = envelope["request_id"] as? String,
               isValidToken(token),
               requestID == nil || token == requestID?.token,
-              envelope["operation"] as? String == "workspace.run",
-              let payload = envelope["payload"] as? [String: Any],
-              Set(payload.keys) == [
-                "timeout_seconds", "runner_source", "runner_source_sha256",
-                "workspace_read_scope", "workspace_write_scope",
-              ],
-              let timeout = finiteNumber(payload["timeout_seconds"]),
-              let runnerSource = payload["runner_source"] as? String,
-              let runnerSourceSHA256 = payload["runner_source_sha256"] as? String,
-              let workspaceReadScope = payload["workspace_read_scope"] as? [String],
-              let workspaceWriteScope = payload["workspace_write_scope"] as? [String]
+              let operation = envelope["operation"] as? String,
+              operation.utf8.count <= 64,
+              let payload = envelope["payload"] as? [String: Any]
         else {
             return nil
         }
+        return (operation, payload)
+    }
+
+    private static func decodeWorkspaceRequest(
+        _ payload: [String: Any]
+    ) -> WorkspaceRunRequest? {
+        guard Set(payload.keys) == [
+            "timeout_seconds", "runner_source", "runner_source_sha256",
+            "workspace_read_scope", "workspace_write_scope",
+        ],
+        let timeout = finiteNumber(payload["timeout_seconds"]),
+        let runnerSource = payload["runner_source"] as? String,
+        let runnerSourceSHA256 = payload["runner_source_sha256"] as? String,
+        let workspaceReadScope = payload["workspace_read_scope"] as? [String],
+        let workspaceWriteScope = payload["workspace_write_scope"] as? [String]
+        else { return nil }
         let request = WorkspaceRunRequest(
             timeoutSeconds: timeout,
             runnerSource: runnerSource,
@@ -406,6 +658,109 @@ enum KernelWorkspaceXPC {
             workspaceWriteScope: workspaceWriteScope
         )
         return (try? validateRunRequest(request)) == nil ? nil : request
+    }
+
+    private static func decodePluginLifecycleRequest(
+        operation: String,
+        payload: [String: Any]
+    ) -> PluginLifecycleRequest? {
+        switch operation {
+        case "plugin.admit":
+            guard Set(payload.keys) == ["manifest_base64", "source_base64"],
+                  let manifestText = payload["manifest_base64"] as? String,
+                  let sourceText = payload["source_base64"] as? String,
+                  let manifest = Data(base64Encoded: manifestText),
+                  manifest.base64EncodedString() == manifestText,
+                  let source = Data(base64Encoded: sourceText),
+                  source.base64EncodedString() == sourceText,
+                  !manifest.isEmpty, manifest.count <= 4_096,
+                  !source.isEmpty, source.count <= 10_240,
+                  String(data: manifest, encoding: .utf8) != nil,
+                  String(data: source, encoding: .utf8) != nil
+            else { return nil }
+            return .admit(manifest: manifest, source: source)
+        case "plugin.activate", "plugin.rollback", "plugin.run":
+            guard Set(payload.keys) == [
+                "candidate_digest", "manifest_digest", "scope_digest",
+                "expected_generation",
+            ],
+            let candidate = payload["candidate_digest"] as? String,
+            let manifest = payload["manifest_digest"] as? String,
+            let scope = payload["scope_digest"] as? String,
+            let generation = integer(payload["expected_generation"]),
+            (try? validateApprovalBinding(
+                candidate: candidate,
+                manifest: manifest,
+                scope: scope,
+                generation: generation
+            )) != nil
+            else { return nil }
+            if operation == "plugin.activate" {
+                return .activate(
+                    candidateDigest: candidate,
+                    manifestDigest: manifest,
+                    scopeDigest: scope,
+                    expectedGeneration: generation
+                )
+            }
+            if operation == "plugin.run" {
+                return .run(
+                    candidateDigest: candidate,
+                    manifestDigest: manifest,
+                    scopeDigest: scope,
+                    expectedGeneration: generation
+                )
+            }
+            return .rollback(
+                candidateDigest: candidate,
+                manifestDigest: manifest,
+                scopeDigest: scope,
+                expectedGeneration: generation
+            )
+        case "plugin.state":
+            guard payload.isEmpty else { return nil }
+            return .state
+        default:
+            return nil
+        }
+    }
+
+    private static func validateApprovalBinding(
+        candidate: String,
+        manifest: String,
+        scope: String,
+        generation: Int
+    ) throws {
+        guard isDigest(candidate), isDigest(manifest), isDigest(scope),
+              generation >= 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+        }
+    }
+
+    private static func approvalPayload(
+        candidate: String,
+        manifest: String,
+        scope: String,
+        generation: Int
+    ) throws -> [String: Any] {
+        try validateApprovalBinding(
+            candidate: candidate,
+            manifest: manifest,
+            scope: scope,
+            generation: generation
+        )
+        return [
+            "candidate_digest": candidate,
+            "manifest_digest": manifest,
+            "scope_digest": scope,
+            "expected_generation": generation,
+        ]
+    }
+
+    private static func isDigest(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy {
+            (48...57).contains($0) || (97...102).contains($0)
+        }
     }
 
     static func isJSONNestingWithinLimit(_ data: Data) -> Bool {
@@ -654,16 +1009,31 @@ private final class WorkspaceInvocationTransfer {
     private var sending = false
     private var closeRequested = false
 
-    init(
+    convenience init(
         request: KernelWorkspaceXPC.WorkspaceRunRequest,
         requestID: KernelWorkspaceXPC.RequestID,
         bookmark: Data
     ) throws {
-        let framed = try KernelWorkspaceXPC.encodeInvocation(
+        try self.init(frame: KernelWorkspaceXPC.encodeInvocation(
             request: request,
             requestID: requestID,
             bookmark: bookmark
-        )
+        ))
+    }
+
+    convenience init(
+        request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        requestID: KernelWorkspaceXPC.RequestID,
+        bookmark: Data?
+    ) throws {
+        try self.init(frame: KernelWorkspaceXPC.encodeInvocation(
+            request: request,
+            requestID: requestID,
+            bookmark: bookmark
+        ))
+    }
+
+    private init(frame framed: Data) throws {
 
         var sockets: [Int32] = [-1, -1]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else {
