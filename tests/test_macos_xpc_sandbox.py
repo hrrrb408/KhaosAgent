@@ -165,9 +165,11 @@ class MacOSXPCSandboxTests(unittest.TestCase):
         ):
             self.skipTest("a Python.framework runtime is required for the Seed bundle")
 
+        application_directory = Path.home() / "Applications"
+        application_directory.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
             prefix="khaos-seed-app-",
-            dir=Path.home() / "Applications",
+            dir=application_directory,
         ) as value:
             root = Path(value)
             product_app = root / "KhaosSeed.app"
@@ -1856,7 +1858,7 @@ def run():
                 entitlements,
                 {"com.apple.security.app-sandbox": True},
             )
-            subprocess.run(
+            signed = subprocess.run(
                 [
                     "codesign",
                     "--force",
@@ -1868,10 +1870,11 @@ def run():
                     str(entitlements),
                     str(app),
                 ],
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(signed.returncode, 0, signed.stdout + signed.stderr)
             # The nested caller requirement is sealed into this bundle later;
             # pin its stable publisher identity instead of a self-referential cdhash.
             host_requirement = self._designated_code_requirement(
@@ -3109,6 +3112,21 @@ def run():
                 password,
                 "-T",
                 "/usr/bin/codesign",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            [
+                "security",
+                "set-key-partition-list",
+                "-S",
+                "apple-tool:,apple:,codesign:",
+                "-s",
+                "-k",
+                password,
+                str(keychain),
             ],
             check=True,
             capture_output=True,
