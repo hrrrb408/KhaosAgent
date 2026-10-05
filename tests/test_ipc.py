@@ -20,12 +20,26 @@ from khaos.ipc import (
     PROTOCOL_VERSION,
     ping_peer,
     receive_frame,
+    send_error_frame,
     send_frame,
     validate_runner_source,
 )
 
 
 class IPCProtocolTests(unittest.TestCase):
+    def test_error_frame_uses_the_shared_bounded_request_envelope(self) -> None:
+        with _pipe() as (receiver, sender):
+            send_error_frame(sender, "a" * 32, "invalid_request", timeout_seconds=2)
+            self.assertEqual(
+                receive_frame(receiver, timeout_seconds=2),
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": "a" * 32,
+                    "ok": False,
+                    "error": {"code": "invalid_request"},
+                },
+            )
+
     def test_runner_source_is_bounded_utf8_and_nonempty(self) -> None:
         source = "#" * MAX_RUNNER_SOURCE_BYTES
         self.assertEqual(validate_runner_source(source), source)

@@ -25,6 +25,7 @@ from ..ipc import (
     PROTOCOL_VERSION,
     is_valid_token,
     receive_frame,
+    send_error_frame as _send_error,
     send_frame,
 )
 
@@ -837,21 +838,3 @@ def _receive_request(
         _send_error(response_write_fd, request_id, "invalid_request", timeout_seconds)
         raise IPCProtocolError("request schema is invalid")
     return request_id, request["operation"], request["payload"]
-
-
-def _send_error(
-    response_write_fd: int,
-    request_id: str,
-    code: str,
-    timeout_seconds: float,
-) -> None:
-    send_frame(
-        response_write_fd,
-        {
-            "version": PROTOCOL_VERSION,
-            "request_id": request_id,
-            "ok": False,
-            "error": {"code": code},
-        },
-        timeout_seconds=timeout_seconds,
-    )

@@ -5,6 +5,11 @@ worker and its isolated Runner. It can execute one untrusted Python `run()`
 entrypoint in the Runner process. It is a bounded protocol contract, not a
 production capability-grant or Candidate-admission system.
 
+The transport, session, operation, and Native macOS Workspace XPC sections below
+define the current normative wire contracts. The dated sections after the ABI
+specifications preserve historical test evidence; they do not change the
+contract.
+
 ## Transport and envelope
 
 The Kernel and Runner exchange length-prefixed UTF-8 JSON on private anonymous

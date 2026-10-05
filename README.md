@@ -73,6 +73,10 @@ and the [pinned official Qwen model card and license](https://huggingface.co/Qwe
 The builder copies only the Seed's reviewed Python modules into the trusted
 Kernel XPC bundle; adding a new module to the repository does not implicitly
 add it to that bundle. The signed-product test checks the exact packaged set.
+The bundle omits the source-tree-only `khaos/kernel/macos_disk_image.py` direct
+APFS backend. Product execution requires an authenticated Snapshot Broker lease;
+missing lease data fails closed instead of enabling direct image mounting in the
+Kernel service.
 
 Launch `KhaosSeed.app` to select a disposable workspace and run the fixed smoke
 operation. The picker explains that the app will create one uniquely named test

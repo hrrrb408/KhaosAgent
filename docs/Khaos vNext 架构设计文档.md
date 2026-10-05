@@ -2355,6 +2355,41 @@ Seed 必须先选择一个明确的平台和 Sandbox backend；未支持的平�
 长期平台承诺。每次开发路径启动前都会运行真实能力探针；探针验证 disposable snapshot
 内的受限数据写入及路径/网络拒绝，其 disposable fixture 不会修改用户 workspace。
 
+### Seed 的执行模型与 TCB 预算
+
+上层只需要理解这条执行链：
+
+```text
+Launcher
+    ↓
+Kernel
+    ↓
+Runner
+```
+
+Launcher 取得用户选择的 workspace，并把明确的调用范围交给 Kernel。Kernel 负责
+认证 IPC 对端、绑定 workspace descriptor、执行 OS sandbox、隔离 Runner、检查完整
+changeset 并控制写回。Runner 与其中运行的 Plugin 代码都不可信。
+
+`KernelProduction.xpc` 是 Kernel 的 XPC 入口。Python Bridge、one-shot Worker、commit
+child、IPC operation handler，以及 Swift Bootstrap、Service、Client、Executor 都是
+Kernel 的内部实现，不是新的上层架构节点。它们只有在实际承担上述 Kernel enforcement
+时才属于 TCB；名称、模块或类边界本身不构成安全边界。
+
+`KernelSnapshotBroker.xpc` 保持为独立可信进程，因为 APFS image 工具需要与工作区
+Kernel 不同的受限 Seatbelt policy。它只创建、验证和释放 Kernel 绑定的私有 APFS lease，
+属于 Kernel 的 macOS 平台实现，不向 Launcher、Agent 或 Plugin 增加新的产品层级。Agent
+Host 与 Runner SDK/启动代码是受 OS 限制的不可信输入处理面，不属于 Kernel TCB。
+
+签名 Seed 产品只打包当前执行链所需的 Python 模块。源码树里的直接 APFS image
+创建/挂载/恢复后端仅供开发与测试使用，不进入 `KernelProduction.xpc`；产品缺少已认证的
+Snapshot Broker lease 时必须失败，不能切换到该直接挂载后端。
+
+每次新增 trusted 代码、进程、IPC operation、持久状态或依赖，都必须说明它保护的
+invariant、不能放在 untrusted 层的原因、不能复用现有 trusted primitive 的原因，以及
+是否存在更小的实现。威胁模型之外的任意同 UID 宿主进程不作为扩充 TCB 的理由；变更此
+边界必须先修改威胁模型。
+
 独立的 App Sandbox/XPC 探针现已能够从服务包内启动当前 Python 版本和仓库的
 `khaos.runner`。在一个无 workspace bookmark 的 XPC 调用中，测试 Kernel peer 使用
 ABI v4 的 OS peer-PID 握手与有界匿名管道，验证 `ping`、`plugin.start` 及一个合成的

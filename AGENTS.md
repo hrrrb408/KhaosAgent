@@ -277,6 +277,32 @@ Scheduler, CompletionGate, Recovery control planes, authority-receipt hierarchie
 audit infrastructure, Gateway/RPC servers, or multi-tenant identity without a new concrete
 requirement.
 
+## TCB growth budget
+
+The Seed's upper-level execution model is `Launcher → Kernel → Runner`. Bootstrap, Service,
+Broker, Worker, Bridge, Executor, Manager, and Client names are Kernel implementation details
+unless they expose distinct authority or durable state. Preserve real process and OS sandbox
+boundaries; do not turn implementation labels into additional product concepts.
+
+For every completed change, report:
+
+```text
+Production code delta
+Trusted code delta
+New architecture concepts
+New trusted processes
+New IPC operations
+New persistent state
+New dependencies
+Removed duplication / abstractions
+```
+
+Before adding trusted code, state which invariant it protects, why it cannot live in an
+untrusted layer, why an existing trusted primitive cannot serve, and whether a smaller
+implementation exists. Do not add a privileged daemon, root service, kernel extension, or
+larger authority framework to defend against arbitrary same-UID host processes unless the
+threat model is explicitly revised.
+
 ## Working rules
 
 Keep changes narrow and cohesive. Prefer deleting unnecessary code over adding compatibility
@@ -392,6 +418,12 @@ Expected focused documents include:
 - `docs/SEED_THREAT_MODEL.md` — Seed threat model and attack cases;
 - `SECURITY.md` — supported guarantees and limitations;
 - `README.md` — human-facing overview and setup.
+
+`AGENTS.md`, the architecture design, and the current contract sections of `docs/KERNEL_ABI.md`
+are normative. `docs/SEED_THREAT_MODEL.md` records enforcement evidence and limitations;
+dated run entries are historical evidence. `docs/SEED_BACKEND_RESEARCH.md` is a research log,
+not an implementation contract. Keep `README.md` current for users, but do not use it to
+override a normative security contract.
 
 ## Definition of done
 
