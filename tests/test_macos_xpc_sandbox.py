@@ -4425,12 +4425,15 @@ def run():
         def finish(label: str, started, expected_error: str | None = None) -> str:
             process, stdout_path, stderr_path = started
             try:
-                process.communicate(timeout=600)
+                process.communicate(timeout=300)
             except subprocess.TimeoutExpired:
                 self._terminate_product_executable(product_launcher)
                 process.kill()
                 process.communicate(timeout=5)
-                self.fail(f"{label} timed out; diagnostics={stderr_path.read_text(errors='replace') if stderr_path.exists() else ''}")
+                self.fail(
+                    f"{label} timed out waiting for the manual Picker/approval; "
+                    f"diagnostics={stderr_path.read_text(errors='replace') if stderr_path.exists() else ''}"
+                )
             diagnostics = (
                 stderr_path.read_text(encoding="utf-8", errors="replace")
                 if stderr_path.exists()
