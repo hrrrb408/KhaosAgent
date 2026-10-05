@@ -21,6 +21,7 @@ from ..ipc import (
     is_valid_token,
     ping_peer,
     receive_frame,
+    send_error_frame,
     send_frame,
     validate_runner_source,
 )
@@ -541,14 +542,10 @@ class _WorkspaceAncestryIOError(RuntimeError):
 
 
 def _send_error(request_id: str, code: str) -> None:
-    send_frame(
+    send_error_frame(
         1,
-        {
-            "version": PROTOCOL_VERSION,
-            "request_id": request_id,
-            "ok": False,
-            "error": {"code": code},
-        },
+        request_id,
+        code,
         timeout_seconds=5,
     )
 

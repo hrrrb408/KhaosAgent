@@ -14,6 +14,7 @@ import stat
 import struct
 import sys
 import tempfile
+import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import cache
 from types import MappingProxyType
@@ -96,6 +97,8 @@ _MAX_WORKSPACE_READ_SCOPE_BYTES = 4096
 _MAX_WORKSPACE_WRITE_SCOPE_PATHS = 128
 _MAX_WORKSPACE_WRITE_SCOPE_BYTES = 4096
 _DEFAULT_WORKSPACE_MAX_DEPTH = 64
+_SNAPSHOT_BROKER_STORAGE_DIRECTORY = "khaos-snapshot-broker"
+_SNAPSHOT_IMAGE_OPERATION_MARKER = ".khaos-image-operation-pending"
 
 
 def read_snapshot_file(
@@ -389,6 +392,74 @@ _F_GETPATH_BUFFER_BYTES = 1024
 _MIN_SNAPSHOT_STORAGE_BYTES = 128_000_000
 _SNAPSHOT_STORAGE_OVERHEAD_BYTES = 256 * 1024 * 1024
 _MAX_SNAPSHOT_STORAGE_BYTES = 16 * 1024 * 1024 * 1024
+
+
+@contextmanager
+def _brokered_mounted_apfs_volume(
+    mount_point: Path,
+    *,
+    size_bytes: int,
+    case_sensitive: bool,
+    cancel_requested: Callable[[], bool] | None = None,
+) -> Iterator[Path]:
+    """Validate and use the exact APFS lease returned by the trusted Broker."""
+    if sys.platform != "darwin":
+        raise WorkspaceSnapshotError("bounded APFS snapshots require macOS")
+    if type(size_bytes) is not int or not (
+        _MIN_SNAPSHOT_STORAGE_BYTES <= size_bytes <= _MAX_SNAPSHOT_STORAGE_BYTES
+    ):
+        raise ValueError("APFS image size is outside the supported range")
+    if type(case_sensitive) is not bool:
+        raise ValueError("APFS image case sensitivity must be explicit")
+    _check_snapshot_cancellation(cancel_requested)
+
+    temporary_parent = Path(tempfile.gettempdir()).resolve(strict=True)
+    mount_point = mount_point.resolve(strict=True)
+    lease_root = mount_point.parent
+    broker_storage_root = lease_root.parent
+    lease_prefix = f"{_SNAPSHOT_BROKER_STORAGE_DIRECTORY}-"
+    lease_id = lease_root.name.removeprefix(lease_prefix)
+    try:
+        uuid.UUID(lease_id)
+    except ValueError as exc:
+        raise WorkspaceSnapshotError("brokered APFS lease path is invalid") from exc
+    try:
+        broker_storage_info = broker_storage_root.stat(follow_symlinks=False)
+        lease_info = lease_root.stat(follow_symlinks=False)
+    except OSError as exc:
+        raise WorkspaceSnapshotError("brokered APFS lease identity is invalid") from exc
+    if (
+        mount_point.name != "volume"
+        or broker_storage_root.name != _SNAPSHOT_BROKER_STORAGE_DIRECTORY
+        or lease_root != temporary_parent
+        or not stat.S_ISDIR(broker_storage_info.st_mode)
+        or (broker_storage_info.st_mode & 0o777) != 0o700
+        or broker_storage_info.st_uid != os.getuid()
+        or not stat.S_ISDIR(lease_info.st_mode)
+        or (lease_info.st_mode & 0o777) != 0o700
+        or lease_info.st_uid != os.getuid()
+        or not mount_point.is_mount()
+    ):
+        raise WorkspaceSnapshotError("brokered APFS lease identity is invalid")
+    marker = lease_root / _SNAPSHOT_IMAGE_OPERATION_MARKER
+    try:
+        marker_info = marker.lstat()
+    except OSError as exc:
+        raise WorkspaceSnapshotError("brokered APFS lease marker is missing") from exc
+    if (
+        not stat.S_ISREG(marker_info.st_mode)
+        or marker_info.st_uid != os.getuid()
+        or marker_info.st_nlink != 1
+    ):
+        raise WorkspaceSnapshotError("brokered APFS lease marker is invalid")
+
+    # The authenticated Broker already checked image, device, capacity, and
+    # mount identity. Repeating its external-tool checks here would duplicate
+    # the authority check; snapshot creation still verifies filesystem identity.
+    _check_snapshot_cancellation(cancel_requested)
+    yield mount_point
+
+
 _ATTR_VOL_CAPABILITIES = 0x00020000
 _ATTR_VOL_FSTYPENAME = 0x00100000
 _ATTR_VOL_MOUNTPOINT = 0x00001000
@@ -525,13 +596,13 @@ def workspace_snapshot(
                 raise WorkspaceSnapshotError(
                     "Kernel snapshot broker capacity does not match the copy budget"
                 )
-            from .macos_disk_image import (
-                brokered_mounted_apfs_volume,
-                mounted_apfs_volume,
-            )
-
             case_sensitive = _apfs_case_sensitivity(source_fd)
             if brokered_mount_path is None:
+                # Source-tree tests use the direct backend. The signed product
+                # intentionally omits that module, so a missing Broker lease
+                # cannot fall back to mounting an image in KernelProduction.xpc.
+                from .macos_disk_image import mounted_apfs_volume
+
                 storage_context = mounted_apfs_volume(
                     storage_parent,
                     size_bytes=storage_limit,
@@ -540,7 +611,7 @@ def workspace_snapshot(
                     cancel_requested=cancel_requested,
                 )
             else:
-                storage_context = brokered_mounted_apfs_volume(
+                storage_context = _brokered_mounted_apfs_volume(
                     Path(brokered_mount_path),
                     size_bytes=storage_limit,
                     case_sensitive=case_sensitive,

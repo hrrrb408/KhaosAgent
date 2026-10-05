@@ -23,7 +23,6 @@ from .ipc import (
     send_frame,
     validate_runner_source,
 )
-from .kernel.macos_disk_image import cleanup_abandoned_apfs_volumes
 from .kernel.macos_seatbelt import (
     SandboxedProcessError,
     validate_command_request,
@@ -542,6 +541,10 @@ def _cleanup_failed_worker(
     if brokered_snapshot:
         return
     try:
+        # This direct-image cleanup backend is source-tree development support.
+        # The signed Kernel bundle omits it and always supplies a Broker lease.
+        from .kernel.macos_disk_image import cleanup_abandoned_apfs_volumes
+
         cleanup_abandoned_apfs_volumes(process.pid)
     except Exception as exc:
         raise KernelLaunchError("kernel_cleanup_failed") from exc

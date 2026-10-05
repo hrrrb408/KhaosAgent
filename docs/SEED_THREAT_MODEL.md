@@ -440,11 +440,46 @@ as the verification; the popup alone is only a UI observation.
 
 ## Scope and assumptions
 
-The current Seed path is a macOS-only development prototype. A trusted launcher
-starts a separate Kernel worker; the worker starts an OS-confined Runner and a
-fixed command process in a private, bounded APFS snapshot. Runner requests cross
-bounded IPC. The trusted Kernel validates the snapshot changeset before writing
-to the selected workspace.
+The current Seed path is a macOS-only development prototype. A trusted Launcher
+calls the authenticated `KernelProduction.xpc` service, which delegates to its
+Python Bridge and one-shot Worker. The Worker starts an OS-confined Runner and a
+fixed command process in a private, bounded APFS snapshot. An authenticated
+Snapshot Broker mounts and releases that APFS lease under its own restricted
+policy. Runner requests cross bounded IPC. The trusted Kernel validates the
+snapshot changeset before writing to the selected workspace.
+
+## Current TCB inventory and architecture terms
+
+The product-level model is `Launcher → Kernel → Runner`. Bootstrap, Service,
+Client, Executor, Bridge, Worker, Broker, and commit child name implementation
+units inside those nodes; they are not additional product layers. Some are real
+process boundaries and remain trusted because they carry enforcement authority.
+
+| Trusted process or source group | Why it must be trusted |
+| --- | --- |
+| Launcher: `TrustedWorkspaceLauncherMain.swift`, `TrustedWorkspacePicker.swift`, `KernelWorkspaceClient.swift`, `KernelSnapshotBrokerBootstrapClient.swift`, `KernelSnapshotBrokerBootstrapXPC.swift`, `KernelWorkspaceXPC.swift`, `XPCPeerIdentity.swift`, `AgentHostClient.swift`, `AgentHostProtocol.swift` | Obtains the user's selected folder/bookmark, presents and constrains each request, retains the requested scopes, and authenticates service endpoints. Model/Plugin proposals remain untrusted and must pass Launcher review and Kernel validation. |
+| `KernelProduction.xpc`: `KernelWorkspaceXPC.swift`, `KernelWorkspaceService.swift`, `KernelWorkspaceBootstrap.swift`, `KernelWorkspaceRoot.swift`, `KernelWorkspacePythonExecutor.swift`, `KernelWorkspaceServiceMain.swift`, `KernelWorkspaceClient.swift`, `KernelSnapshotBrokerXPC.swift`, `KernelSnapshotBrokerClient.swift`, `KernelSnapshotStoragePolicy.swift`, `KernelCStringArray.swift`, `XPCPeerIdentity.swift` | Authenticates Launcher and Snapshot Broker, validates bounded requests, binds the selected workspace to a descriptor, retains cancellation and lease state, and launches the trusted Python execution path. |
+| Kernel Python execution path: `khaos/ipc.py`, `khaos/launcher.py`, `khaos/kernel/broker.py`, `khaos/kernel/macos_seatbelt.py`, `khaos/kernel/peer_identity.py`, `khaos/kernel/worker.py`, `khaos/kernel/workspace_changes.py`, `khaos/kernel/workspace_snapshot.py`, `khaos/kernel/workspace_xpc_bridge.py` | Provides bounded IPC and peer checks, OS sandboxing, exact read/write scope, private snapshots, process-tree cleanup, complete changeset validation, and the only live-workspace writeback path. |
+| `KernelSnapshotBroker.xpc`: `KernelSnapshotBrokerXPC.swift`, `KernelSnapshotBrokerBootstrapXPC.swift`, `KernelSnapshotStoragePolicy.swift`, `KernelSnapshotBrokerSandbox.swift`, `XPCPeerIdentity.swift`, `KernelCStringArray.swift`, `KernelSnapshotBrokerToolRunner.swift`, `KernelSnapshotBrokerService.swift`, `KernelSnapshotBrokerServiceMain.swift` | Restricts and authenticates the APFS mount helper, validates lease identity and capacity, and bounds/cancels tool process groups. This separate trusted process exists for its narrower platform policy; it is an internal Kernel implementation. |
+
+The builder's explicit source allowlist and the signed-product test define and
+check the packaged Kernel Python set. `khaos/runner.py` and
+`khaos/runner_sdk.py` are bundled for the isolated Runner, but execute in that
+untrusted Seatbelt process and do not enforce authority. `AgentHost.swift` and
+the model runtime are separately App-Sandboxed and untrusted. Plugins, generated
+source, workspace contents, tests, probes, and build scripts are also outside the
+runtime TCB. The source-tree-only `khaos/kernel/macos_disk_image.py` direct APFS
+backend remains available to development tests, but the signed Kernel bundle
+omits it and uses only the authenticated Broker lease path.
+The two Python `__init__.py` package markers in that bundle contain no
+enforcement code.
+
+`docs/Khaos vNext 架构设计文档.md` and `docs/KERNEL_ABI.md` define normative
+architecture and wire contracts. This file is an evidence ledger: its scope,
+current limitations, and test mappings describe what is established, while dated
+run entries record historical evidence rather than changing the contract.
+`docs/SEED_BACKEND_RESEARCH.md` is a historical research log, and `README.md` is
+the user-facing setup and current-status summary.
 
 Treat Plugin source, command output, workspace contents, and IPC payloads as
 untrusted. Treat the launcher, Kernel worker, commit child, and macOS enforcement

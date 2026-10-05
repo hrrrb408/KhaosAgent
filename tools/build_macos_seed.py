@@ -29,7 +29,6 @@ SEED_PYTHON_SOURCES = (
     "khaos/runner_sdk.py",
     "khaos/kernel/__init__.py",
     "khaos/kernel/broker.py",
-    "khaos/kernel/macos_disk_image.py",
     "khaos/kernel/macos_seatbelt.py",
     "khaos/kernel/peer_identity.py",
     "khaos/kernel/worker.py",

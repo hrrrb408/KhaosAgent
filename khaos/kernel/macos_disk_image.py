@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterator
 from .workspace_snapshot import (
     _MAX_SNAPSHOT_STORAGE_BYTES,
     _MIN_SNAPSHOT_STORAGE_BYTES,
+    _SNAPSHOT_IMAGE_OPERATION_MARKER as _IMAGE_OPERATION_MARKER,
     WorkspaceSnapshotCancelled,
     WorkspaceSnapshotError,
     _check_snapshot_cancellation,
@@ -34,8 +35,6 @@ _IMAGE_OPERATION_TIMEOUT_SECONDS = 60
 _IMAGE_ATTACH_SETTLE_TIMEOUT_SECONDS = 5
 _IMAGE_RECONCILIATION_TIMEOUT_SECONDS = 15
 _IMAGE_CLEANUP_TOOL_TIMEOUT_SECONDS = 10
-_IMAGE_OPERATION_MARKER = ".khaos-image-operation-pending"
-_BROKER_STORAGE_DIRECTORY = "khaos-snapshot-broker"
 _TOOL_CANCELLATION_POLL_SECONDS = 0.02
 _IMAGE_INFO_POLL_SECONDS = 0.05
 _IMAGE_SECTOR_BYTES = 512
@@ -48,9 +47,14 @@ def mounted_apfs_volume(
     size_bytes: int,
     case_sensitive: bool,
     owner_pid: int | None = None,
+    directory_name: str | None = None,
     cancel_requested: Callable[[], bool] | None = None,
 ) -> Iterator[Path]:
-    """Yield a fixed-capacity APFS image mounted below a private temporary dir."""
+    """Yield a fixed-capacity APFS image below a private temporary directory.
+
+    ``directory_name`` lets packaged integration tests exercise a Broker-shaped
+    lease path while reusing this source-tree-only image backend.
+    """
     if sys.platform != "darwin":
         raise WorkspaceSnapshotError("bounded APFS snapshots require macOS")
     if type(size_bytes) is not int or not (
@@ -69,7 +73,19 @@ def mounted_apfs_volume(
     prefix = "khaos-snapshot-"
     if owner_pid is not None:
         prefix += f"{owner_pid}-"
-    temporary = Path(tempfile.mkdtemp(prefix=prefix, dir=parent))
+    if directory_name is None:
+        temporary = Path(tempfile.mkdtemp(prefix=prefix, dir=parent))
+    else:
+        if (
+            not isinstance(directory_name, str)
+            or not directory_name
+            or Path(directory_name).name != directory_name
+            or directory_name in {".", ".."}
+        ):
+            raise ValueError("APFS image directory name is invalid")
+        temporary = parent / directory_name
+        temporary.mkdir(mode=0o700)
+        os.chmod(temporary, 0o700)
     image = temporary / "workspace.sparsebundle"
     mount_point = temporary / "volume"
     operation_marker = temporary / _IMAGE_OPERATION_MARKER
@@ -165,72 +181,6 @@ def mounted_apfs_volume(
             raise WorkspaceSnapshotError(
                 "APFS work image could not be safely removed"
             ) from cleanup_error
-
-
-@contextmanager
-def brokered_mounted_apfs_volume(
-    mount_point: Path,
-    *,
-    size_bytes: int,
-    case_sensitive: bool,
-    cancel_requested: Callable[[], bool] | None = None,
-) -> Iterator[Path]:
-    """Use the exact APFS lease created by the authenticated macOS Kernel broker."""
-    if sys.platform != "darwin":
-        raise WorkspaceSnapshotError("bounded APFS snapshots require macOS")
-    if type(size_bytes) is not int or not (
-        _MIN_SNAPSHOT_STORAGE_BYTES <= size_bytes <= _MAX_SNAPSHOT_STORAGE_BYTES
-    ):
-        raise ValueError("APFS image size is outside the supported range")
-    if type(case_sensitive) is not bool:
-        raise ValueError("APFS image case sensitivity must be explicit")
-    _check_snapshot_cancellation(cancel_requested)
-
-    temporary_parent = Path(tempfile.gettempdir()).resolve(strict=True)
-    mount_point = mount_point.resolve(strict=True)
-    lease_root = mount_point.parent
-    broker_storage_root = lease_root.parent
-    lease_id = lease_root.name.removeprefix("khaos-snapshot-broker-")
-    try:
-        uuid.UUID(lease_id)
-    except ValueError as exc:
-        raise WorkspaceSnapshotError("brokered APFS lease path is invalid") from exc
-    try:
-        broker_storage_info = broker_storage_root.stat(follow_symlinks=False)
-        lease_info = lease_root.stat(follow_symlinks=False)
-    except OSError as exc:
-        raise WorkspaceSnapshotError("brokered APFS lease identity is invalid") from exc
-    if (
-        mount_point.name != "volume"
-        or broker_storage_root.name != _BROKER_STORAGE_DIRECTORY
-        or lease_root != temporary_parent
-        or not stat.S_ISDIR(broker_storage_info.st_mode)
-        or (broker_storage_info.st_mode & 0o777) != 0o700
-        or broker_storage_info.st_uid != os.getuid()
-        or not stat.S_ISDIR(lease_info.st_mode)
-        or (lease_info.st_mode & 0o777) != 0o700
-        or lease_info.st_uid != os.getuid()
-        or not mount_point.is_mount()
-    ):
-        raise WorkspaceSnapshotError("brokered APFS lease identity is invalid")
-    marker = lease_root / _IMAGE_OPERATION_MARKER
-    try:
-        marker_info = marker.lstat()
-    except OSError as exc:
-        raise WorkspaceSnapshotError("brokered APFS lease marker is missing") from exc
-    if (
-        not stat.S_ISREG(marker_info.st_mode)
-        or marker_info.st_uid != os.getuid()
-        or marker_info.st_nlink != 1
-    ):
-        raise WorkspaceSnapshotError("brokered APFS lease marker is invalid")
-
-    # The live authenticated Broker lease has already had its image, APFS
-    # device, capacity, and mount validated before this path was returned.
-    # Repeating diskutil/hdiutil checks here is unavailable to the App-Sandboxed
-    # Kernel; workspace_snapshot still verifies source/snapshot mount identity.
-    _check_snapshot_cancellation(cancel_requested)
-    yield mount_point
 
 
 def _validate_mounted_apfs_volume(

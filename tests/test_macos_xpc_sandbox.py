@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import errno
+from functools import partial
 import hashlib
 import json
 import os
@@ -323,6 +324,11 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 for path in (kernel_resources / "khaos").rglob("*")
                 if path.is_file()
             }
+            self.assertNotIn(
+                "khaos/kernel/macos_disk_image.py",
+                packaged_sources,
+                "the signed Kernel must not bundle its source-tree-only direct APFS backend",
+            )
             self.assertEqual(
                 packaged_sources,
                 {
@@ -333,7 +339,6 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     "khaos/runner_sdk.py",
                     "khaos/kernel/__init__.py",
                     "khaos/kernel/broker.py",
-                    "khaos/kernel/macos_disk_image.py",
                     "khaos/kernel/macos_seatbelt.py",
                     "khaos/kernel/peer_identity.py",
                     "khaos/kernel/worker.py",
@@ -738,6 +743,22 @@ class MacOSXPCSandboxTests(unittest.TestCase):
             )
             os.close(live_descriptor)
 
+            from khaos.kernel.macos_disk_image import mounted_apfs_volume
+            from khaos.kernel.workspace_snapshot import _apfs_case_sensitivity
+
+            workspace_descriptor = os.open(
+                workspace,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            )
+            try:
+                case_sensitive = _apfs_case_sensitivity(workspace_descriptor)
+            finally:
+                os.close(workspace_descriptor)
+            broker_storage_bytes = 2 * 1024**3 + 256 * 1024**2
+            broker_storage_root = root / "khaos-snapshot-broker"
+            broker_storage_root.mkdir(mode=0o700)
+            os.chmod(broker_storage_root, 0o700)
+
             command = [
                 "/bin/sh",
                 "-c",
@@ -810,6 +831,8 @@ def run():
                 "    runner_source=runner_source,\n"
                 "    timeout_seconds=10,\n"
                 "    workspace_write_scope=(\"output.txt\",),\n"
+                "    brokered_snapshot_mount_path=sys.argv[2],\n"
+                "    brokered_snapshot_storage_bytes=int(sys.argv[3]),\n"
                 ")\n"
                 "print(json.dumps({\n"
                 "    'returncode': result.returncode,\n"
@@ -818,41 +841,49 @@ def run():
                 "    'deleted': result.deleted,\n"
                 "}, sort_keys=True))\n"
             )
-            try:
-                run = subprocess.run(
-                    [
-                        str(bundled_python),
-                        "-I",
-                        "-S",
-                        "-B",
-                        "-c",
-                        execution,
-                        str(workspace),
-                    ],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    env={
-                        "HOME": str(root),
-                        "LC_ALL": "C",
-                        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-                        "PYTHONDONTWRITEBYTECODE": "1",
-                        "TMPDIR": str(root),
-                    },
-                    timeout=120,
-                )
-                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-                verify_result = run_canary_probe("verify")
-                self.assertEqual(
-                    verify_result.stdout.strip(),
-                    "kernel-container-canary=verified",
-                )
-            finally:
-                cleanup_result = run_canary_probe("cleanup")
-                self.assertEqual(
-                    cleanup_result.stdout.strip(),
-                    "kernel-container-canary=removed",
-                )
+            with mounted_apfs_volume(
+                broker_storage_root,
+                size_bytes=broker_storage_bytes,
+                case_sensitive=case_sensitive,
+                directory_name=f"khaos-snapshot-broker-{uuid.uuid4()}",
+            ) as broker_mount_path:
+                try:
+                    run = subprocess.run(
+                        [
+                            str(bundled_python),
+                            "-I",
+                            "-S",
+                            "-B",
+                            "-c",
+                            execution,
+                            str(workspace),
+                            str(broker_mount_path),
+                            str(broker_storage_bytes),
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        env={
+                            "HOME": str(root),
+                            "LC_ALL": "C",
+                            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                            "PYTHONDONTWRITEBYTECODE": "1",
+                            "TMPDIR": str(root),
+                        },
+                        timeout=120,
+                    )
+                    self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    verify_result = run_canary_probe("verify")
+                    self.assertEqual(
+                        verify_result.stdout.strip(),
+                        "kernel-container-canary=verified",
+                    )
+                finally:
+                    cleanup_result = run_canary_probe("cleanup")
+                    self.assertEqual(
+                        cleanup_result.stdout.strip(),
+                        "kernel-container-canary=removed",
+                    )
             self.assertEqual(
                 json.loads(run.stdout),
                 {"added": 1, "deleted": 0, "modified": 0, "returncode": 0},
@@ -3208,6 +3239,30 @@ def run():
         )
         cleanup_directory()
 
+    @staticmethod
+    def _sign_bundle(
+        bundle: Path,
+        entitlements: Path,
+        signing_identity: str,
+        signing_keychain: Path,
+    ) -> None:
+        subprocess.run(
+            [
+                "codesign",
+                "--force",
+                "--keychain",
+                str(signing_keychain),
+                "--sign",
+                signing_identity,
+                "--entitlements",
+                str(entitlements),
+                str(bundle),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
     def _assert_rejected_xpc_client(
         self,
         executable: Path,
@@ -3340,24 +3395,11 @@ def run():
         app_entitlements_path = directory / "launcher-entitlements.plist"
         self._write_plist(service_entitlements_path, service_entitlements)
         self._write_plist(app_entitlements_path, launcher_entitlements)
-
-        def sign_bundle(bundle: Path, entitlements: Path) -> None:
-            subprocess.run(
-                [
-                    "codesign",
-                    "--force",
-                    "--keychain",
-                    str(signing_keychain),
-                    "--sign",
-                    signing_identity,
-                    "--entitlements",
-                    str(entitlements),
-                    str(bundle),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        sign_bundle = partial(
+            self._sign_bundle,
+            signing_identity=signing_identity,
+            signing_keychain=signing_keychain,
+        )
 
         try:
             shutil.copy2(executable, kernel_binary)
@@ -3715,24 +3757,11 @@ def run():
         launcher_entitlements_path = directory / "launcher-probe-entitlements.plist"
         self._write_plist(broker_entitlements_path, broker_entitlements)
         self._write_plist(launcher_entitlements_path, launcher_entitlements)
-
-        def sign_bundle(bundle: Path, entitlements: Path) -> None:
-            subprocess.run(
-                [
-                    "codesign",
-                    "--force",
-                    "--keychain",
-                    str(signing_keychain),
-                    "--sign",
-                    signing_identity,
-                    "--entitlements",
-                    str(entitlements),
-                    str(bundle),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        sign_bundle = partial(
+            self._sign_bundle,
+            signing_identity=signing_identity,
+            signing_keychain=signing_keychain,
+        )
 
         try:
             self._terminate_product_executable(broker_binary)

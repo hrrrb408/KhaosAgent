@@ -90,6 +90,25 @@ def send_frame(
     _write_bytes_until(write_fd, _encode(message), deadline)
 
 
+def send_error_frame(
+    write_fd: int,
+    request_id: str,
+    code: str,
+    timeout_seconds: float = 5.0,
+) -> None:
+    """Send the shared bounded error envelope for one IPC request."""
+    send_frame(
+        write_fd,
+        {
+            "version": PROTOCOL_VERSION,
+            "request_id": request_id,
+            "ok": False,
+            "error": {"code": code},
+        },
+        timeout_seconds=timeout_seconds,
+    )
+
+
 def receive_frame(
     read_fd: int,
     *,
