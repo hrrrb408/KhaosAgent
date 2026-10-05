@@ -17,6 +17,7 @@ from typing import Any
 
 PROTOCOL_VERSION = 6
 MAX_FRAME_BYTES = 64 * 1024
+MAX_JSON_NESTING = 8
 MAX_OPERATION_SECONDS = 60.0
 MAX_RUNNER_SOURCE_BYTES = 10 * 1024
 MAX_WORKSPACE_READ_BYTES = 32 * 1024
@@ -262,6 +263,8 @@ def _receive_frame_until(read_fd: int, deadline: float) -> dict[str, Any]:
 
 def _decode_payload(payload: bytes) -> dict[str, Any]:
     try:
+        if not _json_nesting_within_limit(payload):
+            raise ValueError("IPC JSON nesting exceeds limit")
         message = json.loads(
             payload.decode("utf-8"),
             object_pairs_hook=_unique_object,
@@ -278,6 +281,35 @@ def _decode_payload(payload: bytes) -> dict[str, Any]:
     if not isinstance(message, dict):
         raise IPCProtocolError("IPC frame must contain a JSON object")
     return message
+
+
+def _json_nesting_within_limit(payload: bytes) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+
+    for byte in payload:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif byte == 0x5C:
+                escaped = True
+            elif byte == 0x22:
+                in_string = False
+            continue
+
+        if byte == 0x22:
+            in_string = True
+        elif byte in (0x7B, 0x5B):
+            depth += 1
+            if depth > MAX_JSON_NESTING:
+                return False
+        elif byte in (0x7D, 0x5D):
+            depth -= 1
+            if depth < 0:
+                return False
+
+    return depth == 0 and not in_string and not escaped
 
 
 def _read_exact(read_fd: int, size: int, deadline: float) -> bytes:

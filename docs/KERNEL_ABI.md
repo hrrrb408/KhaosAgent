@@ -48,9 +48,11 @@ or:
 {"version":6,"request_id":"...","ok":false,"error":{"code":"..."}}
 ```
 
-Frames are limited to 64 KiB. Calls use bounded receive and send deadlines;
-`process.exec` is capped at 30 seconds, and a Runner session accepts at most
-128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
+Frames are limited to 64 KiB and eight structural JSON nesting levels. The
+depth check ignores braces and brackets inside JSON strings and does not rely
+on the Python decoder's recursion behavior. Calls use bounded receive and send
+deadlines; `process.exec` is capped at 30 seconds, and a Runner session accepts
+at most 128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
 
 ## Session order
 

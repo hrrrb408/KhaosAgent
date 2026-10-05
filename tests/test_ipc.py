@@ -198,6 +198,12 @@ class IPCProtocolTests(unittest.TestCase):
             self.assertFalse(sender_thread.is_alive())
             self.assertEqual(sender_errors, [])
 
+    def test_json_nesting_ignores_brackets_inside_strings(self) -> None:
+        text = "]" * 40 + r'\"' + "{" * 40 + "[" * 40
+        with _pipe() as (receiver, sender):
+            send_frame(sender, {"text": text})
+            self.assertEqual(receive_frame(receiver), {"text": text})
+
     def test_send_rejects_oversized_and_nonfinite_values(self) -> None:
         with _pipe() as (_, writer):
             with self.assertRaisesRegex(IPCProtocolError, "size"):

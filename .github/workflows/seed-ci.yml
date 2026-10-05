@@ -10,8 +10,12 @@ permissions:
 
 jobs:
   security-tests:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install OpenSSL 3 for temporary test signing
+        run: |
+          brew install openssl@3
+          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
       - run: python3 -m unittest discover -s tests -v
