@@ -167,6 +167,15 @@ Memory state. The state directory is user-owned Application Support data and
 does not defend against an arbitrary same-UID process with access to that
 directory.
 
+The separate examples/memory-candidate-b Candidate keeps the same ID,
+interface, and state format. Its recall behavior tries exact keys first, then
+uses Unicode NFKC plus casefold only when one stored key matches uniquely.
+It neither migrates nor copies state. The fixed replay dataset at
+tests/fixtures/memory-evaluation.json compares A and B through the existing
+Seatbelt Runner with separate temporary state roots. Its Harness-generated
+evaluation.json is informational and explicitly untrusted; the Kernel does not
+execute or endorse those scores.
+
 To directly run a workspace-capable active Candidate, choose a workspace and
 approve the displayed Candidate digest, scopes, validity, and invocation:
 
@@ -290,6 +299,20 @@ and logical identity before responding:
 
 ```bash
 KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+The opt-in Memory evolution acceptance selects Candidate A, persists one
+production value, evaluates A and B in isolated replay state, then opens a
+second-stage approval for the exact B package. The review shows B's digests and
+interface, its actual empty capability scope, the dataset result, and A as the
+rollback target. It then verifies Agent recall through B, user-approved
+rollback to A, and the same production state after both transitions. It needs
+two package selections and six approvals; no workspace Picker appears:
+
+```bash
+KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1 python3 -m unittest discover -s tests \
   -p test_macos_xpc_sandbox.py \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```

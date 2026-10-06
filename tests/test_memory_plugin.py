@@ -65,6 +65,57 @@ class MemoryPluginTests(unittest.TestCase):
                 run({"operation": "recall", "key": "project_codename"})["found"]
             )
 
+    def test_candidate_b_uses_exact_then_unique_nfkc_casefold_fallback(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "examples"
+            / "memory-candidate-b"
+            / "plugin.py"
+        )
+        stored = [
+            b'{"format":"khaos-memory-v1","items":{"Name":"Alice","name":"Bob",'
+            b'"project_codename":"Project K"}}'
+        ]
+        with patch("khaos.runner_sdk.state_read", side_effect=lambda: stored[0]):
+            run = runpy.run_path(str(source))["run"]
+            self.assertEqual(
+                run({"operation": "recall", "key": "Name"})["value"],
+                "Alice",
+            )
+            self.assertEqual(
+                run({"operation": "recall", "key": "PROJECT_CODENAME"})["value"],
+                "Project K",
+            )
+            self.assertEqual(
+                run({
+                    "operation": "recall",
+                    "key": "ＰＲＯＪＥＣＴ＿ＣＯＤＥＮＡＭＥ",
+                })["value"],
+                "Project K",
+            )
+            self.assertFalse(run({"operation": "recall", "key": "NAME"})["found"])
+            self.assertFalse(
+                run({"operation": "recall", "key": " project_codename"})["found"]
+            )
+            self.assertEqual(stored[0], (
+                b'{"format":"khaos-memory-v1","items":{"Name":"Alice","name":"Bob",'
+                b'"project_codename":"Project K"}}'
+            ))
+
+    def test_candidate_b_fails_closed_on_incompatible_state_without_replacing_it(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "examples"
+            / "memory-candidate-b"
+            / "plugin.py"
+        )
+        stored = [b'{"format":"khaos-memory-v0","items":{"key":"old"}}']
+        with patch("khaos.runner_sdk.state_read", side_effect=lambda: stored[0]):
+            run = runpy.run_path(str(source))["run"]
+            with self.assertRaisesRegex(ValueError, "canonical khaos-memory-v1"):
+                run({"operation": "recall", "key": "key"})
+        self.assertEqual(stored[0], b'{"format":"khaos-memory-v0","items":{"key":"old"}}')
+
 
 if __name__ == "__main__":
     unittest.main()

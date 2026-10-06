@@ -444,6 +444,25 @@ is unchanged. No workspace Picker should appear. The test requires manual packag
 activation, and invocation approvals; do not run it while another Khaos Seed Picker
 is waiting for a selection.
 
+Run the opt-in signed-product Memory Candidate A-to-B evolution acceptance on
+macOS with:
+
+```bash
+KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+It selects A, persists a production value, evaluates A and B in separate
+non-production state roots using the fixed replay dataset, selects the
+Harness-packaged B Candidate, and opens a second-stage review containing the
+exact Candidate/Manifest/scope bindings, Agent interface, evaluation digest and
+result, and rollback target. Approve A activation, the production remember,
+B activation, B recall, rollback, and A recall in sequence. The report is
+informational and untrusted; activation remains the existing exact-digest
+Launcher/Kernel path. It requires manual package Picker and approval actions;
+do not run it while another Khaos Seed Picker is waiting for a selection.
+
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against
 the real Kernel XPC service. Scope attacks use a valid Runner source digest and no
