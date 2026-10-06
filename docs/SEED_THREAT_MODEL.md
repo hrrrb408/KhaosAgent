@@ -154,6 +154,46 @@ not resist an arbitrary hostile same-UID process that can alter that directory.
 This implementation does not add schema migration or a general storage
 framework.
 
+## 2026-10-06 Candidate-bound informational Agent interface
+
+An optional Manifest `agent_interface` now gives the Agent bounded operation
+and business-field names plus a summary. Its canonical JSON is capped at 2 KiB;
+the summary is capped at 512 UTF-8 bytes, there are 1–16 unique operations, and
+each has at most 16 unique fields. Exact object keys exclude scope, capability,
+identity, approval, and lifecycle data. The Kernel validates only this shape;
+it does not interpret business operations. The metadata is part of the Manifest
+and Candidate digests, but not the scope digest. The current Seed ABI permits it
+only for state-only Candidates because business input uses the existing
+`plugin.output` Runner path.
+
+For each Agent turn, the Trusted Launcher reads active Candidate metadata from
+the Kernel and forwards only Plugin ID, Candidate digest, generation, and the
+interface to the untrusted Host. The Host prompt labels all interface content as
+untrusted metadata. Its generic proposal contains only the three binding values
+and bounded business input; the Host cannot return or edit an interface. Before
+approval, the Launcher re-reads current `plugin.state`, rejects a stale binding,
+and displays the trusted Candidate identity, actual scope, and exact input. The
+existing Kernel `plugin.run` generation check remains the final race defense.
+
+`examples/interface-probe` supplies a different `publish(topic, message)`
+interface. The protocol and deterministic model-probe tests verify generic
+input construction, malformed and oversized metadata rejection, stale binding
+rejection, and no authority fields. The probe's denial-turn test also confirms
+that a denied proposal is not repeated from an earlier conversation turn. The
+opt-in signed-product Memory acceptance now includes this second Candidate with
+a hostile summary and an attempted out-of-scope write, but that manual package
+and approval flow was not run for this change. No product-level hostile-summary
+or second-Candidate invocation result is claimed.
+
+The current canonical macOS suite passed all 293 tests in 510.323 seconds,
+including real-OS Runner and workspace attacks, the signed headless product XPC
+test, the AgentHost protocol and model probes, and the real state-only Memory
+Runner roundtrip. `py_compile` and `git diff --check` also passed. The change
+adds no trusted process, Kernel IPC operation, persistent state, dependency,
+Plugin registry, or tool framework. These results are local to this macOS host;
+the interactive second-Candidate acceptance and production LLM proposal quality
+remain unverified.
+
 ## 2026-10-04 signed product boundary and interactive acceptance
 
 The trusted `KernelProduction.xpc` is now signed without App Sandbox so that it

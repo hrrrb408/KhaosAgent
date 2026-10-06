@@ -1,1 +1,1 @@
-{"abi_version":6,"id":"memory","process_exec":false,"read":[],"write":[]}
+{"abi_version":6,"agent_interface":{"operations":[{"fields":["key","value"],"name":"remember"},{"fields":["key"],"name":"recall"},{"fields":["key"],"name":"forget"}],"summary":"Store, retrieve, and remove short key/value notes for the user."},"id":"memory","process_exec":false,"read":[],"write":[]}

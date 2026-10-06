@@ -149,13 +149,16 @@ directory. Its Manifest sets `process_exec: false` and has empty workspace
 read/write scopes, so installation and state-only use do not ask for a workspace.
 
 Start an Agent session and ask it to remember or recall a key/value. The Agent
-proposes the active Memory Candidate with a bounded JSON input. The Launcher
-shows the exact input and Plugin identity for approval. If approved, the same
-Kernel and Seatbelt Runner use a private state blob keyed by the logical Plugin
-ID. Replacing Candidate code for `memory` preserves that state; another Plugin
-ID receives a separate namespace. The stored state blob is capped at 32 KiB,
-Agent invocation input at 8 KiB, and output at 8 KiB. The Kernel treats both input
-and output as untrusted data and does not understand the Memory schema.
+reads operation and field names from the active Candidate's bounded
+`agent_interface`, then proposes a bounded JSON input. The interface is
+untrusted information; it cannot grant scope or replace user approval. The
+Launcher shows the trusted Plugin identity, actual scope, and exact input. If
+approved, the same Kernel and Seatbelt Runner use a private state blob keyed by
+the logical Plugin ID. Replacing Candidate code for `memory` preserves that
+state; another Plugin ID receives a separate namespace. The stored state blob
+is capped at 32 KiB, Agent invocation input at 8 KiB, and output at 8 KiB. The
+Kernel treats both input and output as untrusted data and does not understand
+the Memory business schema.
 
 The example state format is canonical UTF-8 JSON:
 `{"format":"khaos-memory-v1","items":{...}}`. Candidate content, the active
@@ -172,8 +175,8 @@ approve the displayed Candidate digest, scopes, validity, and invocation:
 ```
 
 This direct command is for workspace-capable Candidates with no Agent business
-input. Use `--agent` to invoke the state-only Memory Candidate with its bounded
-`remember` / `recall` / `forget` input; it does not open a workspace Picker.
+input. Use `--agent` to invoke a state-only Candidate through the interface in
+its Manifest; the state-only Memory Candidate does not open a workspace Picker.
 
 The request binds the review to the active Candidate digests and slot
 generation. The Kernel loads source and scope from its active slot; the run
@@ -227,9 +230,10 @@ and workspace writeback.
 The opt-in Memory acceptance exercises denied `remember`, approved
 `remember`, process exit/restart, `recall`, `forget`, and a final empty `recall`
 through the signed Agent → Launcher → Kernel → Runner chain. It also verifies
-that denial leaves state unchanged and the state-only workspace changeset is
-empty. Run it with the documented command below; it opens the package Picker
-and approval dialogs for manual interaction.
+that the Agent obtains those operations from Manifest metadata rather than
+Memory-specific Harness code, denial leaves state unchanged, and the state-only
+workspace changeset is empty. Run it with the documented command below; it
+opens the package Picker and approval dialogs for manual interaction.
 
 The example Plugin completed a signed two-Picker product run on this Mac: the
 Kernel reported one added file, and the workspace output and deep app signature
@@ -276,10 +280,13 @@ KHAOS_RUN_PRODUCT_WRITEBACK_UI=1 python3 -m unittest discover -s tests \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```
 
-The optional signed-product Memory acceptance requires a package selection,
-one activation approval, one denied invocation, and four approved invocations.
-Follow the test's prompts and verify each exact JSON input and logical identity
-before responding:
+The optional signed-product Memory acceptance installs Memory and a second
+state-only Candidate with different operation and field names. It requires two
+package selections, two activation approvals, two denied invocations, and five
+approved invocations. The second Candidate's summary contains hostile
+prompt-like text; the test checks that approval remains required and its
+unscoped write is denied. Follow the prompts and verify each exact JSON input
+and logical identity before responding:
 
 ```bash
 KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
@@ -308,7 +315,9 @@ no-argument launch passes an empty read scope. The one-shot command mode now
 uses the same XPC request and Kernel commit path with user-reviewed scopes.
 The product is not yet a general coding assistant. The Launcher provides one
 persistent `primary` Candidate slot with explicit activation, execution, and
-rollback confirmations; the local Agent Host does not manage or invoke Plugins.
+rollback confirmations. The untrusted Agent Host can propose a bounded Plugin
+invocation from the active Candidate's informational interface; the Launcher
+revalidates each proposal and requests approval.
 
 `KernelProduction.xpc` has no App Sandbox entitlement: a signed App Sandbox
 helper on this Mac cannot apply the nested Seatbelt policy needed for the

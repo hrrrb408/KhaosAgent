@@ -434,12 +434,15 @@ KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
 
 This installs the `examples/memory` Candidate, denies one `remember`, then
 approves `remember`, `recall`, `forget`, and the final empty `recall` through
-separate signed Agent sessions and the existing state-only Runner path. Follow
-the prompts to choose the package and approve or cancel the exact invocation;
-no workspace Picker should appear. The parent verifies the canonical Plugin
-state blob, empty state-only changesets, persistence across process restarts,
-and the signed product bundle. It requires manual package and approval actions;
-do not run it while another Khaos Seed Picker is waiting for a selection.
+separate signed Agent sessions. The Host gets those operations and fields from
+the active Candidate's bounded `agent_interface`; its prompt and source contain
+no Memory-specific branch. It then installs `examples/interface-probe`, whose
+`publish(topic, message)` operation is different from Memory. Its summary includes
+hostile prompt-like text; cancel one proposal, then approve one, and verify the
+Kernel denial for its unscoped write attempt. The parent also confirms Memory state
+is unchanged. No workspace Picker should appear. The test requires manual package,
+activation, and invocation approvals; do not run it while another Khaos Seed Picker
+is waiting for a selection.
 
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against

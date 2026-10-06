@@ -25,12 +25,17 @@ from .workspace_snapshot import (
 
 
 MAX_MANIFEST_BYTES = 4_096
+MAX_AGENT_INTERFACE_BYTES = 2_048
+MAX_AGENT_INTERFACE_OPERATIONS = 16
+MAX_AGENT_INTERFACE_FIELDS = 16
+MAX_AGENT_INTERFACE_SUMMARY_BYTES = 512
 MAX_PLUGIN_SOURCE_BYTES = 10_240
 ACTIVATION_APPROVAL_SECONDS = 30 * 24 * 60 * 60
 _CANDIDATE_DOMAIN = b"Khaos Seed Plugin Candidate v1\0"
 _STATE_SCHEMA = 1
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _PLUGIN_ID = re.compile(r"[a-z][a-z0-9-]{0,63}\Z")
+_AGENT_INTERFACE_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}\Z")
 _DIRECTORY_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(
     os, "O_NOFOLLOW", 0
 ) | getattr(os, "O_CLOEXEC", 0)
@@ -57,11 +62,24 @@ class PluginLifecycleError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class AgentPluginOperation:
+    name: str
+    fields: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AgentPluginInterface:
+    summary: str
+    operations: tuple[AgentPluginOperation, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PluginManifest:
     plugin_id: str
     process_exec: bool
     read_scope: tuple[str, ...]
     write_scope: tuple[str, ...]
+    agent_interface: AgentPluginInterface | None = None
 
     @property
     def scope_digest(self) -> str:
@@ -495,13 +513,21 @@ def _parse_manifest(data: bytes) -> PluginManifest:
     try:
         value = json.loads(data.decode("utf-8", errors="strict"), object_pairs_hook=_unique_object)
         canonical = _canonical_json(value)
-    except (UnicodeDecodeError, ValueError, TypeError, json.JSONDecodeError) as exc:
+    except (
+        UnicodeError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        RecursionError,
+    ) as exc:
         raise PluginLifecycleError("manifest_rejected") from exc
     if data not in (canonical, canonical + b"\n"):
         raise PluginLifecycleError("manifest_rejected")
-    if type(value) is not dict or set(value) != {
-        "abi_version", "id", "process_exec", "read", "write"
-    }:
+    required_keys = {"abi_version", "id", "process_exec", "read", "write"}
+    if type(value) is not dict or set(value) not in (
+        required_keys,
+        required_keys | {"agent_interface"},
+    ):
         raise PluginLifecycleError("manifest_rejected")
     plugin_id = value["id"]
     read_paths = value["read"]
@@ -523,12 +549,75 @@ def _parse_manifest(data: bytes) -> PluginManifest:
         write_scope = WorkspaceWriteScope.from_paths(write_paths).as_paths()
     except WorkspaceSnapshotError as exc:
         raise PluginLifecycleError("manifest_rejected") from exc
+    agent_interface = (
+        _parse_agent_interface(value["agent_interface"])
+        if "agent_interface" in value
+        else None
+    )
+    if agent_interface is not None and (
+        value["process_exec"] or read_scope or write_scope
+    ):
+        # The current product Runner accepts business input only for state-only calls.
+        raise PluginLifecycleError("manifest_rejected")
     return PluginManifest(
         plugin_id=plugin_id,
         process_exec=value["process_exec"],
         read_scope=tuple(read_scope),
         write_scope=tuple(write_scope),
+        agent_interface=agent_interface,
     )
+
+
+def _parse_agent_interface(value: object) -> AgentPluginInterface:
+    """Bound informational Agent metadata without interpreting Plugin business input."""
+    if type(value) is not dict or set(value) != {"summary", "operations"}:
+        raise PluginLifecycleError("manifest_rejected")
+    summary = value["summary"]
+    operations = value["operations"]
+    if (
+        type(summary) is not str
+        or not summary
+        or _utf8_size(summary) > MAX_AGENT_INTERFACE_SUMMARY_BYTES
+        or type(operations) is not list
+        or not 1 <= len(operations) <= MAX_AGENT_INTERFACE_OPERATIONS
+    ):
+        raise PluginLifecycleError("manifest_rejected")
+    if len(_canonical_json(value)) > MAX_AGENT_INTERFACE_BYTES:
+        raise PluginLifecycleError("manifest_rejected")
+
+    parsed_operations: list[AgentPluginOperation] = []
+    operation_names: set[str] = set()
+    for operation in operations:
+        if type(operation) is not dict or set(operation) != {"name", "fields"}:
+            raise PluginLifecycleError("manifest_rejected")
+        name = operation["name"]
+        fields = operation["fields"]
+        if (
+            type(name) is not str
+            or _AGENT_INTERFACE_NAME.fullmatch(name) is None
+            or name in operation_names
+            or type(fields) is not list
+            or len(fields) > MAX_AGENT_INTERFACE_FIELDS
+            or any(
+                type(field) is not str
+                or _AGENT_INTERFACE_NAME.fullmatch(field) is None
+                or field == "operation"
+                for field in fields
+            )
+            or len(set(fields)) != len(fields)
+        ):
+            raise PluginLifecycleError("manifest_rejected")
+        operation_names.add(name)
+        parsed_operations.append(AgentPluginOperation(name, tuple(fields)))
+
+    return AgentPluginInterface(summary, tuple(parsed_operations))
+
+
+def _utf8_size(value: str) -> int:
+    try:
+        return len(value.encode("utf-8", errors="strict"))
+    except UnicodeError as exc:
+        raise PluginLifecycleError("manifest_rejected") from exc
 
 
 def _validate_source(data: bytes) -> bytes:

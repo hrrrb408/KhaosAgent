@@ -1,0 +1,1 @@
+{"abi_version":6,"agent_interface":{"operations":[{"fields":["topic","message"],"name":"publish"}],"summary":"Publish one short message with its topic."},"id":"interface-probe","process_exec":false,"read":[],"write":[]}
