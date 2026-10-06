@@ -425,16 +425,44 @@ enum TrustedWorkspaceLauncherMain {
     }
 
     private static func runActivePlugin() throws -> WorkspaceResult {
+        var workspace: TrustedWorkspaceSelection?
+        return try runActivePlugin(proposal: nil, workspace: &workspace)
+    }
+
+    private static func runActivePlugin(
+        proposal: AgentPluginBinding?,
+        workspace: inout TrustedWorkspaceSelection?
+    ) throws -> WorkspaceResult {
         let state = try parsePluginState(invokePluginKernel(.state))
         guard let active = state.active else {
             throw LauncherError.operationRejected("no_active_candidate")
         }
-        let selection = try TrustedWorkspacePicker.selectWorkspace(
-            message: "Choose the workspace for the active Plugin."
+        let activeBinding = AgentPluginBinding(
+            pluginID: active.identifier,
+            candidateDigest: active.candidateDigest,
+            generation: state.generation
         )
+        if let proposal,
+           !AgentHostProtocol.proposalMatchesActive(proposal, active: activeBinding) {
+            throw LauncherError.operationRejected("stale_proposal")
+        }
+        let selectedNewWorkspace = workspace == nil
+        if selectedNewWorkspace {
+            let selected = try TrustedWorkspacePicker.selectWorkspace(
+                message: "Choose the workspace for the active Plugin."
+            )
+            guard reviewable(selected.scopeURL.path) else {
+                selected.scopeURL.stopAccessingSecurityScopedResource()
+                throw LauncherError.operationRejected("workspace_rejected")
+            }
+            workspace = selected
+        }
+        guard let selection = workspace else {
+            throw LauncherError.operationRejected("workspace_unavailable")
+        }
         var scopeReleased = false
         defer {
-            if !scopeReleased {
+            if selectedNewWorkspace && !scopeReleased {
                 selection.scopeURL.stopAccessingSecurityScopedResource()
             }
         }
@@ -460,17 +488,27 @@ enum TrustedWorkspaceLauncherMain {
         )
             + "\nThe Kernel will run this exact active Candidate in an isolated Runner."
         writeDiagnostic("plugin-run-review=presented")
+        if proposal != nil {
+            fputs("agent-plugin=approval-presented\n", stderr)
+        }
         guard approvePluginAction(
-            title: "Run the active Plugin in this workspace?",
-            action: "Run active Plugin",
+            title: proposal == nil
+                ? "Run the active Plugin in this workspace?"
+                : "Allow the Agent to invoke this active Plugin?",
+            action: "Run active Plugin once",
             workspace: selection.scopeURL,
             details: details,
             digest: KernelWorkspaceXPC.sha256Hex(invocation)
         ) else {
+            if proposal != nil {
+                throw LauncherError.operationRejected("user_denied")
+            }
             throw TrustedWorkspacePickerError.cancelled
         }
-        selection.scopeURL.stopAccessingSecurityScopedResource()
-        scopeReleased = true
+        if selectedNewWorkspace {
+            selection.scopeURL.stopAccessingSecurityScopedResource()
+            scopeReleased = true
+        }
         try requireWorkspaceOpenResult(
             workspace: selection.scopeURL,
             fileName: ".",
@@ -760,7 +798,7 @@ enum TrustedWorkspaceLauncherMain {
         let host = AgentHostClient()
         defer { host.stop() }
         fputs(
-            "Khaos local Agent. The model is untrusted; each workspace command needs your approval. Type /exit to quit.\n",
+            "Khaos local Agent. The model is untrusted; each shell or Plugin invocation needs your approval. Type /exit to quit.\n",
             stdout
         )
 
@@ -772,7 +810,10 @@ enum TrustedWorkspaceLauncherMain {
             if prompt == "/exit" { return }
             var reply: AgentHostReply
             do {
-                reply = try host.sendUserTurn(prompt)
+                reply = try host.sendUserTurn(
+                    prompt,
+                    activePlugin: currentAgentPluginBinding()
+                )
             } catch {
                 fputs("Local Agent request failed: \(failureCode(for: error))\n", stderr)
                 continue
@@ -785,10 +826,29 @@ enum TrustedWorkspaceLauncherMain {
                     fputs("Khaos: \(terminalSafe(text))\n", stdout)
                     fflush(stdout)
                     awaitingNextUser = true
-                case let .tool(proposal):
+                case let .shell(proposal):
                     let outcome = try runAgentTool(proposal, workspace: &workspace)
                     do {
-                        reply = try host.sendToolResult(ok: outcome.ok, text: outcome.text)
+                        reply = try host.sendToolResult(
+                            ok: outcome.ok,
+                            text: outcome.text,
+                            activePlugin: currentAgentPluginBinding()
+                        )
+                    } catch {
+                        fputs(
+                            "Local Agent stopped: \(failureCode(for: error))\n",
+                            stderr
+                        )
+                        return
+                    }
+                case let .plugin(proposal):
+                    let outcome = runAgentPlugin(proposal, workspace: &workspace)
+                    do {
+                        reply = try host.sendToolResult(
+                            ok: outcome.ok,
+                            text: outcome.text,
+                            activePlugin: currentAgentPluginBinding()
+                        )
                     } catch {
                         fputs(
                             "Local Agent stopped: \(failureCode(for: error))\n",
@@ -804,8 +864,47 @@ enum TrustedWorkspaceLauncherMain {
         }
     }
 
+    private static func currentAgentPluginBinding() -> AgentPluginBinding? {
+        guard let output = try? invokePluginKernel(.state),
+              let state = try? parsePluginState(output),
+              let active = state.active else {
+            return nil
+        }
+        return AgentPluginBinding(
+            pluginID: active.identifier,
+            candidateDigest: active.candidateDigest,
+            generation: state.generation
+        )
+    }
+
+    private static func runAgentPlugin(
+        _ proposal: AgentPluginBinding,
+        workspace: inout TrustedWorkspaceSelection?
+    ) -> (ok: Bool, text: String) {
+        do {
+            let result = try runActivePlugin(proposal: proposal, workspace: &workspace)
+            fputs("agent-plugin=passed\n", stderr)
+            return try agentResult(result)
+        } catch TrustedWorkspacePickerError.cancelled {
+            return (false, "User cancelled Plugin workspace selection.")
+        } catch LauncherError.operationRejected(let code) {
+            switch code {
+            case "no_active_candidate", "stale_proposal", "stale_approval":
+                fputs("agent-plugin=denied code=\(code)\n", stderr)
+                return (false, "Launcher denied the Plugin proposal: \(code)")
+            case "user_denied":
+                fputs("agent-plugin=approval-denied\n", stderr)
+                return (false, "The user denied this Plugin invocation.")
+            default:
+                return (false, "Launcher could not run the Plugin: \(code)")
+            }
+        } catch {
+            return (false, "Launcher could not run the Plugin.")
+        }
+    }
+
     private static func runAgentTool(
-        _ proposal: AgentToolProposal,
+        _ proposal: AgentShellProposal,
         workspace: inout TrustedWorkspaceSelection?
     ) throws -> (ok: Bool, text: String) {
         guard !proposal.argv.isEmpty,
@@ -884,29 +983,34 @@ enum TrustedWorkspaceLauncherMain {
                 requestID: requestID,
                 request: request
             )
-            let result = try parseWorkspaceResult(output)
-            let resultObject: [String: Any] = [
-                "returncode": result.returncode,
-                "added": result.added,
-                "modified": result.modified,
-                "deleted": result.deleted,
-                "stdout": String(result.stdout.prefix(2_000)),
-                "stderr": String(result.stderr.prefix(2_000)),
-            ]
-            let resultData = try JSONSerialization.data(
-                withJSONObject: resultObject,
-                options: [.sortedKeys, .withoutEscapingSlashes]
-            )
-            let boundedResult = boundedUTF8Prefix(
-                String(decoding: resultData, as: UTF8.self),
-                maximumBytes: AgentHostProtocol.maximumTextBytes
-            )
-            return (result.returncode == 0, boundedResult)
+            return try agentResult(parseWorkspaceResult(output))
         } catch let LauncherError.operationRejected(code) {
             return (false, "Kernel rejected or failed the request: \(code)")
         } catch {
             return (false, "Kernel request failed closed.")
         }
+    }
+
+    private static func agentResult(
+        _ result: WorkspaceResult
+    ) throws -> (ok: Bool, text: String) {
+        let resultObject: [String: Any] = [
+            "returncode": result.returncode,
+            "added": result.added,
+            "modified": result.modified,
+            "deleted": result.deleted,
+            "stdout": String(result.stdout.prefix(2_000)),
+            "stderr": String(result.stderr.prefix(2_000)),
+        ]
+        let resultData = try JSONSerialization.data(
+            withJSONObject: resultObject,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+        let boundedResult = boundedUTF8Prefix(
+            String(decoding: resultData, as: UTF8.self),
+            maximumBytes: AgentHostProtocol.maximumTextBytes
+        )
+        return (result.returncode == 0, boundedResult)
     }
 
     private static func agentRunnerSource(argv: [String]) throws -> String {

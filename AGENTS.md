@@ -404,11 +404,28 @@ The test verifies the exact workspace changes and deep bundle signature in the p
 It requires manual Picker and approval actions; do not run it while another Khaos Seed Picker
 is waiting for a selection.
 
+Run the focused opt-in signed-product Agent-to-Plugin acceptance check on macOS with:
+
+```bash
+KHAOS_RUN_PRODUCT_AGENT_PLUGIN_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+This admits and activates Candidate A, then runs the Agent's Plugin proposal through
+the real Launcher approval, `plugin.run`, Seatbelt Runner, and changeset writeback
+path. Cancel the first Agent approval and approve the second. It checks that denial
+does not change the workspace and that the bounded Runner result returns to the
+Agent as untrusted model input. It requires manual package/workspace Picker and
+approval actions; do not run it while another Khaos Seed Picker is waiting for a
+selection.
+
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against
 the real Kernel XPC service. Scope attacks use a valid Runner source digest and no
 bookmark; each must receive `invalid_request` before bookmark handling. Keep selected-
-workspace interaction consolidated in the product writeback acceptance above;
+workspace interaction consolidated in the documented signed-product acceptance checks
+above;
 lower-level real-OS Runner and cancellation attacks remain in the canonical suite.
 
 Discover any future build, lint, formatting, packaging, or release commands from repository

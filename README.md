@@ -169,28 +169,36 @@ without a bundled model, it uses Apple's on-device Foundation Model when
 available. It has no remote fallback. The launchd-managed XPC service has its
 own App Sandbox, no user-selected file or network entitlement, and a different
 code-signing requirement from the Launcher accepted by Kernel XPC. It receives
-only conversation text and bounded tool results over a 64 KiB XPC protocol.
-It proposes `argv` plus exact read/write paths; the trusted Launcher validates
-the proposal, selects one workspace, shows the command, scopes, and invocation
-digest, and asks for approval for each operation. The Kernel retains those
-scopes, runs the command in the existing Seatbelt Runner, and commits only the
-approved exact-path changeset. The Host never receives a workspace path or
-bookmark. Each command is capped at 30 seconds; the in-memory session ends
-after eight user turns.
+conversation text, bounded results, and only the active Plugin's ID, Candidate
+digest, and slot generation over a 64 KiB XPC protocol. It can propose a shell
+command with exact read/write paths, or propose the active Plugin with those
+three identity fields. The trusted Launcher rejects extra Plugin fields, reads
+`plugin.state` again, and denies any stale or mismatched proposal. For an
+approved invocation, the Launcher shows the Candidate identity and actual
+trusted scopes, then uses existing `plugin.run`; the Kernel resolves source
+and scope and runs the Candidate in the existing Seatbelt Runner. The Host never
+receives Plugin source, Manifest, scope, workspace path, or bookmark. Execution
+results are bounded and returned to the model as untrusted data. Each shell
+command is capped at 30 seconds; the in-memory session ends after eight user
+turns.
 
-The signed product package check sends a real `--agent` turn through the
+The signed product package check sends real `--agent` turns through the
 launchd-managed Agent Host XPC service. A bundled test model attempts direct
 read and write opens on a parent-readable canary; the service must report both
-OS denials. The production Agent loop uses the same XPC and sandbox path.
+OS denials. It also proposes a Plugin while the active slot is empty; the
+Launcher returns a denial without opening a workspace Picker or executing it.
+The opt-in product Plugin lifecycle acceptance now includes the Agent proposal,
+user-refusal, and approved execution path through the signed Kernel XPC, Runner,
+and workspace writeback.
 
 The example Plugin completed a signed two-Picker product run on this Mac: the
 Kernel reported one added file, and the workspace output and deep app signature
 were checked. That run used an earlier bundle whose shell printed a `getcwd`
 denial while the Kernel commit succeeded. The current source sets the command's
-working directory to its private snapshot; the rebuilt signed app passed deep
-signature and headless XPC checks, but its Picker flow has not been rerun. The
-current local model completed one text turn through Agent Host XPC; a
-model-generated tool request has not yet been verified end to end.
+working directory to its private snapshot. The current Agent-to-Plugin
+positive-product evidence is recorded in the dated Seed threat-model entry;
+it applies to the local signed test copy and host used by that run, not to
+distribution signing or installation protection.
 
 The no-Picker canonical suite passed 250 tests in 485.373 seconds, including
 the example Plugin's allowed write and default-denied write, and the

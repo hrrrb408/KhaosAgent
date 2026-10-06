@@ -73,6 +73,41 @@ protected installation, resistance to a same-UID process that can replace both
 the Plugin store and its HMAC key, or equivalent enforcement on another macOS
 version or machine.
 
+## 2026-10-06 signed-product Agent Plugin invocation
+
+The focused opt-in `KHAOS_RUN_PRODUCT_AGENT_PLUGIN_UI=1` acceptance passed in
+224.762 seconds on this host. A locally signed product activated Candidate A in
+the fixed `primary` slot at generation 1. The Agent Host received only the active
+Plugin ID, Candidate digest, and generation, proposed that binding, and the
+Launcher re-read `plugin.state` before showing the real invocation approval.
+The first approval was denied by the user; the parent verified the workspace
+bytes were unchanged. The second proposal was approved by the user and ran through
+the existing signed Launcher → `KernelProduction.xpc` → Seatbelt Runner →
+changeset writeback route.
+
+The parent verified exactly the two Manifest write paths changed, their contents
+matched the active Plugin result, and both the approved input and unapproved
+canary remained unchanged. Runner evidence confirmed the scoped read/list behavior,
+denial of unscoped reads, denial of Candidate-store and activation-state access,
+and denial of direct live-workspace reads. The signed product passed deep code
+signature verification. The Host received a result no larger than 16 KiB, labeled
+as untrusted model input, and the Agent's following response stated that two
+approved files were added.
+
+The signed test bundle used the deterministic `AgentHostSandboxModelProbe` in the
+local `llama-cli` slot. This validates AgentHost framing, Launcher authority checks,
+the real approval UI, Kernel/Runner execution, result bounds and the following model
+turn; it does not measure proposal quality or prove behavior for every production LLM.
+
+The focused AgentHost protocol probe rejects forged Candidate digests and
+generations, a proposal for a replaced active Candidate, injected source,
+Manifest, read/write scope, capability, or approval fields, lifecycle mutation
+responses, and an oversized result. The signed headless product check separately
+proposes a Plugin while no Candidate is active and verifies the Launcher denies
+it without presenting invocation approval. These are local signed test-product
+results on this macOS host; they do not establish distribution signing,
+protected installation, or behavior on another macOS version or machine.
+
 ## 2026-10-04 signed product boundary and interactive acceptance
 
 The trusted `KernelProduction.xpc` is now signed without App Sandbox so that it
