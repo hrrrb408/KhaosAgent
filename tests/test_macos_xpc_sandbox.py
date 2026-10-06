@@ -3191,6 +3191,20 @@ def run():
             text=True,
         )
         subprocess.run(
+            [
+                "security",
+                "set-keychain-settings",
+                "-l",
+                "-u",
+                "-t",
+                "86400",
+                str(keychain),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
             ["security", "unlock-keychain", "-p", password, str(keychain)],
             check=True,
             capture_output=True,

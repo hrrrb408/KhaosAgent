@@ -364,6 +364,10 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func selectPluginPackage() throws -> PluginRun {
         let packageURL = try TrustedWorkspacePicker.selectPluginPackage()
+        // App Sandbox requires the Picker grant while reading the selected package.
+        guard packageURL.startAccessingSecurityScopedResource() else {
+            throw LauncherError.operationRejected("plugin_package_rejected")
+        }
         var packageScopeReleased = false
         defer {
             if !packageScopeReleased {
