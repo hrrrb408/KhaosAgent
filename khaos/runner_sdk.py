@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
 import secrets
 import selectors
 import time
@@ -13,6 +14,9 @@ from typing import Any
 
 from .ipc import (
     MAX_OPERATION_SECONDS,
+    MAX_PLUGIN_INPUT_BYTES,
+    MAX_PLUGIN_OUTPUT_BYTES,
+    MAX_PLUGIN_STATE_BYTES,
     MAX_WORKSPACE_LIST_ENTRIES,
     MAX_WORKSPACE_LIST_NAME_BYTES,
     MAX_WORKSPACE_READ_BYTES,
@@ -20,6 +24,7 @@ from .ipc import (
     FrameReader,
     IPCProtocolError,
     PROTOCOL_VERSION,
+    _json_nesting_within_limit,
     receive_frame,
     send_frame,
 )
@@ -151,6 +156,70 @@ def workspace_commit() -> dict[str, Any]:
     ):
         raise IPCProtocolError("Kernel commit result is invalid")
     return result
+
+
+def state_read() -> bytes | None:
+    """Read this logical Plugin's bounded private state blob through the Kernel."""
+    result = _request("state.read", {})
+    if (
+        set(result) != {"present", "data_base64"}
+        or type(result.get("present")) is not bool
+        or type(result.get("data_base64")) is not str
+    ):
+        raise IPCProtocolError("Kernel state.read result is invalid")
+    encoded = result["data_base64"]
+    if len(encoded) > ((MAX_PLUGIN_STATE_BYTES + 2) // 3) * 4:
+        raise IPCProtocolError("Kernel state.read result exceeds its limit")
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise IPCProtocolError("Kernel state.read result is not valid base64") from exc
+    if (
+        len(content) > MAX_PLUGIN_STATE_BYTES
+        or base64.b64encode(content).decode("ascii") != encoded
+        or (not result["present"] and encoded != "")
+    ):
+        raise IPCProtocolError("Kernel state.read result is not canonical or bounded")
+    return content if result["present"] else None
+
+
+def state_replace(data: bytes) -> None:
+    """Atomically replace this logical Plugin's opaque, bounded state blob."""
+    if type(data) is not bytes:
+        raise TypeError("state.replace data must be bytes")
+    if len(data) > MAX_PLUGIN_STATE_BYTES:
+        raise ValueError("state.replace data exceeds its limit")
+    result = _request(
+        "state.replace", {"data_base64": base64.b64encode(data).decode("ascii")}
+    )
+    if result != {"written_bytes": len(data)}:
+        raise IPCProtocolError("Kernel state.replace result is invalid")
+
+
+def plugin_output(value: Any) -> None:
+    """Return one generic JSON result to the untrusted Agent Host."""
+    if type(value) is not dict:
+        raise TypeError("Plugin output must be a JSON object")
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8", errors="strict")
+    except (TypeError, ValueError, UnicodeEncodeError) as exc:
+        raise ValueError("Plugin output is not bounded JSON data") from exc
+    if (
+        len(encoded) > MAX_PLUGIN_OUTPUT_BYTES
+        or not _json_nesting_within_limit(encoded)
+    ):
+        raise ValueError("Plugin output exceeds its limit")
+    result = _request(
+        "plugin.output", {"data_base64": base64.b64encode(encoded).decode("ascii")}
+    )
+    if result:
+        raise IPCProtocolError("Kernel plugin.output result is invalid")
 
 
 def _request(

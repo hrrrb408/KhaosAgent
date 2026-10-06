@@ -9,7 +9,15 @@ from contextlib import contextmanager
 from collections.abc import Iterator
 
 from khaos.ipc import PROTOCOL_VERSION, receive_frame, send_frame
-from khaos.runner_sdk import fs_list, fs_read, fs_write, process_exec
+from khaos.runner_sdk import (
+    fs_list,
+    fs_read,
+    fs_write,
+    plugin_output,
+    process_exec,
+    state_read,
+    state_replace,
+)
 
 
 class RunnerSDKTests(unittest.TestCase):
@@ -104,6 +112,92 @@ class RunnerSDKTests(unittest.TestCase):
         with _duplex_pipes() as _:
             with self.assertRaisesRegex(ValueError, "exceeds its limit"):
                 fs_write("large.txt", b"x" * (MAX_WORKSPACE_WRITE_BYTES + 1))
+
+    def test_plugin_state_and_output_use_namespace_free_bounded_schemas(self) -> None:
+        state = b'{"format":"khaos-memory-v1","items":{}}'
+        with _duplex_pipes() as (kernel_read, kernel_write):
+            results: list[bytes | None] = []
+            reader = threading.Thread(target=lambda: results.append(state_read()))
+            reader.start()
+            read_request = receive_frame(kernel_read, timeout_seconds=3)
+            self.assertEqual(read_request["operation"], "state.read")
+            self.assertEqual(read_request["payload"], {})
+            send_frame(
+                kernel_write,
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": read_request["request_id"],
+                    "ok": True,
+                    "result": {
+                        "present": True,
+                        "data_base64": base64.b64encode(state).decode(),
+                    },
+                },
+            )
+            reader.join(timeout=3)
+            self.assertFalse(reader.is_alive())
+            self.assertEqual(results, [state])
+
+            writer = threading.Thread(target=lambda: state_replace(state))
+            writer.start()
+            write_request = receive_frame(kernel_read, timeout_seconds=3)
+            self.assertEqual(write_request["operation"], "state.replace")
+            self.assertEqual(set(write_request["payload"]), {"data_base64"})
+            self.assertEqual(
+                base64.b64decode(write_request["payload"]["data_base64"]), state
+            )
+            send_frame(
+                kernel_write,
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": write_request["request_id"],
+                    "ok": True,
+                    "result": {"written_bytes": len(state)},
+                },
+            )
+            writer.join(timeout=3)
+            self.assertFalse(writer.is_alive())
+
+            output_value = {"operation": "recall", "value": "Project K"}
+            output_bytes = b'{"operation":"recall","value":"Project K"}'
+            emitter = threading.Thread(target=lambda: plugin_output(output_value))
+            emitter.start()
+            output_request = receive_frame(kernel_read, timeout_seconds=3)
+            self.assertEqual(output_request["operation"], "plugin.output")
+            self.assertEqual(set(output_request["payload"]), {"data_base64"})
+            self.assertEqual(
+                base64.b64decode(output_request["payload"]["data_base64"]),
+                output_bytes,
+            )
+            send_frame(
+                kernel_write,
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": output_request["request_id"],
+                    "ok": True,
+                    "result": {},
+                },
+            )
+            emitter.join(timeout=3)
+            self.assertFalse(emitter.is_alive())
+
+    def test_plugin_state_and_output_reject_oversized_values_before_ipc(self) -> None:
+        from khaos.ipc import (
+            MAX_PLUGIN_OUTPUT_BYTES,
+            MAX_PLUGIN_STATE_BYTES,
+        )
+
+        with _duplex_pipes() as (kernel_read, _):
+            for operation in (
+                lambda: state_replace(b"x" * (MAX_PLUGIN_STATE_BYTES + 1)),
+                lambda: plugin_output({"value": "x" * MAX_PLUGIN_OUTPUT_BYTES}),
+            ):
+                with self.subTest(operation=operation):
+                    with self.assertRaisesRegex(ValueError, "exceeds"):
+                        operation()
+            import select
+
+            self.assertEqual(select.select([kernel_read], [], [], 0.02)[0], [])
 
     def test_late_cancel_rejection_can_follow_process_result(self) -> None:
         with _duplex_pipes() as (kernel_read, kernel_write):

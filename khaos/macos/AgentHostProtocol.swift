@@ -18,6 +18,19 @@ struct AgentPluginBinding: Equatable {
     let pluginID: String
     let candidateDigest: String
     let generation: Int
+    let inputJSON: Data?
+
+    init(
+        pluginID: String,
+        candidateDigest: String,
+        generation: Int,
+        inputJSON: Data? = nil
+    ) {
+        self.pluginID = pluginID
+        self.candidateDigest = candidateDigest
+        self.generation = generation
+        self.inputJSON = inputJSON
+    }
 }
 
 @objc protocol AgentHostSessionEndpoint {
@@ -28,12 +41,15 @@ struct AgentPluginBinding: Equatable {
 }
 
 enum AgentHostProtocol {
-    static let version = 2
+    static let version = 3
     static let maximumFrameBytes = 64 * 1024
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
     static let maximumScopePaths = 8
     static let maximumArgumentBytes = 4096
+    static let maximumPluginInputBytes = 8 * 1024
+    static let maximumJSONNestingDepth = 8
+    static let maximumPluginInputDepth = 6
 
     static func userTurn(
         _ text: String,
@@ -117,20 +133,23 @@ enum AgentHostProtocol {
             ))
         case "plugin":
             guard Set(object.keys) == [
-                "version", "type", "plugin_id", "candidate_digest", "generation"
+                "version", "type", "plugin_id", "candidate_digest", "generation",
+                "input",
             ],
                 let pluginID = object["plugin_id"] as? String,
                 validPluginID(pluginID),
                 let candidateDigest = object["candidate_digest"] as? String,
                 validDigest(candidateDigest),
-                let generation = nonnegativeInteger(object["generation"])
+                let generation = nonnegativeInteger(object["generation"]),
+                let inputJSON = pluginInputData(object["input"])
             else {
                 return nil
             }
             return .plugin(AgentPluginBinding(
                 pluginID: pluginID,
                 candidateDigest: candidateDigest,
-                generation: generation
+                generation: generation,
+                inputJSON: inputJSON
             ))
         case "error":
             guard Set(object.keys) == ["version", "type", "code"],
@@ -210,7 +229,8 @@ enum AgentHostProtocol {
         case let .plugin(binding):
             guard validPluginID(binding.pluginID),
                   validDigest(binding.candidateDigest),
-                  binding.generation >= 0 else {
+                  binding.generation >= 0,
+                  let input = pluginInputObject(binding.inputJSON) else {
                 throw AgentHostProtocolError.invalidResponse
             }
             return try encode([
@@ -219,6 +239,7 @@ enum AgentHostProtocol {
                 "plugin_id": binding.pluginID,
                 "candidate_digest": binding.candidateDigest,
                 "generation": binding.generation,
+                "input": input,
             ])
         case let .failure(code):
             return try encode(["version": version, "type": "error", "code": code])
@@ -308,7 +329,68 @@ enum AgentHostProtocol {
         _ proposal: AgentPluginBinding,
         active: AgentPluginBinding
     ) -> Bool {
-        proposal == active
+        proposal.pluginID == active.pluginID
+            && proposal.candidateDigest == active.candidateDigest
+            && proposal.generation == active.generation
+    }
+
+    static func canonicalPluginInput(_ text: String) -> Data? {
+        guard !text.isEmpty,
+              let data = text.data(using: .utf8),
+              data.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                data,
+                maximumDepth: maximumPluginInputDepth
+              ),
+              let value = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = value as? [String: Any],
+              let canonical = try? JSONSerialization.data(
+                withJSONObject: dictionary,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ), canonical.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                canonical,
+                maximumDepth: maximumPluginInputDepth
+              ) else {
+            return nil
+        }
+        return canonical
+    }
+
+    private static func pluginInputData(_ value: Any?) -> Data?? {
+        if value is NSNull { return .some(nil) }
+        guard let dictionary = value as? [String: Any],
+              let data = try? JSONSerialization.data(
+                withJSONObject: dictionary,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              data.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                data,
+                maximumDepth: maximumPluginInputDepth
+              ) else {
+            return nil
+        }
+        return .some(data)
+    }
+
+    private static func pluginInputObject(_ data: Data?) -> Any? {
+        guard let data else { return NSNull() }
+        guard !data.isEmpty,
+              data.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                data,
+                maximumDepth: maximumPluginInputDepth
+              ),
+              let value = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = value as? [String: Any],
+              let canonical = try? JSONSerialization.data(
+                withJSONObject: dictionary,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ), canonical == data else {
+            return nil
+        }
+        return dictionary
     }
 
     private static func bindingObject(_ binding: AgentPluginBinding?) -> Any {
@@ -364,7 +446,10 @@ enum AgentHostProtocol {
         }
     }
 
-    private static func isJSONNestingWithinLimit(_ data: Data) -> Bool {
+    private static func isJSONNestingWithinLimit(
+        _ data: Data,
+        maximumDepth: Int = maximumJSONNestingDepth
+    ) -> Bool {
         var depth = 0
         var inString = false
         var escaped = false
@@ -383,7 +468,7 @@ enum AgentHostProtocol {
             case 0x22: inString = true
             case 0x7b, 0x5b:
                 depth += 1
-                if depth > 8 { return false }
+                if depth > maximumDepth { return false }
             case 0x7d, 0x5d:
                 depth -= 1
                 if depth < 0 { return false }

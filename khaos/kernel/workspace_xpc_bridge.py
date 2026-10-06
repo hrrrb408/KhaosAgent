@@ -10,10 +10,19 @@ import os
 import re
 import struct
 import sys
+import tempfile
 import time
 from collections.abc import Iterator
 
-from ..ipc import _read_exact, is_valid_token, receive_frame, send_frame
+from ..ipc import (
+    MAX_PLUGIN_INPUT_BYTES,
+    MAX_PLUGIN_INPUT_NESTING,
+    _json_nesting_within_limit,
+    _read_exact,
+    is_valid_token,
+    receive_frame,
+    send_frame,
+)
 from ..launcher import KernelLaunchError, run_workspace_command
 from .plugin_lifecycle import (
     ACTIVATION_APPROVAL_SECONDS,
@@ -30,7 +39,7 @@ from .workspace_snapshot import WorkspaceSnapshotError
 
 
 _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
-_WORKSPACE_XPC_OPERATION_VERSION = 9
+_WORKSPACE_XPC_OPERATION_VERSION = 10
 _MAXIMUM_WORKSPACE_BOOKMARK_BYTES = 64 * 1024
 _BOOKMARK_TRANSFER_LENGTH = struct.Struct("!I")
 _CFURL_BOOKMARK_RESOLUTION_DEFAULT = 0
@@ -42,6 +51,7 @@ _PAYLOAD_FIELDS = {
     "workspace_write_scope",
 }
 _REPORTED_ERRORS = {
+    "capability_denied",
     "commit_outcome_uncertain",
     "commit_rejected",
     "activation_outcome_uncertain",
@@ -62,6 +72,13 @@ _REPORTED_ERRORS = {
     "kernel_timeout",
     "process_cancelled",
     "plugin_source_rejected",
+    "plugin_input_too_large",
+    "plugin_invocation_unsupported",
+    "plugin_output_too_large",
+    "plugin_state_corrupt",
+    "plugin_state_outcome_uncertain",
+    "plugin_state_too_large",
+    "plugin_state_unavailable",
     "plugin_lifecycle_failed",
     "manifest_rejected",
     "no_active_candidate",
@@ -132,7 +149,7 @@ def main() -> int:
         os.fstat(cancel_fd)
         request = receive_frame(0, timeout_seconds=5)
         request_id, operation, payload = _decode_invocation_request(request)
-        if operation in ("workspace.run", "plugin.run"):
+        if operation == "workspace.run":
             phase = "bookmark"
             bookmark = _read_workspace_bookmark(0)
             snapshot_mount_path = os.environ.get("KHAOS_SNAPSHOT_MOUNT_PATH")
@@ -141,38 +158,79 @@ def main() -> int:
                 raise KernelLaunchError("sandbox_unavailable")
             if not snapshot_storage_text.isdecimal():
                 raise KernelLaunchError("sandbox_unavailable")
-            if operation == "plugin.run":
-                phase = "execution"
-                store_root = _plugin_store_root()
-                candidate, _ = active_candidate(
-                    store_root,
-                    candidate_digest=payload["candidate_digest"],
-                    manifest_digest=payload["manifest_digest"],
-                    scope_digest=payload["scope_digest"],
-                    expected_generation=payload["expected_generation"],
-                )
-                runner_source = candidate.source.decode("utf-8", errors="strict")
-                read_scope = candidate.manifest.read_scope
-                write_scope = candidate.manifest.write_scope
-                timeout_seconds = 30
-            else:
-                runner_source = payload["runner_source"]
-                read_scope = payload["workspace_read_scope"]
-                write_scope = payload["workspace_write_scope"]
-                timeout_seconds = payload["timeout_seconds"]
             phase = "execution"
             with _scoped_workspace_bookmark(bookmark):
                 result = run_workspace_command(
                     workspace,
-                    runner_source=runner_source,
-                    workspace_read_scope=read_scope,
-                    workspace_write_scope=write_scope,
-                    timeout_seconds=timeout_seconds,
+                    runner_source=payload["runner_source"],
+                    workspace_read_scope=payload["workspace_read_scope"],
+                    workspace_write_scope=payload["workspace_write_scope"],
+                    timeout_seconds=payload["timeout_seconds"],
                     cancel_requested=_cancellation_reader(cancel_fd),
                     workspace_root_fd=root_fd,
                     brokered_snapshot_mount_path=snapshot_mount_path,
                     brokered_snapshot_storage_bytes=int(snapshot_storage_text),
                 )
+            phase = "result"
+            output = _workspace_result_json(result)
+        elif operation == "plugin.run":
+            phase = "execution"
+            candidate, _ = active_candidate(
+                _plugin_store_root(),
+                candidate_digest=payload["candidate_digest"],
+                manifest_digest=payload["manifest_digest"],
+                scope_digest=payload["scope_digest"],
+                expected_generation=payload["expected_generation"],
+            )
+            if candidate.manifest.plugin_id != payload["plugin_id"]:
+                raise PluginLifecycleError("approval_binding_mismatch")
+            needs_workspace = bool(
+                candidate.manifest.process_exec
+                or candidate.manifest.read_scope
+                or candidate.manifest.write_scope
+            )
+            if needs_workspace != payload["workspace_required"]:
+                raise PluginLifecycleError("approval_binding_mismatch")
+            invocation_input = payload["input"]
+            if needs_workspace and invocation_input is not None:
+                raise PluginLifecycleError("plugin_invocation_unsupported")
+            runner_source = candidate.source.decode("utf-8", errors="strict")
+            snapshot_mount_path = os.environ.get("KHAOS_SNAPSHOT_MOUNT_PATH")
+            snapshot_storage_text = os.environ.get("KHAOS_SNAPSHOT_STORAGE_BYTES")
+            if snapshot_mount_path is None or snapshot_storage_text is None:
+                raise KernelLaunchError("sandbox_unavailable")
+            if not snapshot_storage_text.isdecimal():
+                raise KernelLaunchError("sandbox_unavailable")
+            runner_options = {
+                "runner_source": runner_source,
+                "workspace_read_scope": candidate.manifest.read_scope,
+                "workspace_write_scope": candidate.manifest.write_scope,
+                "timeout_seconds": 30,
+                "cancel_requested": _cancellation_reader(cancel_fd),
+                "brokered_snapshot_mount_path": snapshot_mount_path,
+                "brokered_snapshot_storage_bytes": int(snapshot_storage_text),
+                "process_exec_allowed": candidate.manifest.process_exec,
+                "plugin_id": candidate.manifest.plugin_id,
+                "plugin_state_root": _plugin_state_root(),
+            }
+            if needs_workspace:
+                phase = "bookmark"
+                bookmark = _read_workspace_bookmark(0)
+                with _scoped_workspace_bookmark(bookmark):
+                    result = run_workspace_command(
+                        workspace,
+                        workspace_root_fd=root_fd,
+                        **runner_options,
+                    )
+            else:
+                if invocation_input is None:
+                    raise PluginLifecycleError("plugin_invocation_unsupported")
+                with tempfile.TemporaryDirectory(prefix="khaos-plugin-session-") as value:
+                    result = run_workspace_command(
+                        value,
+                        plugin_input=invocation_input,
+                        **runner_options,
+                    )
             phase = "result"
             output = _workspace_result_json(result)
         else:
@@ -247,6 +305,13 @@ def _plugin_store_root() -> str:
     value = os.environ.get("KHAOS_PLUGIN_STORE_PATH")
     if not value or not os.path.isabs(value):
         raise PluginLifecycleError("store_unavailable")
+    return value
+
+
+def _plugin_state_root() -> str:
+    value = os.environ.get("KHAOS_PLUGIN_STATE_PATH")
+    if not value or not os.path.isabs(value):
+        raise PluginLifecycleError("plugin_state_unavailable")
     return value
 
 
@@ -475,7 +540,7 @@ def _decode_invocation_request(
             raise ValueError("invalid lifecycle request")
         _validate_base64_field(payload.get("manifest_base64"), 4_096)
         _validate_base64_field(payload.get("source_base64"), 10_240)
-    elif operation in ("plugin.activate", "plugin.rollback", "plugin.run"):
+    elif operation in ("plugin.activate", "plugin.rollback"):
         if set(payload) != {
             "candidate_digest", "manifest_digest", "scope_digest",
             "expected_generation",
@@ -491,12 +556,58 @@ def _decode_invocation_request(
             or payload["expected_generation"] < 0
         ):
             raise ValueError("invalid lifecycle approval")
+    elif operation == "plugin.run":
+        if set(payload) != {
+            "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
+            "expected_generation", "input", "workspace_required",
+        }:
+            raise ValueError("invalid lifecycle request")
+        if (
+            type(payload.get("plugin_id")) is not str
+            or re.fullmatch(r"[a-z][a-z0-9-]{0,63}", payload["plugin_id"]) is None
+            or any(
+                type(payload.get(field)) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", payload[field]) is None
+                for field in ("candidate_digest", "manifest_digest", "scope_digest")
+            )
+            or type(payload.get("expected_generation")) is not int
+            or payload["expected_generation"] < 0
+            or type(payload.get("workspace_required")) is not bool
+            or payload.get("input") is not None and type(payload.get("input")) is not dict
+        ):
+            raise ValueError("invalid lifecycle approval")
+        _validate_plugin_input(payload["input"])
     elif operation == "plugin.state":
         if payload:
             raise ValueError("invalid lifecycle request")
     else:
         raise ValueError("unknown operation")
     return request["request_id"], operation, payload
+
+
+def _validate_plugin_input(value: object) -> None:
+    if value is None:
+        return
+    if type(value) is not dict:
+        raise ValueError("invalid Plugin input")
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8", errors="strict")
+    except (TypeError, ValueError, UnicodeEncodeError) as error:
+        raise ValueError("invalid Plugin input") from error
+    if (
+        len(encoded) > MAX_PLUGIN_INPUT_BYTES
+        or not _json_nesting_within_limit(
+            encoded,
+            maximum_depth=MAX_PLUGIN_INPUT_NESTING,
+        )
+    ):
+        raise ValueError("Plugin input exceeds its bound")
 
 
 def _validate_base64_field(value: object, maximum: int) -> None:

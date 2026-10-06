@@ -10,7 +10,9 @@ import tempfile
 import textwrap
 import time
 import unittest
+from unittest.mock import patch
 
+from khaos.kernel import plugin_lifecycle
 from khaos.kernel.plugin_lifecycle import (
     PluginLifecycleError,
     activation_state,
@@ -18,6 +20,8 @@ from khaos.kernel.plugin_lifecycle import (
     active_candidate,
     admit_candidate,
     rollback,
+    read_plugin_state,
+    replace_plugin_state,
     _open_store,
 )
 from khaos.kernel.macos_seatbelt import SANDBOX_EXECUTABLE
@@ -687,6 +691,243 @@ activate_candidate(root, digest, manifest, scope, int(generation), now=200)
                         expected_generation=1,
                         now=200,
                     )
+
+    def test_logical_plugin_state_survives_candidate_replacement_and_isolated_ids(self) -> None:
+        state_root = Path(self.temporary.name) / "plugin-state"
+        candidate_a = self._admit("memory", "return 'candidate-a'")
+        activate_candidate(
+            self.root,
+            candidate_a.candidate_digest,
+            candidate_a.manifest_digest,
+            candidate_a.scope_digest,
+            expected_generation=0,
+            now=100,
+        )
+        remembered = b'{"format":"khaos-memory-v1","items":{"key":"Project K"}}'
+        replace_plugin_state(state_root, "memory", remembered)
+        self.assertEqual(read_plugin_state(state_root, "memory"), remembered)
+
+        candidate_b = self._admit("memory", "return 'candidate-b'")
+        self.assertNotEqual(candidate_a.candidate_digest, candidate_b.candidate_digest)
+        activate_candidate(
+            self.root,
+            candidate_b.candidate_digest,
+            candidate_b.manifest_digest,
+            candidate_b.scope_digest,
+            expected_generation=1,
+            now=200,
+        )
+        resolved, _ = active_candidate(
+            self.root,
+            candidate_digest=candidate_b.candidate_digest,
+            manifest_digest=candidate_b.manifest_digest,
+            scope_digest=candidate_b.scope_digest,
+            expected_generation=2,
+            now=201,
+        )
+        self.assertEqual(resolved.source, candidate_b.source)
+        self.assertEqual(read_plugin_state(state_root, "memory"), remembered)
+        self.assertIsNone(read_plugin_state(state_root, "another-plugin"))
+        self.assertNotEqual(state_root, self.root)
+        self.assertFalse((state_root / "activation.json").exists())
+        with self.assertRaisesRegex(PluginLifecycleError, "stale_approval"):
+            active_candidate(
+                self.root,
+                candidate_digest=candidate_b.candidate_digest,
+                manifest_digest=candidate_b.manifest_digest,
+                scope_digest=candidate_b.scope_digest,
+                expected_generation=1,
+                now=201,
+            )
+
+    def test_logical_plugin_state_rejects_namespace_paths_and_bad_files(self) -> None:
+        state_root = Path(self.temporary.name) / "plugin-state"
+        with self.assertRaisesRegex(PluginLifecycleError, "plugin_state_unavailable"):
+            read_plugin_state(state_root, "../other-plugin")
+        replace_plugin_state(state_root, "memory", b"old")
+        state_file = state_root / "memory" / "state.json"
+        self.assertEqual(state_file.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(state_file.stat().st_nlink, 1)
+
+        hardlink = Path(self.temporary.name) / "linked-state"
+        os.link(state_file, hardlink)
+        with self.assertRaisesRegex(PluginLifecycleError, "plugin_state_corrupt"):
+            read_plugin_state(state_root, "memory")
+
+    def test_plugin_state_crash_around_atomic_replace_keeps_old_or_new_blob(self) -> None:
+        state_root = Path(self.temporary.name) / "plugin-state"
+        replace_plugin_state(state_root, "memory", b"old-complete-state")
+        module_root = Path(__file__).resolve().parents[1]
+        script = """
+import os, sys
+from khaos.kernel import plugin_lifecycle as lifecycle
+root, phase = sys.argv[1:]
+replace = os.replace
+def crash(*args, **kwargs):
+    if phase == "before":
+        os._exit(71)
+    replace(*args, **kwargs)
+    os._exit(72)
+lifecycle.os.replace = crash
+lifecycle.replace_plugin_state(root, "memory", b"new-complete-state")
+"""
+        for phase, expected, status in (
+            ("before", b"old-complete-state", 71),
+            ("after", b"new-complete-state", 72),
+        ):
+            with self.subTest(phase=phase):
+                if phase == "after":
+                    replace_plugin_state(state_root, "memory", b"old-complete-state")
+                process = subprocess.run(
+                    [sys.executable, "-c", script, str(state_root), phase],
+                    cwd=module_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env={"PATH": os.environ.get("PATH", "")},
+                )
+                self.assertEqual(process.returncode, status)
+                self.assertEqual(read_plugin_state(state_root, "memory"), expected)
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_real_runner_memory_roundtrip_uses_bound_state_and_no_workspace_changes(
+        self,
+    ) -> None:
+        state_root = Path(self.temporary.name) / "plugin-state"
+        workspace = Path(self.temporary.name) / "empty-workspace"
+        workspace.mkdir()
+        replace_plugin_state(
+            state_root,
+            "memory",
+            b'{"format":"khaos-memory-v1","items":{}}',
+        )
+        other_state = Path(self.temporary.name) / "other-plugin-state"
+        replace_plugin_state(other_state, "memory-other", b"other-plugin-secret")
+        lifecycle_file = self.root / "activation.json"
+        source = textwrap.dedent(
+            f"""\
+            import errno
+            import json
+            import os
+            from khaos.runner_sdk import state_read, state_replace
+
+            STATE_ROOT = {str(state_root)!r}
+            OTHER_STATE = {str(other_state / 'memory-other' / 'state.json')!r}
+            LIFECYCLE = {str(lifecycle_file)!r}
+
+            def denied(path, directory=False):
+                flags = os.O_RDONLY | (getattr(os, "O_DIRECTORY", 0) if directory else 0)
+                try:
+                    descriptor = os.open(path, flags | os.O_CLOEXEC | os.O_NOFOLLOW)
+                    os.close(descriptor)
+                except OSError as error:
+                    return error.errno in (errno.EPERM, errno.EACCES)
+                return False
+
+            def run(request):
+                checks = {{
+                    "lifecycle": denied(LIFECYCLE),
+                    "own_state_path": denied(STATE_ROOT, directory=True),
+                    "other_state_path": denied(OTHER_STATE),
+                }}
+                if not all(checks.values()):
+                    raise SystemExit(81)
+                if "state_path" in request:
+                    # This field is ordinary untrusted business input; the SDK
+                    # remains bound to the logical Plugin selected by Kernel.
+                    checks["host_state_path_ignored"] = True
+                raw = state_read()
+                items = {{}} if raw is None else json.loads(raw)["items"]
+                operation = request["operation"]
+                key = request["key"]
+                if operation == "remember":
+                    items[key] = request["value"]
+                    state_replace(json.dumps(
+                        {{"format": "khaos-memory-v1", "items": items}},
+                        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                    ).encode())
+                    return {{"found": True, "value": items[key], "checks": checks}}
+                if operation == "forget":
+                    found = key in items
+                    items.pop(key, None)
+                    state_replace(json.dumps(
+                        {{"format": "khaos-memory-v1", "items": items}},
+                        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                    ).encode())
+                    return {{"forgotten": found, "checks": checks}}
+                value = items.get(key)
+                return {{"found": value is not None, "value": value, "checks": checks}}
+            """
+        )
+
+        def admit(source_text: str):
+            manifest = json.dumps(
+                {
+                    "abi_version": 6,
+                    "id": "memory",
+                    "process_exec": False,
+                    "read": [],
+                    "write": [],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            return admit_candidate(self.root, manifest, source_text.encode())
+
+        def invoke(candidate, operation: str, **fields):
+            result = run_workspace_command(
+                workspace,
+                runner_source=candidate.source.decode(),
+                process_exec_allowed=False,
+                plugin_id="memory",
+                plugin_state_root=state_root,
+                plugin_input={"operation": operation, "key": "project", **fields},
+                timeout_seconds=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((result.added, result.modified, result.deleted), (0, 0, 0))
+            self.assertEqual(list(workspace.iterdir()), [])
+            return json.loads(result.stdout)
+
+        candidate_a = admit(source)
+        activate_candidate(
+            self.root,
+            candidate_a.candidate_digest,
+            candidate_a.manifest_digest,
+            candidate_a.scope_digest,
+            expected_generation=0,
+        )
+        saved = invoke(
+            candidate_a,
+            "remember",
+            value="Project K",
+            state_path=str(other_state),
+        )
+        self.assertEqual(saved["value"], "Project K")
+        self.assertTrue(saved["checks"]["host_state_path_ignored"])
+        self.assertEqual(
+            read_plugin_state(state_root, "memory"),
+            b'{"format":"khaos-memory-v1","items":{"project":"Project K"}}',
+        )
+
+        candidate_b = admit(source + "\n# replacement candidate\n")
+        activate_candidate(
+            self.root,
+            candidate_b.candidate_digest,
+            candidate_b.manifest_digest,
+            candidate_b.scope_digest,
+            expected_generation=1,
+        )
+        recalled = invoke(candidate_b, "recall")
+        self.assertEqual(recalled["value"], "Project K")
+        forgotten = invoke(candidate_b, "forget")
+        self.assertTrue(forgotten["forgotten"])
+        self.assertIsNone(invoke(candidate_b, "recall")["value"])
+        self.assertIsNone(read_plugin_state(state_root, "memory-other"))
 
     def _admit(
         self,

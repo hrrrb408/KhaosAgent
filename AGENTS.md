@@ -213,11 +213,14 @@ Keep Seed limited to the minimum execution path:
 - isolated Plugin Runner;
 - read/edit/bash-style capabilities;
 - real sandboxed process execution;
+- one bounded stateful Memory Plugin v1 (`remember`, `recall`, `forget`) to prove
+  Plugin-owned state isolation and persistence through the existing Harness;
 - minimal Agent Loop and model adapter after the security path works;
 - simple Session and CLI/TUI only as needed to exercise the Seed.
 
-Seed must not add Memory, Planner, Browser, Subagents, Scheduler, MCP, complex Verification,
-self-evolution, Full Access, remote server infrastructure, or legacy compatibility layers.
+Seed must not add a general Memory or Storage Framework, Memory evolution, Planner,
+Browser, Subagents, Scheduler, MCP, complex Verification, self-evolution, Full Access,
+remote server infrastructure, or legacy compatibility layers.
 
 ## Security validation
 
@@ -242,8 +245,9 @@ Keep the Plugin ABI small and versioned.
 Candidate installation must be content-addressed. Lock Candidate content and Manifest digests
 before activation approval. Any content or permission change after approval invalidates it.
 
-Plugin business state belongs to the Plugin. Core may persist only minimal trusted activation
-metadata required for safe install, activate, and rollback behavior.
+Plugin business state belongs to the Plugin. The Kernel may persist it only as a bounded,
+opaque Plugin-owned state blob bound to the verified logical Plugin ID. Kernel lifecycle
+metadata remains minimal and is limited to what safe install, activate, run, and rollback need.
 
 Do not add Core database schemas for Memory, Planner, Verifier, Evolver, or other Plugin
 business data.
@@ -419,6 +423,23 @@ does not change the workspace and that the bounded Runner result returns to the
 Agent as untrusted model input. It requires manual package/workspace Picker and
 approval actions; do not run it while another Khaos Seed Picker is waiting for a
 selection.
+
+Run the opt-in signed-product Memory Plugin v1 acceptance check on macOS with:
+
+```bash
+KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+This installs the `examples/memory` Candidate, denies one `remember`, then
+approves `remember`, `recall`, `forget`, and the final empty `recall` through
+separate signed Agent sessions and the existing state-only Runner path. Follow
+the prompts to choose the package and approve or cancel the exact invocation;
+no workspace Picker should appear. The parent verifies the canonical Plugin
+state blob, empty state-only changesets, persistence across process restarts,
+and the signed product bundle. It requires manual package and approval actions;
+do not run it while another Khaos Seed Picker is waiting for a selection.
 
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against

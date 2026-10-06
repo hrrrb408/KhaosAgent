@@ -20,6 +20,7 @@ private struct PluginRun {
     let sourceDigest: String
     let manifestData: Data
     let sourceData: Data
+    let processExec: Bool
     let readScope: [String]
     let writeScope: [String]
 }
@@ -29,6 +30,7 @@ private struct PluginCandidateReview {
     let candidateDigest: String
     let manifestDigest: String
     let scopeDigest: String
+    let processExec: Bool
     let readScope: [String]
     let writeScope: [String]
     let approvedAt: Int?
@@ -345,6 +347,7 @@ enum TrustedWorkspaceLauncherMain {
             request: request,
             requestID: requestID
         )
+        writeDiagnostic("plugin-activation-review=presented")
         guard approvePluginAction(
             title: "Activate this Plugin?",
             action: "Activate for 30 days",
@@ -360,6 +363,7 @@ enum TrustedWorkspaceLauncherMain {
         guard activated.active?.candidateDigest == candidate.candidateDigest else {
             throw LauncherError.operationRejected("activation_not_confirmed")
         }
+        writeDiagnostic("plugin-activation=passed")
     }
 
     private static func selectPluginPackage() throws -> PluginRun {
@@ -402,7 +406,6 @@ enum TrustedWorkspaceLauncherMain {
               }),
               let process = manifest["process_exec"] as? NSNumber,
               CFGetTypeID(process) == CFBooleanGetTypeID(),
-              process.boolValue,
               let readScope = manifest["read"] as? [String],
               let writeScope = manifest["write"] as? [String],
               readScope.count + writeScope.count <= 8,
@@ -416,6 +419,7 @@ enum TrustedWorkspaceLauncherMain {
             sourceDigest: KernelWorkspaceXPC.sha256Hex(sourceData),
             manifestData: manifestData,
             sourceData: sourceData,
+            processExec: process.boolValue,
             readScope: readScope,
             writeScope: writeScope
         )
@@ -446,7 +450,9 @@ enum TrustedWorkspaceLauncherMain {
            !AgentHostProtocol.proposalMatchesActive(proposal, active: activeBinding) {
             throw LauncherError.operationRejected("stale_proposal")
         }
-        let selectedNewWorkspace = workspace == nil
+        let workspaceRequired = active.processExec
+            || !active.readScope.isEmpty || !active.writeScope.isEmpty
+        let selectedNewWorkspace = workspaceRequired && workspace == nil
         if selectedNewWorkspace {
             let selected = try TrustedWorkspacePicker.selectWorkspace(
                 message: "Choose the workspace for the active Plugin."
@@ -457,46 +463,59 @@ enum TrustedWorkspaceLauncherMain {
             }
             workspace = selected
         }
-        guard let selection = workspace else {
-            throw LauncherError.operationRejected("workspace_unavailable")
+        let selection = workspaceRequired ? workspace : nil
+        if let selection, !reviewable(selection.scopeURL.path) {
+            throw LauncherError.operationRejected("workspace_rejected")
         }
         var scopeReleased = false
         defer {
-            if selectedNewWorkspace && !scopeReleased {
+            if selectedNewWorkspace && !scopeReleased, let selection {
                 selection.scopeURL.stopAccessingSecurityScopedResource()
             }
         }
-        guard reviewable(selection.scopeURL.path) else {
-            throw LauncherError.operationRejected("workspace_rejected")
-        }
         let request = KernelWorkspaceXPC.PluginLifecycleRequest.run(
+            pluginID: active.identifier,
             candidateDigest: active.candidateDigest,
             manifestDigest: active.manifestDigest,
             scopeDigest: active.scopeDigest,
-            expectedGeneration: state.generation
+            expectedGeneration: state.generation,
+            inputJSON: proposal?.inputJSON,
+            workspaceRequired: workspaceRequired
         )
         let requestID = KernelWorkspaceXPC.newRequestID()
         let invocation = try KernelWorkspaceXPC.encodeInvocation(
             request: request,
             requestID: requestID,
-            bookmark: selection.bookmark
+            bookmark: selection?.bookmark
         )
-        let details = candidateDetails(
+        var details = candidateDetails(
             active,
             validity: approvalExpiry(active),
             generation: state.generation
         )
             + "\nThe Kernel will run this exact active Candidate in an isolated Runner."
+        let invocationInput = proposal?.inputJSON
+        if let invocationInput {
+            details += "\nExact invocation input (untrusted business data):\n"
+                + String(decoding: invocationInput, as: UTF8.self)
+        } else {
+            details += "\nExact invocation input: (none)"
+        }
+        if !workspaceRequired {
+            details += "\nThis Candidate uses Plugin state only; no workspace is selected."
+        }
         writeDiagnostic("plugin-run-review=presented")
         if proposal != nil {
             fputs("agent-plugin=approval-presented\n", stderr)
         }
         guard approvePluginAction(
             title: proposal == nil
-                ? "Run the active Plugin in this workspace?"
+                ? (workspaceRequired
+                    ? "Run the active Plugin in this workspace?"
+                    : "Run the active Plugin? It does not use a workspace.")
                 : "Allow the Agent to invoke this active Plugin?",
             action: "Run active Plugin once",
-            workspace: selection.scopeURL,
+            workspace: selection?.scopeURL,
             details: details,
             digest: KernelWorkspaceXPC.sha256Hex(invocation)
         ) else {
@@ -505,23 +524,23 @@ enum TrustedWorkspaceLauncherMain {
             }
             throw TrustedWorkspacePickerError.cancelled
         }
-        if selectedNewWorkspace {
+        if let selection {
             selection.scopeURL.stopAccessingSecurityScopedResource()
-            scopeReleased = true
+            if selectedNewWorkspace { scopeReleased = true }
+            try requireWorkspaceOpenResult(
+                workspace: selection.scopeURL,
+                fileName: ".",
+                flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
+                expectOpen: false,
+                mismatchCode: "plugin_picker_scope_retained",
+                unexpectedErrorCode: "plugin_picker_scope_release_failed"
+            )
+            writeDiagnostic("plugin-picker-scope=released")
         }
-        try requireWorkspaceOpenResult(
-            workspace: selection.scopeURL,
-            fileName: ".",
-            flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
-            expectOpen: false,
-            mismatchCode: "plugin_picker_scope_retained",
-            unexpectedErrorCode: "plugin_picker_scope_release_failed"
-        )
-        writeDiagnostic("plugin-picker-scope=released")
         let output = try invokePluginKernel(
             request,
             requestID: requestID,
-            bookmark: selection.bookmark
+            bookmark: selection?.bookmark
         )
         let result = try parseWorkspaceResult(output)
         guard result.returncode == 0 else {
@@ -656,7 +675,6 @@ enum TrustedWorkspaceLauncherMain {
               isDigest(scopeDigest),
               let processExec = value["process_exec"] as? NSNumber,
               CFGetTypeID(processExec) == CFBooleanGetTypeID(),
-              processExec.boolValue,
               let readScope = value["read_scope"] as? [String],
               let writeScope = value["write_scope"] as? [String],
               readScope.count + writeScope.count <= 8,
@@ -688,6 +706,7 @@ enum TrustedWorkspaceLauncherMain {
             candidateDigest: candidateDigest,
             manifestDigest: manifestDigest,
             scopeDigest: scopeDigest,
+            processExec: processExec.boolValue,
             readScope: readScope,
             writeScope: writeScope,
             approvedAt: approvedAt,
@@ -713,7 +732,8 @@ enum TrustedWorkspaceLauncherMain {
             + "Manifest SHA-256: \(candidate.manifestDigest)\n"
             + "Scope SHA-256: \(candidate.scopeDigest)\n"
             + "Expected slot generation: \(generation)\n"
-            + "Capability: process.exec\n"
+            + "process.exec: \(candidate.processExec ? "enabled" : "disabled")\n"
+            + "Plugin state: bounded read/replace blob owned by this logical Plugin\n"
             + "Readable paths:\n\(readPaths)\n"
             + "Committable paths:\n\(writePaths)\n"
             + "Approval validity: \(validity)"
@@ -1333,8 +1353,8 @@ enum TrustedWorkspaceLauncherMain {
             throw LauncherError.operationRejected("bundle_identity_unavailable")
         }
         let target = try connectKernel(bundleID: bundleID)
-        let snapshotBrokerEndpoint = bookmark == nil
-            ? nil : try KernelSnapshotBrokerBootstrapClient.endpoint()
+        let snapshotBrokerEndpoint = request.needsSnapshotBroker
+            ? try KernelSnapshotBrokerBootstrapClient.endpoint() : nil
         let reply = try KernelWorkspaceClient.request(
             target,
             requestID: requestID,
@@ -1364,7 +1384,11 @@ enum TrustedWorkspaceLauncherMain {
              "approval_expired", "candidate_corrupt", "candidate_missing",
              "candidate_store_failed", "invalid_rollback_target", "invalid_time",
              "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
-             "plugin_source_rejected", "stale_approval", "store_unavailable":
+             "plugin_source_rejected", "stale_approval", "store_unavailable",
+             "plugin_input_too_large", "plugin_invocation_unsupported",
+             "plugin_output_too_large", "plugin_state_corrupt",
+             "plugin_state_outcome_uncertain", "plugin_state_too_large",
+             "plugin_state_unavailable", "capability_denied":
             return code
         default:
             return safeWorkspaceErrorCode(code)

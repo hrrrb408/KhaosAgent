@@ -294,10 +294,13 @@ struct WorkspaceGrant {
         )
         let runID = KernelWorkspaceXPC.newRequestID()
         let runFrame = try KernelWorkspaceXPC.PluginLifecycleRequest.run(
+            pluginID: "fixture-plugin",
             candidateDigest: candidateA.candidateDigest,
             manifestDigest: candidateA.manifestDigest,
             scopeDigest: candidateA.scopeDigest,
-            expectedGeneration: 3
+            expectedGeneration: 3,
+            inputJSON: nil,
+            workspaceRequired: true
         ).encodeFrame(requestID: runID)
         try rejectUnbookmarkedWorkspaceRequest(
             endpoint: endpoint,

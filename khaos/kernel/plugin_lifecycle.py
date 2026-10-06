@@ -43,6 +43,9 @@ _READ_FLAGS = (
 _WRITE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(
     os, "O_NOFOLLOW", 0
 ) | getattr(os, "O_CLOEXEC", 0)
+_STATE_FILENAME = "state.json"
+_STATE_TEMP_PREFIX = ".state-"
+_STATE_TEMP_SUFFIX = ".tmp"
 
 
 class PluginLifecycleError(RuntimeError):
@@ -109,42 +112,24 @@ def _open_store(root: str | os.PathLike[str]) -> Iterator[tuple[int, int]]:
     candidates_fd = -1
     lock_fd = -1
     try:
-        try:
-            os.mkdir(path.name, 0o700, dir_fd=parent_fd)
-            os.fsync(parent_fd)
-        except FileExistsError:
-            pass
-        root_fd = os.open(path.name, _DIRECTORY_FLAGS, dir_fd=parent_fd)
-        _check_directory(root_fd, 0o700)
-        try:
-            lock_fd = os.open(
-                "activation.lock",
-                os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0),
-                0o600,
-                dir_fd=root_fd,
-            )
-            metadata = os.fstat(lock_fd)
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_nlink != 1
-                or metadata.st_uid != os.getuid()
-                or stat.S_IMODE(metadata.st_mode) != 0o600
-                or metadata.st_size != 0
-            ):
-                raise PluginLifecycleError("activation_state_corrupt")
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        except PluginLifecycleError:
-            raise
-        except OSError as exc:
-            raise PluginLifecycleError("activation_state_unavailable") from exc
-        try:
-            os.mkdir("candidates", 0o700, dir_fd=root_fd)
-            os.fsync(root_fd)
-        except FileExistsError:
-            pass
-        candidates_fd = os.open("candidates", _DIRECTORY_FLAGS, dir_fd=root_fd)
-        _check_directory(candidates_fd, 0o700)
+        root_fd = _open_owned_directory_at(
+            parent_fd,
+            path.name,
+            unavailable_code="store_unavailable",
+            corrupt_code="store_unavailable",
+        )
+        lock_fd = _open_store_lock(
+            root_fd,
+            "activation.lock",
+            unavailable_code="activation_state_unavailable",
+            corrupt_code="activation_state_corrupt",
+        )
+        candidates_fd = _open_owned_directory_at(
+            root_fd,
+            "candidates",
+            unavailable_code="store_unavailable",
+            corrupt_code="store_unavailable",
+        )
         yield root_fd, candidates_fd
     except PluginLifecycleError:
         raise
@@ -161,6 +146,148 @@ def _open_store(root: str | os.PathLike[str]) -> Iterator[tuple[int, int]]:
         if root_fd >= 0:
             os.close(root_fd)
         os.close(parent_fd)
+
+
+@contextmanager
+def _open_plugin_state_directory(
+    state_root: str | os.PathLike[str], plugin_id: str
+) -> Iterator[int]:
+    """Open the Kernel-owned state domain selected by a validated Plugin ID."""
+    if type(plugin_id) is not str or _PLUGIN_ID.fullmatch(plugin_id) is None:
+        raise PluginLifecycleError("plugin_state_unavailable")
+    path = Path(state_root)
+    if not path.is_absolute() or path.name in ("", ".", ".."):
+        raise PluginLifecycleError("plugin_state_unavailable")
+    try:
+        parent = path.parent.resolve(strict=True)
+        parent_fd = os.open(parent, _DIRECTORY_FLAGS)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise PluginLifecycleError("plugin_state_unavailable") from exc
+
+    root_fd = -1
+    plugin_fd = -1
+    lock_fd = -1
+    try:
+        root_fd = _open_owned_directory_at(
+            parent_fd,
+            path.name,
+            unavailable_code="plugin_state_unavailable",
+            corrupt_code="plugin_state_corrupt",
+        )
+        plugin_fd = _open_owned_directory_at(
+            root_fd,
+            plugin_id,
+            unavailable_code="plugin_state_unavailable",
+            corrupt_code="plugin_state_corrupt",
+        )
+        lock_fd = _open_store_lock(
+            plugin_fd,
+            ".lock",
+            unavailable_code="plugin_state_unavailable",
+            corrupt_code="plugin_state_corrupt",
+        )
+        _remove_orphaned_state_temps(plugin_fd)
+        yield plugin_fd
+    except PluginLifecycleError:
+        raise
+    except OSError as exc:
+        raise PluginLifecycleError("plugin_state_unavailable") from exc
+    finally:
+        if lock_fd >= 0:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(lock_fd)
+        if plugin_fd >= 0:
+            os.close(plugin_fd)
+        if root_fd >= 0:
+            os.close(root_fd)
+        os.close(parent_fd)
+
+
+def read_plugin_state(
+    state_root: str | os.PathLike[str], plugin_id: str
+) -> bytes | None:
+    """Read one opaque, bounded business-state blob for a logical Plugin."""
+    from ..ipc import MAX_PLUGIN_STATE_BYTES
+
+    with _open_plugin_state_directory(state_root, plugin_id) as directory_fd:
+        try:
+            descriptor = os.open(_STATE_FILENAME, _READ_FLAGS, dir_fd=directory_fd)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise PluginLifecycleError("plugin_state_corrupt") from exc
+        try:
+            before = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or before.st_uid != os.getuid()
+                or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_size > MAX_PLUGIN_STATE_BYTES
+            ):
+                raise PluginLifecycleError("plugin_state_corrupt")
+            data = _read_descriptor(descriptor, MAX_PLUGIN_STATE_BYTES + 1)
+            after = os.fstat(descriptor)
+            if (
+                len(data) != before.st_size
+                or len(data) > MAX_PLUGIN_STATE_BYTES
+                or before.st_dev != after.st_dev
+                or before.st_ino != after.st_ino
+                or before.st_size != after.st_size
+                or before.st_mtime_ns != after.st_mtime_ns
+                or before.st_ctime_ns != after.st_ctime_ns
+                or before.st_nlink != after.st_nlink
+            ):
+                raise PluginLifecycleError("plugin_state_corrupt")
+            return data
+        except OSError as exc:
+            raise PluginLifecycleError("plugin_state_unavailable") from exc
+        finally:
+            os.close(descriptor)
+
+
+def replace_plugin_state(
+    state_root: str | os.PathLike[str], plugin_id: str, data: bytes
+) -> None:
+    """Durably replace one opaque state blob; interruption leaves old or new bytes."""
+    from ..ipc import MAX_PLUGIN_STATE_BYTES
+
+    if type(data) is not bytes or len(data) > MAX_PLUGIN_STATE_BYTES:
+        raise PluginLifecycleError("plugin_state_too_large")
+    with _open_plugin_state_directory(state_root, plugin_id) as directory_fd:
+        _atomic_replace_at(
+            directory_fd,
+            _STATE_FILENAME,
+            data,
+            temp_prefix=_STATE_TEMP_PREFIX,
+            unavailable_code="plugin_state_unavailable",
+            uncertain_code="plugin_state_outcome_uncertain",
+        )
+
+
+def _remove_orphaned_state_temps(directory_fd: int) -> None:
+    """Bound crash residue without following or removing unrelated entries."""
+    for name in os.listdir(directory_fd):
+        if not (
+            name.startswith(_STATE_TEMP_PREFIX)
+            and name.endswith(_STATE_TEMP_SUFFIX)
+            and len(name) == len(_STATE_TEMP_PREFIX) + 32 + len(_STATE_TEMP_SUFFIX)
+            and all(character in "0123456789abcdef" for character in name[len(_STATE_TEMP_PREFIX):-len(_STATE_TEMP_SUFFIX)])
+        ):
+            continue
+        try:
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if (
+                stat.S_ISREG(metadata.st_mode)
+                and metadata.st_nlink == 1
+                and metadata.st_uid == os.getuid()
+            ):
+                os.unlink(name, dir_fd=directory_fd)
+        except FileNotFoundError:
+            continue
+    os.fsync(directory_fd)
 
 
 def admit_candidate(
@@ -384,7 +511,7 @@ def _parse_manifest(data: bytes) -> PluginManifest:
         or value["abi_version"] != 6
         or type(plugin_id) is not str
         or _PLUGIN_ID.fullmatch(plugin_id) is None
-        or value["process_exec"] is not True
+        or type(value["process_exec"]) is not bool
         or type(read_paths) is not list
         or type(write_paths) is not list
         or any(type(path) is not str for path in read_paths + write_paths)
@@ -398,7 +525,7 @@ def _parse_manifest(data: bytes) -> PluginManifest:
         raise PluginLifecycleError("manifest_rejected") from exc
     return PluginManifest(
         plugin_id=plugin_id,
-        process_exec=True,
+        process_exec=value["process_exec"],
         read_scope=tuple(read_scope),
         write_scope=tuple(write_scope),
     )
@@ -688,33 +815,14 @@ def _write_state(root_fd: int, key: bytes, state: dict[str, object]) -> None:
         "state": state,
     }
     data = _canonical_json(envelope)
-    name = f".activation-{secrets.token_hex(16)}.tmp"
-    try:
-        descriptor = os.open(name, _WRITE_FLAGS, 0o600, dir_fd=root_fd)
-    except OSError as exc:
-        raise PluginLifecycleError("activation_state_unavailable") from exc
-    replaced = False
-    try:
-        _write_all(descriptor, data)
-        os.fchmod(descriptor, 0o600)
-        os.fsync(descriptor)
-        os.close(descriptor)
-        descriptor = -1
-        os.replace(name, "activation.json", src_dir_fd=root_fd, dst_dir_fd=root_fd)
-        replaced = True
-        os.fsync(root_fd)
-    except OSError as exc:
-        raise PluginLifecycleError(
-            "activation_outcome_uncertain" if replaced else "activation_state_unavailable"
-        ) from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        if not replaced:
-            try:
-                os.unlink(name, dir_fd=root_fd)
-            except OSError:
-                pass
+    _atomic_replace_at(
+        root_fd,
+        "activation.json",
+        data,
+        temp_prefix=".activation-",
+        unavailable_code="activation_state_unavailable",
+        uncertain_code="activation_outcome_uncertain",
+    )
 
 
 def _validate_state(value: object) -> dict[str, object]:
@@ -810,14 +918,125 @@ def _require_same_candidate(left: PluginCandidate, right: PluginCandidate) -> No
         raise PluginLifecycleError("candidate_corrupt")
 
 
-def _check_directory(descriptor: int, expected_mode: int) -> None:
+def _check_directory(
+    descriptor: int,
+    expected_mode: int,
+    *,
+    corrupt_code: str = "store_unavailable",
+) -> None:
     metadata = os.fstat(descriptor)
     if (
         not stat.S_ISDIR(metadata.st_mode)
         or metadata.st_uid != os.getuid()
         or stat.S_IMODE(metadata.st_mode) != expected_mode
     ):
-        raise PluginLifecycleError("store_unavailable")
+        raise PluginLifecycleError(corrupt_code)
+
+
+def _open_owned_directory_at(
+    parent_fd: int,
+    name: str,
+    *,
+    unavailable_code: str,
+    corrupt_code: str,
+) -> int:
+    try:
+        os.mkdir(name, 0o700, dir_fd=parent_fd)
+        os.fsync(parent_fd)
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        raise PluginLifecycleError(unavailable_code) from exc
+    try:
+        descriptor = os.open(name, _DIRECTORY_FLAGS, dir_fd=parent_fd)
+    except OSError as exc:
+        raise PluginLifecycleError(unavailable_code) from exc
+    try:
+        _check_directory(descriptor, 0o700, corrupt_code=corrupt_code)
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _open_store_lock(
+    directory_fd: int,
+    name: str,
+    *,
+    unavailable_code: str,
+    corrupt_code: str,
+) -> int:
+    try:
+        descriptor = os.open(
+            name,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+    except OSError as exc:
+        raise PluginLifecycleError(unavailable_code) from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_uid != os.getuid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_size != 0
+        ):
+            raise PluginLifecycleError(corrupt_code)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        return descriptor
+    except PluginLifecycleError:
+        os.close(descriptor)
+        raise
+    except OSError as exc:
+        os.close(descriptor)
+        raise PluginLifecycleError(unavailable_code) from exc
+
+
+def _atomic_replace_at(
+    directory_fd: int,
+    target_name: str,
+    data: bytes,
+    *,
+    temp_prefix: str,
+    unavailable_code: str,
+    uncertain_code: str,
+) -> None:
+    name = f"{temp_prefix}{secrets.token_hex(16)}.tmp"
+    try:
+        descriptor = os.open(name, _WRITE_FLAGS, 0o600, dir_fd=directory_fd)
+    except OSError as exc:
+        raise PluginLifecycleError(unavailable_code) from exc
+    replaced = False
+    try:
+        _write_all(descriptor, data)
+        os.fchmod(descriptor, 0o600)
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = -1
+        os.replace(
+            name,
+            target_name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+        replaced = True
+        os.fsync(directory_fd)
+    except OSError as exc:
+        raise PluginLifecycleError(
+            uncertain_code if replaced else unavailable_code
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if not replaced:
+            try:
+                os.unlink(name, dir_fd=directory_fd)
+            except OSError:
+                pass
 
 
 def _empty_state() -> dict[str, object]:

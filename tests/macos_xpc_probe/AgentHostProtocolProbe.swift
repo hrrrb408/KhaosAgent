@@ -61,6 +61,52 @@ enum AgentHostProtocolProbe {
             "matching Plugin proposal did not bind to fresh state"
         )
 
+        let businessInput = Data(#"{"key":"project","operation":"remember","value":"Project K"}"#.utf8)
+        let inputProposal = AgentPluginBinding(
+            pluginID: active.pluginID,
+            candidateDigest: active.candidateDigest,
+            generation: active.generation,
+            inputJSON: businessInput
+        )
+        let inputFrame = try AgentHostProtocol.encodeReply(.plugin(inputProposal))
+        guard case let .plugin(decodedProposal)? = AgentHostProtocol.decodeReply(inputFrame) else {
+            fatalError("bounded business input proposal was rejected")
+        }
+        require(
+            decodedProposal.inputJSON == businessInput
+                && AgentHostProtocol.proposalMatchesActive(decodedProposal, active: active),
+            "input changed the active authority binding or was not preserved"
+        )
+        let maximumDepthInput = Data(#"{"a":{"b":{"c":{"d":{"e":{}}}}}}"#.utf8)
+        let depthBoundProposal = AgentPluginBinding(
+            pluginID: active.pluginID,
+            candidateDigest: active.candidateDigest,
+            generation: active.generation,
+            inputJSON: maximumDepthInput
+        )
+        let depthBoundFrame = try AgentHostProtocol.encodeReply(.plugin(depthBoundProposal))
+        guard case let .plugin(depthBoundDecoded)? = AgentHostProtocol.decodeReply(depthBoundFrame) else {
+            fatalError("maximum-depth business input was rejected")
+        }
+        require(
+            depthBoundDecoded.inputJSON == maximumDepthInput,
+            "maximum-depth business input changed across the Host boundary"
+        )
+        let oversizedInput = Data(
+            ("{\"value\":\"" + String(repeating: "x", count: 9_000) + "\"}").utf8
+        )
+        do {
+            _ = try AgentHostProtocol.encodeReply(.plugin(AgentPluginBinding(
+                pluginID: active.pluginID,
+                candidateDigest: active.candidateDigest,
+                generation: active.generation,
+                inputJSON: oversizedInput
+            )))
+            fatalError("oversized Plugin input was accepted")
+        } catch AgentHostProtocolError.invalidResponse {
+            // The Host proposal remains bounded before reaching the Launcher.
+        }
+
         let forgedDigest = AgentPluginBinding(
             pluginID: active.pluginID,
             candidateDigest: String(repeating: "b", count: 64),
@@ -96,6 +142,7 @@ enum AgentHostProtocolProbe {
             "write_scope": ["private.txt"],
             "capability": "process.exec",
             "approval": true,
+            "state_path": "/tmp/other-plugin-state",
         ] as [String: Any]
         for (key, value) in forbidden {
             var injected: [String: Any] = [
@@ -104,6 +151,7 @@ enum AgentHostProtocolProbe {
                 "plugin_id": active.pluginID,
                 "candidate_digest": active.candidateDigest,
                 "generation": active.generation,
+                "input": NSNull(),
             ]
             injected[key] = value
             require(

@@ -9,7 +9,7 @@ import Foundation
 
 enum KernelWorkspaceXPC {
     static let version = 8
-    static let operationProtocolVersion = 9
+    static let operationProtocolVersion = 10
     static let maximumMessageBytes = 64 * 1024
     static let transferLengthBytes = 4
     static let maximumRequestFrameBytes = maximumMessageBytes + transferLengthBytes
@@ -17,6 +17,8 @@ enum KernelWorkspaceXPC {
     static let maximumWorkspaceScopePaths = 128
     static let maximumWorkspaceScopeBytes = 4 * 1024
     static let maximumWorkspacePathDepth = 64
+    static let maximumPluginInputBytes = 8 * 1024
+    static let maximumPluginInputDepth = 6
     private static let transferTimeout: TimeInterval = 5
 
     struct WorkspaceRunRequest {
@@ -71,13 +73,23 @@ enum KernelWorkspaceXPC {
             expectedGeneration: Int
         )
         case run(
+            pluginID: String,
             candidateDigest: String,
             manifestDigest: String,
             scopeDigest: String,
-            expectedGeneration: Int
+            expectedGeneration: Int,
+            inputJSON: Data?,
+            workspaceRequired: Bool
         )
 
         var needsBookmark: Bool {
+            if case let .run(_, _, _, _, _, _, workspaceRequired) = self {
+                return workspaceRequired
+            }
+            return false
+        }
+
+        var needsSnapshotBroker: Bool {
             if case .run = self { return true }
             return false
         }
@@ -117,14 +129,23 @@ enum KernelWorkspaceXPC {
                     scope: scope,
                     generation: generation
                 )
-            case let .run(candidate, manifest, scope, generation):
+            case let .run(pluginID, candidate, manifest, scope, generation, inputJSON, workspaceRequired):
                 operation = "plugin.run"
-                payload = try KernelWorkspaceXPC.approvalPayload(
+                var value = try KernelWorkspaceXPC.approvalPayload(
                     candidate: candidate,
                     manifest: manifest,
                     scope: scope,
                     generation: generation
                 )
+                guard KernelWorkspaceXPC.validPluginID(pluginID),
+                      let input = KernelWorkspaceXPC.pluginInputObject(inputJSON)
+                else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+                }
+                value["plugin_id"] = pluginID
+                value["input"] = input
+                value["workspace_required"] = workspaceRequired
+                payload = value
             }
             return try KernelWorkspaceXPC.encodeFrame(
                 operation: operation,
@@ -142,6 +163,13 @@ enum KernelWorkspaceXPC {
             switch self {
             case .workspaceRun: return true
             case let .pluginLifecycle(request): return request.needsBookmark
+            }
+        }
+
+        var needsSnapshotBroker: Bool {
+            switch self {
+            case .workspaceRun: return true
+            case let .pluginLifecycle(request): return request.needsSnapshotBroker
             }
         }
 
@@ -354,6 +382,33 @@ enum KernelWorkspaceXPC {
 
     static func runnerSourceSHA256(_ source: String) -> String {
         sha256Hex(Data(source.utf8))
+    }
+
+    static func validPluginID(_ value: String) -> Bool {
+        value.range(
+            of: #"^[a-z][a-z0-9-]{0,63}$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private static func pluginInputObject(_ data: Data?) -> Any? {
+        guard let data else { return NSNull() }
+        guard !data.isEmpty,
+              data.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                data,
+                maximumDepth: maximumPluginInputDepth
+              ),
+              let value = try? JSONSerialization.jsonObject(with: data),
+              let object = value as? [String: Any],
+              let canonical = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              canonical == data else {
+            return nil
+        }
+        return object
     }
 
     static func sha256Hex(_ data: Data) -> String {
@@ -679,7 +734,7 @@ enum KernelWorkspaceXPC {
                   String(data: source, encoding: .utf8) != nil
             else { return nil }
             return .admit(manifest: manifest, source: source)
-        case "plugin.activate", "plugin.rollback", "plugin.run":
+        case "plugin.activate", "plugin.rollback":
             guard Set(payload.keys) == [
                 "candidate_digest", "manifest_digest", "scope_digest",
                 "expected_generation",
@@ -703,19 +758,40 @@ enum KernelWorkspaceXPC {
                     expectedGeneration: generation
                 )
             }
-            if operation == "plugin.run" {
-                return .run(
-                    candidateDigest: candidate,
-                    manifestDigest: manifest,
-                    scopeDigest: scope,
-                    expectedGeneration: generation
-                )
-            }
             return .rollback(
                 candidateDigest: candidate,
                 manifestDigest: manifest,
                 scopeDigest: scope,
                 expectedGeneration: generation
+            )
+        case "plugin.run":
+            guard Set(payload.keys) == [
+                "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
+                "expected_generation", "input", "workspace_required",
+            ],
+            let pluginID = payload["plugin_id"] as? String,
+            validPluginID(pluginID),
+            let candidate = payload["candidate_digest"] as? String,
+            let manifest = payload["manifest_digest"] as? String,
+            let scope = payload["scope_digest"] as? String,
+            let generation = integer(payload["expected_generation"]),
+            (try? validateApprovalBinding(
+                candidate: candidate,
+                manifest: manifest,
+                scope: scope,
+                generation: generation
+            )) != nil,
+            let workspaceRequired = boolean(payload["workspace_required"]),
+            let input = pluginInputData(payload["input"])
+            else { return nil }
+            return .run(
+                pluginID: pluginID,
+                candidateDigest: candidate,
+                manifestDigest: manifest,
+                scopeDigest: scope,
+                expectedGeneration: generation,
+                inputJSON: input,
+                workspaceRequired: workspaceRequired
             )
         case "plugin.state":
             guard payload.isEmpty else { return nil }
@@ -757,13 +833,33 @@ enum KernelWorkspaceXPC {
         ]
     }
 
+    private static func pluginInputData(_ value: Any?) -> Data?? {
+        if value is NSNull { return .some(nil) }
+        guard let object = value as? [String: Any],
+              let data = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              data.count <= maximumPluginInputBytes,
+              isJSONNestingWithinLimit(
+                data,
+                maximumDepth: maximumPluginInputDepth
+              ) else {
+            return nil
+        }
+        return .some(data)
+    }
+
     private static func isDigest(_ value: String) -> Bool {
         value.utf8.count == 64 && value.utf8.allSatisfy {
             (48...57).contains($0) || (97...102).contains($0)
         }
     }
 
-    static func isJSONNestingWithinLimit(_ data: Data) -> Bool {
+    static func isJSONNestingWithinLimit(
+        _ data: Data,
+        maximumDepth: Int = maximumJSONNestingDepth
+    ) -> Bool {
         var depth = 0
         var inString = false
         var escaped = false
@@ -785,7 +881,7 @@ enum KernelWorkspaceXPC {
                 inString = true
             case 0x7b, 0x5b:
                 depth += 1
-                guard depth <= maximumJSONNestingDepth else { return false }
+                guard depth <= maximumDepth else { return false }
             case 0x7d, 0x5d:
                 depth -= 1
                 guard depth >= 0 else { return false }

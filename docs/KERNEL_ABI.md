@@ -1,10 +1,12 @@
-# Kernel Runner ABI v6
+# Kernel Runner ABI v7
 
 This document records the current development ABI between the one-shot Kernel
-worker and its isolated Runner. Runner ABI v6 executes one untrusted Python
-`run()` entrypoint. The separate native Workspace XPC operation ABI v9 now
-provides a minimal, fixed-slot Candidate lifecycle around that Runner. This is
-Seed product behavior, not a complete production Plugin platform.
+worker and its isolated Runner. Runner ABI v7 executes one untrusted Python
+`run()` entrypoint and adds bounded Plugin input, opaque logical-Plugin state,
+and bounded Plugin output to the existing Runner path. The separate native
+Workspace XPC operation ABI v10 provides a minimal, fixed-slot Candidate
+lifecycle and state-only invocation around that Runner. This is Seed product
+behavior, not a complete production Plugin platform.
 
 The transport, session, operation, and Native macOS Workspace XPC sections below
 define the current normative wire contracts. The dated sections after the ABI
@@ -19,7 +21,8 @@ before framed messages begin. Pipes do not carry descriptor-passing ancillary
 data. The Runner SDK reads replies from standard input and writes requests to
 standard output; its public functions do not accept descriptor overrides.
 After the ping, the Kernel sends one `plugin.start` frame containing up to
-10 KiB of UTF-8 source. The Runner executes it inside its Seatbelt process;
+10 KiB of UTF-8 source and, for a product Plugin invocation, one optional
+bounded JSON object input. The Runner executes it inside its Seatbelt process;
 Python source execution is not itself a security boundary.
 The product `--plugin-install` path captures a strict Manifest and source
 through a trusted package Picker and asks the Kernel to admit an immutable,
@@ -28,7 +31,10 @@ Candidate, Manifest, and normalized capability-scope digests at the reviewed
 slot generation. The Kernel fixes the slot to `primary` and validity to 30 days.
 `--plugin-run` asks the Kernel to load source and scopes from that active slot;
 the request cannot supply either. `--plugin-rollback` routes future runs to the
-verified previous Candidate. Runner ABI v6 remains unchanged.
+verified previous Candidate. Product Plugin input is untrusted business data,
+not authority. The Kernel retains the Plugin state root and logical `plugin_id`
+separately from Candidate code and activation metadata; Runner state operations
+have no namespace or path argument.
 
 The Runner Seatbelt profile is default-deny and grants no Mach service lookup;
 it permits only the exact private AF_UNIX peer socket. A real macOS attack test
@@ -42,52 +48,54 @@ tests exercise peer-identity rejection.
 Each request has exactly these fields:
 
 ```json
-{"version":6,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
+{"version":7,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
 ```
 
 Each response is either:
 
 ```json
-{"version":6,"request_id":"...","ok":true,"result":{}}
+{"version":7,"request_id":"...","ok":true,"result":{}}
 ```
 
 or:
 
 ```json
-{"version":6,"request_id":"...","ok":false,"error":{"code":"..."}}
+{"version":7,"request_id":"...","ok":false,"error":{"code":"..."}}
 ```
 
-Frames are limited to 64 KiB and eight structural JSON nesting levels. The
-depth check ignores braces and brackets inside JSON strings and does not rely
-on the Python decoder's recursion behavior. Calls use bounded receive and send
-deadlines; `process.exec` is capped at 30 seconds, and a Runner session accepts
-at most 128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
+Frames are limited to 64 KiB and eight structural JSON nesting levels. Plugin
+input is limited to 8 KiB and six structural nesting levels. State blobs are
+limited to 32 KiB; Plugin output is limited to 8 KiB. The depth check ignores
+braces and brackets inside JSON strings and does not rely on the Python
+decoder's recursion behavior. Calls use bounded receive and send deadlines;
+`process.exec` is capped at 30 seconds, and a Runner session accepts at most
+128 filesystem requests and 32 Plugin state requests.
 
 ## Session order
 
 1. The Kernel sends `ping`; the Runner validates the nonce and responds.
-2. The Kernel sends one `plugin.start` frame with the bounded source. The
-   Runner requires a module-level `run()` entrypoint and executes it in the
-   isolated Runner process. This is a development path; it does not admit or
-   activate a Candidate.
-3. The Runner may issue up to 128 `fs.read`, `fs.list`, and `fs.write` requests
-   against the Kernel-retained snapshot. The Kernel checks reads against the
-   launcher's read scope. The separate exact-path `workspace_write_scope`
-   limits Runner SDK `fs.write` and every path in the final changeset. An empty
-   list denies SDK writes and any nonempty commit. `process.exec` can still
-   write anywhere in the private snapshot; the Kernel rejects the whole commit
-   before live mutation if any changed path is outside the retained scope.
-   The Runner cannot change either scope.
-4. The Runner issues exactly one `process.exec` request with only an `argv` list.
-   The Kernel validates its argument count and encoded size, then retains the
-   timeout, cwd, environment, snapshot, read scope, and sandbox policy. The
-   trusted workspace session implicitly enables this operation; it is not a
-   Plugin identity-bound capability grant. `process.cancel` is accepted only
-   while this request is active and is bound to its request ID. A real macOS
-   attack adds `workspace` beside `argv`; Broker schema tests also reject
-   caller-supplied cwd, environment, timeout, and scope fields before spawn.
-5. After command execution, the Runner may send `workspace.commit`; the Kernel
-   validates the retained snapshot before any writeback.
+2. The Kernel sends one `plugin.start` frame with bounded source and optionally
+   a bounded JSON object input. Source-only development runs call `run()`;
+   product Plugin invocations with input call `run(input)` and must return one
+   JSON object through `plugin.output`.
+3. A product Plugin may issue up to 32 `state.read` / `state.replace` requests
+   and up to 128 scoped filesystem requests through the same Runner pipe. The
+   Kernel supplies the logical Plugin identity from the active Candidate and
+   the private state root from trusted product configuration. Neither state
+   operations nor Plugin input can select a namespace or path. State contents
+   are opaque to the Kernel.
+4. Workspace-capable runs retain the existing scoped `fs.read`, `fs.list`,
+   `fs.write`, optional `process.exec`, and `workspace.commit` flow. The Kernel
+   enables `process.exec` only when the active Manifest allows it. It retains
+   timeout, cwd, environment, snapshot, scopes, and sandbox policy. The Runner
+   cannot change those values. `process.cancel` remains bound to the active
+   command request ID.
+5. A state-only product Plugin has no workspace bookmark, read scope, write
+   scope, or `process.exec`. It uses the existing Worker and Seatbelt Runner
+   against an empty private snapshot, returns its bounded Plugin output, and
+   ends with a zero-entry changeset; it does not send `workspace.commit`.
+6. When a workspace-capable run sends `workspace.commit`, the Kernel validates
+   the retained snapshot before any writeback.
    Broker tests verify that a nonempty `workspace.commit` payload receives
    `invalid_request`; a real macOS Seatbelt integration attack lets the
    Runner-selected command write an uncommitted snapshot file, then sends a
@@ -101,7 +109,7 @@ at most 128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
    trusted commit result; a real macOS test confirms a Runner that spins forever
    after commit is killed while the committed file and success result are kept.
 
-The v6 session accepts command `argv`, but does not accept a caller-selected
+The v7 session accepts command `argv`, but does not accept a caller-selected
 workspace, cwd, environment, directory descriptor, read/write scope, capability
 string, or approval boolean from the Runner. The selected workspace and snapshot
 remain trusted parent state. The current one-shot operation order and scope do
@@ -188,11 +196,54 @@ Plugin-bound capability grant.
 
 ### `plugin.start` (Kernel to Runner)
 
-The payload is `{"source":"..."}` with a nonempty source string no larger than
-10 KiB when encoded as UTF-8. The Runner executes a module-level `run()` inside
-its own process. The Kernel does not import or compile the source. The source
-is untrusted; OS Seatbelt restrictions and Kernel-side IPC validation remain
-the enforcement boundary.
+The source-only payload is `{"source":"..."}`. A product invocation uses
+`{"source":"...","input":{...}}`. Source is nonempty and no larger than
+10 KiB encoded as UTF-8. Optional input is a JSON object, no larger than 8 KiB
+in canonical UTF-8 JSON and at most six structural nesting levels. The Kernel
+validates only encoding, framing, size, and nesting; it does not interpret
+operation names or business fields. The Runner executes a module-level
+`run()` or `run(input)` inside its own process. The Kernel does not import or
+compile the source. Source and input are untrusted; OS Seatbelt restrictions
+and Kernel-side IPC validation remain the enforcement boundary.
+
+### `state.read`
+
+Request payload is exactly `{}`. The Runner SDK accepts no Plugin ID, namespace,
+path, or lifecycle selector. The Kernel binds the request to the logical Plugin
+ID retained from the verified active Candidate. A successful response is
+`{"present":true,"data_base64":"..."}` or, when no blob exists,
+`{"present":false,"data_base64":""}`. Decoded state is an opaque blob of at
+most 32 KiB. The Kernel does not parse its business schema.
+
+### `state.replace`
+
+Request payload is exactly `{"data_base64":"..."}`. Decoded content is at
+most 32 KiB and must use canonical base64. The Kernel serializes access to the
+logical Plugin's private state file and atomically replaces the complete blob:
+write a private temporary file, `fsync` it, rename it over the prior file, and
+`fsync` the containing directory. A crash before replacement leaves the prior
+blob; a crash after replacement leaves the new blob. If durability is uncertain,
+the Kernel reports `plugin_state_outcome_uncertain` and fails closed. It rejects
+symlinks, hard links, wrong owners or modes, oversized files, and malformed
+state-domain directories.
+
+The private state root is separate from the Candidate store, activation record,
+and workspace. It is namespaced first by the signed caller requirement and then
+by the validated logical Plugin ID, not by Candidate digest or generation.
+Candidate A and its replacement Candidate B therefore use the same state for
+the same `plugin_id`; another Plugin ID resolves to a different directory.
+Neither Runner nor Agent Host receives the state path. The state root is
+user-owned Application Support data and is not protected from arbitrary hostile
+same-UID software that can modify that directory.
+
+### `plugin.output`
+
+Request payload is exactly `{"data_base64":"..."}`. The decoded result must be
+canonical UTF-8 JSON whose top-level value is an object, no larger than 8 KiB
+and no deeper than the general eight-level frame limit. The Kernel validates
+only generic framing and JSON properties. It returns this value to the Agent
+Host as untrusted data; it is not an authoritative evaluation or state result.
+The operation is terminal for that Plugin invocation.
 
 ### `fs.read`
 
@@ -381,7 +432,8 @@ before retrying or cleaning them.
 The Runner cannot open the snapshot directly. `fs.read` and `fs.list` are
 explicit Kernel-mediated data flows; their results are still untrusted workspace
 data. They do not classify secrets and do not authorize sending content to a
-remote model. Runner ABI v6 itself has no Plugin identity or capability handle.
+remote model. Runner ABI v7 retains a trusted logical Plugin ID only in the
+Kernel Broker; it is not sent to the Runner as an identity or namespace field.
 The development `workspace.run` path still enables `process.exec` for one
 trusted workspace request. The product `plugin.run` wrapper resolves source and
 scope from the active Candidate inside the trusted Kernel before invoking this
@@ -389,7 +441,7 @@ ABI. The local Agent Host never calls lifecycle operations directly. The trusted
 Launcher reads `plugin.state`, shares only minimal active-Candidate metadata with
 the Host, and revalidates a returned Plugin proposal before approval.
 
-## Native macOS Workspace XPC operation ABI v9
+## Native macOS Workspace XPC operation ABI v10
 
 `khaos/macos/KernelWorkspaceXPC.swift` contains the shared bounded wire,
 bookmark-transfer implementation, and `KernelWorkspaceBootstrapEndpoint` protocol
@@ -400,7 +452,7 @@ executor callback. `khaos/macos/KernelWorkspacePythonExecutor.swift` is the shar
 fixed executor: it starts the bundled Python bridge in a separate process and passes
 only the request stream, pinned workspace-root descriptor, and request-bound
 cancellation descriptor. `khaos/kernel/workspace_xpc_bridge.py` validates the bounded
-Workspace XPC v9 envelope and calls the current Runner IPC v6
+Workspace XPC v10 envelope and calls the current Runner IPC v7
 `run_workspace_command()` path. The bounded `workspace.run` payload carries a
 separate `workspace_write_scope`; the product Launcher source supplies one
 generated marker path and makes its fixed Runner verify an exact `fs.write` plus
@@ -483,7 +535,7 @@ client-side use in the [`NSXPCConnection.setCodeSigningRequirement` example](htt
 ### Candidate lifecycle operations
 
 The outer `NSXPC` method version remains `8`; the JSON operation envelope and
-bridge response version are `9`. The exact operation schemas are:
+bridge response version are `10`. The exact operation schemas are:
 
 | Operation | Exact payload | Workspace bookmark | Kernel behavior |
 |---|---|---:|---|
@@ -492,11 +544,14 @@ bridge response version are `9`. The exact operation schemas are:
 | `plugin.activate` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Forbidden | Verify bindings and generation, then activate fixed `primary` slot for 30 days |
 | `plugin.state` | empty | Forbidden | Return verified active/previous metadata without source bytes |
 | `plugin.rollback` | the same four fields as activation | Forbidden | Verify the previous Candidate and generation, then route future runs to it |
-| `plugin.run` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Required | Match the reviewed active slot under the state lock; load source/scopes from Kernel state, then use the existing Broker/Runner/commit path with a fixed 30-second timeout |
+| `plugin.run` | `plugin_id`, `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation`, `input` (object or null), `workspace_required` | Required only for a Candidate with workspace scope or `process.exec` | Match active identity/digests/generation under the lifecycle lock; verify `workspace_required` against Manifest; state-only calls require an object input; pass bounded untrusted input and the retained Plugin ID into the existing Broker/Runner path |
 
 Lifecycle operations reject unexpected fields and transfer bytes. In
-particular, `plugin.run` accepts only the reviewed Candidate digests and slot
-generation, never source or scope from its caller. The Kernel checks those
+particular, `plugin.run` accepts only the reviewed Plugin identity,
+Candidate digests, generation, bounded business input, and a workspace-required
+bit; it never accepts source, state path, state namespace, or scope from its
+caller. An input object is accepted only on the no-workspace state-only route;
+workspace-capable runs carry `null`. The Kernel checks those
 bindings and resolves the Candidate under the same store lock, so a concurrent
 slot switch between confirmation and the run request fails as stale. Admission
 and activation use the same signed Launcher-to-Kernel XPC endpoint as workspace
@@ -508,6 +563,13 @@ retains active and previous Candidates, generation, approval ID, and fixed
 expiry. Its HMAC detects edits
 only while the key remains intact; the user-owned store does not resist an
 arbitrary same-UID process that can alter both key and data.
+
+Plugin business state lives under a separate per-caller-requirement
+`PluginState-*` root and a validated logical Plugin ID directory. It is one
+opaque bounded blob, separate from Candidate content and activation metadata.
+Candidate replacement keeps the state for the same logical `plugin_id`; a
+different Plugin ID resolves to a different directory. The Kernel state API
+does not parse Memory's canonical JSON format.
 
 The Launcher confirms exact Candidate, Manifest, and scope digests plus the
 fixed slot and validity before activation; the Kernel independently checks the
@@ -564,31 +626,34 @@ host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
 
 ### Agent Host Plugin invocation proposal
 
-The existing AgentHost XPC protocol is version 2. The Launcher includes only
+The AgentHost XPC protocol is version 3. The Launcher includes only
 `plugin_id`, `candidate_digest`, and `generation` (or `null`) in each user-turn
 and result frame. The Host may return `text`, a `shell` proposal, or a `plugin`
 proposal. The exact Plugin proposal fields are `plugin_id`, `candidate_digest`,
-and `generation`; extra fields are rejected. In particular, the Host cannot
-provide Runner source, Manifest bytes, read/write scopes, capability, approval,
-or lifecycle operation names. These metadata values identify a proposal and do
-not grant authority.
+`generation`, and a bounded JSON object `input`; extra fields are rejected. In
+particular, the Host cannot provide Runner source, Manifest bytes, read/write
+scopes, state namespace/path, capability, approval, or lifecycle operation
+names. These metadata values identify a proposal and do not grant authority.
 
 Before presenting an Agent proposal, the Launcher performs a fresh `plugin.state`
 read and requires all three proposal values to match the current active Candidate
 and slot generation. No active Candidate or any mismatch is denied as a stale
 proposal before workspace selection or approval. The approval dialog shows the
 actual Candidate, Manifest and scope digests, generation, capability and exact
-read/write paths from trusted state, plus the request digest. Only after approval
+read/write paths from trusted state, the exact canonical invocation input, and
+the request digest. Only after approval
 does the Launcher send the existing `plugin.run` request; source and scope remain
 resolved by the Kernel. If the slot changes after the Launcher's comparison,
 the Kernel's existing store-lock generation check rejects the stale run.
 
 The bounded `WorkspaceResult` returned from Plugin execution is encoded to at
-most 16 KiB before it is sent to the Host. The Host labels it untrusted model
+most 16 KiB before it is sent to the Host. Plugin output is untrusted model
 input. A user denial is returned as a denial result and does not submit
 `plugin.run`. The Host protocol has no activation, rollback, admission, or other
-lifecycle mutation response, and this path adds no Kernel IPC operation,
-trusted process, or persistent state.
+lifecycle mutation response. Stateful execution adds only the bounded Runner
+operations `state.read`, `state.replace`, and terminal `plugin.output`, plus a
+separate Plugin-owned state domain; it adds no trusted process or general
+storage framework.
 
 ### Product APFS snapshot broker handoff
 

@@ -1080,9 +1080,10 @@ structured error
 Plugin Runner 必须与 Host、Kernel 分进程运行。Runner 崩溃只能使该 Plugin
 失败，不能使 Kernel 或其他 Plugin 取得它的文件描述符、secret 或状态。
 
-当前开发 ABI v6 的精确请求顺序、字段、错误码和字节上限记录在
-`docs/KERNEL_ABI.md`。该契约不包含尚未实现的 Plugin identity、capability handle、
-用户 approval 或 Plugin admission。开发 launcher 可为 Kernel 的 `fs.read` / `fs.list` 设置默认 deny-all 的相对路径
+当前 Runner ABI v7 与原生 Workspace XPC operation ABI v10 的精确请求顺序、字段、
+错误码和字节上限记录在 `docs/KERNEL_ABI.md`。开发 `workspace.run` 路径仍不代表
+Plugin capability grant；产品 `plugin.run` 另外绑定已激活 Candidate 的 Plugin ID、
+内容摘要、Manifest scope 与 generation。开发 launcher 可为 Kernel 的 `fs.read` / `fs.list` 设置默认 deny-all 的相对路径
 read scope，并为 `fs.write` 设置独立的默认 deny-all 精确文件路径 scope；Runner
 不能更改这些 scope。`fs.write` 只写入 private snapshot，不直接修改 live workspace；
 产品 Launcher 的固定 smoke source 现已使用它。用户报告重新打开 Picker、选择
@@ -1105,10 +1106,47 @@ snapshot 之外的路径；Kernel 将整个 snapshot diff 当作不可信输入�
 private snapshot cwd、净化环境、workspace read scope 与 Seatbelt policy。该操作由当前
 trusted workspace session 隐式启用，尚无 Plugin identity-bound grant 或生产授权模型。
 
-ABI v6 的开发 Runner 在完成 Kernel peer 验证后接收一个不超过 10 KiB 的 `plugin.start`
+开发 Runner 在完成 Kernel peer 验证后接收一个不超过 10 KiB 的 `plugin.start`
 source frame，并在自身 Seatbelt 进程中执行其 `run()` entrypoint。Python `exec` 仅负责
-加载代码，不能作为隔离边界；此路径尚无 Candidate content/Manifest digest 锁定、用户
-activation approval 或按 Plugin scope 发放 capability。
+加载代码，不能作为隔离边界。产品 Candidate 路径使用已有 Launcher、Kernel 和 Runner，
+由 Kernel 在生命周期锁下重新验证 Candidate、Manifest scope 与 generation。
+
+### Memory Plugin v1：Plugin-owned persistent state
+
+第一个 stateful capability 是示例 `memory` Plugin，只实现 `remember`、`recall`、
+`forget`。它不是通用 Memory 或 Storage Framework，不包含 embedding、向量检索、
+memory graph、ranking、consolidation、reflection、自动摘要或云同步。
+
+Memory 的唯一持久业务状态是一个不超过 32 KiB 的 opaque blob。Kernel 只实现有界、
+原子、crash-safe 的 `state.read` 与 `state.replace`；state ABI 不暴露路径或 namespace，
+也不解析业务 schema。Runner 请求不携带 Plugin ID，Kernel 从已验证的 active Candidate
+绑定逻辑 Plugin ID。Host、Candidate 和 Runner 不能选择其他 namespace。状态文件位于与
+Candidate content、activation metadata 和 workspace 不同的 per-caller-requirement 私有
+Application Support 根目录下，并按逻辑 Plugin ID 分目录。Candidate digest 或 generation
+改变不会改变 state identity；不同 `plugin_id` 使用不同 state。Candidate source 保持只读。
+
+State replacement 使用同目录临时文件、`fsync`、原子 rename 与目录 `fsync`；中途崩溃后
+可见状态是旧 blob 或新 blob，无法确认持久化结果时 fail closed。状态损坏、越界或权限/链接
+属性不符合要求时拒绝读写。此用户所有的 state domain 不防御能够改写该目录的任意同 UID
+进程。
+
+Agent Host 可在当前 `plugin.run` invocation 中传一个最多 8 KiB、最多 6 层的 JSON object。
+它是 untrusted business data，不是 authority；exact input 与 Plugin identity、Candidate、
+Manifest、scope、generation 一起进入审批请求摘要。Kernel 只验证 UTF-8/JSON framing、大小
+和 nesting，不理解 `remember` 等业务语义。Runner 输出限制为 8 KiB 的 canonical JSON object，
+作为 untrusted data 返回 Agent Host。
+
+无 workspace scope 且 `process_exec: false` 的 state-only Candidate 不触发用户 workspace
+Picker。它仍走现有 Launcher → Kernel → Seatbelt Runner 链；Kernel 用空的 private snapshot
+承接现有 Runner interface，保留空 read/write scope，并拒绝 `process.exec`。这不增加第二套
+Runner、trusted process、数据库、依赖或 storage framework。Runner ABI 增加的最小操作为
+`state.read`、`state.replace` 与 terminal `plugin.output`；新 ABI 及签名产品验收命令见
+`docs/KERNEL_ABI.md`、`AGENTS.md`。
+
+Memory v1 的持久格式由 Plugin 自己拥有：canonical UTF-8 JSON
+`{"format":"khaos-memory-v1","items":{...}}`，按 UTF-8 key 排序，无空格。Kernel 将其
+视为 bytes。首版没有 schema migration；未来 Candidate 版本应直接读取该格式或单独提出
+显式格式变更。
 
 ---
 
