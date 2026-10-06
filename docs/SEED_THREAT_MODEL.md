@@ -233,27 +233,6 @@ also accepts OS denial at either socket creation or bind and verifies there is
 no partial live-workspace writeback. This is local repetition evidence, not a
 cross-host CI result.
 
-## 2026-10-07 PR CI Runner startup handshake
-
-PR #5 at head `d9ad4564818427febfa1e5c225de486cc540b03f` ran the canonical
-suite on macOS 26 in 748.091 seconds: 299 tests passed and
-`test_host_environment_sentinel_is_not_inherited_by_runner_or_command` errored
-with `KernelLaunchError: runner_failed`. The failure occurred after Runner
-launch, during the Worker's pre-execution Runner IPC handshake. The Runner
-stderr is intentionally discarded, so CI did not retain the low-level cause.
-The failing test began about 3.8 seconds before the next test started; this is
-consistent with the existing 3-second handshake bound expiring under CI
-scheduling load, but does not prove the specific low-level delay.
-
-The Worker now gives that pre-Candidate `ping_peer` a 10-second bound. It still
-validates the Runner PID and requires a successful IPC ping before sending
-`plugin.start`; failure remains closed and the timeout is finite. The existing
-trusted ping and identity checks remain in place. Five focused local executions
-of the failing test passed after the adjustment (about 3.34 seconds each). A
-fresh canonical CI run is required to establish whether this resolves the
-observed CI failure; the failed run is not treated as closed by a same-SHA
-rerun.
-
 The same full-suite run exposed a separate Broker attack-test lifecycle race:
 its 8-second watcher began before Workspace Snapshot creation. Under suite
 load, that setup could outlast the watcher, so the commit child correctly
@@ -261,6 +240,32 @@ rejected before the intended path replacement. The test now starts the watcher
 after the Snapshot is ready and uses a bounded 30-second handshake. Four
 consecutive focused replays and the canonical suite passed. This change is to
 test synchronization; it does not alter commit authority or enforcement.
+
+## 2026-10-07 PR CI Runner startup handshake
+
+PR #5 head `d9ad4564818427febfa1e5c225de486cc540b03f` ran the canonical suite
+on macOS 26 in 748.091 seconds: 299 tests passed and
+`test_host_environment_sentinel_is_not_inherited_by_runner_or_command` errored
+with `KernelLaunchError: runner_failed`. At head
+`5f40ced2f0b1bb01fbb4ef37d1b31fc795e3575d`, that test passed, but
+`test_fixed_replay_improves_memory_b_and_preserves_state_through_rollback`
+errored with the same code during Candidate B's production-state recall; 299
+tests passed in 704.016 seconds. The Runner stderr is intentionally discarded,
+so neither CI run retained the low-level cause. The 10-second Worker pipe ping
+bound added at `5f40ced` was not enough to close the full-suite failure.
+
+The launch sequence first waits for the Runner to connect to the Worker's
+private peer-PID listener, then performs the nonce-bound anonymous-pipe ping.
+The OS peer-PID listener still had a 3-second accept timeout, so either
+pre-execution handshake could reject a delayed Runner while preserving the
+generic `runner_failed` response. CI evidence is consistent with scheduling
+delay during repeated real-OS Runner launches, but does not identify which
+handshake timed out. The shared peer-PID handshake bound is now 10 seconds;
+reported OS peer PID equality remains mandatory, the IPC ping remains
+nonce-bound, and both handshakes still fail closed after finite waits. A focused
+real-peer test delays the Runner connection beyond 3 seconds. The full canonical
+suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
+must pass before merge.
 
 ## 2026-10-06 Candidate-bound informational Agent interface
 

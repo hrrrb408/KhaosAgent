@@ -15,7 +15,7 @@ from ..ipc import IPCProtocolError
 
 _SOL_LOCAL = 0
 _LOCAL_PEERPID = 0x002
-_PEER_HANDSHAKE_TIMEOUT_SECONDS = 3.0
+_PEER_HANDSHAKE_TIMEOUT_SECONDS = 10.0
 
 
 @contextmanager
