@@ -20,6 +20,8 @@ from unittest.mock import patch
 
 from khaos.ipc import (
     IPCProtocolError,
+    MAX_PLUGIN_OUTPUT_BYTES,
+    MAX_PLUGIN_STATE_BYTES,
     MAX_WORKSPACE_FILESYSTEM_OPERATIONS,
     PROTOCOL_VERSION,
     ping_peer,
@@ -169,6 +171,102 @@ os._exit(73)
 
 
 class BrokerTests(unittest.TestCase):
+    def test_plugin_state_is_identity_bound_and_raw_runner_payloads_are_bounded(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as value:
+            root = Path(value)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            state_root = root / "plugin-state"
+            original_state = b"old-complete-state"
+            from khaos.kernel.plugin_lifecycle import (
+                read_plugin_state,
+                replace_plugin_state,
+            )
+
+            replace_plugin_state(state_root, "memory", original_state)
+            replace_plugin_state(state_root, "another-plugin", b"private")
+            oversized_state = base64.b64encode(
+                b"x" * (MAX_PLUGIN_STATE_BYTES + 1)
+            ).decode("ascii")
+            oversized_output = base64.b64encode(
+                b"x" * (MAX_PLUGIN_OUTPUT_BYTES + 2)
+            ).decode("ascii")
+            attacks = (
+                (
+                    "state.read",
+                    {"plugin_id": "another-plugin"},
+                    "invalid_request",
+                ),
+                (
+                    "state.replace",
+                    {"data_base64": base64.b64encode(b"changed").decode(),
+                     "plugin_id": "another-plugin"},
+                    "invalid_request",
+                ),
+                (
+                    "state.replace",
+                    {"data_base64": oversized_state},
+                    "plugin_state_too_large",
+                ),
+                (
+                    "plugin.output",
+                    {"data_base64": oversized_output},
+                    "plugin_output_too_large",
+                ),
+                (
+                    "process.exec",
+                    {"argv": ["/usr/bin/true"]},
+                    "capability_denied",
+                ),
+            )
+
+            with workspace_snapshot(workspace) as snapshot:
+                for index, (operation, payload, expected_error) in enumerate(
+                    attacks,
+                    start=1,
+                ):
+                    with self.subTest(operation=operation, expected=expected_error):
+                        with _pipe_pair() as (
+                            request_read,
+                            request_write,
+                            response_read,
+                            response_write,
+                        ):
+                            send_frame(
+                                request_write,
+                                {
+                                    "version": PROTOCOL_VERSION,
+                                    "request_id": f"{index:032x}",
+                                    "operation": operation,
+                                    "payload": payload,
+                                },
+                            )
+                            with self.assertRaises(IPCProtocolError):
+                                serve_runner_execution(
+                                    request_read,
+                                    response_write,
+                                    snapshot,
+                                    authorized_timeout_seconds=1,
+                                    timeout_seconds=3,
+                                    plugin_id="memory",
+                                    plugin_state_root=state_root,
+                                    plugin_output_expected=True,
+                                    allow_process_exec=False,
+                                )
+                            response = receive_frame(response_read, timeout_seconds=3)
+
+                    self.assertEqual(
+                        response["error"], {"code": expected_error}
+                    )
+                    self.assertEqual(
+                        read_plugin_state(state_root, "memory"), original_state
+                    )
+                    self.assertEqual(
+                        read_plugin_state(state_root, "another-plugin"), b"private"
+                    )
+
     def test_rejects_nonstring_operation_as_invalid_request(self) -> None:
         with tempfile.TemporaryDirectory() as value:
             source = Path(value) / "workspace"

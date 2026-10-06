@@ -15,11 +15,16 @@ from collections.abc import Mapping
 from typing import Any
 
 
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
 MAX_FRAME_BYTES = 64 * 1024
 MAX_JSON_NESTING = 8
+MAX_PLUGIN_INPUT_NESTING = MAX_JSON_NESTING - 2
 MAX_OPERATION_SECONDS = 60.0
 MAX_RUNNER_SOURCE_BYTES = 10 * 1024
+MAX_PLUGIN_INPUT_BYTES = 8 * 1024
+MAX_PLUGIN_STATE_BYTES = 32 * 1024
+MAX_PLUGIN_OUTPUT_BYTES = 8 * 1024
+MAX_PLUGIN_STATE_OPERATIONS = 32
 MAX_WORKSPACE_READ_BYTES = 32 * 1024
 MAX_WORKSPACE_WRITE_BYTES = 32 * 1024
 MAX_WORKSPACE_LIST_ENTRIES = 128
@@ -302,7 +307,9 @@ def _decode_payload(payload: bytes) -> dict[str, Any]:
     return message
 
 
-def _json_nesting_within_limit(payload: bytes) -> bool:
+def _json_nesting_within_limit(
+    payload: bytes, maximum_depth: int = MAX_JSON_NESTING
+) -> bool:
     depth = 0
     in_string = False
     escaped = False
@@ -321,7 +328,7 @@ def _json_nesting_within_limit(payload: bytes) -> bool:
             in_string = True
         elif byte in (0x7B, 0x5B):
             depth += 1
-            if depth > MAX_JSON_NESTING:
+            if depth > maximum_depth:
                 return False
         elif byte in (0x7D, 0x5D):
             depth -= 1

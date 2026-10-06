@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 import ctypes
+import json
 import os
 from pathlib import Path
 import secrets
@@ -17,7 +18,10 @@ import traceback
 from ..ipc import (
     FrameReader,
     IPCProtocolError,
+    MAX_PLUGIN_INPUT_BYTES,
+    MAX_PLUGIN_INPUT_NESTING,
     PROTOCOL_VERSION,
+    _json_nesting_within_limit,
     is_valid_token,
     ping_peer,
     receive_frame,
@@ -25,7 +29,12 @@ from ..ipc import (
     send_frame,
     validate_runner_source,
 )
-from .broker import serve_runner_execution, serve_workspace_commit
+from .broker import (
+    PluginOutput,
+    WorkspaceCommitSummary,
+    serve_runner_execution,
+    serve_workspace_commit,
+)
 from .macos_seatbelt import (
     SANDBOX_EXECUTABLE,
     SandboxProbeIOError,
@@ -123,6 +132,9 @@ def main() -> int:
             os.fstat(workspace_root_fd).st_mode
         ):
             return 2
+        plugin_state_root = os.environ.get("KHAOS_PLUGIN_STATE_PATH")
+        if plugin_state_root is not None and not os.path.isabs(plugin_state_root):
+            return 2
     except (OSError, ValueError):
         return 2
 
@@ -139,15 +151,47 @@ def main() -> int:
             or request["version"] != PROTOCOL_VERSION
             or request.get("operation") != "workspace.run"
             or type(request.get("payload")) is not dict
-            or set(request["payload"])
-            != {
-                "timeout_seconds",
-                "runner_source",
-                "workspace_read_scope",
-                "workspace_write_scope",
-            }
+            or set(request["payload"]) not in (
+                {
+                    "timeout_seconds",
+                    "runner_source",
+                    "workspace_read_scope",
+                    "workspace_write_scope",
+                    "process_exec_allowed",
+                },
+                {
+                    "timeout_seconds",
+                    "runner_source",
+                    "workspace_read_scope",
+                    "workspace_write_scope",
+                    "process_exec_allowed",
+                    "plugin_id",
+                },
+                {
+                    "timeout_seconds",
+                    "runner_source",
+                    "workspace_read_scope",
+                    "workspace_write_scope",
+                    "process_exec_allowed",
+                    "plugin_id",
+                    "plugin_input",
+                },
+            )
             or type(request["payload"].get("workspace_read_scope")) is not list
             or type(request["payload"].get("workspace_write_scope")) is not list
+            or type(request["payload"].get("process_exec_allowed")) is not bool
+            or ("plugin_input" in request["payload"] and "plugin_id" not in request["payload"])
+            or (
+                "plugin_id" in request["payload"]
+                and (
+                    type(request["payload"].get("plugin_id")) is not str
+                    or plugin_state_root is None
+                )
+            )
+            or (
+                "plugin_input" in request["payload"]
+                and type(request["payload"].get("plugin_input")) is not dict
+            )
         ):
             _send_error(request_id, "invalid_request")
             return 0
@@ -159,6 +203,28 @@ def main() -> int:
         except IPCProtocolError:
             _send_error(request_id, "invalid_request")
             return 0
+        plugin_input = request["payload"].get("plugin_input")
+        if "plugin_input" in request["payload"]:
+            try:
+                encoded_input = json.dumps(
+                    plugin_input,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode("utf-8", errors="strict")
+            except (TypeError, ValueError, UnicodeEncodeError):
+                _send_error(request_id, "invalid_request")
+                return 0
+            if (
+                len(encoded_input) > MAX_PLUGIN_INPUT_BYTES
+                or not _json_nesting_within_limit(
+                    encoded_input,
+                    maximum_depth=MAX_PLUGIN_INPUT_NESTING,
+                )
+            ):
+                _send_error(request_id, "plugin_input_too_large")
+                return 0
         try:
             workspace_read_scope = WorkspaceReadScope.from_paths(
                 request["payload"]["workspace_read_scope"]
@@ -195,6 +261,10 @@ def main() -> int:
                         process_finished=report_process_finished,
                         brokered_snapshot_mount_path=brokered_snapshot_mount_path,
                         brokered_snapshot_storage_bytes=brokered_snapshot_storage_bytes,
+                        plugin_id=request["payload"].get("plugin_id"),
+                        plugin_state_root=plugin_state_root,
+                        plugin_input=request["payload"].get("plugin_input"),
+                        process_exec_allowed=request["payload"]["process_exec_allowed"],
                     )
                 finally:
                     os.close(workspace_root_fd)
@@ -284,12 +354,18 @@ def _run_workspace_command(
     process_finished: Callable[[int], None] | None = None,
     brokered_snapshot_mount_path: str | None = None,
     brokered_snapshot_storage_bytes: int | None = None,
+    plugin_id: str | None = None,
+    plugin_state_root: str | None = None,
+    plugin_input: dict[str, object] | None = None,
+    process_exec_allowed: bool = True,
 ):
     package_root = Path(__file__).resolve().parents[2]
     timeout = validate_command_timeout(timeout_seconds)
     source = validate_runner_source(runner_source)
     read_scope = WorkspaceReadScope.from_paths(workspace_read_scope)
     write_scope = WorkspaceWriteScope.from_paths(workspace_write_scope)
+    if type(process_exec_allowed) is not bool:
+        raise WorkspaceSnapshotError("process execution policy is invalid")
     if type(workspace_root_fd) is not int or workspace_root_fd < 0:
         raise WorkspaceSnapshotError("trusted workspace root descriptor is required")
     workspace = Path(workspace_value).expanduser()
@@ -423,13 +499,18 @@ def _run_workspace_command(
                 ping_peer(
                     process.stdout.fileno(), process.stdin.fileno(), timeout_seconds=3
                 )
+                plugin_input_payload = (
+                    {"source": source, "input": plugin_input}
+                    if plugin_input is not None
+                    else {"source": source}
+                )
                 send_frame(
                     process.stdin.fileno(),
                     {
                         "version": PROTOCOL_VERSION,
                         "request_id": secrets.token_hex(16),
                         "operation": "plugin.start",
-                        "payload": {"source": source},
+                        "payload": plugin_input_payload,
                     },
                     timeout_seconds=5,
                 )
@@ -440,20 +521,36 @@ def _run_workspace_command(
                     authorized_timeout_seconds=timeout,
                     workspace_read_scope=read_scope,
                     workspace_write_scope=write_scope,
+                    plugin_id=plugin_id,
+                    plugin_state_root=plugin_state_root,
+                    plugin_output_expected=plugin_input is not None,
+                    allow_process_exec=process_exec_allowed,
                     timeout_seconds=5,
                     cancel_requested=cancel_requested,
                     process_started_fd=process_started_fd,
                     workspace_request_id=workspace_request_id,
                     process_finished=process_finished,
                 )
-                changes = serve_workspace_commit(
-                    process.stdout.fileno(),
-                    process.stdin.fileno(),
-                    snapshot,
-                    workspace_write_scope=write_scope,
-                    timeout_seconds=5,
-                    cancel_requested=cancel_requested,
-                )
+                if isinstance(result, PluginOutput):
+                    if plugin_input is None:
+                        raise IPCProtocolError("unexpected Plugin output")
+                    from .macos_seatbelt import SandboxedProcessResult
+
+                    result = SandboxedProcessResult(
+                        returncode=0,
+                        stdout=result.data.decode("utf-8", errors="strict"),
+                        stderr="",
+                    )
+                    changes = WorkspaceCommitSummary(0, 0, 0)
+                else:
+                    changes = serve_workspace_commit(
+                        process.stdout.fileno(),
+                        process.stdin.fileno(),
+                        snapshot,
+                        workspace_write_scope=write_scope,
+                        timeout_seconds=5,
+                        cancel_requested=cancel_requested,
+                    )
                 for stream in (process.stdin, process.stdout):
                     stream.close()
                 try:

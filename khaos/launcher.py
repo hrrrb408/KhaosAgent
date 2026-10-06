@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import os
+import json
 from pathlib import Path
 import selectors
 import secrets
@@ -18,7 +19,10 @@ from .ipc import (
     FrameReader,
     IPCProtocolError,
     MAX_OPERATION_SECONDS,
+    MAX_PLUGIN_INPUT_BYTES,
+    MAX_PLUGIN_INPUT_NESTING,
     PROTOCOL_VERSION,
+    _json_nesting_within_limit,
     answer_ping,
     send_frame,
     validate_runner_source,
@@ -74,6 +78,10 @@ def run_workspace_command(
     workspace_root_fd: int | None = None,
     brokered_snapshot_mount_path: str | os.PathLike[str] | None = None,
     brokered_snapshot_storage_bytes: int | None = None,
+    process_exec_allowed: bool = True,
+    plugin_id: str | None = None,
+    plugin_state_root: str | os.PathLike[str] | None = None,
+    plugin_input: dict[str, object] | None = None,
 ) -> WorkspaceCommandResult:
     """Launch a separate Kernel process for one explicitly selected workspace.
 
@@ -101,6 +109,43 @@ def run_workspace_command(
         raise KernelLaunchError("sandbox_unavailable")
     if cancel_requested is not None and not callable(cancel_requested):
         raise ValueError("cancel_requested must be callable")
+    if type(process_exec_allowed) is not bool:
+        raise ValueError("process_exec_allowed must be a boolean")
+    if (
+        (plugin_id is None) != (plugin_state_root is None)
+        or (plugin_input is not None and plugin_id is None)
+    ):
+        raise ValueError("Plugin state binding is incomplete")
+    if plugin_id is not None and (
+        type(plugin_id) is not str
+        or not plugin_id
+        or len(plugin_id) > 64
+        or plugin_id[0] not in "abcdefghijklmnopqrstuvwxyz"
+        or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in plugin_id)
+    ):
+        raise ValueError("Plugin identity is invalid")
+    encoded_plugin_input: bytes | None = None
+    if plugin_input is not None:
+        if type(plugin_input) is not dict:
+            raise ValueError("Plugin input must be a JSON object")
+        try:
+            encoded_plugin_input = json.dumps(
+                plugin_input,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8", errors="strict")
+        except (TypeError, ValueError, UnicodeEncodeError) as exc:
+            raise ValueError("Plugin input is invalid JSON data") from exc
+        if (
+            len(encoded_plugin_input) > MAX_PLUGIN_INPUT_BYTES
+            or not _json_nesting_within_limit(
+                encoded_plugin_input,
+                maximum_depth=MAX_PLUGIN_INPUT_NESTING,
+            )
+        ):
+            raise ValueError("Plugin input exceeds its limit")
     if (brokered_snapshot_mount_path is None) != (
         brokered_snapshot_storage_bytes is None
     ):
@@ -114,6 +159,11 @@ def run_workspace_command(
             or brokered_snapshot_storage_bytes > 16 * 1024 * 1024 * 1024
         ):
             raise ValueError("brokered snapshot configuration is invalid")
+    state_root_path: Path | None = None
+    if plugin_state_root is not None:
+        state_root_path = Path(plugin_state_root)
+        if not state_root_path.is_absolute():
+            raise ValueError("Plugin state root must be absolute")
     brokered_snapshot = brokered_snapshot_mount_path is not None
     try:
         timeout = validate_command_timeout(timeout_seconds)
@@ -169,6 +219,7 @@ def run_workspace_command(
             active_workspace_root_fd,
             brokered_snapshot_mount_path=brokered_snapshot_mount_path,
             brokered_snapshot_storage_bytes=brokered_snapshot_storage_bytes,
+            plugin_state_root=state_root_path,
         )
     finally:
         if owns_workspace_root_fd:
@@ -193,6 +244,17 @@ def run_workspace_command(
                     "runner_source": source,
                     "workspace_read_scope": list(read_scope.as_paths()),
                     "workspace_write_scope": list(write_scope.as_paths()),
+                    "process_exec_allowed": process_exec_allowed,
+                    **(
+                        {
+                            "plugin_id": plugin_id,
+                            "plugin_input": plugin_input,
+                        }
+                        if plugin_id is not None and plugin_input is not None
+                        else {"plugin_id": plugin_id}
+                        if plugin_id is not None
+                        else {}
+                    ),
                 },
             },
             timeout_seconds=5,
@@ -337,6 +399,7 @@ def _start_kernel(
     *,
     brokered_snapshot_mount_path: Path | None = None,
     brokered_snapshot_storage_bytes: int | None = None,
+    plugin_state_root: Path | None = None,
 ) -> subprocess.Popen[bytes]:
     process: subprocess.Popen[bytes] | None = None
     try:
@@ -363,6 +426,8 @@ def _start_kernel(
                             "TMPDIR": str(brokered_snapshot_mount_path.parent),
                         }
                     )
+                if plugin_state_root is not None:
+                    environment["KHAOS_PLUGIN_STATE_PATH"] = str(plugin_state_root)
                 process = subprocess.Popen(
                     (
                         str(Path(sys.executable).resolve(strict=True)),

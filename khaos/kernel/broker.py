@@ -8,6 +8,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import errno
 import hashlib
+import json
 import os
 from pathlib import Path
 import selectors
@@ -21,12 +22,17 @@ from ..ipc import (
     FrameReader,
     IPCProtocolError,
     MAX_WORKSPACE_FILESYSTEM_OPERATIONS,
+    MAX_PLUGIN_OUTPUT_BYTES,
+    MAX_PLUGIN_STATE_BYTES,
+    MAX_PLUGIN_STATE_OPERATIONS,
     MAX_WORKSPACE_WRITE_BYTES,
     PROTOCOL_VERSION,
     is_valid_token,
     receive_frame,
     send_error_frame as _send_error,
     send_frame,
+    _json_nesting_within_limit,
+    _unique_object,
 )
 
 from .workspace_changes import (
@@ -55,6 +61,9 @@ _CANCEL_OPERATION = "process.cancel"
 _READ_OPERATION = "fs.read"
 _LIST_OPERATION = "fs.list"
 _WRITE_OPERATION = "fs.write"
+_STATE_READ_OPERATION = "state.read"
+_STATE_REPLACE_OPERATION = "state.replace"
+_PLUGIN_OUTPUT_OPERATION = "plugin.output"
 _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
 _COMMIT_RESULT = struct.Struct("!BBQQQ")
 _COMMIT_APPLIED = 0
@@ -72,6 +81,13 @@ class WorkspaceCommitSummary:
     added: int
     modified: int
     deleted: int
+
+
+@dataclass(frozen=True, slots=True)
+class PluginOutput:
+    """One bounded, untrusted JSON result returned by a stateful Plugin."""
+
+    data: bytes
 
 
 def serve_workspace_commit(
@@ -445,8 +461,12 @@ def serve_runner_execution(
     process_finished: Callable[[int], None] | None = None,
     workspace_read_scope: WorkspaceReadScope | Sequence[str] = (),
     workspace_write_scope: WorkspaceWriteScope | Sequence[str] = (),
-) -> SandboxedProcessResult:
-    """Serve scoped workspace access and one untrusted command request."""
+    plugin_id: str | None = None,
+    plugin_state_root: str | os.PathLike[str] | None = None,
+    plugin_output_expected: bool = False,
+    allow_process_exec: bool = True,
+) -> SandboxedProcessResult | PluginOutput:
+    """Serve bounded Plugin state/output and scoped workspace operations."""
     read_scope = WorkspaceReadScope.from_paths(
         workspace_read_scope,
         max_depth=snapshot.max_depth,
@@ -456,6 +476,7 @@ def serve_runner_execution(
         max_depth=snapshot.max_depth,
     )
     filesystem_requests = 0
+    state_requests = 0
     while True:
         if cancel_requested is not None and cancel_requested():
             raise IPCProtocolError("Runner execution was cancelled before process.exec")
@@ -498,8 +519,57 @@ def serve_runner_execution(
                     snapshot,
                     write_scope,
                     timeout_seconds,
-                )
+            )
             continue
+        if operation in {_STATE_READ_OPERATION, _STATE_REPLACE_OPERATION}:
+            if (
+                type(plugin_id) is not str
+                or plugin_state_root is None
+                or state_requests >= MAX_PLUGIN_STATE_OPERATIONS
+            ):
+                _send_error(
+                    response_write_fd,
+                    request_id,
+                    "operation_not_supported"
+                    if plugin_state_root is None or plugin_id is None
+                    else "operation_limit_exceeded",
+                    timeout_seconds,
+                )
+                raise IPCProtocolError("Plugin state operation is unavailable")
+            state_requests += 1
+            _serve_plugin_state(
+                operation,
+                request_id,
+                payload,
+                response_write_fd,
+                plugin_state_root,
+                plugin_id,
+                timeout_seconds,
+            )
+            continue
+        if operation == _PLUGIN_OUTPUT_OPERATION:
+            if not plugin_output_expected:
+                _send_error(
+                    response_write_fd,
+                    request_id,
+                    "operation_not_supported",
+                    timeout_seconds,
+                )
+                raise IPCProtocolError("Plugin output is not enabled")
+            data = _decode_plugin_output(
+                request_id, payload, response_write_fd, timeout_seconds
+            )
+            send_frame(
+                response_write_fd,
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": request_id,
+                    "ok": True,
+                    "result": {},
+                },
+                timeout_seconds=timeout_seconds,
+            )
+            return PluginOutput(data)
         if operation != _EXEC_OPERATION:
             _send_error(
                 response_write_fd,
@@ -508,6 +578,11 @@ def serve_runner_execution(
                 timeout_seconds,
             )
             raise IPCProtocolError("Runner operation is not supported")
+        if not allow_process_exec:
+            _send_error(
+                response_write_fd, request_id, "capability_denied", timeout_seconds
+            )
+            raise IPCProtocolError("Plugin process execution is not authorized")
         return _serve_process_exec(
             request_id,
             payload,
@@ -523,6 +598,144 @@ def serve_runner_execution(
             workspace_request_id=workspace_request_id,
             process_finished=process_finished,
         )
+
+
+def _serve_plugin_state(
+    operation: str,
+    request_id: str,
+    payload: object,
+    response_write_fd: int,
+    state_root: str | os.PathLike[str],
+    plugin_id: str,
+    timeout_seconds: float,
+) -> None:
+    from .plugin_lifecycle import (
+        PluginLifecycleError,
+        read_plugin_state,
+        replace_plugin_state,
+    )
+
+    if operation == _STATE_READ_OPERATION:
+        if type(payload) is not dict or payload:
+            _send_error(
+                response_write_fd, request_id, "invalid_request", timeout_seconds
+            )
+            raise IPCProtocolError("state.read payload must be empty")
+        try:
+            data = read_plugin_state(state_root, plugin_id)
+        except PluginLifecycleError as exc:
+            _send_error(response_write_fd, request_id, exc.code, timeout_seconds)
+            raise IPCProtocolError("Kernel state.read failed closed") from exc
+        send_frame(
+            response_write_fd,
+            {
+                "version": PROTOCOL_VERSION,
+                "request_id": request_id,
+                "ok": True,
+                "result": {
+                    "present": data is not None,
+                    "data_base64": base64.b64encode(data or b"").decode("ascii"),
+                },
+            },
+            timeout_seconds=timeout_seconds,
+        )
+        return
+
+    if (
+        type(payload) is not dict
+        or set(payload) != {"data_base64"}
+        or type(payload.get("data_base64")) is not str
+    ):
+        _send_error(
+            response_write_fd, request_id, "invalid_request", timeout_seconds
+        )
+        raise IPCProtocolError("state.replace payload is invalid")
+    encoded = payload["data_base64"]
+    maximum_encoded = ((MAX_PLUGIN_STATE_BYTES + 2) // 3) * 4
+    if len(encoded) > maximum_encoded:
+        _send_error(
+            response_write_fd, request_id, "plugin_state_too_large", timeout_seconds
+        )
+        raise IPCProtocolError("state.replace payload exceeds its limit")
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        _send_error(
+            response_write_fd, request_id, "invalid_request", timeout_seconds
+        )
+        raise IPCProtocolError("state.replace data is not valid base64") from exc
+    if (
+        len(data) > MAX_PLUGIN_STATE_BYTES
+        or base64.b64encode(data).decode("ascii") != encoded
+    ):
+        _send_error(
+            response_write_fd, request_id, "plugin_state_too_large", timeout_seconds
+        )
+        raise IPCProtocolError("state.replace data is not canonical or bounded")
+    try:
+        replace_plugin_state(state_root, plugin_id, data)
+    except PluginLifecycleError as exc:
+        _send_error(response_write_fd, request_id, exc.code, timeout_seconds)
+        raise IPCProtocolError("Kernel state.replace failed closed") from exc
+    send_frame(
+        response_write_fd,
+        {
+            "version": PROTOCOL_VERSION,
+            "request_id": request_id,
+            "ok": True,
+            "result": {"written_bytes": len(data)},
+        },
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def _decode_plugin_output(
+    request_id: str,
+    payload: object,
+    response_write_fd: int,
+    timeout_seconds: float,
+) -> bytes:
+    if (
+        type(payload) is not dict
+        or set(payload) != {"data_base64"}
+        or type(payload.get("data_base64")) is not str
+    ):
+        _send_error(
+            response_write_fd, request_id, "invalid_request", timeout_seconds
+        )
+        raise IPCProtocolError("Plugin output payload is invalid")
+    encoded = payload["data_base64"]
+    if len(encoded) > ((MAX_PLUGIN_OUTPUT_BYTES + 2) // 3) * 4:
+        _send_error(
+            response_write_fd, request_id, "plugin_output_too_large", timeout_seconds
+        )
+        raise IPCProtocolError("Plugin output exceeds its limit")
+    try:
+        data = base64.b64decode(encoded, validate=True)
+        text = data.decode("utf-8", errors="strict")
+        if (
+            not data
+            or len(data) > MAX_PLUGIN_OUTPUT_BYTES
+            or base64.b64encode(data).decode("ascii") != encoded
+            or not _json_nesting_within_limit(data)
+        ):
+            raise ValueError("output framing")
+        value = json.loads(text, object_pairs_hook=_unique_object)
+        canonical = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8", errors="strict")
+        if type(value) is not dict or canonical != data:
+            raise ValueError("output encoding")
+    except (binascii.Error, UnicodeDecodeError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        _send_error(
+            response_write_fd, request_id, "invalid_request", timeout_seconds
+        )
+        raise IPCProtocolError("Plugin output is not canonical bounded JSON") from exc
+    return data
 
 
 def _serve_process_exec(

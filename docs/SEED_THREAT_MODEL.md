@@ -108,6 +108,52 @@ it without presenting invocation approval. These are local signed test-product
 results on this macOS host; they do not establish distribution signing,
 protected installation, or behavior on another macOS version or machine.
 
+## 2026-10-06 Memory Plugin v1 state boundary
+
+The `memory` example is the first stateful Candidate and implements only
+`remember`, `recall`, and `forget`. Its business schema is canonical UTF-8 JSON
+owned by the Candidate. The Kernel stores one opaque blob per validated logical
+Plugin ID beneath a dedicated `PluginState-*` Application Support root derived
+from the signed caller requirement. This root is distinct from Candidate
+content, the activation record, workspace snapshots, and Agent session state.
+Candidate digest and generation are not part of state identity; replacing
+Candidate A with B for the same ID retains its state, while a different ID uses
+another directory.
+
+Runner IPC v7 adds only `state.read`, `state.replace`, and terminal
+`plugin.output`. State frames carry no namespace or path. The Kernel fixes the
+state root and Plugin ID from trusted invocation state, caps blobs at 32 KiB,
+serializes access with the existing store-lock pattern, and replaces blobs via
+same-directory temporary files, file `fsync`, atomic rename, and directory
+`fsync`. Input is untrusted JSON business data capped at 8 KiB and six nesting
+levels; output is canonical JSON capped at 8 KiB. The Kernel checks generic
+framing only and does not know the Memory schema. Launcher approval binds the
+exact canonical invocation object with active Plugin identity, Candidate,
+Manifest/scope digests, and generation. A `process_exec: false`, empty-scope
+Candidate runs in the existing Seatbelt Runner without a user workspace
+Picker; the trusted Kernel derives and validates this mode from its Manifest.
+
+Focused current-tree evidence: `test_plugin_lifecycle.py` passes 24 tests,
+including the real Seatbelt state-only roundtrip, direct OS denial for lifecycle
+and state paths, logical-ID isolation, Candidate replacement, no workspace
+changes, and old-or-new crash recovery. `test_broker.py` directly sends forged
+state namespace fields and oversized raw state/output frames past the SDK; the
+Kernel rejects each and preserves both Plugin blobs. Runner SDK, bridge, and
+Memory Candidate tests pass 6, 16, and 1 tests respectively. The signed-product
+Agent-to-Memory acceptance passed on 2026-10-06 (1 test, 387.549 seconds) on
+this macOS host. With the test model probe, the operator approved Memory
+activation, denied the first `remember` without creating state, then approved
+`remember`, `recall` in a new Agent process, `forget`, and a final empty `recall`
+in another session. The parent verified exact canonical state bytes after
+remember and forget, empty state-only changesets, no state file in the Candidate
+directory, and the deep product signature. The same test completed the product's
+headless XPC attack checks. This proves the tested Harness path on this build
+and host; it does not measure proposal quality for a production LLM or behavior
+on another macOS release or machine. User-owned Application Support state does
+not resist an arbitrary hostile same-UID process that can alter that directory.
+This implementation does not add schema migration or a general storage
+framework.
+
 ## 2026-10-04 signed product boundary and interactive acceptance
 
 The trusted `KernelProduction.xpc` is now signed without App Sandbox so that it
@@ -690,6 +736,9 @@ privileged or same-user process that can modify the development checkout.
 | Threat | Enforcement in the prototype | Executable evidence |
 | --- | --- | --- |
 | Runner tries to grant itself `fs.read`, `fs.list`, or `fs.write` scope by adding scope fields to raw IPC payloads | The Broker retains read/write scopes from the trusted launch context and validates exact per-operation payload fields; filesystem operations have no grant or scope-update field | Broker tests send forged `workspace_read_scope` fields with `fs.read` and `fs.list`, and `workspace_write_scope` with `fs.write`; each receives `invalid_request`. A real macOS Seatbelt Runner test performs all three raw-wire attacks with empty scopes and requires `runner_failed`, unchanged secret bytes, and no fixed-command marker. This proves the tested Broker/Runner path on this host, not Candidate admission or user approval; [`test_broker.py`](../tests/test_broker.py), [`test_launcher.py`](../tests/test_launcher.py) |
+| Runner attempts to select another Plugin state namespace or send oversized state/output through raw IPC | Runner state operations have exact, namespace-free payload schemas. Kernel binds them to the logical Plugin ID and state root retained from the active invocation, enforces 32 KiB state and 8 KiB output limits, and treats the stored blob as opaque bytes | `test_broker.py::test_plugin_state_is_identity_bound_and_raw_runner_payloads_are_bounded` bypasses the SDK and sends namespace fields plus oversized state replacement and Plugin output frames. The Broker rejects every request and both Plugin state blobs remain unchanged. [`plugin_lifecycle.py`](../khaos/kernel/plugin_lifecycle.py), [`broker.py`](../khaos/kernel/broker.py) |
+| Runner directly reads lifecycle metadata or another Plugin's state | Seatbelt denies direct file and directory access. The Runner receives no state path or lifecycle API; its only state calls use the Kernel-bound logical Plugin ID | `test_plugin_lifecycle.py::test_real_runner_memory_roundtrip_uses_bound_state_and_no_workspace_changes` exercises the real Seatbelt Runner and requires OS denial for activation state, the bound state directory, and another Plugin state path. It also verifies empty workspace changes, `memory` state across Candidate replacement, and `remember` / `recall` / `forget`. [`plugin_lifecycle.py`](../khaos/kernel/plugin_lifecycle.py), [`test_plugin_lifecycle.py`](../tests/test_plugin_lifecycle.py) |
+| Process crash interrupts Plugin state replacement | Kernel writes a same-directory private temporary file, syncs it, atomically replaces the state file, then syncs the directory; uncertain durability is surfaced as an error | `test_plugin_lifecycle.py::test_plugin_state_crash_around_atomic_replace_keeps_old_or_new_blob` injects termination before and after replacement and reads only the complete old or complete new blob after recovery. [`plugin_lifecycle.py`](../khaos/kernel/plugin_lifecycle.py) |
 | Runner reads or enumerates a workspace path outside its exact Kernel-granted read scope | The Kernel validates `fs.read` and `fs.list` paths against `workspace_read_scope`; ancestor listings return only entries covered by the granted paths | The 2026-09-30 selected-workspace product XPC test allowed `fs.read("production-input.txt")`, denied sibling reads with `path_not_readable`, filtered the root listing to only `production-input.txt`, and denied direct sibling listing with `path_not_listable`. The same real signed `KernelProduction.xpc` run completed writeback, post-scope direct-write denial, unsafe changeset checks, connection-bound cancellation, exact workspace verification, and deep signature verification in 250.479 seconds. A 2026-10-04 rerun against the current signed bundle passed in 238.506 seconds, rechecking scoped read/list, writeback, post-scope OS denial, unsafe changeset rejection, connection-bound cancellation and descendant cleanup, recovery, exact workspace state, and deep signature. Its test driver now waits for the parent’s cancellation signal without stopping the asynchronous XPC sender. These runs use test-only Runner source, so they prove the Kernel's requested-scope enforcement on this host, not Candidate or Manifest admission; [`WorkspaceGrant.swift`](../tests/macos_xpc_probe/WorkspaceGrant.swift), [`test_macos_xpc_sandbox.py`](../tests/test_macos_xpc_sandbox.py) |
 | XPC caller changes Runner source without changing its bound digest | The Swift Kernel parser verifies SHA-256 of the decoded UTF-8 source before bookmark handling; the Python bridge repeats the check before starting the Worker. This binds content only and does not authorize a Candidate | The default signed-product test sends the real `KernelProduction.xpc` a valid `workspace.run` frame with a mismatched digest and no bookmark. It requires `invalid_request`, unchanged fixture bytes, and unchanged sibling canary; [`KernelWorkspaceXPC.swift`](../khaos/macos/KernelWorkspaceXPC.swift), [`workspace_xpc_bridge.py`](../khaos/kernel/workspace_xpc_bridge.py), [`test_macos_xpc_sandbox.py`](../tests/test_macos_xpc_sandbox.py) |
 | XPC caller supplies malformed read or write scope paths | The native parser rejects absolute paths, empty paths/components, `.`/`..`, NUL, over-depth paths, duplicate paths, and over-budget scopes before reading a bookmark; the downstream Python Worker independently validates scopes before snapshot creation | The default signed-product test sends valid-digest requests with no bookmark to the real `KernelProduction.xpc`; traversal, absolute, empty, NUL, empty-component, dot-component, over-depth, duplicate, over-count, and over-budget scopes must each return `invalid_request` before bookmark handling. The service must remain responsive afterward; [`KernelWorkspaceXPC.swift`](../khaos/macos/KernelWorkspaceXPC.swift), [`WorkspaceGrant.swift`](../tests/macos_xpc_probe/WorkspaceGrant.swift), [`test_macos_xpc_sandbox.py`](../tests/test_macos_xpc_sandbox.py) |
@@ -896,11 +945,8 @@ The prototype does not yet establish the following required properties:
 - a distribution-signed, installed Trusted Launcher and Kernel service. The current
   locally signed app checks that a direct write-open is denied after Picker scope
   release, but it has no distribution identity or installation protection;
-- selected-workspace product evidence for running a persistently activated
-  Candidate through `--plugin-run`. The 2026-10-05 user-selected run exercised
-  the earlier one-shot package path; it does not verify the current install,
-  active-slot lookup, run binding, workspace Picker, and Runner in one product
-  session;
+- behavior on macOS releases and hosts other than the one used for the local
+  signed-product acceptance checks;
 - a shipped composition connecting that Launcher and authenticated Kernel service
   to the existing Python Worker. [`KernelWorkspaceServiceMain.swift`](../khaos/macos/KernelWorkspaceServiceMain.swift)
   now fixes that service composition in shared source and has run in a temporary copy
@@ -914,7 +960,8 @@ The prototype does not yet establish the following required properties:
   but user-owned Application Support state is not protected from a same-UID
   process that can alter both its data and integrity key;
 - a Trusted Promoter, multiple slots, general Plugin capability handles,
-  Plugin-based Memory/Context/Tools, or a production Plugin platform;
+  Memory v2/schema migration, Context/Tools Plugins, or a production Plugin
+  platform;
 - exclusive write control against other same-user workspace writers;
 - a per-command aggregate memory quota or cleanup after simultaneous launcher and
   operating-system failure;

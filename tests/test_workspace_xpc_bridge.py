@@ -31,6 +31,13 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         exact = set(re.findall(r'case "([a-z_]+)":', swift))
         exact.update(re.findall(r'code == "([a-z_]+)"', swift))
+        lifecycle_codes = re.search(
+            r'pluginLifecycleErrorCodes: Set<String> = \[(.*?)\]',
+            swift,
+            re.DOTALL,
+        )
+        if lifecycle_codes:
+            exact.update(re.findall(r'"([a-z_]+)"', lifecycle_codes.group(1)))
         prefixes = re.findall(r'code\.hasPrefix\("([a-z_]+)"\)', swift)
         self.assertFalse({
             code for code in workspace_xpc_bridge._REPORTED_ERRORS
@@ -132,10 +139,13 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
             "request_id": "d" * 32,
             "operation": "plugin.run",
             "payload": {
+                "plugin_id": "fixture-plugin",
                 "candidate_digest": "1" * 64,
                 "manifest_digest": "2" * 64,
                 "scope_digest": "3" * 64,
                 "expected_generation": 4,
+                "input": {"operation": "remember", "key": "x", "value": "y"},
+                "workspace_required": False,
             },
         }
         self.assertEqual(
@@ -147,6 +157,7 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
             ("runner_source", "def run(): return 0"),
             ("workspace_read_scope", []),
             ("workspace_write_scope", ["output.txt"]),
+            ("state_path", "/tmp/other-plugin-state"),
         ):
             with self.subTest(field=field):
                 injected = json.loads(json.dumps(request))
@@ -155,6 +166,30 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
                     ValueError, "invalid lifecycle request"
                 ):
                     _decode_invocation_request(injected)
+
+    def test_plugin_run_bounds_untrusted_input_without_interpreting_it(self) -> None:
+        request = {
+            "version": _WORKSPACE_XPC_OPERATION_VERSION,
+            "request_id": "e" * 32,
+            "operation": "plugin.run",
+            "payload": {
+                "plugin_id": "memory",
+                "candidate_digest": "1" * 64,
+                "manifest_digest": "2" * 64,
+                "scope_digest": "3" * 64,
+                "expected_generation": 4,
+                "input": {"operation": "not-a-kernel-operation", "nested": [[[]]]},
+                "workspace_required": False,
+            },
+        }
+        self.assertEqual(
+            _decode_invocation_request(request)[2]["input"],
+            request["payload"]["input"],
+        )
+        oversized = json.loads(json.dumps(request))
+        oversized["payload"]["input"] = {"value": "x" * 9_000}
+        with self.assertRaisesRegex(ValueError, "exceeds its bound"):
+            _decode_invocation_request(oversized)
 
     def test_admission_bridge_returns_only_review_metadata(self) -> None:
         manifest = json.dumps(

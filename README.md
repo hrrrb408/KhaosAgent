@@ -125,7 +125,7 @@ Choose a package folder. The example package is
 [`examples/seed-writer`](examples/seed-writer). A package has exactly
 `manifest.json` and `plugin.py` as its admitted inputs. The manifest must be
 canonical sorted-key JSON (an optional final newline is accepted), with
-`abi_version: 6`, a lowercase ASCII ID, `process_exec: true`, and exact
+`abi_version: 6`, a lowercase ASCII ID, a boolean `process_exec`, and exact
 `read` / `write` path arrays. The Launcher captures both regular, single-link
 files without following symlinks, caps their sizes at 4 KiB and 10 KiB, and
 releases the package Picker scope. The Kernel validates and stores the package
@@ -134,15 +134,46 @@ loading it. The activation confirmation
 shows its Candidate, Manifest, and capability-scope digests, the requested
 read/write paths, the fixed `primary` slot, and the 30-day validity. The Kernel
 accepts activation only for those exact digests and the slot generation shown
-before the confirmation. Candidate state persists under the signed product's
-Application Support namespace.
+before the confirmation. Candidate content and lifecycle metadata persist under
+the signed product's Application Support namespace. Plugin business state uses
+a separate state domain and is never stored in the Candidate or lifecycle
+records.
 
-To run the active Candidate, choose a workspace and approve the displayed
-Candidate digest, scopes, validity, and invocation:
+## Memory Plugin v1
+
+The first stateful example is [`examples/memory`](examples/memory). It supports
+`remember`, `recall`, and `forget` over a small canonical JSON blob owned by the
+Plugin. It does not use a database, embeddings, semantic search, summaries, or
+cloud sync. Install it with `--plugin-install` and choose the `examples/memory`
+directory. Its Manifest sets `process_exec: false` and has empty workspace
+read/write scopes, so installation and state-only use do not ask for a workspace.
+
+Start an Agent session and ask it to remember or recall a key/value. The Agent
+proposes the active Memory Candidate with a bounded JSON input. The Launcher
+shows the exact input and Plugin identity for approval. If approved, the same
+Kernel and Seatbelt Runner use a private state blob keyed by the logical Plugin
+ID. Replacing Candidate code for `memory` preserves that state; another Plugin
+ID receives a separate namespace. The stored state blob is capped at 32 KiB,
+Agent invocation input at 8 KiB, and output at 8 KiB. The Kernel treats both input
+and output as untrusted data and does not understand the Memory schema.
+
+The example state format is canonical UTF-8 JSON:
+`{"format":"khaos-memory-v1","items":{...}}`. Candidate content, the active
+slot record, workspace data, and Agent session are not the persistent source of
+Memory state. The state directory is user-owned Application Support data and
+does not defend against an arbitrary same-UID process with access to that
+directory.
+
+To directly run a workspace-capable active Candidate, choose a workspace and
+approve the displayed Candidate digest, scopes, validity, and invocation:
 
 ```bash
 /tmp/KhaosSeed.app/Contents/MacOS/KhaosSeed --plugin-run
 ```
+
+This direct command is for workspace-capable Candidates with no Agent business
+input. Use `--agent` to invoke the state-only Memory Candidate with its bounded
+`remember` / `recall` / `forget` input; it does not open a workspace Picker.
 
 The request binds the review to the active Candidate digests and slot
 generation. The Kernel loads source and scope from its active slot; the run
@@ -172,11 +203,13 @@ code-signing requirement from the Launcher accepted by Kernel XPC. It receives
 conversation text, bounded results, and only the active Plugin's ID, Candidate
 digest, and slot generation over a 64 KiB XPC protocol. It can propose a shell
 command with exact read/write paths, or propose the active Plugin with those
-three identity fields. The trusted Launcher rejects extra Plugin fields, reads
-`plugin.state` again, and denies any stale or mismatched proposal. For an
-approved invocation, the Launcher shows the Candidate identity and actual
-trusted scopes, then uses existing `plugin.run`; the Kernel resolves source
-and scope and runs the Candidate in the existing Seatbelt Runner. The Host never
+three identity fields plus bounded untrusted business input. The trusted
+Launcher rejects extra Plugin fields, reads `plugin.state` again, and denies any
+stale or mismatched proposal. For an approved invocation, the Launcher shows
+the Candidate identity, exact input, and actual trusted scopes, then uses
+existing `plugin.run`; the Kernel resolves source, scope, and state namespace
+and runs the Candidate in the existing Seatbelt Runner. State-only calls do not
+open a workspace Picker. The Host never
 receives Plugin source, Manifest, scope, workspace path, or bookmark. Execution
 results are bounded and returned to the model as untrusted data. Each shell
 command is capped at 30 seconds; the in-memory session ends after eight user
@@ -190,6 +223,13 @@ Launcher returns a denial without opening a workspace Picker or executing it.
 The opt-in product Plugin lifecycle acceptance now includes the Agent proposal,
 user-refusal, and approved execution path through the signed Kernel XPC, Runner,
 and workspace writeback.
+
+The opt-in Memory acceptance exercises denied `remember`, approved
+`remember`, process exit/restart, `recall`, `forget`, and a final empty `recall`
+through the signed Agent → Launcher → Kernel → Runner chain. It also verifies
+that denial leaves state unchanged and the state-only workspace changeset is
+empty. Run it with the documented command below; it opens the package Picker
+and approval dialogs for manual interaction.
 
 The example Plugin completed a signed two-Picker product run on this Mac: the
 Kernel reported one added file, and the workspace output and deep app signature
@@ -232,6 +272,17 @@ disposable workspace printed by the test, then dismiss the success alert:
 
 ```bash
 KHAOS_RUN_PRODUCT_WRITEBACK_UI=1 python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+The optional signed-product Memory acceptance requires a package selection,
+one activation approval, one denied invocation, and four approved invocations.
+Follow the test's prompts and verify each exact JSON input and logical identity
+before responding:
+
+```bash
+KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
   -p test_macos_xpc_sandbox.py \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```

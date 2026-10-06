@@ -26,7 +26,7 @@ enum KernelWorkspacePythonExecutor {
             throw KernelWorkspaceServiceError.pythonRuntimeUnavailable
         }
         if case let .pluginLifecycle(request) = invocation.request,
-           !request.needsBookmark {
+           !request.needsSnapshotBroker {
             guard !cancellation.isRequested else {
                 throw KernelWorkspaceServiceError.processCancelled
             }
@@ -46,6 +46,7 @@ enum KernelWorkspacePythonExecutor {
                 invocation: input,
                 snapshotLease: nil,
                 pluginStoreRoot: try pluginStoreRoot().path,
+                pluginStateRoot: try pluginStateRoot().path,
                 cancellation: cancellation
             )
             return try decodeBridgeResponse(
@@ -57,6 +58,69 @@ enum KernelWorkspacePythonExecutor {
         guard let snapshotBrokerEndpoint = invocation.snapshotBrokerEndpoint else {
             throw KernelWorkspaceServiceError.snapshotBrokerUnavailable(
                 .configurationMissing
+            )
+        }
+        if invocation.bookmark == nil {
+            guard case .pluginLifecycle = invocation.request else {
+                throw KernelWorkspaceServiceError.workspaceRejected
+            }
+            guard !cancellation.isRequested else {
+                throw KernelWorkspaceServiceError.processCancelled
+            }
+            let lease: KernelSnapshotBrokerLease
+            do {
+                lease = try KernelSnapshotBrokerClient.createLease(
+                    snapshotBrokerEndpoint: snapshotBrokerEndpoint,
+                    caseSensitive: true,
+                    cancellation: cancellation
+                )
+            } catch {
+                if cancellation.isRequested {
+                    throw KernelWorkspaceServiceError.processCancelled
+                }
+                throw KernelWorkspaceServiceError.snapshotBrokerUnavailable(
+                    snapshotBrokerFailureCode(for: error)
+                )
+            }
+            let rootDescriptor = Darwin.open("/dev/null", O_RDONLY | O_CLOEXEC)
+            guard rootDescriptor >= 0 else {
+                try? lease.release()
+                throw KernelWorkspaceServiceError.pythonBridgeFailed
+            }
+            defer { _ = Darwin.close(rootDescriptor) }
+            guard case let .pluginLifecycle(request) = invocation.request else {
+                throw KernelWorkspaceServiceError.workspaceRejected
+            }
+            let bridgeInput = try KernelWorkspaceXPC.encodeBridgeInput(
+                request: request,
+                requestID: invocation.requestID
+            )
+            let value: Data
+            do {
+                value = try runBridge(
+                    bundle: bundle,
+                    workspace: URL(fileURLWithPath: "/"),
+                    rootDescriptor: rootDescriptor,
+                    invocation: bridgeInput,
+                    snapshotLease: lease,
+                    pluginStoreRoot: try pluginStoreRoot().path,
+                    pluginStateRoot: try pluginStateRoot().path,
+                    cancellation: cancellation
+                )
+            } catch {
+                try? lease.release()
+                throw error
+            }
+            do {
+                try lease.release()
+            } catch {
+                lease.invalidate()
+                throw KernelWorkspaceServiceError.commitOutcomeUncertain
+            }
+            return try decodeBridgeResponse(
+                value,
+                requestID: invocation.requestID,
+                validateWorkspaceResult: true
             )
         }
         guard let bookmark = invocation.bookmark else {
@@ -117,6 +181,7 @@ enum KernelWorkspacePythonExecutor {
                             invocation: bridgeInput,
                             snapshotLease: lease,
                             pluginStoreRoot: try pluginStoreRoot().path,
+                            pluginStateRoot: try pluginStateRoot().path,
                             cancellation: cancellation
                         )
                     } catch {
@@ -168,9 +233,21 @@ enum KernelWorkspacePythonExecutor {
         "candidate_store_failed", "invalid_rollback_target", "invalid_time",
         "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
         "plugin_source_rejected", "stale_approval", "store_unavailable",
+        "plugin_input_too_large", "plugin_invocation_unsupported",
+        "plugin_output_too_large", "plugin_state_corrupt",
+        "plugin_state_outcome_uncertain", "plugin_state_too_large",
+        "plugin_state_unavailable", "capability_denied",
     ]
 
     private static func pluginStoreRoot() throws -> URL {
+        try pluginDataRoot(prefix: "org.khaos.Seed.PluginStore-")
+    }
+
+    private static func pluginStateRoot() throws -> URL {
+        try pluginDataRoot(prefix: "org.khaos.Seed.PluginState-")
+    }
+
+    private static func pluginDataRoot(prefix: String) throws -> URL {
         guard let callerRequirement = Bundle.main.object(
             forInfoDictionaryKey: "KhaosWorkspaceCallerRequirement"
         ) as? String, !callerRequirement.isEmpty else {
@@ -181,7 +258,7 @@ enum KernelWorkspacePythonExecutor {
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
             .appendingPathComponent(
-                "org.khaos.Seed.PluginStore-\(namespace)",
+                "\(prefix)\(namespace)",
                 isDirectory: true
             )
     }
@@ -387,6 +464,7 @@ enum KernelWorkspacePythonExecutor {
         invocation: Data,
         snapshotLease: KernelSnapshotBrokerLease?,
         pluginStoreRoot: String,
+        pluginStateRoot: String,
         cancellation: WorkspaceCancellationSignal
     ) throws -> Data {
         let input = Pipe()
@@ -469,6 +547,7 @@ enum KernelWorkspacePythonExecutor {
         var environmentValues = [
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
             "KHAOS_PLUGIN_STORE_PATH=\(pluginStoreRoot)",
+            "KHAOS_PLUGIN_STATE_PATH=\(pluginStateRoot)",
             "PYTHONDONTWRITEBYTECODE=1",
         ]
         if let snapshotLease {
@@ -766,7 +845,7 @@ enum KernelWorkspacePythonExecutor {
                   return digest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
               }),
               let process = value["process_exec"] as? NSNumber,
-              CFGetTypeID(process) == CFBooleanGetTypeID(), process.boolValue,
+              CFGetTypeID(process) == CFBooleanGetTypeID(),
               let readScope = value["read_scope"] as? [String],
               let writeScope = value["write_scope"] as? [String],
               readScope.count + writeScope.count <= 8,

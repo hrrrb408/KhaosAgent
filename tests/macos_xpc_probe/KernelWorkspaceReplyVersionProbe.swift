@@ -62,9 +62,44 @@ struct KernelWorkspaceReplyVersionProbe {
             exit(1)
         }
 
+        let pluginInput = Data(
+            #"{"key":"project_codename","operation":"remember","value":"Project K"}"#.utf8
+        )
+        let pluginRequest = KernelWorkspaceXPC.PluginLifecycleRequest.run(
+            pluginID: "memory",
+            candidateDigest: String(repeating: "a", count: 64),
+            manifestDigest: String(repeating: "b", count: 64),
+            scopeDigest: String(repeating: "c", count: 64),
+            expectedGeneration: 7,
+            inputJSON: pluginInput,
+            workspaceRequired: false
+        )
+        let pluginFrame = try pluginRequest.encodeFrame(requestID: requestID)
+        guard case let .run(
+            pluginID,
+            _,
+            _,
+            _,
+            generation,
+            decodedInput,
+            workspaceRequired
+        )? = KernelWorkspaceXPC.decodePluginRequest(
+            pluginFrame,
+            requestID: requestID
+        ),
+        pluginID == "memory",
+        generation == 7,
+        decodedInput == pluginInput,
+        !workspaceRequired else {
+            FileHandle.standardError.write(
+                Data("KernelWorkspaceXPC changed the exact Plugin invocation input\n".utf8)
+            )
+            exit(1)
+        }
+
         FileHandle.standardOutput.write(
             Data(
-                "kernel-workspace-response-versions=8-and-9-separated;bridge-input=one-request-frame-plus-bookmark\n".utf8
+                "kernel-workspace-response-versions=8-and-10-separated;bridge-input=one-request-frame-plus-bookmark\n".utf8
             )
         )
     }
