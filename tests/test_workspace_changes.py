@@ -1531,6 +1531,7 @@ print("replaced", flush=True)
                         ready, _, _ = select.select([racer.stdout], [], [], 5)
                         self.assertTrue(ready, "concurrent writer did not run")
                         self.assertEqual(racer.stdout.readline().strip(), "replaced")
+                        self.assertEqual(racer.wait(timeout=5), 0)
                         raced = True
                     return real_clone(
                         source_fd,
