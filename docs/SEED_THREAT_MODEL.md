@@ -35,7 +35,43 @@ Runner and changeset path. Each Candidate's attempts to read or alter the store
 and to resolve a live Mach service are denied; an unconfined positive control
 resolves that service. This is Python Kernel/Runner evidence, not a successful
 signed product XPC `plugin.run` with a selected workspace. That UI-to-Runner
-path remains unverified.
+path remained unverified as of this 2026-10-05 record; the 2026-10-06 acceptance
+below closes that evidence gap for the tested host and product composition.
+
+## 2026-10-06 signed-product persistent Plugin execution lifecycle
+
+The opt-in `test_seed_app_builds_and_authenticates_its_kernel_service` acceptance
+passed with `KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1` against a disposable,
+locally signed `KhaosSeed.app`, its production `KernelProduction.xpc`, the
+production Plugin lifecycle, Seatbelt Runner, and existing validated changeset
+writeback path. The human-operated package and workspace Pickers and approval
+alerts completed `activate A → run A → activate B → run B → rollback → run A`;
+the test completed in 455.805 seconds. The canonical
+`python3 -m unittest discover -s tests -v` suite also passed all 276 tests in
+497.746 seconds on this host.
+
+For each run, the Launcher review displays Candidate, Manifest, and scope
+digests, slot generation, capability and paths; its approved operation digest
+binds the exact XPC request. The `plugin.run` payload contains the reviewed
+digests and generation but no source or scopes. The bridge rejects injected
+fields, and the Kernel resolves the active Candidate's source and Manifest
+under the store lock before invoking the existing workspace Runner path. The
+test parent checks the real disposable workspace after every run: only the two
+Manifest write paths change, their contents are bound to the approved input,
+and the unapproved canary remains unchanged. Runner evidence records OS denials
+for activation state reads/writes, Candidate-store reads/permission changes,
+and direct live-workspace reads. The Launcher confirms its Picker scope is
+released after each run, and `codesign --verify --deep --strict` passes after
+each lifecycle operation and run. For the generation race, the test leaves A's
+generation-1 approval open, activates B at generation 2, then confirms that
+approving the old request returns `stale_approval` without changing workspace
+bytes.
+
+This closes the signed-product positive execution evidence gap recorded above
+for this host and test composition. It does not claim distribution signing,
+protected installation, resistance to a same-UID process that can replace both
+the Plugin store and its HMAC key, or equivalent enforcement on another macOS
+version or machine.
 
 ## 2026-10-04 signed product boundary and interactive acceptance
 

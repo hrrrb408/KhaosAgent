@@ -525,7 +525,29 @@ metadata does not reveal source and that `plugin.run` without a workspace
 bookmark is rejected. The test cleans its signer-namespaced Application Support
 store. It does not open the Picker or run the persistently activated Candidate
 in a selected workspace; the current product `--plugin-run` Picker route still
-needs a correlated end-to-end run.
+needed a correlated end-to-end run as of this 2026-10-05 record; the following
+2026-10-06 acceptance closes that evidence gap for the tested host and product
+composition.
+
+**2026-10-06 signed-product positive execution evidence:** The opt-in
+`KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1` run of
+`test_seed_app_builds_and_authenticates_its_kernel_service` passed against a
+disposable locally signed product app, its production `KernelProduction.xpc`,
+the persistent Candidate store, Seatbelt Runner, and existing Kernel changeset
+commit path (455.805 seconds). With real package/workspace Pickers and user
+approval, it admitted and activated A, ran A, activated and ran B, rejected a
+held generation-1 A run as `stale_approval` after B became generation 2,
+rolled back to A, and ran A again. The test parent checked workspace bytes and
+the exact allowed output/evidence set after each run; it also checked scoped
+input/listing, unapproved-read denial, Runner denial of lifecycle-store and
+direct live-workspace access, Picker-scope release, and deep bundle signature
+verification after each operation. In the canonical suite, the
+`plugin.run` schema test rejects caller-injected source, read scope, and write
+scope, while the bridge resolves source and Manifest scopes from the active
+Candidate under the store lock. The canonical suite passed 276 tests in
+497.746 seconds. This is positive execution evidence for the current macOS host
+and temporary signed test copy; it does not claim release signing or protected
+installation.
 
 The real macOS test `test_real_runner_executes_a_b_rollback_a_and_cannot_self_activate`
 also proves the replacement sequence using the stored Candidate bytes and the

@@ -143,10 +143,18 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
             ("d" * 32, "plugin.run", request["payload"]),
         )
 
-        injected = json.loads(json.dumps(request))
-        injected["payload"]["runner_source"] = "def run(): return 0"
-        with self.assertRaisesRegex(ValueError, "invalid lifecycle request"):
-            _decode_invocation_request(injected)
+        for field, value in (
+            ("runner_source", "def run(): return 0"),
+            ("workspace_read_scope", []),
+            ("workspace_write_scope", ["output.txt"]),
+        ):
+            with self.subTest(field=field):
+                injected = json.loads(json.dumps(request))
+                injected["payload"][field] = value
+                with self.assertRaisesRegex(
+                    ValueError, "invalid lifecycle request"
+                ):
+                    _decode_invocation_request(injected)
 
     def test_admission_bridge_returns_only_review_metadata(self) -> None:
         manifest = json.dumps(
