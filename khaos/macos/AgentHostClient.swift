@@ -13,7 +13,7 @@ final class AgentHostClient {
 
     func sendUserTurn(
         _ text: String,
-        activePlugin: AgentPluginBinding?
+        activePlugin: AgentHostPluginMetadata?
     ) throws -> AgentHostReply {
         try request(AgentHostProtocol.userTurn(text, activePlugin: activePlugin))
     }
@@ -21,7 +21,7 @@ final class AgentHostClient {
     func sendToolResult(
         ok: Bool,
         text: String,
-        activePlugin: AgentPluginBinding?
+        activePlugin: AgentHostPluginMetadata?
     ) throws -> AgentHostReply {
         try request(AgentHostProtocol.toolResult(
             ok: ok,

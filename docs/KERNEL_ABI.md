@@ -29,6 +29,19 @@ through a trusted package Picker and asks the Kernel to admit an immutable,
 content-addressed Candidate. A separate user confirmation activates the exact
 Candidate, Manifest, and normalized capability-scope digests at the reviewed
 slot generation. The Kernel fixes the slot to `primary` and validity to 30 days.
+An optional Manifest `agent_interface` is informational metadata bound by the
+exact Manifest and Candidate digests. Its canonical JSON encoding is at most
+2 KiB. It contains a nonempty UTF-8 `summary` of at most 512 bytes and 1–16
+operations. Each operation has a unique lowercase ASCII name and up to 16
+unique lowercase ASCII business field names; names match
+`[a-z][a-z0-9_]{0,63}`. The `operation` field name is reserved for the generic
+invocation discriminator. Objects have exact keys and no nested extensions,
+which bounds structure and rejects attempts to add scope or authority fields.
+The Kernel validates only this shape and its bounds; it does not interpret
+operation names or Plugin business fields. In this Seed ABI, the interface is
+accepted only for Candidates without workspace scope or `process.exec`, because
+business input currently uses the state-only `plugin.output` Runner path. The
+interface is not included in `scope_digest` and cannot change authority.
 `--plugin-run` asks the Kernel to load source and scopes from that active slot;
 the request cannot supply either. `--plugin-rollback` routes future runs to the
 verified previous Candidate. Product Plugin input is untrusted business data,
@@ -542,7 +555,7 @@ bridge response version are `10`. The exact operation schemas are:
 | `workspace.run` | `timeout_seconds`, `runner_source`, `runner_source_sha256`, `workspace_read_scope`, `workspace_write_scope` | Required | Existing bounded one-request workspace path |
 | `plugin.admit` | `manifest_base64`, `source_base64` | Forbidden | Validate and store a content-addressed Candidate; return digest/scope summary |
 | `plugin.activate` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Forbidden | Verify bindings and generation, then activate fixed `primary` slot for 30 days |
-| `plugin.state` | empty | Forbidden | Return verified active/previous metadata without source bytes |
+| `plugin.state` | empty | Forbidden | Return verified active/previous metadata, including the bounded optional `agent_interface`, without source bytes |
 | `plugin.rollback` | the same four fields as activation | Forbidden | Verify the previous Candidate and generation, then route future runs to it |
 | `plugin.run` | `plugin_id`, `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation`, `input` (object or null), `workspace_required` | Required only for a Candidate with workspace scope or `process.exec` | Match active identity/digests/generation under the lifecycle lock; verify `workspace_required` against Manifest; state-only calls require an object input; pass bounded untrusted input and the retained Plugin ID into the existing Broker/Runner path |
 
@@ -550,8 +563,9 @@ Lifecycle operations reject unexpected fields and transfer bytes. In
 particular, `plugin.run` accepts only the reviewed Plugin identity,
 Candidate digests, generation, bounded business input, and a workspace-required
 bit; it never accepts source, state path, state namespace, or scope from its
-caller. An input object is accepted only on the no-workspace state-only route;
-workspace-capable runs carry `null`. The Kernel checks those
+caller. An input object is accepted only on the no-workspace state-only route
+and remains bounded by the existing byte and depth limits; state-only calls
+require an object input, while workspace-capable runs carry `null`. The Kernel checks those
 bindings and resolves the Candidate under the same store lock, so a concurrent
 slot switch between confirmation and the run request fails as stale. Admission
 and activation use the same signed Launcher-to-Kernel XPC endpoint as workspace
@@ -626,14 +640,20 @@ host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
 
 ### Agent Host Plugin invocation proposal
 
-The AgentHost XPC protocol is version 3. The Launcher includes only
-`plugin_id`, `candidate_digest`, and `generation` (or `null`) in each user-turn
-and result frame. The Host may return `text`, a `shell` proposal, or a `plugin`
-proposal. The exact Plugin proposal fields are `plugin_id`, `candidate_digest`,
-`generation`, and a bounded JSON object `input`; extra fields are rejected. In
-particular, the Host cannot provide Runner source, Manifest bytes, read/write
-scopes, state namespace/path, capability, approval, or lifecycle operation
-names. These metadata values identify a proposal and do not grant authority.
+The AgentHost XPC protocol is version 4. For the active Candidate, the
+Launcher includes `plugin_id`, `candidate_digest`, `generation`, and
+`agent_interface` (or `null`) in each user-turn and result frame. The interface
+is untrusted information even though it is read from a verified Candidate; its
+strings may contain hostile prompt-like text. The Host may return `text`, a
+`shell` proposal, or a `plugin` proposal. The exact Plugin proposal fields are
+`plugin_id`, `candidate_digest`, `generation`, and a bounded JSON object
+`input`; extra fields are rejected. When the interface describes an operation,
+the generic input convention is a flat object with `operation` set to the
+selected operation name and the declared business fields. In particular, the
+Host cannot provide Runner source, Manifest bytes, read/write scopes, state
+namespace/path, capability, approval, or lifecycle operation names. Metadata
+values identify a proposal and describe business input only; they do not grant
+authority.
 
 Before presenting an Agent proposal, the Launcher performs a fresh `plugin.state`
 read and requires all three proposal values to match the current active Candidate
@@ -645,6 +665,13 @@ the request digest. Only after approval
 does the Launcher send the existing `plugin.run` request; source and scope remain
 resolved by the Kernel. If the slot changes after the Launcher's comparison,
 the Kernel's existing store-lock generation check rejects the stale run.
+
+Before forwarding metadata, the Launcher validates its bounded shape. The
+Host prompt labels all interface content as untrusted data and never contains
+Plugin-specific business branches. The metadata does not replace fresh
+`plugin.state` validation or user approval. A changed interface produces new
+Manifest and Candidate digests, so an old proposal fails the existing digest
+and generation checks.
 
 The bounded `WorkspaceResult` returned from Plugin execution is encoded to at
 most 16 KiB before it is sent to the Host. Plugin output is untrusted model

@@ -8,6 +8,10 @@ import OSLog
 enum KernelWorkspacePythonExecutor {
     private static let maximumProcessFrameBytes =
         KernelWorkspaceXPC.maximumMessageBytes + KernelWorkspaceXPC.transferLengthBytes
+    private static let maximumAgentInterfaceBytes = 2 * 1024
+    private static let maximumAgentInterfaceSummaryBytes = 512
+    private static let maximumAgentInterfaceOperations = 16
+    private static let maximumAgentInterfaceFields = 16
     private static let operationDeadlineSeconds: TimeInterval = 75
     private static let snapshotStorageBytes = KernelSnapshotStoragePolicy.storageBytes
     private static let logger = Logger(
@@ -832,7 +836,7 @@ enum KernelWorkspacePythonExecutor {
     ) -> Bool {
         let candidateKeys: Set<String> = [
             "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
-            "process_exec", "read_scope", "write_scope",
+            "process_exec", "read_scope", "write_scope", "agent_interface",
         ]
         let activationKeys = candidateKeys.union([
             "slot", "approved_at", "expires_at", "approval_validity_seconds",
@@ -848,8 +852,12 @@ enum KernelWorkspacePythonExecutor {
               CFGetTypeID(process) == CFBooleanGetTypeID(),
               let readScope = value["read_scope"] as? [String],
               let writeScope = value["write_scope"] as? [String],
+              let agentInterface = value["agent_interface"],
+              validAgentInterface(agentInterface),
               readScope.count + writeScope.count <= 8,
-              (readScope + writeScope).allSatisfy({ !$0.isEmpty && !$0.contains("\0") })
+              (readScope + writeScope).allSatisfy({ !$0.isEmpty && !$0.contains("\0") }),
+              agentInterface is NSNull
+                || (!process.boolValue && readScope.isEmpty && writeScope.isEmpty)
         else {
             return false
         }
@@ -863,6 +871,48 @@ enum KernelWorkspacePythonExecutor {
             return false
         }
         return true
+    }
+
+    private static func validAgentInterface(_ value: Any) -> Bool {
+        if value is NSNull { return true }
+        guard let interface = value as? [String: Any],
+              Set(interface.keys) == ["summary", "operations"],
+              let summary = interface["summary"] as? String,
+              !summary.isEmpty,
+              summary.utf8.count <= maximumAgentInterfaceSummaryBytes,
+              let operations = interface["operations"] as? [[String: Any]],
+              (1...maximumAgentInterfaceOperations).contains(operations.count),
+              let encoded = try? JSONSerialization.data(
+                withJSONObject: interface,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              encoded.count <= maximumAgentInterfaceBytes else {
+            return false
+        }
+
+        var operationNames = Set<String>()
+        for operation in operations {
+            guard Set(operation.keys) == ["name", "fields"],
+                  let name = operation["name"] as? String,
+                  validAgentInterfaceName(name),
+                  operationNames.insert(name).inserted,
+                  let fields = operation["fields"] as? [String],
+                  fields.count <= maximumAgentInterfaceFields,
+                  fields.allSatisfy({
+                    $0 != "operation" && validAgentInterfaceName($0)
+                  }),
+                  Set(fields).count == fields.count else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func validAgentInterfaceName(_ value: String) -> Bool {
+        value.range(
+            of: #"^[a-z][a-z0-9_]{0,63}$"#,
+            options: .regularExpression
+        ) != nil
     }
 
     private static func integer(_ value: Any?) -> Int? {

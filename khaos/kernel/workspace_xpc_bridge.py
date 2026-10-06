@@ -362,6 +362,7 @@ def _decode_bounded_base64(value: object, maximum: int) -> bytes:
 
 
 def _candidate_summary(candidate: PluginCandidate) -> dict[str, object]:
+    interface = candidate.manifest.agent_interface
     return {
         "plugin_id": candidate.manifest.plugin_id,
         "candidate_digest": candidate.candidate_digest,
@@ -370,6 +371,17 @@ def _candidate_summary(candidate: PluginCandidate) -> dict[str, object]:
         "process_exec": candidate.manifest.process_exec,
         "read_scope": list(candidate.manifest.read_scope),
         "write_scope": list(candidate.manifest.write_scope),
+        "agent_interface": (
+            {
+                "summary": interface.summary,
+                "operations": [
+                    {"name": operation.name, "fields": list(operation.fields)}
+                    for operation in interface.operations
+                ],
+            }
+            if interface is not None
+            else None
+        ),
     }
 
 

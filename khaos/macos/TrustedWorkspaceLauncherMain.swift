@@ -33,6 +33,7 @@ private struct PluginCandidateReview {
     let processExec: Bool
     let readScope: [String]
     let writeScope: [String]
+    let agentInterface: AgentPluginInterface?
     let approvedAt: Int?
     let expiresAt: Int?
 }
@@ -441,10 +442,11 @@ enum TrustedWorkspaceLauncherMain {
         guard let active = state.active else {
             throw LauncherError.operationRejected("no_active_candidate")
         }
-        let activeBinding = AgentPluginBinding(
+        let activeBinding = AgentHostPluginMetadata(
             pluginID: active.identifier,
             candidateDigest: active.candidateDigest,
-            generation: state.generation
+            generation: state.generation,
+            agentInterface: active.agentInterface
         )
         if let proposal,
            !AgentHostProtocol.proposalMatchesActive(proposal, active: activeBinding) {
@@ -656,7 +658,7 @@ enum TrustedWorkspaceLauncherMain {
     ) throws -> PluginCandidateReview {
         let candidateKeys: Set<String> = [
             "plugin_id", "candidate_digest", "manifest_digest", "scope_digest",
-            "process_exec", "read_scope", "write_scope",
+            "process_exec", "read_scope", "write_scope", "agent_interface",
         ]
         let activationKeys = candidateKeys.union([
             "slot", "approved_at", "expires_at", "approval_validity_seconds",
@@ -677,6 +679,8 @@ enum TrustedWorkspaceLauncherMain {
               CFGetTypeID(processExec) == CFBooleanGetTypeID(),
               let readScope = value["read_scope"] as? [String],
               let writeScope = value["write_scope"] as? [String],
+              let agentInterfaceValue = value["agent_interface"],
+              AgentHostProtocol.validAgentInterfaceValue(agentInterfaceValue),
               readScope.count + writeScope.count <= 8,
               (readScope + writeScope).allSatisfy({
                   !$0.isEmpty && !$0.hasPrefix("/") && !$0.contains("\0")
@@ -709,6 +713,7 @@ enum TrustedWorkspaceLauncherMain {
             processExec: processExec.boolValue,
             readScope: readScope,
             writeScope: writeScope,
+            agentInterface: AgentHostProtocol.agentInterface(from: agentInterfaceValue),
             approvedAt: approvedAt,
             expiresAt: expiresAt
         )
@@ -832,7 +837,7 @@ enum TrustedWorkspaceLauncherMain {
             do {
                 reply = try host.sendUserTurn(
                     prompt,
-                    activePlugin: currentAgentPluginBinding()
+                    activePlugin: currentAgentPluginMetadata()
                 )
             } catch {
                 fputs("Local Agent request failed: \(failureCode(for: error))\n", stderr)
@@ -852,7 +857,7 @@ enum TrustedWorkspaceLauncherMain {
                         reply = try host.sendToolResult(
                             ok: outcome.ok,
                             text: outcome.text,
-                            activePlugin: currentAgentPluginBinding()
+                            activePlugin: currentAgentPluginMetadata()
                         )
                     } catch {
                         fputs(
@@ -867,7 +872,7 @@ enum TrustedWorkspaceLauncherMain {
                         reply = try host.sendToolResult(
                             ok: outcome.ok,
                             text: outcome.text,
-                            activePlugin: currentAgentPluginBinding()
+                            activePlugin: currentAgentPluginMetadata()
                         )
                     } catch {
                         fputs(
@@ -884,16 +889,17 @@ enum TrustedWorkspaceLauncherMain {
         }
     }
 
-    private static func currentAgentPluginBinding() -> AgentPluginBinding? {
+    private static func currentAgentPluginMetadata() -> AgentHostPluginMetadata? {
         guard let output = try? invokePluginKernel(.state),
               let state = try? parsePluginState(output),
               let active = state.active else {
             return nil
         }
-        return AgentPluginBinding(
+        return AgentHostPluginMetadata(
             pluginID: active.identifier,
             candidateDigest: active.candidateDigest,
-            generation: state.generation
+            generation: state.generation,
+            agentInterface: active.agentInterface
         )
     }
 
