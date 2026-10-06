@@ -385,7 +385,9 @@ remote model. Runner ABI v6 itself has no Plugin identity or capability handle.
 The development `workspace.run` path still enables `process.exec` for one
 trusted workspace request. The product `plugin.run` wrapper resolves source and
 scope from the active Candidate inside the trusted Kernel before invoking this
-ABI. The local Agent Host does not call the Plugin lifecycle API.
+ABI. The local Agent Host never calls lifecycle operations directly. The trusted
+Launcher reads `plugin.state`, shares only minimal active-Candidate metadata with
+the Host, and revalidates a returned Plugin proposal before approval.
 
 ## Native macOS Workspace XPC operation ABI v9
 
@@ -559,6 +561,34 @@ Mach service. Those operations are denied in the Runner; an unconfined
 positive-control lookup succeeds. Its only committed writes are the exact
 Manifest paths. This validates the Python Kernel/Runner composition on this
 host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
+
+### Agent Host Plugin invocation proposal
+
+The existing AgentHost XPC protocol is version 2. The Launcher includes only
+`plugin_id`, `candidate_digest`, and `generation` (or `null`) in each user-turn
+and result frame. The Host may return `text`, a `shell` proposal, or a `plugin`
+proposal. The exact Plugin proposal fields are `plugin_id`, `candidate_digest`,
+and `generation`; extra fields are rejected. In particular, the Host cannot
+provide Runner source, Manifest bytes, read/write scopes, capability, approval,
+or lifecycle operation names. These metadata values identify a proposal and do
+not grant authority.
+
+Before presenting an Agent proposal, the Launcher performs a fresh `plugin.state`
+read and requires all three proposal values to match the current active Candidate
+and slot generation. No active Candidate or any mismatch is denied as a stale
+proposal before workspace selection or approval. The approval dialog shows the
+actual Candidate, Manifest and scope digests, generation, capability and exact
+read/write paths from trusted state, plus the request digest. Only after approval
+does the Launcher send the existing `plugin.run` request; source and scope remain
+resolved by the Kernel. If the slot changes after the Launcher's comparison,
+the Kernel's existing store-lock generation check rejects the stale run.
+
+The bounded `WorkspaceResult` returned from Plugin execution is encoded to at
+most 16 KiB before it is sent to the Host. The Host labels it untrusted model
+input. A user denial is returned as a denial result and does not submit
+`plugin.run`. The Host protocol has no activation, rollback, admission, or other
+lifecycle mutation response, and this path adds no Kernel IPC operation,
+trusted process, or persistent state.
 
 ### Product APFS snapshot broker handoff
 

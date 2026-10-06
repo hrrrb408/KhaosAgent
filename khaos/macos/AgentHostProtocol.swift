@@ -3,14 +3,21 @@ import Foundation
 
 enum AgentHostReply {
     case text(String)
-    case tool(AgentToolProposal)
+    case shell(AgentShellProposal)
+    case plugin(AgentPluginBinding)
     case failure(String)
 }
 
-struct AgentToolProposal {
+struct AgentShellProposal {
     let argv: [String]
     let readScope: [String]
     let writeScope: [String]
+}
+
+struct AgentPluginBinding: Equatable {
+    let pluginID: String
+    let candidateDigest: String
+    let generation: Int
 }
 
 @objc protocol AgentHostSessionEndpoint {
@@ -21,14 +28,17 @@ struct AgentToolProposal {
 }
 
 enum AgentHostProtocol {
-    static let version = 1
+    static let version = 2
     static let maximumFrameBytes = 64 * 1024
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
     static let maximumScopePaths = 8
     static let maximumArgumentBytes = 4096
 
-    static func userTurn(_ text: String) throws -> Data {
+    static func userTurn(
+        _ text: String,
+        activePlugin: AgentPluginBinding?
+    ) throws -> Data {
         guard boundedBytes(text, maximum: maximumTextBytes), !text.isEmpty else {
             throw AgentHostProtocolError.invalidRequest
         }
@@ -36,10 +46,15 @@ enum AgentHostProtocol {
             "version": version,
             "operation": "user",
             "text": text,
+            "active_plugin": bindingObject(activePlugin),
         ])
     }
 
-    static func toolResult(ok: Bool, text: String) throws -> Data {
+    static func toolResult(
+        ok: Bool,
+        text: String,
+        activePlugin: AgentPluginBinding?
+    ) throws -> Data {
         guard boundedBytes(text, maximum: maximumTextBytes) else {
             throw AgentHostProtocolError.invalidRequest
         }
@@ -48,6 +63,7 @@ enum AgentHostProtocol {
             "operation": "tool_result",
             "ok": ok,
             "text": text,
+            "active_plugin": bindingObject(activePlugin),
         ])
     }
 
@@ -70,7 +86,7 @@ enum AgentHostProtocol {
                 return nil
             }
             return .text(text)
-        case "tool":
+        case "shell":
             guard Set(object.keys) == [
                 "version", "type", "argv", "read_scope", "write_scope"
             ],
@@ -94,10 +110,27 @@ enum AgentHostProtocol {
                 argv.allSatisfy(reviewable) else {
                 return nil
             }
-            return .tool(AgentToolProposal(
+            return .shell(AgentShellProposal(
                 argv: argv,
                 readScope: readScope,
                 writeScope: writeScope
+            ))
+        case "plugin":
+            guard Set(object.keys) == [
+                "version", "type", "plugin_id", "candidate_digest", "generation"
+            ],
+                let pluginID = object["plugin_id"] as? String,
+                validPluginID(pluginID),
+                let candidateDigest = object["candidate_digest"] as? String,
+                validDigest(candidateDigest),
+                let generation = nonnegativeInteger(object["generation"])
+            else {
+                return nil
+            }
+            return .plugin(AgentPluginBinding(
+                pluginID: pluginID,
+                candidateDigest: candidateDigest,
+                generation: generation
             ))
         case "error":
             guard Set(object.keys) == ["version", "type", "code"],
@@ -125,16 +158,22 @@ enum AgentHostProtocol {
         }
         switch operation {
         case "user":
-            guard Set(object.keys) == ["version", "operation", "text"],
+            guard Set(object.keys) == [
+                "version", "operation", "text", "active_plugin"
+            ],
                   let text = object["text"] as? String,
-                  !text.isEmpty, boundedBytes(text, maximum: maximumTextBytes) else {
+                  !text.isEmpty, boundedBytes(text, maximum: maximumTextBytes),
+                  validOptionalBinding(object["active_plugin"]) else {
                 return nil
             }
         case "tool_result":
-            guard Set(object.keys) == ["version", "operation", "ok", "text"],
+            guard Set(object.keys) == [
+                "version", "operation", "ok", "text", "active_plugin"
+            ],
                   let ok = object["ok"] as? Bool,
                   let text = object["text"] as? String,
-                  boundedBytes(text, maximum: maximumTextBytes) else {
+                  boundedBytes(text, maximum: maximumTextBytes),
+                  validOptionalBinding(object["active_plugin"]) else {
                 return nil
             }
             // JSON booleans and numeric 0/1 must not be interchangeable on the wire.
@@ -160,13 +199,26 @@ enum AgentHostProtocol {
                 throw AgentHostProtocolError.invalidResponse
             }
             return try encode(["version": version, "type": "text", "text": text])
-        case let .tool(proposal):
+        case let .shell(proposal):
             return try encode([
                 "version": version,
-                "type": "tool",
+                "type": "shell",
                 "argv": proposal.argv,
                 "read_scope": proposal.readScope,
                 "write_scope": proposal.writeScope,
+            ])
+        case let .plugin(binding):
+            guard validPluginID(binding.pluginID),
+                  validDigest(binding.candidateDigest),
+                  binding.generation >= 0 else {
+                throw AgentHostProtocolError.invalidResponse
+            }
+            return try encode([
+                "version": version,
+                "type": "plugin",
+                "plugin_id": binding.pluginID,
+                "candidate_digest": binding.candidateDigest,
+                "generation": binding.generation,
             ])
         case let .failure(code):
             return try encode(["version": version, "type": "error", "code": code])
@@ -203,10 +255,10 @@ enum AgentHostProtocol {
     private static func integer(_ value: Any?) -> Int? {
         guard let number = value as? NSNumber,
               CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.stringValue == "1" else {
+              number.stringValue == String(version) else {
             return nil
         }
-        return 1
+        return version
     }
 
     private static func strings(
@@ -225,6 +277,84 @@ enum AgentHostProtocol {
 
     private static func boundedBytes(_ value: String, maximum: Int) -> Bool {
         value.utf8.count <= maximum
+    }
+
+    static func activePlugin(in input: [String: Any]) -> AgentPluginBinding? {
+        guard let value = input["active_plugin"], !(value is NSNull),
+              let dictionary = value as? [String: Any],
+              let pluginID = dictionary["plugin_id"] as? String,
+              let candidateDigest = dictionary["candidate_digest"] as? String,
+              let generation = nonnegativeInteger(dictionary["generation"])
+        else {
+            return nil
+        }
+        return AgentPluginBinding(
+            pluginID: pluginID,
+            candidateDigest: candidateDigest,
+            generation: generation
+        )
+    }
+
+    static func pluginContext(_ binding: AgentPluginBinding?) -> String {
+        guard let binding else {
+            return "Trusted Launcher reports no active Plugin."
+        }
+        return "Trusted Launcher reports active Plugin metadata (information only): "
+            + "plugin_id=\(binding.pluginID) candidate_digest=\(binding.candidateDigest) "
+            + "generation=\(binding.generation)."
+    }
+
+    static func proposalMatchesActive(
+        _ proposal: AgentPluginBinding,
+        active: AgentPluginBinding
+    ) -> Bool {
+        proposal == active
+    }
+
+    private static func bindingObject(_ binding: AgentPluginBinding?) -> Any {
+        guard let binding else { return NSNull() }
+        return [
+            "plugin_id": binding.pluginID,
+            "candidate_digest": binding.candidateDigest,
+            "generation": binding.generation,
+        ]
+    }
+
+    private static func validOptionalBinding(_ value: Any?) -> Bool {
+        if value is NSNull { return true }
+        guard let dictionary = value as? [String: Any],
+              Set(dictionary.keys) == [
+                "plugin_id", "candidate_digest", "generation"
+              ],
+              let pluginID = dictionary["plugin_id"] as? String,
+              validPluginID(pluginID),
+              let candidateDigest = dictionary["candidate_digest"] as? String,
+              validDigest(candidateDigest),
+              nonnegativeInteger(dictionary["generation"]) != nil else {
+            return false
+        }
+        return true
+    }
+
+    private static func validPluginID(_ value: String) -> Bool {
+        value.range(
+            of: #"^[a-z][a-z0-9-]{0,63}$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private static func validDigest(_ value: String) -> Bool {
+        value.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+    }
+
+    private static func nonnegativeInteger(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(),
+              let integer = Int(number.stringValue),
+              integer >= 0 else {
+            return nil
+        }
+        return integer
     }
 
     private static func reviewable(_ value: String) -> Bool {

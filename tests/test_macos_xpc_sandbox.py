@@ -53,6 +53,51 @@ _PRODUCT_WRITEBACK_EVIDENCE = (
     "requires the macOS App Sandbox, XPC runtime and temporary signing tools",
 )
 class MacOSXPCSandboxTests(unittest.TestCase):
+    def test_agent_host_protocol_rejects_authority_injection_and_stale_bindings(
+        self,
+    ) -> None:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="khaos-agent-protocol-") as value:
+            probe = Path(value) / "AgentHostProtocolProbe"
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    "-sdk",
+                    sdk,
+                    "-target",
+                    f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                    str(PROBE_SOURCES / "AgentHostProtocolProbe.swift"),
+                    "-o",
+                    str(probe),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("agent-host-protocol=passed", result.stdout)
+
     def _assert_product_writeback_evidence(
         self,
         diagnostic_output: str,
@@ -602,7 +647,13 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     product_app,
                     workspace,
                 )
-            if os.environ.get("KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI") == "1":
+            run_plugin_lifecycle_ui = (
+                os.environ.get("KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI") == "1"
+            )
+            run_agent_plugin_ui = (
+                os.environ.get("KHAOS_RUN_PRODUCT_AGENT_PLUGIN_UI") == "1"
+            )
+            if run_plugin_lifecycle_ui or run_agent_plugin_ui:
                 plugin_store = self._plugin_store_path_for_requirement(
                     product_requirement
                 )
@@ -616,6 +667,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     product_launcher=product_launcher,
                     product_requirement=product_requirement,
                     scratch=root,
+                    agent_only=run_agent_plugin_ui and not run_plugin_lifecycle_ui,
                 )
                 self._remove_plugin_store(plugin_store)
 
@@ -4275,6 +4327,7 @@ def run():
         product_launcher: Path,
         product_requirement: str,
         scratch: Path,
+        agent_only: bool = False,
     ) -> None:
         plugin_store = self._plugin_store_path_for_requirement(product_requirement)
         workspace = scratch / "persistent-plugin-workspace"
@@ -4558,18 +4611,16 @@ def run():
             check_active(letter, generation + 1)
             verify_signature()
 
-        def run_plugin(letter: str, generation: int, label: str) -> None:
+        def verify_plugin_result(
+            letter: str,
+            generation: int,
+            before: dict[str, str],
+            diagnostics: str,
+            *,
+            agent: bool = False,
+        ) -> None:
             expected = packages[letter]
             check_active(letter, generation)
-            before = snapshot()
-            show_expected(letter, generation)
-            print(
-                f"Select {workspace} in the signed product workspace Picker, "
-                "verify the four approval bindings, approve, and dismiss the "
-                "result alert for parent-side workspace checks.",
-                flush=True,
-            )
-            diagnostics = finish(label, start(label, "--plugin-run"))
             after = snapshot()
             self.assertEqual(
                 {name for name in set(before) | set(after) if before.get(name) != after.get(name)},
@@ -4603,10 +4654,128 @@ def run():
                 unapproved_bytes,
             )
             self.assertIn(
-                "workspace-plugin=passed", diagnostics
+                "agent-plugin=passed" if agent else "workspace-plugin=passed",
+                diagnostics,
             )
             check_active(letter, generation)
             verify_signature()
+
+        def run_plugin(letter: str, generation: int, label: str) -> None:
+            before = snapshot()
+            show_expected(letter, generation)
+            print(
+                f"Select {workspace} in the signed product workspace Picker, "
+                "verify the four approval bindings, approve, and dismiss the "
+                "result alert for parent-side workspace checks.",
+                flush=True,
+            )
+            diagnostics = finish(label, start(label, "--plugin-run"))
+            verify_plugin_result(letter, generation, before, diagnostics)
+
+        def run_agent_plugin(letter: str, generation: int) -> None:
+            before = snapshot()
+            expected = packages[letter]
+            show_expected(letter, generation)
+            stdout_path = logs / "agent-plugin.stdout"
+            stderr_path = logs / "agent-plugin.stderr"
+            print(
+                f"Start the signed product's local Agent. Select {workspace} "
+                "when its workspace Picker opens. The model will propose the "
+                "active Plugin twice: cancel the first approval, then approve "
+                "the second after the test confirms there was no writeback.",
+                flush=True,
+            )
+            with stdout_path.open("w", encoding="utf-8") as output, \
+                    stderr_path.open("w", encoding="utf-8") as errors:
+                process = subprocess.Popen(
+                    [str(product_launcher), "--agent"],
+                    stdin=subprocess.PIPE,
+                    stdout=output,
+                    stderr=errors,
+                    text=True,
+                )
+                self.addCleanup(self._terminate_product_executable, product_launcher)
+                if process.stdin is None:
+                    self.fail("Agent stdin was not created")
+                process.stdin.write("RUN_ACTIVE_PLUGIN\nRUN_ACTIVE_PLUGIN\n/exit\n")
+                process.stdin.close()
+
+                def wait_for_agent_marker(marker: str, occurrences: int) -> str:
+                    deadline = time.monotonic() + 300
+                    while time.monotonic() < deadline:
+                        diagnostics = stderr_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                        if diagnostics.count(marker) >= occurrences:
+                            return diagnostics
+                        if process.poll() is not None:
+                            break
+                        time.sleep(0.1)
+                    diagnostics = stderr_path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                    self.fail(
+                        f"Agent Plugin flow did not reach {marker!r} "
+                        f"({occurrences} occurrences): {diagnostics}"
+                    )
+
+                wait_for_agent_marker("agent-plugin=approval-presented", 1)
+                gate(
+                    "The first dialog must show the active Candidate and its "
+                    "trusted read/write scope. Click Cancel, then press Return."
+                )
+                wait_for_agent_marker("agent-plugin=approval-denied", 1)
+                diagnostics = wait_for_agent_marker(
+                    "agent-plugin=approval-presented", 2
+                )
+                self.assertIn(
+                    "Agent received the user's denial",
+                    stdout_path.read_text(encoding="utf-8", errors="replace"),
+                )
+                self.assertEqual(
+                    snapshot(), before,
+                    "user denial must prevent Plugin execution and writeback",
+                )
+                print(
+                    f"The second dialog should show {expected['id']} at "
+                    f"generation {generation} with the active Manifest scope. "
+                    "Approve it, then press Return.",
+                    flush=True,
+                )
+                gate("After approving the second invocation, press Return.")
+                try:
+                    process.wait(timeout=300)
+                except subprocess.TimeoutExpired:
+                    self._terminate_product_executable(product_launcher)
+                    process.kill()
+                    process.wait(timeout=5)
+                    self.fail(
+                        "Agent did not return from the Plugin result: "
+                        + stderr_path.read_text(encoding="utf-8", errors="replace")
+                    )
+                diagnostics = stderr_path.read_text(
+                    encoding="utf-8", errors="replace"
+                )
+                self.assertEqual(
+                    process.returncode,
+                    0,
+                    stdout_path.read_text(encoding="utf-8", errors="replace")
+                    + diagnostics,
+                )
+                output_text = stdout_path.read_text(
+                    encoding="utf-8", errors="replace"
+                )
+                self.assertIn(
+                    "Plugin result confirms two approved files were added.",
+                    output_text,
+                )
+                verify_plugin_result(
+                    letter,
+                    generation,
+                    before,
+                    diagnostics,
+                    agent=True,
+                )
 
         self.assertFalse(plugin_store.exists(), f"unexpected Plugin state: {plugin_store}")
         self.addCleanup(self._remove_plugin_store, plugin_store)
@@ -4623,6 +4792,9 @@ def run():
         )
 
         activate("A", 0, "activate-a")
+        run_agent_plugin("A", 1)
+        if agent_only:
+            return
         run_plugin("A", 1, "run-a")
 
         before_stale = snapshot()
@@ -4749,6 +4921,34 @@ def run():
         )
         self.assertIn("read-denied=true write-denied=true", agent_run.stdout)
         self.assertEqual(canary.read_text(encoding="utf-8"), "parent can read and open for writing\n")
+
+        empty_store_run = subprocess.run(
+            [str(launcher_binary), "--agent"],
+            check=False,
+            capture_output=True,
+            text=True,
+            input="TRY_PLUGIN_WITHOUT_ACTIVE\n/exit\n",
+            timeout=180,
+        )
+        self.assertEqual(
+            empty_store_run.returncode,
+            0,
+            empty_store_run.stdout + empty_store_run.stderr,
+        )
+        self.assertIn("agent-plugin=denied code=no_active_candidate", empty_store_run.stderr)
+        self.assertIn("Launcher denied execution", empty_store_run.stdout)
+        self.assertNotIn("agent-plugin=approval-presented", empty_store_run.stderr)
+        product_requirement = self._designated_code_requirement(
+            launcher_binary, "org.khaos.Seed"
+        )
+        plugin_store = self._plugin_store_path_for_requirement(product_requirement)
+        if plugin_store.exists():
+            active, previous, generation = activation_state(plugin_store)
+            self.assertIsNone(active)
+            self.assertIsNone(previous)
+            self.assertEqual(generation, 0)
+            self._remove_plugin_store(plugin_store)
+
         signature = subprocess.run(
             ["codesign", "--verify", "--deep", "--strict", str(product_app)],
             check=False,

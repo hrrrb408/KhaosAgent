@@ -11,12 +11,23 @@ final class AgentHostClient {
         connection.resume()
     }
 
-    func sendUserTurn(_ text: String) throws -> AgentHostReply {
-        try request(AgentHostProtocol.userTurn(text))
+    func sendUserTurn(
+        _ text: String,
+        activePlugin: AgentPluginBinding?
+    ) throws -> AgentHostReply {
+        try request(AgentHostProtocol.userTurn(text, activePlugin: activePlugin))
     }
 
-    func sendToolResult(ok: Bool, text: String) throws -> AgentHostReply {
-        try request(AgentHostProtocol.toolResult(ok: ok, text: text))
+    func sendToolResult(
+        ok: Bool,
+        text: String,
+        activePlugin: AgentPluginBinding?
+    ) throws -> AgentHostReply {
+        try request(AgentHostProtocol.toolResult(
+            ok: ok,
+            text: text,
+            activePlugin: activePlugin
+        ))
     }
 
     func stop() {
