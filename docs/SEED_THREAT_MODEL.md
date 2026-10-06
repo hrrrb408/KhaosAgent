@@ -154,6 +154,119 @@ not resist an arbitrary hostile same-UID process that can alter that directory.
 This implementation does not add schema migration or a general storage
 framework.
 
+## 2026-10-06 Memory Candidate A-to-B evaluation and routing proof
+
+Candidate B keeps the memory logical Plugin ID, the remember/recall/forget
+interface, and the opaque khaos-memory-v1 state. Its only behavior change is
+exact recall first, then Unicode NFKC plus casefold fallback when exactly one
+stored key matches. It does not migrate or copy state.
+
+The fixed five-sample replay compares Candidate A and B through the existing
+macOS Seatbelt Runner. Each Candidate/sample pair receives a fresh temporary
+state root seeded from the same fixture; the workspace is empty and has no
+read/write scope or process.exec. Evaluation scores only actual recall output
+fields and ignores Candidate-supplied fields such as score. The test measured
+A at 3/5 and B at 5/5, with two improvements and no regressions. It binds the
+Harness record to Candidate, Manifest, scope, baseline Candidate, and dataset
+digests. Changed Candidate content, Manifest, capability scope, baseline, or
+dataset bytes reject the binding.
+
+Adversarial replay tests give a hostile Candidate a self-reported score of
+1000000 and attempts to write the fixture, production Memory blob, Candidate
+A source, lifecycle record, and evaluation workspace; read a secret or
+Candidate store; and connect to loopback. The real Runner denies those paths,
+does not inherit the test secret environment variable, and leaves fixture,
+production state, Candidate bytes, and activation state unchanged. The hostile
+Candidate earns only 1/5 from its actual output. An incompatible state reader
+returns runner_failed while preserving the original state bytes. The real
+Runner lifecycle test also activates A, stores a production value, evaluates
+A/B without changing the active generation or production bytes, activates B,
+reads that same value, rolls back to A, and verifies the state remains byte
+identical.
+
+The signed-product Launcher displays a bounded Harness evaluation record as
+informational and untrusted data. It requires its Candidate, Manifest, scope,
+and current rollback target digests to match the actual Kernel-admitted
+bindings before showing the activation dialog; the Kernel does not execute or
+endorse the reported scores. The activation review uses a fixed-height,
+scrollable, read-only details panel so the full bindings and evaluation remain
+available while the approval buttons stay visible.
+
+The signed-product Candidate A-to-B acceptance passed on 2026-10-07 (1 test,
+460.885 seconds) on this macOS host. The user approved A, approved the
+`remember(project_codename, Project K)` invocation, reviewed and approved the
+exact B activation, and approved rollback to A. The parent verified the
+generation-2 B recall returned A's `Project K`, rollback restored A as active
+at generation 3, and A returned the same value with production state bytes
+unchanged. The fixed replay measured A 3/5 and B 5/5 with no regressions; the
+deep product signature and headless XPC attack checks also passed. An earlier
+attempt stopped at the B-package synchronization gate before activation because
+the test runner was still waiting for its explicit terminal acknowledgement;
+the later approval-dialog layout also showed that long content could push
+buttons off-screen. The review panel was bounded and the test now tolerates
+Launch Services log files that have not been created yet. These were UI and
+test-coordination failures, not rejected Kernel operations. The final
+interactive run passed after both fixes. The canonical macOS suite then passed
+all 300 tests in 626.220 seconds, including the signed Launcher/XPC attack
+checks.
+
+## 2026-10-06 Worker startup and commit-test race findings
+
+Historical CI failures in runs 37284576188 and 37355493157 reported
+kernel_ipc_failed while awaiting the launcher's first pipe ping. The Runner
+peer-PID handshake had already passed; the parent observed an incomplete-frame
+EOF before it sent any workspace.run request. This is a Worker startup/IPC
+failure, not a Plugin lifecycle or Candidate request failure. Those historical
+logs do not retain the Worker exit reason because its stderr is redirected to
+DEVNULL, so the lower-level cause remains unknown.
+
+The launcher retries at most once, and only when this initial bounded pipe ping
+fails. It terminates/reaps the failed Worker before starting the second one,
+sends no workspace request until a ping succeeds, and fails closed after a
+second handshake failure. An injected real-Seatbelt test forces the first ping
+to fail before a request and verifies the Plugin state counter advances once,
+not twice. The affected IPC and execution tests passed individually and in the
+300-test canonical suite. The specific
+`test_kernel_chain_rejects_unix_socket_output_before_partial_writeback` case
+then passed 30 consecutive executions on this host after the retry. The case
+also accepts OS denial at either socket creation or bind and verifies there is
+no partial live-workspace writeback. This is local repetition evidence, not a
+cross-host CI result.
+
+The same full-suite run exposed a separate Broker attack-test lifecycle race:
+its 8-second watcher began before Workspace Snapshot creation. Under suite
+load, that setup could outlast the watcher, so the commit child correctly
+rejected before the intended path replacement. The test now starts the watcher
+after the Snapshot is ready and uses a bounded 30-second handshake. Four
+consecutive focused replays and the canonical suite passed. This change is to
+test synchronization; it does not alter commit authority or enforcement.
+
+## 2026-10-07 PR CI Runner startup handshake
+
+PR #5 head `d9ad4564818427febfa1e5c225de486cc540b03f` ran the canonical suite
+on macOS 26 in 748.091 seconds: 299 tests passed and
+`test_host_environment_sentinel_is_not_inherited_by_runner_or_command` errored
+with `KernelLaunchError: runner_failed`. At head
+`5f40ced2f0b1bb01fbb4ef37d1b31fc795e3575d`, that test passed, but
+`test_fixed_replay_improves_memory_b_and_preserves_state_through_rollback`
+errored with the same code during Candidate B's production-state recall; 299
+tests passed in 704.016 seconds. The Runner stderr is intentionally discarded,
+so neither CI run retained the low-level cause. The 10-second Worker pipe ping
+bound added at `5f40ced` was not enough to close the full-suite failure.
+
+The launch sequence first waits for the Runner to connect to the Worker's
+private peer-PID listener, then performs the nonce-bound anonymous-pipe ping.
+The OS peer-PID listener still had a 3-second accept timeout, so either
+pre-execution handshake could reject a delayed Runner while preserving the
+generic `runner_failed` response. CI evidence is consistent with scheduling
+delay during repeated real-OS Runner launches, but does not identify which
+handshake timed out. The shared peer-PID handshake bound is now 10 seconds;
+reported OS peer PID equality remains mandatory, the IPC ping remains
+nonce-bound, and both handshakes still fail closed after finite waits. A focused
+real-peer test delays the Runner connection beyond 3 seconds. The full canonical
+suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
+must pass before merge.
+
 ## 2026-10-06 Candidate-bound informational Agent interface
 
 An optional Manifest `agent_interface` now gives the Agent bounded operation

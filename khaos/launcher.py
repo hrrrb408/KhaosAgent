@@ -64,6 +64,7 @@ def run():
     workspace_commit()
     return result["returncode"]
 """
+_KERNEL_STARTUP_ATTEMPTS = 2
 
 
 def run_workspace_command(
@@ -213,7 +214,7 @@ def run_workspace_command(
             raise ValueError("workspace is unavailable or changed") from exc
         active_workspace_root_fd = workspace_root_fd
     try:
-        process = _start_kernel(
+        process = _start_kernel_with_ping(
             workspace_path,
             bootstrap,
             active_workspace_root_fd,
@@ -227,11 +228,6 @@ def run_workspace_command(
     try:
         if process.stdin is None or process.stdout is None:
             raise KernelLaunchError("kernel_ipc_unavailable")
-        answer_ping(
-            process.stdout.fileno(),
-            process.stdin.fileno(),
-            timeout_seconds=3,
-        )
         request_id = secrets.token_hex(16)
         send_frame(
             process.stdin.fileno(),
@@ -455,6 +451,43 @@ def _start_kernel(
         if process is not None:
             _stop_kernel(process)
         raise KernelLaunchError("kernel_ipc_failed") from exc
+
+
+def _start_kernel_with_ping(
+    workspace: Path,
+    bootstrap: str,
+    workspace_root_fd: int,
+    *,
+    brokered_snapshot_mount_path: Path | None = None,
+    brokered_snapshot_storage_bytes: int | None = None,
+    plugin_state_root: Path | None = None,
+) -> subprocess.Popen[bytes]:
+    """Retry one failed pipe handshake before any workspace request is sent."""
+    for attempt in range(_KERNEL_STARTUP_ATTEMPTS):
+        process = _start_kernel(
+            workspace,
+            bootstrap,
+            workspace_root_fd,
+            brokered_snapshot_mount_path=brokered_snapshot_mount_path,
+            brokered_snapshot_storage_bytes=brokered_snapshot_storage_bytes,
+            plugin_state_root=plugin_state_root,
+        )
+        if process.stdin is None or process.stdout is None:
+            _stop_kernel(process)
+            raise KernelLaunchError("kernel_ipc_unavailable")
+        try:
+            answer_ping(
+                process.stdout.fileno(),
+                process.stdin.fileno(),
+                timeout_seconds=3,
+            )
+        except (IPCProtocolError, OSError, subprocess.SubprocessError) as exc:
+            _stop_kernel(process)
+            if attempt + 1 == _KERNEL_STARTUP_ATTEMPTS:
+                raise KernelLaunchError("kernel_ipc_failed") from exc
+            continue
+        return process
+    raise AssertionError("Kernel startup attempt limit was exhausted")
 
 
 def _receive_kernel_response(

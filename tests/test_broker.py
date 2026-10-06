@@ -2279,7 +2279,7 @@ from pathlib import Path
 source = Path(sys.argv[1])
 concurrent = Path(sys.argv[2])
 staging_parent = Path(sys.argv[3])
-deadline = time.monotonic() + 8
+deadline = time.monotonic() + 30
 while time.monotonic() < deadline:
     for staging in staging_parent.glob("khaos-changes-*"):
         ready = staging / ".temporary-race-ready"
@@ -2292,22 +2292,7 @@ while time.monotonic() < deadline:
     time.sleep(0.005)
 raise SystemExit(21)
 """
-            attacker = subprocess.Popen(
-                (
-                    sys.executable,
-                    "-I",
-                    "-S",
-                    "-c",
-                    attacker_script,
-                    str(source),
-                    str(concurrent),
-                    str(staging_parent),
-                ),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                close_fds=True,
-                start_new_session=True,
-            )
+            attacker: subprocess.Popen[bytes] | None = None
             original_clone = workspace_changes_module._clone_file_from_descriptor
 
             def replace_temp_before_clone(
@@ -2323,7 +2308,7 @@ raise SystemExit(21)
                         temporary_entries[0].name, encoding="utf-8"
                     )
                     done = staging / ".temporary-race-done"
-                    deadline = time.monotonic() + 5
+                    deadline = time.monotonic() + 30
                     while not done.exists() and time.monotonic() < deadline:
                         time.sleep(0.005)
                     if not done.exists():
@@ -2336,6 +2321,22 @@ raise SystemExit(21)
                 with workspace_snapshot(source) as snapshot:
                     (snapshot.path / "payload.txt").write_text(
                         "Runner output", encoding="utf-8"
+                    )
+                    attacker = subprocess.Popen(
+                        (
+                            sys.executable,
+                            "-I",
+                            "-S",
+                            "-c",
+                            attacker_script,
+                            str(source),
+                            str(concurrent),
+                            str(staging_parent),
+                        ),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        close_fds=True,
+                        start_new_session=True,
                     )
                     with _pipe_pair() as (
                         request_read,
@@ -2368,9 +2369,10 @@ raise SystemExit(21)
                                     request_read, response_write, snapshot
                                 )
                         response = receive_frame(response_read)
-                attacker_output, attacker_error = attacker.communicate(timeout=8)
+                self.assertIsNotNone(attacker)
+                attacker_output, attacker_error = attacker.communicate(timeout=30)
             finally:
-                if attacker.poll() is None:
+                if attacker is not None and attacker.poll() is None:
                     attacker.kill()
                     attacker.communicate()
 

@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import patch
 
 from khaos import launcher as launcher_module
-from khaos.ipc import MAX_RUNNER_SOURCE_BYTES
+from khaos.ipc import IPCProtocolError, MAX_RUNNER_SOURCE_BYTES
 from khaos.kernel.macos_disk_image import (
     _DISKUTIL,
     _HDIUTIL,
@@ -128,6 +128,61 @@ class KernelLauncherTests(unittest.TestCase):
                     timeout_seconds=10,
                 )
             self.assertEqual(list(workspace.iterdir()), [])
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt backend",
+    )
+    def test_workspace_startup_retries_a_failed_pipe_ping_before_request(self) -> None:
+        with tempfile.TemporaryDirectory() as value:
+            workspace = Path(value) / "workspace"
+            workspace.mkdir()
+            state_root = Path(value) / "plugin-state"
+            state_root.mkdir(mode=0o700)
+            runner_source = """\
+from khaos.runner_sdk import plugin_output, state_read, state_replace
+
+def run(request):
+    count = int(state_read() or b"0") + 1
+    state_replace(str(count).encode("ascii"))
+    plugin_output({"count": count})
+"""
+            real_answer_ping = launcher_module.answer_ping
+            ping_count = 0
+
+            def fail_after_first_ping(read_fd, write_fd, *, timeout_seconds):
+                nonlocal ping_count
+                ping_count += 1
+                real_answer_ping(
+                    read_fd, write_fd, timeout_seconds=timeout_seconds
+                )
+                if ping_count == 1:
+                    raise IPCProtocolError("forced pre-request pipe failure")
+
+            real_start_kernel = launcher_module._start_kernel
+            with (
+                patch.object(
+                    launcher_module, "answer_ping", side_effect=fail_after_first_ping
+                ) as ping,
+                patch.object(
+                    launcher_module, "_start_kernel", wraps=real_start_kernel
+                ) as start,
+            ):
+                result = run_workspace_command(
+                    workspace,
+                    runner_source=runner_source,
+                    plugin_id="retry-probe",
+                    plugin_state_root=state_root,
+                    plugin_input={"operation": "count"},
+                    process_exec_allowed=False,
+                    timeout_seconds=5,
+                )
+
+            self.assertEqual(start.call_count, 2)
+            self.assertEqual(ping.call_count, 2)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual((result.added, result.modified, result.deleted), (0, 0, 0))
+            self.assertEqual(json.loads(result.stdout), {"count": 1})
 
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
@@ -2288,18 +2343,21 @@ from pathlib import Path
 import errno
 import socket
 
-endpoint = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+endpoint = None
 try:
+    endpoint = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     endpoint.bind("output/injected.sock")
 except OSError as error:
-    if error.errno not in (errno.EPERM, errno.EACCES):
-        raise
-    print("socket-create-denied")
+    if error.errno in (errno.EPERM, errno.EACCES):
+        print("socket-create-denied")
+    else:
+        print(f"socket-create-error:{error.errno}")
 else:
     Path("output/safe-output.txt").write_text("must-not-partially-commit")
     print("socket-created")
 finally:
-    endpoint.close()
+    if endpoint is not None:
+        endpoint.close()
 """
             kernel_rejected_socket = False
             try:
@@ -2316,7 +2374,16 @@ finally:
                     timeout_seconds=5,
                 )
             except KernelLaunchError as error:
-                self.assertIn("commit_rejected", str(error))
+                cause_chain = []
+                cause = error.__cause__
+                while cause is not None:
+                    cause_chain.append(f"{type(cause).__name__}: {cause}")
+                    cause = cause.__cause__
+                self.assertIn(
+                    "commit_rejected",
+                    str(error),
+                    f"unexpected Kernel launch failure cause chain: {cause_chain}",
+                )
                 kernel_rejected_socket = True
 
             if not kernel_rejected_socket:

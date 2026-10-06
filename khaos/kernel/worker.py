@@ -67,6 +67,7 @@ from .workspace_snapshot import (
 
 
 _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
+_RUNNER_STARTUP_TIMEOUT_SECONDS = 10
 _PT_DENY_ATTACH = 31  # macOS sys/ptrace.h
 _WORKER_IO_STAGES = {
     "_path_is_within": "ancestry",
@@ -497,7 +498,9 @@ def _run_workspace_command(
                 if process.stdin is None or process.stdout is None:
                     raise IPCProtocolError("Runner IPC pipes are unavailable")
                 ping_peer(
-                    process.stdout.fileno(), process.stdin.fileno(), timeout_seconds=3
+                    process.stdout.fileno(),
+                    process.stdin.fileno(),
+                    timeout_seconds=_RUNNER_STARTUP_TIMEOUT_SECONDS,
                 )
                 plugin_input_payload = (
                     {"source": source, "input": plugin_input}

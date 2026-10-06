@@ -106,6 +106,43 @@ class PeerIdentityTests(unittest.TestCase):
                 self.assertEqual(runner.wait(timeout=5), 0)
 
     @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
+    def test_peer_pid_handshake_allows_delayed_runner_start(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
+            directory = Path(value).resolve(strict=True)
+            with local_peer_pid_listener(directory) as (listener, socket_path):
+                script = (
+                    "import os,sys,time\n"
+                    "time.sleep(3.2)\n"
+                    f"sys.path.insert(0, {str(_PACKAGE_ROOT)!r})\n"
+                    "from pathlib import Path\n"
+                    "from khaos.kernel.peer_identity import verify_local_parent_pid\n"
+                    "verify_local_parent_pid(Path(sys.argv[1]), int(sys.argv[2]))\n"
+                )
+                runner = subprocess.Popen(
+                    (
+                        sys.executable,
+                        "-I",
+                        "-S",
+                        "-c",
+                        script,
+                        str(socket_path),
+                        str(os.getpid()),
+                    ),
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    close_fds=True,
+                    start_new_session=True,
+                )
+                try:
+                    accept_local_peer_pid(listener, runner.pid)
+                    self.assertEqual(runner.wait(timeout=8), 0)
+                finally:
+                    if runner.poll() is None:
+                        runner.kill()
+                        runner.wait()
+
+    @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
     def test_peer_pid_handshake_works_below_a_long_private_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
             directory = Path(value) / ("long-segment-" * 8)

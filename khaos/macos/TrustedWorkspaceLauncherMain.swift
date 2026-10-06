@@ -23,6 +23,22 @@ private struct PluginRun {
     let processExec: Bool
     let readScope: [String]
     let writeScope: [String]
+    let evaluationReviewData: Data?
+}
+
+private struct MemoryEvaluationReview {
+    let baselineDigest: String
+    let datasetDigest: String
+    let sampleCount: Int
+    let baselinePass: Int
+    let baselineFail: Int
+    let candidateDigest: String
+    let candidateManifestDigest: String
+    let candidateScopeDigest: String
+    let candidatePass: Int
+    let candidateFail: Int
+    let regressions: [String]
+    let improvements: [String]
 }
 
 private struct PluginCandidateReview {
@@ -337,6 +353,22 @@ enum TrustedWorkspaceLauncherMain {
         } else {
             details += "\nNo current active Plugin; there is no rollback target yet."
         }
+        if let evaluationData = plugin.evaluationReviewData {
+            guard let evaluation = try? parseMemoryEvaluationReview(evaluationData),
+                  candidate.identifier == "memory",
+                  evaluation.candidateDigest == candidate.candidateDigest,
+                  evaluation.candidateManifestDigest == candidate.manifestDigest,
+                  evaluation.candidateScopeDigest == candidate.scopeDigest,
+                  state.active?.identifier == "memory",
+                  evaluation.baselineDigest == state.active?.candidateDigest,
+                  evaluation.candidatePass > evaluation.baselinePass,
+                  evaluation.regressions.isEmpty
+            else {
+                throw LauncherError.operationRejected("evaluation_binding_rejected")
+            }
+            details += memoryEvaluationDetails(evaluation)
+            writeDiagnostic("plugin-evaluation-review=presented")
+        }
         let request = KernelWorkspaceXPC.PluginLifecycleRequest.activate(
             candidateDigest: candidate.candidateDigest,
             manifestDigest: candidate.manifestDigest,
@@ -369,31 +401,30 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func selectPluginPackage() throws -> PluginRun {
         let packageURL = try TrustedWorkspacePicker.selectPluginPackage()
-        // App Sandbox requires the Picker grant while reading the selected package.
-        guard packageURL.startAccessingSecurityScopedResource() else {
-            throw LauncherError.operationRejected("plugin_package_rejected")
-        }
-        var packageScopeReleased = false
-        defer {
-            if !packageScopeReleased {
-                packageURL.stopAccessingSecurityScopedResource()
-            }
-        }
+        // NSOpenPanel starts scoped access for its selected URL; release it after reading.
+        defer { packageURL.stopAccessingSecurityScopedResource() }
         let manifestData = try readPackageFile(
             packageURL, name: "manifest.json", maximumBytes: 4096
         )
         let sourceData = try readPackageFile(
             packageURL, name: "plugin.py", maximumBytes: 10_240
         )
+        let evaluationReviewData = try readOptionalPackageFile(
+            packageURL, name: "evaluation.json", maximumBytes: 4096
+        )
         guard let manifest = try? JSONSerialization.jsonObject(with: manifestData)
                 as? [String: Any],
               let canonical = try? JSONSerialization.data(
-                withJSONObject: manifest, options: [.sortedKeys]
+                withJSONObject: manifest,
+                options: [.sortedKeys, .withoutEscapingSlashes]
               ),
               canonical == manifestData
                 || canonical + Data([0x0a]) == manifestData,
               Set(manifest.keys) == [
                 "abi_version", "id", "process_exec", "read", "write"
+              ] || Set(manifest.keys) == [
+                "abi_version", "agent_interface", "id", "process_exec",
+                "read", "write"
               ],
               let version = manifest["abi_version"] as? NSNumber,
               CFGetTypeID(version) != CFBooleanGetTypeID(),
@@ -422,10 +453,9 @@ enum TrustedWorkspaceLauncherMain {
             sourceData: sourceData,
             processExec: process.boolValue,
             readScope: readScope,
-            writeScope: writeScope
+            writeScope: writeScope,
+            evaluationReviewData: evaluationReviewData
         )
-        packageURL.stopAccessingSecurityScopedResource()
-        packageScopeReleased = true
         return plugin
     }
 
@@ -580,6 +610,7 @@ enum TrustedWorkspaceLauncherMain {
             request: request,
             requestID: requestID
         )
+        writeDiagnostic("plugin-rollback-review=presented")
         guard approvePluginAction(
             title: "Roll back the active Plugin?",
             action: "Roll back",
@@ -595,6 +626,7 @@ enum TrustedWorkspaceLauncherMain {
         guard updated.active?.candidateDigest == previous.candidateDigest else {
             throw LauncherError.operationRejected("rollback_not_confirmed")
         }
+        writeDiagnostic("plugin-rollback=passed")
     }
 
     private static func parseAdmittedCandidate(
@@ -732,16 +764,132 @@ enum TrustedWorkspaceLauncherMain {
             ? "(none)"
             : candidate.writeScope.map { String(reflecting: $0) }
                 .joined(separator: "\n")
+        let interfaceDetails: String
+        if let interface = candidate.agentInterface {
+            let operations = interface.operations.map { operation in
+                let fields = operation.fields
+                    .map { String(reflecting: $0) }
+                    .joined(separator: ", ")
+                return "  \(String(reflecting: operation.name))(\(fields))"
+            }.joined(separator: "\n")
+            interfaceDetails = "\nAgent interface (untrusted business metadata):\n"
+                + "Summary: \(String(reflecting: interface.summary))\n"
+                + "Operations:\n\(operations)"
+        } else {
+            interfaceDetails = "\nAgent interface: (none)"
+        }
         return "Plugin: \(candidate.identifier)\n"
             + "Candidate SHA-256: \(candidate.candidateDigest)\n"
             + "Manifest SHA-256: \(candidate.manifestDigest)\n"
             + "Scope SHA-256: \(candidate.scopeDigest)\n"
+            + interfaceDetails + "\n"
             + "Expected slot generation: \(generation)\n"
             + "process.exec: \(candidate.processExec ? "enabled" : "disabled")\n"
             + "Plugin state: bounded read/replace blob owned by this logical Plugin\n"
             + "Readable paths:\n\(readPaths)\n"
             + "Committable paths:\n\(writePaths)\n"
             + "Approval validity: \(validity)"
+    }
+
+    private static func parseMemoryEvaluationReview(
+        _ data: Data
+    ) throws -> MemoryEvaluationReview {
+        guard let value = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any],
+              let canonical = try? JSONSerialization.data(
+                withJSONObject: value,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              canonical == data,
+              Set(value.keys) == [
+                "baseline_digest", "baseline_fail", "baseline_pass",
+                "candidate_digest", "candidate_fail",
+                "candidate_manifest_digest", "candidate_pass",
+                "candidate_scope_digest", "dataset_digest",
+                "evaluator_version", "format", "improvements", "regressions",
+                "sample_count",
+              ],
+              value["format"] as? String == "khaos-memory-eval-v1",
+              value["evaluator_version"] as? String == "fixed-memory-replay-v1",
+              let baselineDigest = value["baseline_digest"] as? String,
+              isDigest(baselineDigest),
+              let datasetDigest = value["dataset_digest"] as? String,
+              isDigest(datasetDigest),
+              let candidateDigest = value["candidate_digest"] as? String,
+              isDigest(candidateDigest),
+              let manifestDigest = value["candidate_manifest_digest"] as? String,
+              isDigest(manifestDigest),
+              let scopeDigest = value["candidate_scope_digest"] as? String,
+              isDigest(scopeDigest),
+              let sampleCount = integerValue(value["sample_count"]),
+              sampleCount > 0, sampleCount <= 128,
+              let baselinePass = integerValue(value["baseline_pass"]),
+              let baselineFail = integerValue(value["baseline_fail"]),
+              baselinePass >= 0, baselinePass <= sampleCount,
+              baselineFail >= 0, baselineFail <= sampleCount,
+              baselinePass == sampleCount - baselineFail,
+              let candidatePass = integerValue(value["candidate_pass"]),
+              let candidateFail = integerValue(value["candidate_fail"]),
+              candidatePass >= 0, candidatePass <= sampleCount,
+              candidateFail >= 0, candidateFail <= sampleCount,
+              candidatePass == sampleCount - candidateFail,
+              let regressions = value["regressions"] as? [String],
+              regressions.count <= sampleCount,
+              Set(regressions).count == regressions.count,
+              regressions.allSatisfy({ $0.count <= 64 && reviewable($0) }),
+              let improvements = value["improvements"] as? [String],
+              improvements.count <= sampleCount,
+              Set(improvements).count == improvements.count,
+              improvements.allSatisfy({ $0.count <= 64 && reviewable($0) }),
+              Set(regressions).isDisjoint(with: Set(improvements)),
+              candidatePass - baselinePass
+                == improvements.count - regressions.count
+        else {
+            throw LauncherError.operationRejected("evaluation_binding_rejected")
+        }
+        return MemoryEvaluationReview(
+            baselineDigest: baselineDigest,
+            datasetDigest: datasetDigest,
+            sampleCount: sampleCount,
+            baselinePass: baselinePass,
+            baselineFail: baselineFail,
+            candidateDigest: candidateDigest,
+            candidateManifestDigest: manifestDigest,
+            candidateScopeDigest: scopeDigest,
+            candidatePass: candidatePass,
+            candidateFail: candidateFail,
+            regressions: regressions,
+            improvements: improvements
+        )
+    }
+
+    private static func memoryEvaluationDetails(
+        _ evaluation: MemoryEvaluationReview
+    ) -> String {
+        let regressions = evaluation.regressions.isEmpty
+            ? "(none)"
+            : evaluation.regressions.map { String(reflecting: $0) }
+                .joined(separator: ", ")
+        let improvements = evaluation.improvements.isEmpty
+            ? "(none)"
+            : evaluation.improvements.map { String(reflecting: $0) }
+                .joined(separator: ", ")
+        return "\n\nHarness evaluation record (informational, untrusted data):\n"
+            + "Candidate B SHA-256: \(evaluation.candidateDigest)\n"
+            + "Manifest SHA-256: \(evaluation.candidateManifestDigest)\n"
+            + "Capability scope SHA-256: \(evaluation.candidateScopeDigest)\n"
+            + "Current Candidate A / rollback target SHA-256: "
+            + "\(evaluation.baselineDigest)\n"
+            + "Dataset SHA-256: \(evaluation.datasetDigest)\n"
+            + "Fixed replay: \(evaluation.sampleCount) samples\n"
+            + "A: \(evaluation.baselinePass) passed, "
+            + "\(evaluation.baselineFail) failed\n"
+            + "B: \(evaluation.candidatePass) passed, "
+            + "\(evaluation.candidateFail) failed\n"
+            + "Regressions: \(regressions)\n"
+            + "Improvements: \(improvements)\n"
+            + "The Kernel binds approval to the exact Candidate, Manifest, scope, "
+            + "slot generation, and validity; it does not verify this evaluation."
     }
 
     private static func approvalExpiry(_ candidate: PluginCandidateReview) -> String {
@@ -761,11 +909,48 @@ enum TrustedWorkspaceLauncherMain {
         alert.alertStyle = .warning
         alert.messageText = title
         let workspaceText = workspace.map { "Workspace: \($0.path)\n\n" } ?? ""
-        alert.informativeText = workspaceText + details
+        let reviewedDetails = workspaceText + details
             + "\n\nReviewed operation SHA-256: \(digest)"
+        alert.informativeText = "Review the complete request below. Scroll to inspect all fields."
+        alert.accessoryView = approvalDetailsView(reviewedDetails)
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: action)
         return alert.runModal() == .alertSecondButtonReturn
+    }
+
+    private static func approvalDetailsView(_ details: String) -> NSScrollView {
+        let width: CGFloat = 520
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+        let height = min(340, max(180, screenHeight * 0.4))
+        let size = NSSize(width: width, height: height)
+        let textView = NSTextView(frame: NSRect(origin: .zero, size: size))
+        textView.string = details
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.drawsBackground = false
+        textView.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(
+            width: width,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+
+        let scrollView = NSScrollView(frame: NSRect(origin: .zero, size: size))
+        scrollView.borderType = .bezelBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = false
+        scrollView.documentView = textView
+        return scrollView
     }
 
     private static func showPluginSuccess(_ message: String) {
@@ -780,6 +965,17 @@ enum TrustedWorkspaceLauncherMain {
     private static func readPackageFile(
         _ packageURL: URL, name: String, maximumBytes: Int
     ) throws -> Data {
+        guard let data = try readOptionalPackageFile(
+            packageURL, name: name, maximumBytes: maximumBytes
+        ) else {
+            throw LauncherError.operationRejected("plugin_package_rejected")
+        }
+        return data
+    }
+
+    private static func readOptionalPackageFile(
+        _ packageURL: URL, name: String, maximumBytes: Int
+    ) throws -> Data? {
         let directory = Darwin.open(
             packageURL.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
@@ -790,6 +986,9 @@ enum TrustedWorkspaceLauncherMain {
         let descriptor = Darwin.openat(
             directory, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC
         )
+        if descriptor < 0 && errno == ENOENT {
+            return nil
+        }
         guard descriptor >= 0 else {
             throw LauncherError.operationRejected("plugin_package_rejected")
         }
