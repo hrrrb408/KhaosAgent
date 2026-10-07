@@ -497,7 +497,7 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                     to: prompt,
                     generating: FoundationAgentAction.self,
                     options: GenerationOptions(
-                        samplingMode: .greedy,
+                        sampling: .greedy,
                         maximumResponseTokens: 512
                     )
                 )
@@ -697,7 +697,7 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                     to: input,
                     generating: FoundationCandidateOutput.self,
                     options: GenerationOptions(
-                        samplingMode: .greedy,
+                        sampling: .greedy,
                         maximumResponseTokens:
                             AgentHostProtocol.maximumCandidateGenerationTokens
                     )
