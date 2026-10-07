@@ -100,6 +100,7 @@ class PluginCandidate:
     manifest_digest: str
     scope_digest: str
     manifest: PluginManifest
+    manifest_bytes: bytes
     source: bytes
 
 
@@ -312,8 +313,11 @@ def admit_candidate(
     store_root: str | os.PathLike[str],
     manifest_bytes: bytes,
     source_bytes: bytes,
+    *,
+    expected_active_candidate_digest: str | None = None,
+    expected_generation: int | None = None,
 ) -> PluginCandidate:
-    """Validate captured package bytes and durably install one content-addressed Candidate."""
+    """Validate and store a Candidate, optionally bound to the active evolution target."""
     manifest = _parse_manifest(manifest_bytes)
     source = _validate_source(source_bytes)
     manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
@@ -323,10 +327,22 @@ def admit_candidate(
         manifest_digest=manifest_digest,
         scope_digest=manifest.scope_digest,
         manifest=manifest,
+        manifest_bytes=manifest_bytes,
         source=source,
     )
 
-    with _open_store(store_root) as (_, candidates_fd):
+    if (expected_active_candidate_digest is None) != (expected_generation is None):
+        raise PluginLifecycleError("invalid_request")
+
+    with _open_store(store_root) as (root_fd, candidates_fd):
+        if expected_active_candidate_digest is not None:
+            baseline = _active_evolution_baseline(
+                root_fd,
+                candidates_fd,
+                expected_active_candidate_digest,
+                expected_generation,
+            )
+            _validate_evolution_candidate(candidate, baseline)
         try:
             existing = _read_candidate(candidates_fd, candidate_digest)
         except PluginLifecycleError as exc:
@@ -338,6 +354,100 @@ def admit_candidate(
 
         _install_candidate(candidates_fd, candidate, manifest_bytes)
         return _read_candidate(candidates_fd, candidate_digest)
+
+
+def evolution_source(
+    store_root: str | os.PathLike[str],
+    *,
+    candidate_digest: str,
+    manifest_digest: str,
+    scope_digest: str,
+    expected_generation: int,
+) -> PluginCandidate:
+    """Return source only for the exact currently active evolution target."""
+    with _open_store(store_root) as (root_fd, candidates_fd):
+        candidate = _active_evolution_baseline(
+            root_fd,
+            candidates_fd,
+            candidate_digest,
+            expected_generation,
+        )
+        if (
+            candidate.manifest_digest != manifest_digest
+            or candidate.scope_digest != scope_digest
+        ):
+            raise PluginLifecycleError("approval_binding_mismatch")
+        return candidate
+
+
+def evaluation_candidate(
+    store_root: str | os.PathLike[str],
+    *,
+    baseline_candidate_digest: str,
+    candidate_digest: str,
+    manifest_digest: str,
+    scope_digest: str,
+    expected_generation: int,
+) -> PluginCandidate:
+    """Resolve a Memory Candidate for isolated evaluation against the active baseline."""
+    with _open_store(store_root) as (root_fd, candidates_fd):
+        baseline = _active_evolution_baseline(
+            root_fd,
+            candidates_fd,
+            baseline_candidate_digest,
+            expected_generation,
+        )
+        candidate = _read_candidate(candidates_fd, candidate_digest)
+        if (
+            candidate.manifest_digest != manifest_digest
+            or candidate.scope_digest != scope_digest
+        ):
+            raise PluginLifecycleError("approval_binding_mismatch")
+        _validate_evolution_candidate(candidate, baseline)
+        return candidate
+
+
+def _active_evolution_baseline(
+    root_fd: int,
+    candidates_fd: int,
+    candidate_digest: str,
+    expected_generation: int,
+) -> PluginCandidate:
+    state, _ = _read_state(root_fd)
+    if (
+        type(expected_generation) is not int
+        or expected_generation != state["generation"]
+        or state["active"] is None
+        or state["active"]["candidate_digest"] != candidate_digest
+    ):
+        raise PluginLifecycleError("stale_approval")
+    _validate_state_candidates(candidates_fd, state)
+    baseline = _read_candidate(candidates_fd, candidate_digest)
+    if (
+        baseline.manifest.plugin_id != "memory"
+        or baseline.manifest.process_exec
+        or baseline.manifest.read_scope
+        or baseline.manifest.write_scope
+    ):
+        raise PluginLifecycleError("capability_denied")
+    return baseline
+
+
+def _validate_evolution_candidate(
+    candidate: PluginCandidate,
+    baseline: PluginCandidate,
+) -> None:
+    """Keep Seed Memory evolution inside the baseline identity and capability ceiling."""
+    if candidate.manifest.plugin_id != baseline.manifest.plugin_id:
+        raise PluginLifecycleError("manifest_rejected")
+    if (
+        candidate.manifest.process_exec and not baseline.manifest.process_exec
+        or not set(candidate.manifest.read_scope).issubset(baseline.manifest.read_scope)
+        or not set(candidate.manifest.write_scope).issubset(baseline.manifest.write_scope)
+    ):
+        raise PluginLifecycleError("capability_denied")
+    if candidate.manifest.agent_interface != baseline.manifest.agent_interface:
+        raise PluginLifecycleError("manifest_rejected")
 
 
 def activate_candidate(
@@ -749,6 +859,7 @@ def _read_candidate(candidates_fd: int, digest: str) -> PluginCandidate:
             manifest_digest=hashlib.sha256(manifest_bytes).hexdigest(),
             scope_digest=manifest.scope_digest,
             manifest=manifest,
+            manifest_bytes=manifest_bytes,
             source=source,
         )
     except PluginLifecycleError as exc:

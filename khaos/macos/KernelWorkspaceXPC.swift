@@ -9,7 +9,7 @@ import Foundation
 
 enum KernelWorkspaceXPC {
     static let version = 8
-    static let operationProtocolVersion = 10
+    static let operationProtocolVersion = 11
     static let maximumMessageBytes = 64 * 1024
     static let transferLengthBytes = 4
     static let maximumRequestFrameBytes = maximumMessageBytes + transferLengthBytes
@@ -59,6 +59,27 @@ enum KernelWorkspaceXPC {
 
     enum PluginLifecycleRequest {
         case admit(manifest: Data, source: Data)
+        case admitEvolution(
+            manifest: Data,
+            source: Data,
+            baselineCandidateDigest: String,
+            expectedGeneration: Int
+        )
+        case source(
+            candidateDigest: String,
+            manifestDigest: String,
+            scopeDigest: String,
+            expectedGeneration: Int
+        )
+        case evaluate(
+            baselineCandidateDigest: String,
+            candidateDigest: String,
+            manifestDigest: String,
+            scopeDigest: String,
+            expectedGeneration: Int,
+            initialState: Data,
+            inputJSON: Data
+        )
         case activate(
             candidateDigest: String,
             manifestDigest: String,
@@ -91,6 +112,7 @@ enum KernelWorkspaceXPC {
 
         var needsSnapshotBroker: Bool {
             if case .run = self { return true }
+            if case .evaluate = self { return true }
             return false
         }
 
@@ -99,17 +121,52 @@ enum KernelWorkspaceXPC {
             let payload: [String: Any]
             switch self {
             case let .admit(manifest, source):
-                guard !manifest.isEmpty, manifest.count <= 4_096,
-                      !source.isEmpty, source.count <= 10_240,
-                      String(data: manifest, encoding: .utf8) != nil,
-                      String(data: source, encoding: .utf8) != nil else {
+                operation = "plugin.admit"
+                payload = try KernelWorkspaceXPC.admissionPayload(
+                    manifest: manifest,
+                    source: source
+                )
+            case let .admitEvolution(manifest, source, baseline, generation):
+                operation = "plugin.admit"
+                var value = try KernelWorkspaceXPC.admissionPayload(
+                    manifest: manifest,
+                    source: source
+                )
+                guard KernelWorkspaceXPC.isDigest(baseline), generation >= 0 else {
                     throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
                 }
-                operation = "plugin.admit"
-                payload = [
-                    "manifest_base64": manifest.base64EncodedString(),
-                    "source_base64": source.base64EncodedString(),
-                ]
+                value["baseline_candidate_digest"] = baseline
+                value["expected_generation"] = generation
+                payload = value
+            case let .source(candidate, manifest, scope, generation):
+                operation = "plugin.source"
+                payload = try KernelWorkspaceXPC.approvalPayload(
+                    candidate: candidate,
+                    manifest: manifest,
+                    scope: scope,
+                    generation: generation
+                )
+            case let .evaluate(baseline, candidate, manifest, scope, generation, state, inputJSON):
+                operation = "plugin.evaluate"
+                guard KernelWorkspaceXPC.isDigest(baseline), generation >= 0 else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+                }
+                let binding = try KernelWorkspaceXPC.approvalPayload(
+                    candidate: candidate,
+                    manifest: manifest,
+                    scope: scope,
+                    generation: generation
+                )
+                guard !state.isEmpty, state.count <= 32 * 1024,
+                      let input = KernelWorkspaceXPC.pluginInputObject(inputJSON),
+                      !(input is NSNull) else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+                }
+                payload = binding.merging([
+                    "baseline_candidate_digest": baseline,
+                    "initial_state_base64": state.base64EncodedString(),
+                    "input": input,
+                ]) { _, new in new }
             case let .activate(candidate, manifest, scope, generation):
                 operation = "plugin.activate"
                 payload = try KernelWorkspaceXPC.approvalPayload(
@@ -153,6 +210,22 @@ enum KernelWorkspaceXPC {
                 requestID: requestID
             )
         }
+    }
+
+    private static func admissionPayload(
+        manifest: Data,
+        source: Data
+    ) throws -> [String: Any] {
+        guard !manifest.isEmpty, manifest.count <= 4_096,
+              !source.isEmpty, source.count <= 10_240,
+              String(data: manifest, encoding: .utf8) != nil,
+              String(data: source, encoding: .utf8) != nil else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+        }
+        return [
+            "manifest_base64": manifest.base64EncodedString(),
+            "source_base64": source.base64EncodedString(),
+        ]
     }
 
     enum InvocationRequest {
@@ -721,7 +794,12 @@ enum KernelWorkspaceXPC {
     ) -> PluginLifecycleRequest? {
         switch operation {
         case "plugin.admit":
-            guard Set(payload.keys) == ["manifest_base64", "source_base64"],
+            let standardFields: Set<String> = ["manifest_base64", "source_base64"]
+            let evolutionFields: Set<String> = standardFields.union([
+                "baseline_candidate_digest", "expected_generation",
+            ])
+            guard Set(payload.keys) == standardFields
+                    || Set(payload.keys) == evolutionFields,
                   let manifestText = payload["manifest_base64"] as? String,
                   let sourceText = payload["source_base64"] as? String,
                   let manifest = Data(base64Encoded: manifestText),
@@ -733,7 +811,71 @@ enum KernelWorkspaceXPC {
                   String(data: manifest, encoding: .utf8) != nil,
                   String(data: source, encoding: .utf8) != nil
             else { return nil }
+            if Set(payload.keys) == evolutionFields {
+                guard let baseline = payload["baseline_candidate_digest"] as? String,
+                      let generation = integer(payload["expected_generation"]),
+                      isDigest(baseline), generation >= 0 else { return nil }
+                return .admitEvolution(
+                    manifest: manifest,
+                    source: source,
+                    baselineCandidateDigest: baseline,
+                    expectedGeneration: generation
+                )
+            }
             return .admit(manifest: manifest, source: source)
+        case "plugin.source":
+            guard Set(payload.keys) == [
+                "candidate_digest", "manifest_digest", "scope_digest",
+                "expected_generation",
+            ],
+            let candidate = payload["candidate_digest"] as? String,
+            let manifest = payload["manifest_digest"] as? String,
+            let scope = payload["scope_digest"] as? String,
+            let generation = integer(payload["expected_generation"]),
+            (try? validateApprovalBinding(
+                candidate: candidate,
+                manifest: manifest,
+                scope: scope,
+                generation: generation
+            )) != nil else { return nil }
+            return .source(
+                candidateDigest: candidate,
+                manifestDigest: manifest,
+                scopeDigest: scope,
+                expectedGeneration: generation
+            )
+        case "plugin.evaluate":
+            guard Set(payload.keys) == [
+                "baseline_candidate_digest", "candidate_digest", "manifest_digest",
+                "scope_digest", "expected_generation", "initial_state_base64", "input",
+            ],
+            let baseline = payload["baseline_candidate_digest"] as? String,
+            let candidate = payload["candidate_digest"] as? String,
+            let manifest = payload["manifest_digest"] as? String,
+            let scope = payload["scope_digest"] as? String,
+            let generation = integer(payload["expected_generation"]),
+            isDigest(baseline), generation >= 0,
+            (try? validateApprovalBinding(
+                candidate: candidate,
+                manifest: manifest,
+                scope: scope,
+                generation: generation
+            )) != nil,
+            let stateText = payload["initial_state_base64"] as? String,
+            let state = Data(base64Encoded: stateText),
+            state.base64EncodedString() == stateText,
+            !state.isEmpty, state.count <= 32 * 1024,
+            let parsedInput = pluginInputData(payload["input"]),
+            let input = parsedInput else { return nil }
+            return .evaluate(
+                baselineCandidateDigest: baseline,
+                candidateDigest: candidate,
+                manifestDigest: manifest,
+                scopeDigest: scope,
+                expectedGeneration: generation,
+                initialState: state,
+                inputJSON: input
+            )
         case "plugin.activate", "plugin.rollback":
             guard Set(payload.keys) == [
                 "candidate_digest", "manifest_digest", "scope_digest",

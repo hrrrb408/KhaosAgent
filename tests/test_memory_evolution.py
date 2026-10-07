@@ -28,7 +28,7 @@ from memory_evaluation import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = ROOT / "tests" / "fixtures" / "memory-evaluation.json"
+DATASET = ROOT / "examples" / "memory" / "evaluation.json"
 MANIFEST = (ROOT / "examples" / "memory" / "manifest.json").read_bytes()
 SOURCE_A = (ROOT / "examples" / "memory" / "plugin.py").read_bytes()
 SOURCE_B = (ROOT / "examples" / "memory-candidate-b" / "plugin.py").read_bytes()
@@ -207,7 +207,6 @@ class MemoryEvolutionTests(unittest.TestCase):
         self.assertEqual(
             read_plugin_state(self.production_state, "memory"), production_bytes
         )
-
         activated_b = activate_candidate(
             self.kernel_store,
             self.candidate_b.candidate_digest,
@@ -249,6 +248,37 @@ class MemoryEvolutionTests(unittest.TestCase):
         self.assertEqual(
             read_plugin_state(self.production_state, "memory"), production_bytes
         )
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_state_format_change_is_a_regression_even_if_recall_score_improves(
+        self,
+    ) -> None:
+        incompatible_source = SOURCE_B.replace(
+            b'state_replace(_canonical({"format": _FORMAT, "items": items}))',
+            b'state_replace(_canonical({"format": "khaos-memory-v2", "items": items}))',
+            1,
+        )
+        self.assertNotEqual(incompatible_source, SOURCE_B)
+        incompatible = admit_candidate(
+            self.kernel_store,
+            MANIFEST,
+            incompatible_source,
+        )
+
+        evaluation = evaluate_memory_candidates(
+            self.candidate_a,
+            incompatible,
+            DATASET,
+            scratch=self.root / "incompatible-state-evaluation",
+        )
+
+        self.assertGreater(evaluation.candidate.passed, evaluation.baseline.passed)
+        self.assertEqual(evaluation.regressions, ("remember-state-compatible",))
+        self.assertIn("casefold-fallback", evaluation.improvements)
+        self.assertIn("compatibility-fallback", evaluation.improvements)
 
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
@@ -330,6 +360,7 @@ def network_denied():
 def run(request):
     checks = {
         "fixture_write": denied_write(PATHS["fixture"]),
+        "production_state_read": denied_read(PATHS["production_state"]),
         "production_state_write": denied_write(PATHS["production_state"]),
         "lifecycle_write": denied_write(PATHS["activation"]),
         "baseline_candidate_write": denied_write(PATHS["baseline_candidate"]),

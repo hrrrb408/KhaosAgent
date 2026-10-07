@@ -274,6 +274,180 @@ struct WorkspaceGrant {
             throw ProbeError.clientFailed("signed Kernel did not persist rollback state")
         }
 
+        let memoryManifest = Data(
+            #"{"abi_version":6,"agent_interface":{"operations":[{"fields":["key","value"],"name":"remember"},{"fields":["key"],"name":"recall"},{"fields":["key"],"name":"forget"}],"summary":"Store, retrieve, and remove short key/value notes for the user."},"id":"memory","process_exec":false,"read":[],"write":[]}"#.utf8
+        )
+        let memorySourceA = Data("""
+            from khaos.runner_sdk import state_read
+
+            def run(request):
+                state = state_read()
+                return {"state": state.decode("utf-8") if state is not None else None}
+            """.utf8)
+        let memorySourceB = Data("""
+            from khaos.runner_sdk import fs_write, state_read, state_replace
+
+            def run(request):
+                state = state_read()
+                state_replace(b"candidate-only-state")
+                workspace_write_denied = False
+                try:
+                    fs_write("evaluation-write-attempt.txt", b"must remain private")
+                except Exception:
+                    workspace_write_denied = True
+                return {
+                    "state": state.decode("utf-8") if state is not None else None,
+                    "workspace_write_denied": workspace_write_denied,
+                }
+            """.utf8)
+        let selfActivationSource = Data("""
+            from khaos.runner_sdk import _request
+
+            def run(request):
+                return _request("plugin.activate", {})
+            """.utf8)
+        let memoryAdmission = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .admit(manifest: memoryManifest, source: memorySourceA)
+        )
+        let memoryBaseline = try parseAdmittedCandidate(memoryAdmission)
+        guard try parseGeneration(memoryAdmission) == 3 else {
+            throw ProbeError.clientFailed("Memory baseline admission changed the slot generation")
+        }
+        _ = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .activate(
+                candidateDigest: memoryBaseline.candidateDigest,
+                manifestDigest: memoryBaseline.manifestDigest,
+                scopeDigest: memoryBaseline.scopeDigest,
+                expectedGeneration: 3
+            )
+        )
+        let memoryGeneration = 4
+        let snapshotBrokerEndpoint = try KernelSnapshotBrokerBootstrapClient.endpoint()
+        let selfActivationAdmission = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .admitEvolution(
+                manifest: memoryManifest,
+                source: selfActivationSource,
+                baselineCandidateDigest: memoryBaseline.candidateDigest,
+                expectedGeneration: memoryGeneration
+            )
+        )
+        let selfActivationCandidate = try parseAdmittedCandidate(selfActivationAdmission)
+        guard try parseGeneration(selfActivationAdmission) == memoryGeneration,
+              selfActivationCandidate.candidateDigest != memoryBaseline.candidateDigest else {
+            throw ProbeError.clientFailed("evolution admission did not preserve the active baseline")
+        }
+        try requirePluginError(
+            endpoint: endpoint,
+            request: .evaluate(
+                baselineCandidateDigest: memoryBaseline.candidateDigest,
+                candidateDigest: selfActivationCandidate.candidateDigest,
+                manifestDigest: selfActivationCandidate.manifestDigest,
+                scopeDigest: selfActivationCandidate.scopeDigest,
+                expectedGeneration: memoryGeneration - 1,
+                initialState: Data(#"{"format":"khaos-memory-v1","items":{"fixture":"isolated"}}"#.utf8),
+                inputJSON: Data(#"{"key":"fixture","operation":"recall"}"#.utf8)
+            ),
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint,
+            expected: "stale_approval"
+        )
+        let selfActivationReply = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .evaluate(
+                baselineCandidateDigest: memoryBaseline.candidateDigest,
+                candidateDigest: selfActivationCandidate.candidateDigest,
+                manifestDigest: selfActivationCandidate.manifestDigest,
+                scopeDigest: selfActivationCandidate.scopeDigest,
+                expectedGeneration: memoryGeneration,
+                initialState: Data(#"{"format":"khaos-memory-v1","items":{"fixture":"isolated"}}"#.utf8),
+                inputJSON: Data(#"{"key":"fixture","operation":"recall"}"#.utf8)
+            ),
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        )
+        guard selfActivationReply.errorCode != nil else {
+            throw ProbeError.clientFailed("an evaluated Candidate invoked Kernel activation")
+        }
+        let stateAfterSelfActivation = try pluginState(
+            try sendPluginRequest(endpoint: endpoint, request: .state)
+        )
+        guard stateAfterSelfActivation.generation == memoryGeneration,
+              stateAfterSelfActivation.active?.candidateDigest == memoryBaseline.candidateDigest else {
+            throw ProbeError.clientFailed("Candidate activation attempt changed the active slot")
+        }
+
+        let evolutionAdmission = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .admitEvolution(
+                manifest: memoryManifest,
+                source: memorySourceB,
+                baselineCandidateDigest: memoryBaseline.candidateDigest,
+                expectedGeneration: memoryGeneration
+            )
+        )
+        let memoryCandidate = try parseAdmittedCandidate(evolutionAdmission)
+        guard try parseGeneration(evolutionAdmission) == memoryGeneration,
+              memoryCandidate.candidateDigest != memoryBaseline.candidateDigest else {
+            throw ProbeError.clientFailed("evaluation Candidate admission did not preserve the active baseline")
+        }
+        let sourceReply = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .source(
+                candidateDigest: memoryBaseline.candidateDigest,
+                manifestDigest: memoryBaseline.manifestDigest,
+                scopeDigest: memoryBaseline.scopeDigest,
+                expectedGeneration: memoryGeneration
+            )
+        )
+        let sourceValue = try lifecycleObject(sourceReply)
+        guard sourceValue["candidate_digest"] as? String == memoryBaseline.candidateDigest,
+              sourceValue["generation"] as? Int == memoryGeneration,
+              sourceValue["manifest_base64"] as? String
+                == memoryManifest.base64EncodedString(),
+              sourceValue["source_base64"] as? String
+                == memorySourceA.base64EncodedString() else {
+            throw ProbeError.clientFailed("active evolution source was not bound to its exact bytes")
+        }
+
+        let evaluationReply = try sendPluginRequest(
+            endpoint: endpoint,
+            request: .evaluate(
+                baselineCandidateDigest: memoryBaseline.candidateDigest,
+                candidateDigest: memoryCandidate.candidateDigest,
+                manifestDigest: memoryCandidate.manifestDigest,
+                scopeDigest: memoryCandidate.scopeDigest,
+                expectedGeneration: memoryGeneration,
+                initialState: Data(#"{"format":"khaos-memory-v1","items":{"fixture":"isolated"}}"#.utf8),
+                inputJSON: Data(#"{"key":"fixture","operation":"recall"}"#.utf8)
+            ),
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        )
+        let evaluationValue = try lifecycleObject(evaluationReply)
+        guard evaluationValue["returncode"] as? Int == 0,
+              evaluationValue["added"] as? Int == 0,
+              evaluationValue["modified"] as? Int == 0,
+              evaluationValue["deleted"] as? Int == 0,
+              let evaluationOutput = evaluationValue["stdout"] as? String,
+              let evaluationOutputData = evaluationOutput.data(using: .utf8),
+              let candidateOutput = try? JSONSerialization.jsonObject(
+                with: evaluationOutputData
+              ) as? [String: Any],
+              candidateOutput["state"] as? String
+                == #"{"format":"khaos-memory-v1","items":{"fixture":"isolated"}}"#,
+              candidateOutput["workspace_write_denied"] as? Bool == true else {
+            throw ProbeError.clientFailed("isolated Candidate evaluation changed state or workspace authority")
+        }
+        let stateAfterEvaluation = try pluginState(
+            try sendPluginRequest(endpoint: endpoint, request: .state)
+        )
+        guard stateAfterEvaluation.generation == memoryGeneration,
+              stateAfterEvaluation.active?.candidateDigest == memoryBaseline.candidateDigest,
+              stateAfterEvaluation.previous?.candidateDigest == candidateA.candidateDigest
+        else {
+            throw ProbeError.clientFailed("Candidate evaluation changed active lifecycle state")
+        }
+
         let forgedID = KernelWorkspaceXPC.newRequestID()
         let forgedFrame = try rawPluginRequestFrame(
             requestID: forgedID,
@@ -313,15 +487,21 @@ struct WorkspaceGrant {
               !secondOutput.contains("private-source") else {
             throw ProbeError.clientFailed("Candidate source leaked through lifecycle metadata")
         }
-        return "production-xpc-plugin-lifecycle=admit-activate-stale-reject-rollback-persisted"
+        return "production-xpc-plugin-lifecycle=admit-activate-stale-reject-rollback-persisted;"
+            + "memory-evaluation=admitted-inactive-candidate-isolated-no-workspace-write"
     }
 
     private static func sendPluginRequest(
         endpoint: KernelWorkspaceTarget,
-        request: KernelWorkspaceXPC.PluginLifecycleRequest
+        request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        snapshotBrokerEndpoint: NSXPCListenerEndpoint? = nil
     ) throws -> KernelWorkspaceXPC.Reply {
         let requestID = KernelWorkspaceXPC.newRequestID()
-        return try requestWorkspaceReply(endpoint: endpoint, requestID: requestID) {
+        return try requestWorkspaceReply(
+            endpoint: endpoint,
+            requestID: requestID,
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        ) {
             proxy, withReply in
             try KernelWorkspaceXPC.submit(
                 proxy,
@@ -335,9 +515,14 @@ struct WorkspaceGrant {
     private static func requirePluginError(
         endpoint: KernelWorkspaceTarget,
         request: KernelWorkspaceXPC.PluginLifecycleRequest,
+        snapshotBrokerEndpoint: NSXPCListenerEndpoint? = nil,
         expected: String
     ) throws {
-        let reply = try sendPluginRequest(endpoint: endpoint, request: request)
+        let reply = try sendPluginRequest(
+            endpoint: endpoint,
+            request: request,
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        )
         guard reply.errorCode == expected,
               reply.output == nil,
               reply.cancellationAccepted == nil

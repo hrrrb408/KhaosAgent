@@ -1,10 +1,14 @@
 import CoreFoundation
+import CryptoKit
 import Foundation
 
 enum AgentHostReply {
     case text(String)
     case shell(AgentShellProposal)
     case plugin(AgentPluginBinding)
+    case evolution(AgentEvolutionProposal)
+    case candidate(AgentCandidateFiles)
+    case evaluation(Data)
     case failure(String)
 }
 
@@ -50,6 +54,18 @@ struct AgentPluginBinding: Equatable {
     }
 }
 
+struct AgentEvolutionProposal: Equatable {
+    let pluginID: String
+    let candidateDigest: String
+    let generation: Int
+    let goal: String
+}
+
+struct AgentCandidateFiles: Equatable {
+    let manifest: Data
+    let source: Data
+}
+
 @objc protocol AgentHostSessionEndpoint {
     func handle(
         _ frame: NSData,
@@ -58,7 +74,7 @@ struct AgentPluginBinding: Equatable {
 }
 
 enum AgentHostProtocol {
-    static let version = 4
+    static let version = 5
     static let maximumFrameBytes = 64 * 1024
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
@@ -71,6 +87,15 @@ enum AgentHostProtocol {
     static let maximumAgentInterfaceSummaryBytes = 512
     static let maximumAgentInterfaceOperations = 16
     static let maximumAgentInterfaceFields = 16
+    static let maximumCandidateSourceBytes = 10_240
+    static let maximumManifestBytes = 4_096
+    static let maximumEvolutionGoalBytes = 1_024
+    static let maximumEvaluationSamples = 5
+    static let maximumEvaluationOutputBytes = 2_048
+    static let memoryEvaluationEvaluatorVersion = "fixed-memory-replay-v2"
+    static let maximumCandidateGenerationSeconds = 150
+    static let candidateGenerationRequestTimeoutSeconds = 160
+    static let maximumCandidateGenerationTokens = 4_096
 
     static func userTurn(
         _ text: String,
@@ -102,6 +127,156 @@ enum AgentHostProtocol {
             "text": text,
             "active_plugin": activePluginObject(activePlugin),
         ])
+    }
+
+    static func candidateGenerationRequest(
+        proposal: Data,
+        evidence: String,
+        baselineManifest: Data,
+        baselineSource: Data
+    ) throws -> Data {
+        guard let proposalValue = decodeObject(proposal),
+              validEvolutionProposal(proposalValue),
+              let proposalEvidence = proposalValue["evidence_digest"] as? String,
+              sha256Hex(Data(evidence.utf8)) == proposalEvidence,
+              !evidence.isEmpty, boundedBytes(evidence, maximum: maximumTextBytes),
+              !baselineManifest.isEmpty, baselineManifest.count <= maximumManifestBytes,
+              !baselineSource.isEmpty,
+              baselineSource.count <= maximumCandidateSourceBytes,
+              sha256Hex(baselineManifest)
+                == proposalValue["baseline_manifest_digest"] as? String,
+              candidateDigest(manifest: baselineManifest, source: baselineSource)
+                == proposalValue["baseline_candidate_digest"] as? String else {
+            throw AgentHostProtocolError.invalidRequest
+        }
+        return try encode([
+            "version": version,
+            "operation": "candidate_generation",
+            "proposal": proposalValue,
+            "evidence": evidence,
+            "baseline_manifest_base64": baselineManifest.base64EncodedString(),
+            "baseline_source_base64": baselineSource.base64EncodedString(),
+        ])
+    }
+
+    static func memoryEvaluationRequest(
+        proposalDigest: String,
+        baselineCandidateDigest: String,
+        candidateDigest: String,
+        manifestDigest: String,
+        scopeDigest: String,
+        datasetDigest: String,
+        dataset: Data,
+        results: [[String: Any]]
+    ) throws -> Data {
+        guard validDigest(proposalDigest),
+              validDigest(baselineCandidateDigest),
+              validDigest(candidateDigest),
+              validDigest(manifestDigest),
+              validDigest(scopeDigest),
+              validDigest(datasetDigest),
+              !dataset.isEmpty, dataset.count <= 16 * 1024,
+              results.count == maximumEvaluationSamples else {
+            throw AgentHostProtocolError.invalidRequest
+        }
+        return try encode([
+            "version": version,
+            "operation": "memory_evaluation",
+            "proposal_digest": proposalDigest,
+            "baseline_candidate_digest": baselineCandidateDigest,
+            "candidate_digest": candidateDigest,
+            "manifest_digest": manifestDigest,
+            "scope_digest": scopeDigest,
+            "dataset_digest": datasetDigest,
+            "dataset_base64": dataset.base64EncodedString(),
+            "results": results,
+        ])
+    }
+
+    static func evolutionProposal(
+        target: AgentHostPluginMetadata,
+        goal: String,
+        evidenceDigest: String,
+        manifestDigest: String,
+        scopeDigest: String,
+        datasetDigest: String
+    ) throws -> Data {
+        guard target.pluginID == "memory",
+              validDigest(target.candidateDigest),
+              target.generation >= 0,
+              !goal.isEmpty,
+              boundedBytes(goal, maximum: maximumEvolutionGoalBytes),
+              reviewable(goal),
+              validDigest(evidenceDigest),
+              validDigest(manifestDigest),
+              validDigest(scopeDigest),
+              validDigest(datasetDigest) else {
+            throw AgentHostProtocolError.invalidRequest
+        }
+        var proposal: [String: Any] = [
+            "target_plugin_id": target.pluginID,
+            "baseline_candidate_digest": target.candidateDigest,
+            "baseline_manifest_digest": manifestDigest,
+            "baseline_scope_digest": scopeDigest,
+            "current_generation": target.generation,
+            "improvement_goal": goal,
+            "evidence_digest": evidenceDigest,
+            "dataset_digest": datasetDigest,
+            "capability_ceiling": [
+                "plugin_id": target.pluginID,
+                "process_exec": false,
+                "read_scope": [String](),
+                "write_scope": [String](),
+            ],
+            "state_format": "khaos-memory-v1",
+            "generation_budget": [
+                "max_seconds": maximumCandidateGenerationSeconds,
+                "max_tokens": maximumCandidateGenerationTokens,
+            ],
+            "evaluation_budget": [
+                "sample_count": maximumEvaluationSamples,
+                "per_sample_seconds": 10,
+                "max_seconds": 100,
+            ],
+        ]
+        proposal["proposal_digest"] = evolutionProposalDigest(proposal)
+        let data = try JSONSerialization.data(
+            withJSONObject: proposal,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+        guard data.count <= 4_096 else { throw AgentHostProtocolError.frameTooLarge }
+        return data
+    }
+
+    static func proposalMatches(
+        _ value: [String: Any],
+        action: AgentEvolutionProposal
+    ) -> Bool {
+        validEvolutionProposal(value)
+            && value["target_plugin_id"] as? String == action.pluginID
+            && value["baseline_candidate_digest"] as? String == action.candidateDigest
+            && nonnegativeInteger(value["current_generation"]) == action.generation
+            && value["improvement_goal"] as? String == action.goal
+    }
+
+    static func candidateContentDigest(_ files: AgentCandidateFiles) -> String {
+        candidateDigest(manifest: files.manifest, source: files.source)
+    }
+
+    static func canonicalMemoryState(items: [String: String]) -> Data {
+        let orderedItems = items.sorted { left, right in
+            left.key.unicodeScalars.lexicographicallyPrecedes(right.key.unicodeScalars)
+        }
+        let entries = orderedItems.map { entry in
+            "\(canonicalJSONString(entry.key)):\(canonicalJSONString(entry.value))"
+        }.joined(separator: ",")
+        return Data(
+            "{\"format\":\"khaos-memory-v1\",\"items\":{\(entries)}}".utf8
+        )
+    }
+
+    static func sha256(_ data: Data) -> String {
+        sha256Hex(data)
     }
 
     static func stop() throws -> Data {
@@ -172,6 +347,46 @@ enum AgentHostProtocol {
                 generation: generation,
                 inputJSON: inputJSON
             ))
+        case "evolution":
+            guard Set(object.keys) == [
+                "version", "type", "plugin_id", "candidate_digest", "generation", "goal",
+            ],
+            let pluginID = object["plugin_id"] as? String,
+            pluginID == "memory",
+            let candidateDigest = object["candidate_digest"] as? String,
+            validDigest(candidateDigest),
+            let generation = nonnegativeInteger(object["generation"]),
+            let goal = object["goal"] as? String,
+            !goal.isEmpty, boundedBytes(goal, maximum: maximumEvolutionGoalBytes),
+            reviewable(goal) else { return nil }
+            return .evolution(AgentEvolutionProposal(
+                pluginID: pluginID,
+                candidateDigest: candidateDigest,
+                generation: generation,
+                goal: goal
+            ))
+        case "candidate":
+            guard Set(object.keys) == ["version", "type", "manifest_base64", "source_base64"],
+                  let manifestText = object["manifest_base64"] as? String,
+                  let sourceText = object["source_base64"] as? String,
+                  let manifest = Data(base64Encoded: manifestText),
+                  manifest.base64EncodedString() == manifestText,
+                  let source = Data(base64Encoded: sourceText),
+                  source.base64EncodedString() == sourceText,
+                  !manifest.isEmpty, manifest.count <= maximumManifestBytes,
+                  !source.isEmpty, source.count <= maximumCandidateSourceBytes,
+                  String(data: manifest, encoding: .utf8) != nil,
+                  String(data: source, encoding: .utf8) != nil else { return nil }
+            return .candidate(AgentCandidateFiles(manifest: manifest, source: source))
+        case "evaluation":
+            guard Set(object.keys) == ["version", "type", "record"],
+                  let record = object["record"] as? [String: Any],
+                  let data = try? JSONSerialization.data(
+                    withJSONObject: record,
+                    options: [.sortedKeys, .withoutEscapingSlashes]
+                  ),
+                  data.count <= 4_096 else { return nil }
+            return .evaluation(data)
         case "error":
             guard Set(object.keys) == ["version", "type", "code"],
                   let code = object["code"] as? String,
@@ -222,6 +437,52 @@ enum AgentHostProtocol {
                   number.boolValue == ok else {
                 return nil
             }
+        case "candidate_generation":
+            guard Set(object.keys) == [
+                "version", "operation", "proposal", "evidence",
+                "baseline_manifest_base64", "baseline_source_base64",
+            ],
+            let proposal = object["proposal"] as? [String: Any],
+            validEvolutionProposal(proposal),
+            let evidence = object["evidence"] as? String,
+            !evidence.isEmpty, boundedBytes(evidence, maximum: maximumTextBytes),
+            let evidenceDigest = proposal["evidence_digest"] as? String,
+            sha256Hex(Data(evidence.utf8)) == evidenceDigest,
+            let manifestText = object["baseline_manifest_base64"] as? String,
+            let manifest = Data(base64Encoded: manifestText),
+            manifest.base64EncodedString() == manifestText,
+            !manifest.isEmpty, manifest.count <= maximumManifestBytes,
+            sha256Hex(manifest) == proposal["baseline_manifest_digest"] as? String,
+            let sourceText = object["baseline_source_base64"] as? String,
+            let source = Data(base64Encoded: sourceText),
+            source.base64EncodedString() == sourceText,
+            !source.isEmpty, source.count <= maximumCandidateSourceBytes,
+            candidateDigest(manifest: manifest, source: source)
+                == proposal["baseline_candidate_digest"] as? String else {
+                return nil
+            }
+        case "memory_evaluation":
+            guard Set(object.keys) == [
+                "version", "operation", "proposal_digest", "baseline_candidate_digest",
+                "candidate_digest", "manifest_digest", "scope_digest", "dataset_digest",
+                "dataset_base64", "results",
+            ],
+            ["proposal_digest", "baseline_candidate_digest", "candidate_digest",
+              "manifest_digest", "scope_digest", "dataset_digest"].allSatisfy({
+                (object[$0] as? String).map(validDigest) == true
+            }),
+            let datasetText = object["dataset_base64"] as? String,
+            let dataset = Data(base64Encoded: datasetText),
+            dataset.base64EncodedString() == datasetText,
+            !dataset.isEmpty, dataset.count <= 16 * 1024,
+            sha256Hex(dataset) == object["dataset_digest"] as? String,
+            let results = object["results"] as? [Any],
+            results.count == maximumEvaluationSamples,
+            results.allSatisfy(validEvaluationObservation),
+            Set(results.compactMap { ($0 as? [String: Any])?["sample_id"] as? String }).count
+                == maximumEvaluationSamples else {
+                return nil
+            }
         case "stop":
             guard Set(object.keys) == ["version", "operation"] else {
                 return nil
@@ -230,6 +491,264 @@ enum AgentHostProtocol {
             return nil
         }
         return object
+    }
+
+    static func evaluateMemoryInput(_ input: [String: Any]) -> Data? {
+        guard let datasetText = input["dataset_base64"] as? String,
+              let datasetBytes = Data(base64Encoded: datasetText),
+              datasetBytes.base64EncodedString() == datasetText,
+              let datasetDigest = input["dataset_digest"] as? String,
+              validDigest(datasetDigest),
+              sha256Hex(datasetBytes) == datasetDigest,
+              let dataset = try? JSONSerialization.jsonObject(with: datasetBytes)
+                    as? [String: Any],
+              dataset["format"] as? String == "khaos-memory-eval-v1",
+              let samples = dataset["samples"] as? [[String: Any]],
+              samples.count == maximumEvaluationSamples,
+              let observations = input["results"] as? [[String: Any]],
+              observations.count == samples.count else { return nil }
+
+        let expectedIDs = samples.compactMap { $0["id"] as? String }
+        let observationIDs = observations.compactMap { $0["sample_id"] as? String }
+        guard expectedIDs.count == samples.count,
+              observationIDs == expectedIDs else { return nil }
+
+        var baselinePass = 0
+        var candidatePass = 0
+        var regressions: [String] = []
+        var improvements: [String] = []
+        for (sample, observation) in zip(samples, observations) {
+            guard let sampleID = sample["id"] as? String,
+                  let baselineResult = observation["baseline"] as? [String: Any],
+                  let candidateResult = observation["candidate"] as? [String: Any] else {
+                return nil
+            }
+            let baselinePassed = memoryOutputPasses(baselineResult, sample: sample)
+            let candidateOutputPassed = memoryOutputPasses(candidateResult, sample: sample)
+            let operation = (sample["request"] as? [String: Any])?["operation"] as? String
+            let baselineStateDigest = baselineResult["plugin_state_sha256"] as? String
+            let candidateStateDigest = candidateResult["plugin_state_sha256"] as? String
+            guard let initialStateDigest = memoryEvaluationInitialStateDigest(sample) else {
+                return nil
+            }
+            let stateCompatible: Bool
+            if operation == "remember" {
+                stateCompatible = baselineStateDigest != initialStateDigest
+                    && candidateStateDigest == baselineStateDigest
+            } else {
+                stateCompatible = baselineStateDigest == initialStateDigest
+                    && candidateStateDigest == initialStateDigest
+            }
+            let candidatePassed = candidateOutputPassed && stateCompatible
+            if baselinePassed { baselinePass += 1 }
+            if candidatePassed { candidatePass += 1 }
+            if baselinePassed && !candidatePassed { regressions.append(sampleID) }
+            if !baselinePassed && candidatePassed { improvements.append(sampleID) }
+        }
+
+        guard let proposalDigest = input["proposal_digest"] as? String,
+              let baselineDigest = input["baseline_candidate_digest"] as? String,
+              let candidateDigest = input["candidate_digest"] as? String,
+              let manifestDigest = input["manifest_digest"] as? String,
+              let scopeDigest = input["scope_digest"] as? String,
+              validDigest(proposalDigest),
+              validDigest(baselineDigest),
+              validDigest(candidateDigest),
+              validDigest(manifestDigest),
+              validDigest(scopeDigest) else { return nil }
+        let record: [String: Any] = [
+            "baseline_digest": baselineDigest,
+            "baseline_fail": samples.count - baselinePass,
+            "baseline_pass": baselinePass,
+            "candidate_digest": candidateDigest,
+            "candidate_fail": samples.count - candidatePass,
+            "candidate_manifest_digest": manifestDigest,
+            "candidate_pass": candidatePass,
+            "candidate_scope_digest": scopeDigest,
+            "dataset_digest": datasetDigest,
+            "evaluator_version": memoryEvaluationEvaluatorVersion,
+            "format": "khaos-memory-eval-v1",
+            "improvements": improvements,
+            "proposal_digest": proposalDigest,
+            "regressions": regressions,
+            "sample_count": samples.count,
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+    }
+
+    private static func memoryOutputPasses(
+        _ result: [String: Any],
+        sample: [String: Any]
+    ) -> Bool {
+        guard let returnCode = numericInteger(result["returncode"]),
+              returnCode == 0,
+              numericInteger(result["added"]) == 0,
+              numericInteger(result["modified"]) == 0,
+              numericInteger(result["deleted"]) == 0,
+              let output = result["stdout"] as? String,
+              boundedBytes(output, maximum: maximumEvaluationOutputBytes),
+              let outputData = output.data(using: .utf8),
+              let outputValue = try? JSONSerialization.jsonObject(with: outputData)
+                    as? [String: Any],
+              let request = sample["request"] as? [String: Any],
+              let expected = sample["expected"] as? [String: Any],
+              outputValue["operation"] as? String == request["operation"] as? String,
+              outputValue["key"] as? String == request["key"] as? String else {
+            return false
+        }
+
+        if request["operation"] as? String == "remember" {
+            return boolean(outputValue["remembered"])
+                == (boolean(expected["remembered"]) ?? false)
+        }
+        guard request["operation"] as? String == "recall",
+              let found = boolean(outputValue["found"]),
+              found == (boolean(expected["found"]) ?? false) else { return false }
+
+        let expectedValue = expected["value"]
+        let outputValueField = outputValue["value"]
+        if expectedValue is NSNull { return outputValueField is NSNull }
+        return expectedValue as? String == outputValueField as? String
+    }
+
+    private static func validEvaluationObservation(_ value: Any) -> Bool {
+        guard let observation = value as? [String: Any],
+              Set(observation.keys) == ["sample_id", "baseline", "candidate"],
+              let sampleID = observation["sample_id"] as? String,
+              !sampleID.isEmpty, boundedBytes(sampleID, maximum: 64),
+              reviewable(sampleID) else { return false }
+        return ["baseline", "candidate"].allSatisfy { key in
+            guard let result = observation[key] as? [String: Any],
+                  Set(result.keys) == [
+                    "returncode", "stdout", "added", "modified", "deleted",
+                    "plugin_state_sha256",
+                  ],
+                  let returnCode = numericInteger(result["returncode"]),
+                  (-255...255).contains(returnCode),
+                  let output = result["stdout"] as? String,
+                  boundedBytes(output, maximum: maximumEvaluationOutputBytes),
+                  result["plugin_state_sha256"] is NSNull
+                    || (result["plugin_state_sha256"] as? String).map(validDigest) == true,
+                  (numericInteger(result["added"]) ?? -1) >= 0,
+                  (numericInteger(result["modified"]) ?? -1) >= 0,
+                  (numericInteger(result["deleted"]) ?? -1) >= 0 else { return false }
+            return true
+        }
+    }
+
+    private static func memoryEvaluationInitialStateDigest(
+        _ sample: [String: Any]
+    ) -> String? {
+        guard let items = sample["initial_items"] as? [String: String] else {
+            return nil
+        }
+        let data = canonicalMemoryState(items: items)
+        return sha256Hex(data)
+    }
+
+    private static func canonicalJSONString(_ value: String) -> String {
+        var encoded = "\""
+        for scalar in value.unicodeScalars {
+            switch scalar.value {
+            case 0x22: encoded += "\\\""
+            case 0x5c: encoded += "\\\\"
+            case 0x08: encoded += "\\b"
+            case 0x0c: encoded += "\\f"
+            case 0x0a: encoded += "\\n"
+            case 0x0d: encoded += "\\r"
+            case 0x09: encoded += "\\t"
+            case 0...0x1f:
+                let hex = String(scalar.value, radix: 16)
+                encoded += "\\u" + String(repeating: "0", count: 4 - hex.count) + hex
+            default:
+                encoded.unicodeScalars.append(scalar)
+            }
+        }
+        encoded += "\""
+        return encoded
+    }
+
+    private static func validEvolutionProposal(_ proposal: [String: Any]) -> Bool {
+        let fields: Set<String> = [
+            "target_plugin_id", "baseline_candidate_digest", "baseline_manifest_digest",
+            "baseline_scope_digest", "current_generation", "improvement_goal",
+            "evidence_digest", "dataset_digest", "capability_ceiling", "state_format",
+            "generation_budget", "evaluation_budget", "proposal_digest",
+        ]
+        guard Set(proposal.keys) == fields,
+              proposal["target_plugin_id"] as? String == "memory",
+              ["baseline_candidate_digest", "baseline_manifest_digest",
+                "baseline_scope_digest", "evidence_digest", "dataset_digest",
+                "proposal_digest"].allSatisfy({
+                    (proposal[$0] as? String).map(validDigest) == true
+                }),
+              nonnegativeInteger(proposal["current_generation"]) != nil,
+              let goal = proposal["improvement_goal"] as? String,
+              !goal.isEmpty, boundedBytes(goal, maximum: maximumEvolutionGoalBytes),
+              reviewable(goal),
+              proposal["state_format"] as? String == "khaos-memory-v1",
+              let ceiling = proposal["capability_ceiling"] as? [String: Any],
+              Set(ceiling.keys) == ["plugin_id", "process_exec", "read_scope", "write_scope"],
+              ceiling["plugin_id"] as? String == "memory",
+              boolean(ceiling["process_exec"]) == false,
+              (ceiling["read_scope"] as? [String])?.isEmpty == true,
+              (ceiling["write_scope"] as? [String])?.isEmpty == true,
+              let generationBudget = proposal["generation_budget"] as? [String: Any],
+              Set(generationBudget.keys) == ["max_seconds", "max_tokens"],
+              numericInteger(generationBudget["max_seconds"])
+                == maximumCandidateGenerationSeconds,
+              numericInteger(generationBudget["max_tokens"])
+                == maximumCandidateGenerationTokens,
+              let evaluationBudget = proposal["evaluation_budget"] as? [String: Any],
+              Set(evaluationBudget.keys) == ["sample_count", "per_sample_seconds", "max_seconds"],
+              numericInteger(evaluationBudget["sample_count"]) == maximumEvaluationSamples,
+              numericInteger(evaluationBudget["per_sample_seconds"]) == 10,
+              numericInteger(evaluationBudget["max_seconds"]) == 100 else { return false }
+        return evolutionProposalDigest(proposal) == proposal["proposal_digest"] as? String
+    }
+
+    private static func evolutionProposalDigest(_ proposal: [String: Any]) -> String {
+        var body = proposal
+        body.removeValue(forKey: "proposal_digest")
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: body,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ) else { return "" }
+        return sha256Hex(Data("Khaos Seed Evolution Proposal v1\0".utf8) + data)
+    }
+
+    private static func candidateDigest(manifest: Data, source: Data) -> String {
+        var data = Data("Khaos Seed Plugin Candidate v1\0".utf8)
+        data.append(bigEndianLength(manifest.count))
+        data.append(manifest)
+        data.append(bigEndianLength(source.count))
+        data.append(source)
+        return sha256Hex(data)
+    }
+
+    private static func bigEndianLength(_ value: Int) -> Data {
+        var length = UInt64(value).bigEndian
+        return withUnsafeBytes(of: &length) { Data($0) }
+    }
+
+    private static func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func numericInteger(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(),
+              let result = Int(number.stringValue) else { return nil }
+        return result
+    }
+
+    private static func boolean(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
     }
 
     static func encodeReply(_ reply: AgentHostReply) throws -> Data {
@@ -261,6 +780,52 @@ enum AgentHostProtocol {
                 "candidate_digest": binding.candidateDigest,
                 "generation": binding.generation,
                 "input": input,
+            ])
+        case let .evolution(proposal):
+            guard proposal.pluginID == "memory",
+                  validDigest(proposal.candidateDigest),
+                  proposal.generation >= 0,
+                  !proposal.goal.isEmpty,
+                  boundedBytes(proposal.goal, maximum: maximumEvolutionGoalBytes),
+                  reviewable(proposal.goal) else {
+                throw AgentHostProtocolError.invalidResponse
+            }
+            return try encode([
+                "version": version,
+                "type": "evolution",
+                "plugin_id": proposal.pluginID,
+                "candidate_digest": proposal.candidateDigest,
+                "generation": proposal.generation,
+                "goal": proposal.goal,
+            ])
+        case let .candidate(files):
+            guard !files.manifest.isEmpty,
+                  files.manifest.count <= maximumManifestBytes,
+                  !files.source.isEmpty,
+                  files.source.count <= maximumCandidateSourceBytes,
+                  String(data: files.manifest, encoding: .utf8) != nil,
+                  String(data: files.source, encoding: .utf8) != nil else {
+                throw AgentHostProtocolError.invalidResponse
+            }
+            return try encode([
+                "version": version,
+                "type": "candidate",
+                "manifest_base64": files.manifest.base64EncodedString(),
+                "source_base64": files.source.base64EncodedString(),
+            ])
+        case let .evaluation(recordData):
+            guard let record = try? JSONSerialization.jsonObject(with: recordData)
+                    as? [String: Any],
+                  let canonical = try? JSONSerialization.data(
+                    withJSONObject: record,
+                    options: [.sortedKeys, .withoutEscapingSlashes]
+                  ), canonical == recordData else {
+                throw AgentHostProtocolError.invalidResponse
+            }
+            return try encode([
+                "version": version,
+                "type": "evaluation",
+                "record": record,
             ])
         case let .failure(code):
             return try encode(["version": version, "type": "error", "code": code])

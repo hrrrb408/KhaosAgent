@@ -2121,3 +2121,99 @@ Lower-level real-OS Runner, changeset, and cancellation tests remain in the suit
 they are not evidence for those same attacks through a selected-workspace Product
 XPC request. This change removes an interactive test path and adds no security
 evidence.
+
+## 2026-10-07 Agent-generated Memory evolution boundary
+
+The explicit-feedback Memory evolution path now places a digest-bound
+Development Approval before the Launcher retrieves the active source or asks
+the untrusted Agent Host to generate a Candidate. Kernel admission checks the
+same active Candidate and generation while holding the lifecycle store lock,
+and constrains the new Candidate to logical ID `memory`, the existing Agent
+interface, and an equal-or-narrower capability scope. A separate Activation
+Approval binds the exact Candidate, Manifest, scope, dataset, evaluation
+record, and baseline generation. The existing activation and rollback slots
+remain the only adoption mechanism.
+
+The new `plugin.source` and `plugin.evaluate` operations are exercised through
+the signed `KernelProduction.xpc` product in the headless product test. The
+probe verifies active-source digest binding, rejects a stale evaluation,
+executes an admitted inactive Candidate through the real Seatbelt Runner,
+rejects its attempt to activate itself, denies workspace writes, and confirms
+that evaluation neither changes the active slot nor creates persistent
+Plugin state. Evaluation uses temporary opaque state and returns only its
+digest. Ordinary `plugin.run` remains bound to the reviewed active Candidate.
+
+The fixed replay tests verify that the Candidate cannot alter the bundled
+dataset or Candidate store, that self-reported scores do not affect scoring,
+and that changing the `khaos-memory-v1` state bytes is a regression even when
+recall scores improve. The lifecycle replay verifies adoption and rollback
+continue using the same production state. The signed-product probe and the
+canonical `python3 -m unittest discover -s tests -v` suite passed on 2026-10-07;
+the latest canonical run passed all 304 tests in 642.948 seconds.
+After adding a direct Candidate-store access attempt to the sandboxed AgentHost
+model probe, the focused signed-product test passed again (1 test, 44.021
+seconds); the probe's read and append were denied by the OS sandbox and the
+sentinel bytes remained unchanged.
+The hostile real-Seatbelt evaluation probe also attempts a direct read of the
+production Memory state file; its focused test passed (1 test, 32.024 seconds),
+with both read and write denied and the stored bytes unchanged.
+
+These checks establish the component and headless signed-Kernel boundaries.
+The opt-in `KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1` acceptance was started. It
+opened the signed test app's Candidate A package Picker, but no directory was
+selected before the 300-second manual-input gate expired (the test exited after
+329.470 seconds). The development and activation dialogs never opened. I
+terminated the remaining test launcher process. This is missing user input,
+not a failed security assertion. The full dialog-driven adoption-and-rollback
+flow remains unverified; the fixed test model also does not establish that a
+particular production model will generate a better Candidate.
+
+The signed-product acceptance was retried on 2026-10-07. It opened a fresh
+Candidate A package Picker at
+`/Users/huangruibang/Applications/khaos-seed-app-5ad39t4t/memory-candidate-a.package`,
+but no package selection or test-terminal input arrived before the gate timed
+out (the test exited after 329.980 seconds). Neither approval dialog opened.
+The test-launched `KhaosSeed --plugin-install` process was terminated; process
+and scratch-bundle checks confirmed cleanup. This retry adds no approval-flow
+evidence.
+
+## 2026-10-08 signed-product Agent-generated Memory evolution
+
+The opt-in `KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1` acceptance passed in
+534.966 seconds against a locally signed test app, its production
+`KernelProduction.xpc`, the real isolated Seatbelt Runner, and the normal
+Candidate lifecycle. The signed `AgentHostSandboxModelProbe` supplied the
+bounded proposal and deterministic Candidate; this establishes the product path
+for that fixed model probe, not that a production model will generate an
+improved Candidate.
+
+The test installed and activated Candidate A, approved a Memory `remember`,
+and recorded the resulting `khaos-memory-v1` bytes. After Development Approval,
+the Host-generated state-only Candidate was admitted and evaluated against the
+fixed dataset in separate temporary state roots. The A/B replay measured A 3/5
+and B 4/5 with no regressions. Canceling the first Activation Approval left A
+active at generation 1. A second reviewed activation approval selected B at
+generation 2; an approved case-insensitive recall returned the existing
+`Project K` value. The test then approved rollback to A at generation 3 and
+confirmed that A still read the same production state bytes. The product path
+did not open a workspace Picker.
+
+This run exposed and fixed two Foundation/Python JSON-order mismatches. The
+dataset contains both `Name` and `name`: Python's canonical encoder preserves
+Unicode-scalar ordering (`Name`, then `name`), while Foundation's `.sortedKeys`
+orders those keys differently. The Launcher now creates temporary
+`khaos-memory-v1` state with the shared Python-compatible scalar-order encoder;
+the AgentHost scorer uses that same encoder when checking post-run state
+digests. Dataset integrity is bound to the exact bundled bytes and SHA-256,
+without reserializing them through Foundation. The Host and Launcher also share
+the `fixed-memory-replay-v2` evaluator version, preventing a stale-version
+record rejection.
+
+The focused AgentHost protocol probe passed its new colliding-key state and
+dataset regression cases. The five `test_memory_evolution.py` tests passed in
+114.662 seconds. The canonical `python3 -m unittest discover -s tests -v` suite
+passed all 304 tests in 652.546 seconds, including the headless signed XPC
+attacks, protocol probes, real Seatbelt checks, and lifecycle tests. Python
+syntax compilation and `git diff --check` also passed. These results are local
+macOS evidence for this signed test product and test model; they do not establish
+distribution signing or real-provider candidate-generation quality.
