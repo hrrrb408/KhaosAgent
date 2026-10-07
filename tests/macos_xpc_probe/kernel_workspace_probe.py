@@ -22,7 +22,7 @@ request = receive_frame(0, timeout_seconds=5)
 if (
     set(request) != {"version", "request_id", "operation", "payload"}
     or type(request.get("version")) is not int
-    or request["version"] != 10
+    or request["version"] != 11
     or request.get("operation") != "workspace.run"
     or type(request.get("request_id")) is not str
     or len(request["request_id"]) != 32

@@ -178,7 +178,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(
                 result.stdout.strip(),
-                "kernel-workspace-response-versions=8-and-10-separated;"
+                "kernel-workspace-response-versions=8-and-11-separated;"
                 "bridge-input=one-request-frame-plus-bookmark",
             )
 
@@ -267,6 +267,83 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     "topic": "seed",
                 },
             )
+
+    def test_agent_host_model_probe_proposes_and_generates_memory_candidate(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="khaos-agent-evolution-model-") as value:
+            root = Path(value)
+            probe = self._compile_agent_host_model_probe(root)
+            manifest_path = ROOT / "examples" / "memory" / "manifest.json"
+            source_path = ROOT / "examples" / "memory" / "plugin.py"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            metadata = {
+                "plugin_id": "memory",
+                "candidate_digest": "a" * 64,
+                "generation": 3,
+                "agent_interface": manifest["agent_interface"],
+            }
+            proposal_prompt = (
+                "System instructions\n"
+                "UNTRUSTED_PLUGIN_METADATA_JSON="
+                + json.dumps(metadata, sort_keys=True, separators=(",", ":"))
+                + "\nUser request (untrusted data):\n"
+                + "EVOLVE_MEMORY improve case-insensitive recall"
+            )
+            proposal_file = root / "proposal.txt"
+            proposal_file.write_text(proposal_prompt, encoding="utf-8")
+            proposal_run = subprocess.run(
+                [str(probe), "--file", str(proposal_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(
+                proposal_run.returncode,
+                0,
+                proposal_run.stdout + proposal_run.stderr,
+            )
+            proposal = json.loads(proposal_run.stdout.split("> ", 1)[1])
+            self.assertEqual(proposal["type"], "evolution")
+            self.assertEqual(proposal["pluginID"], "memory")
+            self.assertEqual(proposal["candidateDigest"], "a" * 64)
+            self.assertEqual(proposal["generation"], 3)
+            self.assertIn("case-insensitive", proposal["evolutionGoal"])
+            self.assertNotIn("source", proposal)
+
+            generation_context = {
+                "proposal": {"improvement_goal": proposal["evolutionGoal"]},
+                "user_feedback": "EVOLVE_MEMORY improve case-insensitive recall",
+                "baseline_manifest": manifest_path.read_text(encoding="utf-8"),
+                "baseline_source": source_path.read_text(encoding="utf-8"),
+            }
+            generation_file = root / "generation.txt"
+            generation_file.write_text(
+                json.dumps(
+                    generation_context,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                encoding="utf-8",
+            )
+            generation_run = subprocess.run(
+                [str(probe), "--file", str(generation_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(
+                generation_run.returncode,
+                0,
+                generation_run.stdout + generation_run.stderr,
+            )
+            generated = json.loads(generation_run.stdout.split("> ", 1)[1])
+            self.assertEqual(generated["manifestJSON"], generation_context["baseline_manifest"])
+            self.assertIn("casefold()", generated["pluginSource"])
+            self.assertNotEqual(
+                generated["pluginSource"], generation_context["baseline_source"]
+            )
+            compile(generated["pluginSource"], "generated-memory-plugin.py", "exec")
 
     def test_agent_host_model_probe_uses_the_latest_denial_turn(self) -> None:
         with tempfile.TemporaryDirectory(prefix="khaos-agent-model-denial-") as value:
@@ -394,6 +471,11 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 build_product.returncode,
                 0,
                 build_product.stdout + build_product.stderr,
+            )
+            self.assertEqual(
+                (product_app / "Contents" / "Resources" / "memory-evaluation.json").read_bytes(),
+                (ROOT / "examples" / "memory" / "evaluation.json").read_bytes(),
+                "the signed app must contain the canonical fixed replay dataset",
             )
 
             launcher_entitlements = self._signed_entitlements(product_app)
@@ -5444,41 +5526,15 @@ def run():
     ) -> None:
         plugin_store = self._plugin_store_path_for_requirement(product_requirement)
         plugin_state = self._plugin_state_path_for_requirement(product_requirement)
-        examples = Path(__file__).resolve().parents[1] / "examples"
-        example_a = examples / "memory"
-        example_b = examples / "memory-candidate-b"
+        example_a = ROOT / "examples" / "memory"
         package_a = scratch / "memory-candidate-a.package"
-        package_b = scratch / "memory-candidate-b.package"
         package_a.mkdir()
-        (package_a / "manifest.json").write_bytes(
-            (example_a / "manifest.json").read_bytes()
-        )
-        (package_a / "plugin.py").write_bytes((example_a / "plugin.py").read_bytes())
-        package_b.mkdir()
-        manifest_b = (example_b / "manifest.json").read_bytes()
-        source_b = (example_b / "plugin.py").read_bytes()
-        (package_b / "manifest.json").write_bytes(manifest_b)
-        (package_b / "plugin.py").write_bytes(source_b)
-        logs = scratch / "memory-evolution-product-logs"
-        logs.mkdir()
-
-        harness_store = scratch / "memory-evolution-harness-candidates"
-        source_a = (example_a / "plugin.py").read_bytes()
         manifest_a = (example_a / "manifest.json").read_bytes()
-        candidate_a = admit_candidate(harness_store, manifest_a, source_a)
-        candidate_b = admit_candidate(harness_store, manifest_b, source_b)
-        self.assertEqual(candidate_a.manifest.plugin_id, "memory")
-        self.assertEqual(candidate_b.manifest.plugin_id, "memory")
-        self.assertFalse(candidate_b.manifest.process_exec)
-        self.assertEqual(candidate_a.manifest.read_scope, ())
-        self.assertEqual(candidate_b.manifest.read_scope, ())
-        self.assertEqual(candidate_a.manifest.write_scope, ())
-        self.assertEqual(candidate_b.manifest.write_scope, ())
-        self.assertEqual(candidate_a.scope_digest, candidate_b.scope_digest)
-        self.assertEqual(
-            candidate_a.manifest.agent_interface,
-            candidate_b.manifest.agent_interface,
-        )
+        source_a = (example_a / "plugin.py").read_bytes()
+        (package_a / "manifest.json").write_bytes(manifest_a)
+        (package_a / "plugin.py").write_bytes(source_a)
+        logs = scratch / "agent-memory-evolution-logs"
+        logs.mkdir()
 
         def gate(message: str) -> None:
             print(message, flush=True)
@@ -5510,75 +5566,282 @@ def run():
                 diagnostics = ""
             self.fail(f"{marker!r} did not occur: {diagnostics}")
 
-        def install_package(
-            label: str, package: Path, *, evaluation: bool
+        def finish_agent(
+            process: subprocess.Popen[str], stdout_path: Path, stderr_path: Path
+        ) -> None:
+            self.assertIsNotNone(process.stdin)
+            process.stdin.write("/exit\n")
+            process.stdin.close()
+            try:
+                process.wait(timeout=180)
+            except subprocess.TimeoutExpired:
+                self._terminate_product_executable(product_launcher)
+                process.kill()
+                process.wait(timeout=5)
+                self.fail(
+                    "Agent session did not exit: "
+                    + stderr_path.read_text(encoding="utf-8", errors="replace")
+                )
+            self.assertEqual(
+                process.returncode,
+                0,
+                stdout_path.read_text(encoding="utf-8", errors="replace")
+                + stderr_path.read_text(encoding="utf-8", errors="replace"),
+            )
+
+        install_stdout = logs / "install-a.stdout"
+        install_stderr = logs / "install-a.stderr"
+        install = self._launch_product_app(
+            product_app, install_stdout, install_stderr, "--plugin-install"
+        )
+        self.addCleanup(self._terminate_product_executable, product_launcher)
+        print(
+            "The signed Khaos Seed app will open its Plugin package Picker. "
+            f"Select this directory: {package_a}",
+            flush=True,
+        )
+        gate("After selecting Candidate A's package directory, press Return.")
+        wait_for_marker(
+            install,
+            install_stderr,
+            "workspace-kernel-smoke=plugin-activation-review=presented",
+        )
+        print(
+            "Review Candidate A's memory interface and empty workspace scope, "
+            "approve activation, dismiss the success alert, then press Return.",
+            flush=True,
+        )
+        gate("After Candidate A activation and alert dismissal, press Return.")
+        wait_for_marker(install, install_stderr, "plugin-activation=passed")
+        install_stdout_text, install_stderr_text = install.communicate(timeout=180)
+        self.assertEqual(
+            install.returncode,
+            0,
+            install_stdout_text + install_stderr_text
+            + install_stderr.read_text(encoding="utf-8", errors="replace"),
+        )
+
+        candidate_a, _ = active_candidate(plugin_store)
+        self.assertEqual(candidate_a.manifest.plugin_id, "memory")
+        actual_interface = candidate_a.manifest.agent_interface
+        self.assertIsNotNone(actual_interface)
+        self.assertEqual(
+            {
+                "summary": actual_interface.summary,
+                "operations": [
+                    {"name": operation.name, "fields": list(operation.fields)}
+                    for operation in actual_interface.operations
+                ],
+            },
+            json.loads(manifest_a)["agent_interface"],
+        )
+        self.assertFalse(candidate_a.manifest.process_exec)
+        self.assertEqual(candidate_a.manifest.read_scope, ())
+        self.assertEqual(candidate_a.manifest.write_scope, ())
+        self.assertIsNone(read_plugin_state(plugin_state, "memory"))
+        active_before_remember, previous_before_remember, generation_before_remember = (
+            activation_state(plugin_store)
+        )
+        self.assertEqual(active_before_remember.candidate_digest, candidate_a.candidate_digest)
+        self.assertIsNone(previous_before_remember)
+        self.assertEqual(generation_before_remember, 1)
+
+        remember_stdout = logs / "remember-a.stdout"
+        remember_stderr = logs / "remember-a.stderr"
+        with remember_stdout.open("w", encoding="utf-8") as output, \
+                remember_stderr.open("w", encoding="utf-8") as errors:
+            remember = subprocess.Popen(
+                [str(product_launcher), "--agent"],
+                stdin=subprocess.PIPE,
+                stdout=output,
+                stderr=errors,
+                text=True,
+            )
+            self.addCleanup(self._terminate_product_executable, product_launcher)
+            self.assertIsNotNone(remember.stdin)
+            remember.stdin.write(
+                'Please remember key=project_codename value="Project K"\n'
+            )
+            remember.stdin.flush()
+            wait_for_marker(
+                remember, remember_stderr, "agent-plugin=approval-presented"
+            )
+            print(
+                "Approve Candidate A's remember(project_codename, Project K) "
+                "invocation, then press Return.",
+                flush=True,
+            )
+            gate("After approving remember, press Return.")
+            wait_for_marker(remember, remember_stderr, "agent-plugin=passed")
+            expected_remember = (
+                'Agent received untrusted Plugin output; state-only changeset counts '
+                'are zero: {"key":"project_codename","operation":"remember",'
+                '"remembered":true}'
+            )
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if expected_remember in remember_stdout.read_text(
+                    encoding="utf-8", errors="replace"
+                ):
+                    break
+                if remember.poll() is not None:
+                    break
+                time.sleep(0.1)
+            self.assertIn(
+                expected_remember,
+                remember_stdout.read_text(encoding="utf-8", errors="replace"),
+            )
+            self.assertIsNotNone(remember.stdin)
+            remember.stdin.write("/exit\n")
+            remember.stdin.close()
+            remember.wait(timeout=180)
+            self.assertEqual(remember.returncode, 0)
+
+        memory_file = plugin_state / "memory" / "state.json"
+        production_state = memory_file.read_bytes()
+        self.assertEqual(
+            production_state,
+            b'{"format":"khaos-memory-v1","items":{"project_codename":"Project K"}}',
+        )
+        candidates_dir = plugin_store / "candidates"
+
+        def candidate_digests() -> set[str]:
+            return {entry.name for entry in candidates_dir.iterdir() if entry.is_dir()}
+
+        def run_agent_evolution(
+            label: str,
+            *,
+            approve_activation: bool,
         ) -> str:
             stdout_path = logs / f"{label}.stdout"
             stderr_path = logs / f"{label}.stderr"
-            install = self._launch_product_app(
-                product_app, stdout_path, stderr_path, "--plugin-install"
-            )
-            self.addCleanup(self._terminate_product_executable, product_launcher)
-            print(
-                "The signed Khaos Seed app will open its Plugin package Picker. "
-                f"Select this directory: {package}",
-                flush=True,
-            )
-            gate("After selecting the package directory, press Return.")
-            wait_for_marker(
-                install,
-                stderr_path,
-                "workspace-kernel-smoke=plugin-activation-review=presented",
-            )
-            if evaluation:
+            with stdout_path.open("w", encoding="utf-8") as output, \
+                    stderr_path.open("w", encoding="utf-8") as errors:
+                process = subprocess.Popen(
+                    [str(product_launcher), "--agent"],
+                    stdin=subprocess.PIPE,
+                    stdout=output,
+                    stderr=errors,
+                    text=True,
+                )
+                self.addCleanup(self._terminate_product_executable, product_launcher)
+                self.assertIsNotNone(process.stdin)
+                process.stdin.write(
+                    "EVOLVE_MEMORY improve case-insensitive Memory recall\n"
+                )
+                process.stdin.flush()
                 wait_for_marker(
-                    install,
+                    process,
                     stderr_path,
-                    "workspace-kernel-smoke=plugin-evaluation-review=presented",
+                    "agent-evolution-development-review=presented",
                 )
                 print(
-                    "The second-stage approval must show Candidate B and Manifest "
-                    "digests, the unchanged memory interface and empty actual scope, "
-                    "Candidate A as the rollback target, the fixed dataset digest, "
-                    "A/B pass counts, regressions and improvements. The evaluation "
-                    "record is explicitly labeled informational and untrusted. "
-                    "Approve activation and dismiss the success alert, then press "
-                    "Return here.",
+                    "Review the bounded Proposal: memory, the active Candidate and "
+                    "generation, explicit feedback, fixed dataset, state format, "
+                    "empty capability ceiling, and resource limits. Approve "
+                    "development only; this does not activate the Candidate.",
                     flush=True,
                 )
-            else:
-                print(
-                    "The approval must show Plugin memory, remember/recall/forget, "
-                    "process.exec disabled, and empty workspace scopes. Approve "
-                    "Candidate A and dismiss the success alert, then press Return.",
-                    flush=True,
+                gate("After approving development, press Return.")
+                wait_for_marker(
+                    process,
+                    stderr_path,
+                    "agent-evolution-candidate-admitted",
                 )
-            gate("After activation and success-alert dismissal, press Return.")
-            try:
-                stdout, stderr = install.communicate(timeout=300)
-            except subprocess.TimeoutExpired:
-                self._terminate_product_executable(product_launcher)
-                install.kill()
-                stdout, stderr = install.communicate(timeout=5)
-                self.fail(
-                    f"{label} activation did not finish: {stdout}{stderr}"
+                wait_for_marker(
+                    process,
+                    stderr_path,
+                    "agent-evolution-activation-review=presented",
                 )
-            diagnostics = stderr_path.read_text(
-                encoding="utf-8", errors="replace"
-            )
-            self.assertEqual(install.returncode, 0, stdout + stderr + diagnostics)
-            self.assertIn("plugin-activation=passed", diagnostics)
-            return diagnostics
+                admitted_digests = candidate_digests()
+                self.assertEqual(len(admitted_digests), 2)
+                candidate_digest = next(iter(admitted_digests - {candidate_a.candidate_digest}))
+                candidate_path = candidates_dir / candidate_digest
+                self.assertEqual(
+                    {entry.name for entry in candidate_path.iterdir()},
+                    {"manifest.json", "plugin.py"},
+                )
+                generated_manifest = (candidate_path / "manifest.json").read_bytes()
+                generated_source = (candidate_path / "plugin.py").read_bytes()
+                expected_manifest = json.loads(manifest_a)
+                expected_source = source_a.decode("utf-8")
+                baseline_recall = "        value = items.get(key)\n"
+                improved_recall = (
+                    "        value = items.get(key)\n"
+                    "        if value is None:\n"
+                    "            matches = [item for stored_key, item in items.items()\n"
+                    "                       if stored_key.casefold() == key.casefold()]\n"
+                    "            if len(matches) == 1:\n"
+                    "                value = matches[0]\n"
+                )
+                self.assertEqual(expected_source.count(baseline_recall), 1)
+                expected_source = expected_source.replace(baseline_recall, improved_recall)
+                compile(expected_source, "generated-memory-candidate.py", "exec")
+                self.assertEqual(generated_manifest, manifest_a)
+                self.assertEqual(generated_source, expected_source.encode("utf-8"))
+                harness_store = scratch / f"{label}-candidate-digest-check"
+                expected_candidate = admit_candidate(
+                    harness_store,
+                    manifest_a,
+                    expected_source.encode("utf-8"),
+                )
+                self.assertEqual(candidate_digest, expected_candidate.candidate_digest)
+                active, previous, generation = activation_state(plugin_store)
+                self.assertEqual(active.candidate_digest, candidate_a.candidate_digest)
+                self.assertIsNone(previous)
+                self.assertEqual(generation, 1)
+                self.assertEqual(memory_file.read_bytes(), production_state)
 
-        def candidate_files() -> dict[str, bytes]:
-            directory = plugin_store / "candidates"
-            if not directory.exists():
-                return {}
-            return {
-                path.relative_to(plugin_store).as_posix(): path.read_bytes()
-                for path in directory.glob("*/*")
-                if path.is_file()
-            }
+                if not approve_activation:
+                    print(
+                        "Review Candidate B's exact Candidate/Manifest/scope digest, "
+                        "unchanged Agent interface, empty actual capability, fixed "
+                        "dataset, A/B scores (expected A 3/5, B 4/5), no regressions, "
+                        "and Candidate A rollback target. Cancel activation.",
+                        flush=True,
+                    )
+                    gate("After canceling Activation Approval, press Return.")
+                    wait_for_marker(
+                        process,
+                        stderr_path,
+                        "agent-evolution-activation=denied",
+                    )
+                    active, previous, generation = activation_state(plugin_store)
+                    self.assertEqual(active.candidate_digest, candidate_a.candidate_digest)
+                    self.assertIsNone(previous)
+                    self.assertEqual(generation, 1)
+                    self.assertEqual(memory_file.read_bytes(), production_state)
+                    finish_agent(process, stdout_path, stderr_path)
+                    return candidate_digest
+
+                print(
+                    "Review Candidate B's exact Candidate/Manifest/scope digest, "
+                    "unchanged Agent interface, empty actual capability, fixed "
+                    "dataset, A/B scores (expected A 3/5, B 4/5), no regressions, "
+                    "and Candidate A rollback target. Approve activation.",
+                    flush=True,
+                )
+                gate("After approving activation, press Return.")
+                wait_for_marker(process, stderr_path, "agent-evolution=adopted")
+                active, previous, generation = activation_state(plugin_store)
+                self.assertEqual(active.candidate_digest, candidate_digest)
+                self.assertEqual(previous.candidate_digest, candidate_a.candidate_digest)
+                self.assertEqual(generation, 2)
+                self.assertEqual(memory_file.read_bytes(), production_state)
+                finish_agent(process, stdout_path, stderr_path)
+                return candidate_digest
+
+        run_agent_evolution(
+            "activation-denied",
+            approve_activation=False,
+        )
+        state_after_activation_denial = activation_state(plugin_store)
+        self.assertEqual(state_after_activation_denial[0].candidate_digest, candidate_a.candidate_digest)
+        self.assertEqual(state_after_activation_denial[2], 1)
+        candidate_b_digest = run_agent_evolution(
+            "activation-approved",
+            approve_activation=True,
+        )
 
         def run_agent_recall(
             label: str, prompt: str, expected_text: str, expected_generation: int
@@ -5598,13 +5861,10 @@ def run():
                 self.assertIsNotNone(process.stdin)
                 process.stdin.write(prompt + "\n")
                 process.stdin.flush()
-                wait_for_marker(
-                    process, stderr_path, "agent-plugin=approval-presented"
-                )
+                wait_for_marker(process, stderr_path, "agent-plugin=approval-presented")
                 print(
                     f"The Agent approval must show Plugin memory and generation "
-                    f"{expected_generation}. Approve the exact recall once, then "
-                    "press Return.",
+                    f"{expected_generation}. Approve the exact recall once, then press Return.",
                     flush=True,
                 )
                 gate("After approving the Agent Plugin invocation, press Return.")
@@ -5622,155 +5882,10 @@ def run():
                     expected_text,
                     stdout_path.read_text(encoding="utf-8", errors="replace"),
                 )
-                process.stdin.write("/exit\n")
-                process.stdin.close()
-                try:
-                    process.wait(timeout=180)
-                except subprocess.TimeoutExpired:
-                    self._terminate_product_executable(product_launcher)
-                    process.kill()
-                    process.wait(timeout=5)
-                    self.fail(
-                        "Agent session did not exit: "
-                        + stderr_path.read_text(encoding="utf-8", errors="replace")
-                    )
-                self.assertEqual(
-                    process.returncode,
-                    0,
-                    stdout_path.read_text(encoding="utf-8", errors="replace")
-                    + stderr_path.read_text(encoding="utf-8", errors="replace"),
-                )
-
-        install_package("install-a", package_a, evaluation=False)
-        active_a, _ = active_candidate(plugin_store)
-        self.assertEqual(active_a.candidate_digest, candidate_a.candidate_digest)
-        self.assertIsNone(read_plugin_state(plugin_state, "memory"))
-        active_state_before_a_run, previous_before_a_run, generation_before_a_run = (
-            activation_state(plugin_store)
-        )
-        self.assertEqual(active_state_before_a_run.candidate_digest, candidate_a.candidate_digest)
-        self.assertIsNone(previous_before_a_run)
-        self.assertEqual(generation_before_a_run, 1)
-
-        remember_stdout = logs / "remember-a.stdout"
-        remember_stderr = logs / "remember-a.stderr"
-        with remember_stdout.open("w", encoding="utf-8") as output, \
-                remember_stderr.open("w", encoding="utf-8") as errors:
-            process = subprocess.Popen(
-                [str(product_launcher), "--agent"],
-                stdin=subprocess.PIPE,
-                stdout=output,
-                stderr=errors,
-                text=True,
-            )
-            self.addCleanup(self._terminate_product_executable, product_launcher)
-            self.assertIsNotNone(process.stdin)
-            process.stdin.write(
-                'Please remember key=project_codename value="Project K"\n'
-            )
-            process.stdin.flush()
-            wait_for_marker(
-                process, remember_stderr, "agent-plugin=approval-presented"
-            )
-            print(
-                "Approve Candidate A's remember(project_codename, Project K) "
-                "invocation, then press Return.",
-                flush=True,
-            )
-            gate("After approving the remember operation, press Return.")
-            wait_for_marker(process, remember_stderr, "agent-plugin=passed")
-            expected = (
-                'Agent received untrusted Plugin output; state-only changeset counts '
-                'are zero: {"key":"project_codename","operation":"remember",'
-                '"remembered":true}'
-            )
-            deadline = time.monotonic() + 30
-            while time.monotonic() < deadline:
-                if expected in remember_stdout.read_text(
-                    encoding="utf-8", errors="replace"
-                ):
-                    break
-                if process.poll() is not None:
-                    break
-                time.sleep(0.1)
-            self.assertIn(
-                expected,
-                remember_stdout.read_text(encoding="utf-8", errors="replace"),
-            )
-            process.stdin.write("/exit\n")
-            process.stdin.close()
-            process.wait(timeout=180)
-            self.assertEqual(process.returncode, 0)
-
-        memory_file = plugin_state / "memory" / "state.json"
-        production_state = memory_file.read_bytes()
-        self.assertEqual(
-            production_state,
-            b'{"format":"khaos-memory-v1","items":{"project_codename":"Project K"}}',
-        )
-        production_activation = (plugin_store / "activation.json").read_bytes()
-        production_candidates = candidate_files()
-        activation_before_eval = activation_state(plugin_store)
-        dataset_path = ROOT / "tests" / "fixtures" / "memory-evaluation.json"
-        dataset_bytes, _ = load_dataset(dataset_path)
-        evaluation = evaluate_memory_candidates(
-            candidate_a,
-            candidate_b,
-            dataset_path,
-            scratch=scratch / "memory-evaluation-replay",
-        )
-        self.assertEqual((evaluation.baseline.passed, evaluation.baseline.failed), (3, 2))
-        self.assertEqual((evaluation.candidate.passed, evaluation.candidate.failed), (5, 0))
-        self.assertEqual(evaluation.regressions, ())
-        self.assertEqual(
-            evaluation.improvements,
-            ("casefold-fallback", "compatibility-fallback"),
-        )
-        record = evaluation.review_record()
-        verify_evaluation_binding(
-            record,
-            candidate_digest=candidate_b.candidate_digest,
-            manifest_digest=candidate_b.manifest_digest,
-            scope_digest=candidate_b.scope_digest,
-            baseline_digest=candidate_a.candidate_digest,
-            dataset_bytes=dataset_bytes,
-        )
-        self.assertEqual(
-            memory_file.read_bytes(),
-            production_state,
-            "isolated replay must not touch Candidate A production state",
-        )
-        self.assertEqual((plugin_store / "activation.json").read_bytes(), production_activation)
-        self.assertEqual(candidate_files(), production_candidates)
-        self.assertEqual(activation_state(plugin_store), activation_before_eval)
-        (package_b / "evaluation.json").write_text(
-            json.dumps(
-                record,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ),
-            encoding="utf-8",
-        )
-
-        install_package("install-b", package_b, evaluation=True)
-        active_b, previous, generation = activation_state(plugin_store)
-        self.assertEqual(active_b.candidate_digest, candidate_b.candidate_digest)
-        self.assertEqual(previous.candidate_digest, candidate_a.candidate_digest)
-        self.assertEqual(generation, 2)
-        activated_b, _ = active_candidate(plugin_store)
-        self.assertEqual(activated_b.candidate_digest, candidate_b.candidate_digest)
-        self.assertEqual(memory_file.read_bytes(), production_state)
-        self.assertEqual(
-            {entry.name for entry in (
-                plugin_store / "candidates" / candidate_b.candidate_digest
-            ).iterdir()},
-            {"manifest.json", "plugin.py"},
-        )
+                finish_agent(process, stdout_path, stderr_path)
 
         run_agent_recall(
-            "recall-b-normalized",
+            "recall-b-casefold",
             "Please recall key=PROJECT_CODENAME",
             (
                 'Agent received untrusted Plugin output; state-only changeset counts '
@@ -5796,11 +5911,11 @@ def run():
             "workspace-kernel-smoke=plugin-rollback-review=presented",
         )
         print(
-            "The rollback approval must name Candidate A as the target and explain "
-            "that routing changes for future runs only. Approve it, then press Return.",
+            "Approve rollback to Candidate A; it changes future routing and keeps "
+            "the Memory state blob. Dismiss the success alert, then press Return.",
             flush=True,
         )
-        gate("After approving the rollback, press Return.")
+        gate("After approving rollback and dismissing the alert, press Return.")
         wait_for_marker(
             rollback_process,
             rollback_stderr,
@@ -5824,7 +5939,7 @@ def run():
         )
         self.assertEqual(
             previous_after_rollback.candidate_digest,
-            candidate_b.candidate_digest,
+            candidate_b_digest,
         )
         self.assertEqual(generation_after_rollback, 3)
         self.assertEqual(memory_file.read_bytes(), production_state)
@@ -5839,14 +5954,13 @@ def run():
             expected_generation=3,
         )
         self.assertEqual(memory_file.read_bytes(), production_state)
-        final_a, _ = active_candidate(plugin_store)
-        self.assertEqual(final_a.candidate_digest, candidate_a.candidate_digest)
+        self.assertEqual(active_candidate(plugin_store)[0].candidate_digest, candidate_a.candidate_digest)
         print(
-            "signed-product Memory evolution passed: isolated fixed replay measured "
-            "A 3/5 → B 5/5 with no regressions; the second-stage UI reviewed exact "
-            "Candidate/Manifest/scope and the evaluation record; user-approved B "
-            "read Candidate A's unchanged production state; rollback routed future "
-            "runs to A without changing that state.",
+            "signed-product Agent-generated Memory evolution passed: the approved "
+            "Development Proposal produced an immutable Candidate; fixed replay "
+            "improved isolated replay from A 3/5 to B 4/5 without regressions; "
+            "activation denial left A active; approved B reused the production "
+            "state; rollback returned to A with that state unchanged.",
             flush=True,
         )
 
@@ -5894,13 +6008,29 @@ def run():
         canary.write_text("parent can read and open for writing\n", encoding="utf-8")
         descriptor = os.open(canary, os.O_RDWR | os.O_CLOEXEC)
         os.close(descriptor)
+        product_requirement = self._designated_code_requirement(
+            launcher_binary, "org.khaos.Seed"
+        )
+        plugin_store = self._plugin_store_path_for_requirement(product_requirement)
+        self.assertFalse(plugin_store.exists(), f"refusing to reuse {plugin_store}")
+        candidate_store = plugin_store / "candidates"
+        candidate_store.mkdir(parents=True, mode=0o700)
+        os.chmod(plugin_store, 0o700)
+        os.chmod(candidate_store, 0o700)
+        candidate_store_probe = candidate_store / "agent-host-write-probe.bin"
+        candidate_store_probe.write_bytes(b"candidate store sentinel\n")
+        candidate_store_before = candidate_store_probe.read_bytes()
 
         agent_run = subprocess.run(
             [str(launcher_binary), "--agent"],
             check=False,
             capture_output=True,
             text=True,
-            input=f"CANARY_PATH={canary}\n/exit\n",
+            input=(
+                f"CANARY_PATH={canary}\n"
+                f"CANDIDATE_STORE_FILE={candidate_store_probe}\n"
+                "/exit\n"
+            ),
             timeout=180,
         )
         self.assertEqual(
@@ -5909,7 +6039,12 @@ def run():
             agent_run.stdout + agent_run.stderr,
         )
         self.assertIn("read-denied=true write-denied=true", agent_run.stdout)
+        self.assertIn(
+            "candidate-store-read-denied=true candidate-store-write-denied=true",
+            agent_run.stdout,
+        )
         self.assertEqual(canary.read_text(encoding="utf-8"), "parent can read and open for writing\n")
+        self.assertEqual(candidate_store_probe.read_bytes(), candidate_store_before)
 
         empty_store_run = subprocess.run(
             [str(launcher_binary), "--agent"],
@@ -5927,10 +6062,6 @@ def run():
         self.assertIn("agent-plugin=denied code=no_active_candidate", empty_store_run.stderr)
         self.assertIn("Launcher denied execution", empty_store_run.stdout)
         self.assertNotIn("agent-plugin=approval-presented", empty_store_run.stderr)
-        product_requirement = self._designated_code_requirement(
-            launcher_binary, "org.khaos.Seed"
-        )
-        plugin_store = self._plugin_store_path_for_requirement(product_requirement)
         if plugin_store.exists():
             active, previous, generation = activation_state(plugin_store)
             self.assertIsNone(active)
@@ -6070,14 +6201,20 @@ def run():
             product_requirement,
         )
         plugin_store = self._plugin_store_path_for_requirement(product_requirement)
+        plugin_state = self._plugin_state_path_for_requirement(product_requirement)
         self.assertFalse(
             plugin_store.exists(),
             f"refusing to reuse Plugin state at {plugin_store}",
+        )
+        self.assertFalse(
+            plugin_state.exists(),
+            f"refusing to reuse Plugin state at {plugin_state}",
         )
         self.addCleanup(
             self._remove_plugin_store,
             plugin_store,
         )
+        self.addCleanup(self._remove_plugin_store, plugin_state)
         signature = subprocess.run(
             ["codesign", "--verify", "--deep", "--strict", str(product_app)],
             check=False,
@@ -6127,8 +6264,13 @@ def run():
             "production-xpc-authority-fields="
             "approval-and-capability-claims-rejected-before-bookmark\n"
             "production-xpc-plugin-lifecycle="
-            "admit-activate-stale-reject-rollback-persisted\n"
+            "admit-activate-stale-reject-rollback-persisted;"
+            "memory-evaluation=admitted-inactive-candidate-isolated-no-workspace-write\n"
             "production-xpc-after-invalid-requests=responsive",
+        )
+        self.assertFalse(
+            plugin_state.exists(),
+            "inactive Candidate evaluation wrote the persistent Plugin state store",
         )
         if verify_missing_broker:
             self._assert_product_xpc_missing_broker_rejected(

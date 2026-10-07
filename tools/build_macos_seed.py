@@ -189,6 +189,12 @@ def _assemble_app(
             "NSPrincipalClass": "NSApplication",
         },
     )
+    app_resources = contents / "Resources"
+    app_resources.mkdir()
+    shutil.copy2(
+        ROOT / "examples" / "memory" / "evaluation.json",
+        app_resources / "memory-evaluation.json",
+    )
     app_entitlements = app.parent / "app-entitlements.plist"
     service_entitlements = app.parent / "service-entitlements.plist"
     broker_entitlements = app.parent / "broker-entitlements.plist"

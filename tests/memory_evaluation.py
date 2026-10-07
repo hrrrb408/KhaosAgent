@@ -6,12 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-from khaos.kernel.plugin_lifecycle import PluginCandidate, replace_plugin_state
+from khaos.kernel.plugin_lifecycle import (
+    PluginCandidate,
+    read_plugin_state,
+    replace_plugin_state,
+)
 from khaos.launcher import run_workspace_command
 
 
 EVALUATION_FORMAT = "khaos-memory-eval-v1"
-EVALUATOR_VERSION = "fixed-memory-replay-v1"
+EVALUATOR_VERSION = "fixed-memory-replay-v2"
 
 
 @dataclass(frozen=True)
@@ -19,6 +23,7 @@ class SampleResult:
     sample_id: str
     passed: bool
     output: dict[str, Any]
+    state_sha256: str | None
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,30 @@ def load_dataset(dataset_path: Path) -> tuple[bytes, dict[str, Any]]:
         raise ValueError("Memory evaluation dataset is not canonical")
     sample_ids: set[str] = set()
     for sample in dataset["samples"]:
+        request = sample.get("request") if type(sample) is dict else None
+        expected = sample.get("expected") if type(sample) is dict else None
+        valid_recall = (
+            type(request) is dict
+            and request.get("operation") == "recall"
+            and set(request) == {"key", "operation"}
+            and type(request.get("key")) is str
+            and type(expected) is dict
+            and set(expected) == {"found", "value"}
+            and type(expected["found"]) is bool
+            and (
+                expected["value"] is None
+                or type(expected["value"]) is str
+            )
+        )
+        valid_remember = (
+            type(request) is dict
+            and request.get("operation") == "remember"
+            and set(request) == {"key", "operation", "value"}
+            and type(request.get("key")) is str
+            and type(request.get("value")) is str
+            and type(expected) is dict
+            and expected == {"remembered": True}
+        )
         if (
             type(sample) is not dict
             or set(sample) != {"expected", "id", "initial_items", "request"}
@@ -91,15 +120,7 @@ def load_dataset(dataset_path: Path) -> tuple[bytes, dict[str, Any]]:
                 type(key) is not str or type(value) is not str
                 for key, value in sample["initial_items"].items()
             )
-            or type(sample["request"]) is not dict
-            or sample["request"].get("operation") != "recall"
-            or type(sample["expected"]) is not dict
-            or set(sample["expected"]) != {"found", "value"}
-            or type(sample["expected"]["found"]) is not bool
-            or (
-                sample["expected"]["value"] is not None
-                and type(sample["expected"]["value"]) is not str
-            )
+            or not (valid_recall or valid_remember)
         ):
             raise ValueError("Memory evaluation sample is invalid")
         sample_ids.add(sample["id"])
@@ -122,6 +143,25 @@ def evaluate_memory_candidates(
         candidate, dataset["samples"], scratch / "candidate"
     )
     baseline_by_id = {item.sample_id: item for item in baseline_result.sample_results}
+    samples_by_id = {sample["id"]: sample for sample in dataset["samples"]}
+    candidate_result = CandidateResult(
+        candidate_digest=candidate_result.candidate_digest,
+        manifest_digest=candidate_result.manifest_digest,
+        scope_digest=candidate_result.scope_digest,
+        sample_results=tuple(
+            SampleResult(
+                result.sample_id,
+                result.passed and _state_compatible(
+                    samples_by_id[result.sample_id],
+                    baseline_by_id[result.sample_id],
+                    result,
+                ),
+                result.output,
+                result.state_sha256,
+            )
+            for result in candidate_result.sample_results
+        ),
+    )
     candidate_by_id = {item.sample_id: item for item in candidate_result.sample_results}
     regressions = tuple(
         sample_id
@@ -203,22 +243,36 @@ def _evaluate_candidate(
             raise AssertionError("Memory evaluation changed its workspace")
         if any(workspace.iterdir()):
             raise AssertionError("Memory evaluation left a workspace entry")
-        if _read_state(state_root) != initial_state:
-            raise AssertionError("read-only Memory evaluation changed isolated state")
+        state_after = read_plugin_state(state_root, "memory")
+        if sample["request"]["operation"] == "recall" and state_after != initial_state:
+            raise AssertionError("Memory recall changed isolated state")
         output = json.loads(result.stdout)
         if type(output) is not dict:
             raise AssertionError("Memory evaluation output must be an object")
         expected = sample["expected"]
-        # Only the public recall result is scored. Extra Candidate fields such
-        # as a self-reported score do not affect evaluation.
-        passed = (
-            output.get("operation") == "recall"
-            and output.get("key") == sample["request"]["key"]
-            and type(output.get("found")) is bool
-            and output.get("found") is expected["found"]
-            and output.get("value") == expected["value"]
+        request = sample["request"]
+        if request["operation"] == "recall":
+            passed = (
+                output.get("operation") == "recall"
+                and output.get("key") == request["key"]
+                and type(output.get("found")) is bool
+                and output.get("found") is expected["found"]
+                and output.get("value") == expected["value"]
+            )
+        else:
+            passed = (
+                output.get("operation") == "remember"
+                and output.get("key") == request["key"]
+                and output.get("remembered") is expected["remembered"]
+            )
+        state_digest = (
+            hashlib.sha256(state_after).hexdigest()
+            if state_after is not None
+            else None
         )
-        sample_results.append(SampleResult(sample["id"], passed, output))
+        sample_results.append(
+            SampleResult(sample["id"], passed, output, state_digest)
+        )
     return CandidateResult(
         candidate_digest=candidate.candidate_digest,
         manifest_digest=candidate.manifest_digest,
@@ -227,9 +281,25 @@ def _evaluate_candidate(
     )
 
 
-def _read_state(state_root: Path) -> bytes | None:
-    path = state_root / "memory" / "state.json"
-    return path.read_bytes() if path.exists() else None
+def _state_compatible(
+    sample: dict[str, Any],
+    baseline: SampleResult,
+    candidate: SampleResult,
+) -> bool:
+    request = sample["request"]
+    if request["operation"] == "remember":
+        return (
+            baseline.state_sha256 is not None
+            and baseline.state_sha256 != _initial_state_digest(sample)
+            and candidate.state_sha256 == baseline.state_sha256
+        )
+    return candidate.state_sha256 == _initial_state_digest(sample)
+
+
+def _initial_state_digest(sample: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        _canonical({"format": "khaos-memory-v1", "items": sample["initial_items"]})
+    ).hexdigest()
 
 
 def _canonical(value: object) -> bytes:

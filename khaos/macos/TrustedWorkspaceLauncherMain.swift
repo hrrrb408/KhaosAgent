@@ -27,6 +27,7 @@ private struct PluginRun {
 }
 
 private struct MemoryEvaluationReview {
+    let proposalDigest: String?
     let baselineDigest: String
     let datasetDigest: String
     let sampleCount: Int
@@ -67,6 +68,7 @@ private struct WorkspaceResult {
     let added: Int
     let modified: Int
     let deleted: Int
+    let pluginStateSHA256: String?
 }
 
 @main
@@ -808,13 +810,23 @@ enum TrustedWorkspaceLauncherMain {
                 "candidate_scope_digest", "dataset_digest",
                 "evaluator_version", "format", "improvements", "regressions",
                 "sample_count",
+              ] || Set(value.keys) == [
+                "baseline_digest", "baseline_fail", "baseline_pass",
+                "candidate_digest", "candidate_fail",
+                "candidate_manifest_digest", "candidate_pass",
+                "candidate_scope_digest", "dataset_digest", "evaluator_version",
+                "format", "improvements", "proposal_digest", "regressions",
+                "sample_count",
               ],
               value["format"] as? String == "khaos-memory-eval-v1",
-              value["evaluator_version"] as? String == "fixed-memory-replay-v1",
+              value["evaluator_version"] as? String
+                == AgentHostProtocol.memoryEvaluationEvaluatorVersion,
               let baselineDigest = value["baseline_digest"] as? String,
               isDigest(baselineDigest),
               let datasetDigest = value["dataset_digest"] as? String,
               isDigest(datasetDigest),
+              value["proposal_digest"] == nil
+                || (value["proposal_digest"] as? String).map(isDigest) == true,
               let candidateDigest = value["candidate_digest"] as? String,
               isDigest(candidateDigest),
               let manifestDigest = value["candidate_manifest_digest"] as? String,
@@ -848,6 +860,7 @@ enum TrustedWorkspaceLauncherMain {
             throw LauncherError.operationRejected("evaluation_binding_rejected")
         }
         return MemoryEvaluationReview(
+            proposalDigest: value["proposal_digest"] as? String,
             baselineDigest: baselineDigest,
             datasetDigest: datasetDigest,
             sampleCount: sampleCount,
@@ -875,6 +888,7 @@ enum TrustedWorkspaceLauncherMain {
             : evaluation.improvements.map { String(reflecting: $0) }
                 .joined(separator: ", ")
         return "\n\nHarness evaluation record (informational, untrusted data):\n"
+            + (evaluation.proposalDigest.map { "Proposal SHA-256: \($0)\n" } ?? "")
             + "Candidate B SHA-256: \(evaluation.candidateDigest)\n"
             + "Manifest SHA-256: \(evaluation.candidateManifestDigest)\n"
             + "Capability scope SHA-256: \(evaluation.candidateScopeDigest)\n"
@@ -903,14 +917,15 @@ enum TrustedWorkspaceLauncherMain {
         action: String,
         workspace: URL?,
         details: String,
-        digest: String
+        digest: String,
+        digestLabel: String = "Reviewed operation SHA-256"
     ) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = title
         let workspaceText = workspace.map { "Workspace: \($0.path)\n\n" } ?? ""
         let reviewedDetails = workspaceText + details
-            + "\n\nReviewed operation SHA-256: \(digest)"
+            + "\n\n\(digestLabel): \(digest)"
         alert.informativeText = "Review the complete request below. Scroll to inspect all fields."
         alert.accessoryView = approvalDetailsView(reviewedDetails)
         alert.addButton(withTitle: "Cancel")
@@ -1080,8 +1095,30 @@ enum TrustedWorkspaceLauncherMain {
                         )
                         return
                     }
+                case let .evolution(proposal):
+                    let outcome = runAgentEvolution(
+                        proposal,
+                        evidence: prompt,
+                        host: host
+                    )
+                    do {
+                        reply = try host.sendToolResult(
+                            ok: outcome.ok,
+                            text: outcome.text,
+                            activePlugin: currentAgentPluginMetadata()
+                        )
+                    } catch {
+                        fputs(
+                            "Local Agent stopped: \(failureCode(for: error))\n",
+                            stderr
+                        )
+                        return
+                    }
                 case let .failure(code):
                     fputs("Local Agent error: \(code)\n", stderr)
+                    awaitingNextUser = true
+                case .candidate(_), .evaluation(_):
+                    fputs("Local Agent error: unexpected_evolution_reply\n", stderr)
                     awaitingNextUser = true
                 }
             }
@@ -1126,6 +1163,418 @@ enum TrustedWorkspaceLauncherMain {
         } catch {
             return (false, "Launcher could not run the Plugin.")
         }
+    }
+
+    private static func runAgentEvolution(
+        _ action: AgentEvolutionProposal,
+        evidence: String,
+        host: AgentHostClient
+    ) -> (ok: Bool, text: String) {
+        do {
+            return try evolveMemory(action, evidence: evidence, host: host)
+        } catch TrustedWorkspacePickerError.cancelled {
+            return (false, "The user denied Memory development or activation.")
+        } catch LauncherError.operationRejected(let code) {
+            fputs("agent-evolution=denied code=\(code)\n", stderr)
+            return (false, "Launcher denied Memory evolution: \(code)")
+        } catch {
+            fputs("agent-evolution=failed code=\(failureCode(for: error))\n", stderr)
+            return (false, "Launcher could not complete Memory evolution.")
+        }
+    }
+
+    private static func evolveMemory(
+        _ action: AgentEvolutionProposal,
+        evidence: String,
+        host: AgentHostClient
+    ) throws -> (ok: Bool, text: String) {
+        let initialState = try parsePluginState(invokePluginKernel(.state))
+        guard let baseline = initialState.active,
+              baseline.identifier == "memory",
+              baseline.candidateDigest == action.candidateDigest,
+              initialState.generation == action.generation else {
+            throw LauncherError.operationRejected("stale_proposal")
+        }
+        guard !baseline.processExec,
+              baseline.readScope.isEmpty,
+              baseline.writeScope.isEmpty,
+              baseline.agentInterface != nil,
+              reviewable(evidence),
+              evidence.utf8.count <= AgentHostProtocol.maximumTextBytes else {
+            throw LauncherError.operationRejected("capability_denied")
+        }
+
+        let (dataset, samples) = try loadMemoryEvaluationDataset()
+        let datasetDigest = KernelWorkspaceXPC.sha256Hex(dataset)
+        let evidenceDigest = KernelWorkspaceXPC.sha256Hex(Data(evidence.utf8))
+        let proposalData = try AgentHostProtocol.evolutionProposal(
+            target: AgentHostPluginMetadata(
+                pluginID: baseline.identifier,
+                candidateDigest: baseline.candidateDigest,
+                generation: initialState.generation,
+                agentInterface: baseline.agentInterface
+            ),
+            goal: action.goal,
+            evidenceDigest: evidenceDigest,
+            manifestDigest: baseline.manifestDigest,
+            scopeDigest: baseline.scopeDigest,
+            datasetDigest: datasetDigest
+        )
+        guard let proposalObject = try? JSONSerialization.jsonObject(
+            with: proposalData
+        ) as? [String: Any],
+        let proposalDigest = proposalObject["proposal_digest"] as? String,
+        isDigest(proposalDigest) else {
+            throw LauncherError.operationRejected("invalid_evolution_proposal")
+        }
+
+        let developmentDetails = "Target Plugin: memory\n"
+            + "Current Candidate SHA-256: \(baseline.candidateDigest)\n"
+            + "Current generation: \(initialState.generation)\n"
+            + "Change goal: \(String(reflecting: action.goal))\n"
+            + "User feedback evidence (untrusted data):\n"
+            + String(reflecting: evidence) + "\n"
+            + "Evidence SHA-256: \(evidenceDigest)\n"
+            + "Fixed evaluation dataset SHA-256: \(datasetDigest)\n"
+            + "Maximum capability: process.exec disabled; workspace read/write scopes empty\n"
+            + "Persistent state requirement: khaos-memory-v1 remains compatible\n"
+            + "Resource limits: generation 150 seconds / 4096 tokens; evaluation 5 samples, 10 seconds each, 100 seconds total\n"
+            + "Proposal digest: \(proposalDigest)\n"
+            + "This approval permits only Candidate generation, admission, and isolated evaluation. It does not permit activation."
+        writeDiagnostic("agent-evolution-development-review=presented")
+        guard approvePluginAction(
+            title: "Approve Memory Candidate development?",
+            action: "Approve development",
+            workspace: nil,
+            details: developmentDetails,
+            digest: proposalDigest,
+            digestLabel: "Proposal SHA-256"
+        ) else {
+            writeDiagnostic("agent-evolution-development=denied")
+            throw TrustedWorkspacePickerError.cancelled
+        }
+
+        try requireCurrentEvolutionBaseline(baseline, generation: initialState.generation)
+        let sourceOutput = try invokePluginKernel(.source(
+            candidateDigest: baseline.candidateDigest,
+            manifestDigest: baseline.manifestDigest,
+            scopeDigest: baseline.scopeDigest,
+            expectedGeneration: initialState.generation
+        ))
+        let (baselineManifest, baselineSource) = try parseEvolutionSource(
+            sourceOutput,
+            candidate: baseline,
+            generation: initialState.generation
+        )
+
+        let generated = try host.generateCandidate(
+            proposal: proposalData,
+            evidence: evidence,
+            baselineManifest: baselineManifest,
+            baselineSource: baselineSource
+        )
+        let generatedDigest = AgentHostProtocol.candidateContentDigest(generated)
+        let generatedManifestDigest = AgentHostProtocol.sha256(generated.manifest)
+        let admittedOutput = try invokePluginKernel(.admitEvolution(
+            manifest: generated.manifest,
+            source: generated.source,
+            baselineCandidateDigest: baseline.candidateDigest,
+            expectedGeneration: initialState.generation
+        ))
+        let (candidate, admissionGeneration) = try parseAdmittedCandidate(admittedOutput)
+        guard admissionGeneration == initialState.generation,
+              candidate.identifier == "memory",
+              candidate.candidateDigest == generatedDigest,
+              candidate.manifestDigest == generatedManifestDigest,
+              !candidate.processExec,
+              candidate.readScope.isEmpty,
+              candidate.writeScope.isEmpty,
+              candidate.agentInterface == baseline.agentInterface else {
+            throw LauncherError.operationRejected("evolution_candidate_rejected")
+        }
+        writeDiagnostic("agent-evolution-candidate-admitted")
+
+        let observations = try evaluateMemoryCandidates(
+            baseline: baseline,
+            candidate: candidate,
+            generation: initialState.generation,
+            samples: samples
+        )
+        let evaluationRecord = try host.evaluateMemory(
+            proposalDigest: proposalDigest,
+            baselineCandidateDigest: baseline.candidateDigest,
+            candidateDigest: candidate.candidateDigest,
+            manifestDigest: candidate.manifestDigest,
+            scopeDigest: candidate.scopeDigest,
+            datasetDigest: datasetDigest,
+            dataset: dataset,
+            results: observations
+        )
+        let evaluation = try parseMemoryEvaluationReview(evaluationRecord)
+        guard evaluation.proposalDigest == proposalDigest,
+              evaluation.baselineDigest == baseline.candidateDigest,
+              evaluation.candidateDigest == candidate.candidateDigest,
+              evaluation.candidateManifestDigest == candidate.manifestDigest,
+              evaluation.candidateScopeDigest == candidate.scopeDigest,
+              evaluation.datasetDigest == datasetDigest,
+              evaluation.sampleCount == samples.count,
+              evaluation.candidatePass > evaluation.baselinePass,
+              evaluation.regressions.isEmpty else {
+            throw LauncherError.operationRejected("evaluation_binding_rejected")
+        }
+
+        try requireCurrentEvolutionBaseline(baseline, generation: initialState.generation)
+        guard KernelWorkspaceXPC.sha256Hex(try loadMemoryEvaluationDataset().data)
+                == datasetDigest else {
+            throw LauncherError.operationRejected("evaluation_binding_rejected")
+        }
+        let activation = KernelWorkspaceXPC.PluginLifecycleRequest.activate(
+            candidateDigest: candidate.candidateDigest,
+            manifestDigest: candidate.manifestDigest,
+            scopeDigest: candidate.scopeDigest,
+            expectedGeneration: initialState.generation
+        )
+        let activationRequestID = KernelWorkspaceXPC.newRequestID()
+        let activationInvocation = try KernelWorkspaceXPC.encodeInvocation(
+            request: activation,
+            requestID: activationRequestID
+        )
+        let reviewDigest = KernelWorkspaceXPC.sha256Hex(
+            Data("Khaos Seed Evolution Activation Review v1\0".utf8)
+                + activationInvocation + proposalData + evaluationRecord + dataset
+        )
+        let activationDetails = "Approved goal: \(String(reflecting: action.goal))\n"
+            + "Proposal SHA-256: \(proposalDigest)\n"
+            + candidateDetails(
+                candidate,
+                validity: "30 days after activation",
+                generation: initialState.generation
+            )
+            + memoryEvaluationDetails(evaluation)
+            + "\n\nRollback target: \(baseline.candidateDigest)\n"
+            + "Activation is a separate approval. The Kernel will bind the exact Candidate, Manifest, capability scope, and current generation. This review digest also binds the Proposal, fixed dataset, and informational evaluation record."
+        writeDiagnostic("agent-evolution-activation-review=presented")
+        guard approvePluginAction(
+            title: "Activate the evaluated Memory Candidate?",
+            action: "Activate Candidate",
+            workspace: nil,
+            details: activationDetails,
+            digest: reviewDigest,
+            digestLabel: "Activation review SHA-256"
+        ) else {
+            try requireCurrentEvolutionBaseline(baseline, generation: initialState.generation)
+            writeDiagnostic("agent-evolution-activation=denied")
+            throw TrustedWorkspacePickerError.cancelled
+        }
+
+        try requireCurrentEvolutionBaseline(baseline, generation: initialState.generation)
+        guard KernelWorkspaceXPC.sha256Hex(try loadMemoryEvaluationDataset().data)
+                == datasetDigest else {
+            throw LauncherError.operationRejected("evaluation_binding_rejected")
+        }
+        let activated = try parsePluginState(
+            invokePluginKernel(activation, requestID: activationRequestID)
+        )
+        guard activated.active?.candidateDigest == candidate.candidateDigest,
+              activated.generation == initialState.generation + 1 else {
+            throw LauncherError.operationRejected("activation_not_confirmed")
+        }
+        writeDiagnostic("agent-evolution=adopted")
+        return (
+            true,
+            "Memory Candidate \(candidate.candidateDigest) was approved and activated. "
+                + "The isolated replay improved from \(evaluation.baselinePass)/\(evaluation.sampleCount) "
+                + "to \(evaluation.candidatePass)/\(evaluation.sampleCount), with no regressions. "
+                + "Production Memory state remains owned by logical Plugin memory; rollback target is \(baseline.candidateDigest)."
+        )
+    }
+
+    private static func requireCurrentEvolutionBaseline(
+        _ expected: PluginCandidateReview,
+        generation: Int
+    ) throws {
+        let state = try parsePluginState(invokePluginKernel(.state))
+        guard state.generation == generation,
+              let active = state.active,
+              active.identifier == expected.identifier,
+              active.candidateDigest == expected.candidateDigest,
+              active.manifestDigest == expected.manifestDigest,
+              active.scopeDigest == expected.scopeDigest else {
+            throw LauncherError.operationRejected("stale_approval")
+        }
+    }
+
+    private static func parseEvolutionSource(
+        _ output: String,
+        candidate: PluginCandidateReview,
+        generation: Int
+    ) throws -> (Data, Data) {
+        guard let value = try? JSONSerialization.jsonObject(with: Data(output.utf8))
+                as? [String: Any],
+              Set(value.keys) == [
+                "candidate_digest", "generation", "manifest_base64", "source_base64",
+              ],
+              value["candidate_digest"] as? String == candidate.candidateDigest,
+              integerValue(value["generation"]) == generation,
+              let manifestText = value["manifest_base64"] as? String,
+              let manifest = Data(base64Encoded: manifestText),
+              manifest.base64EncodedString() == manifestText,
+              let sourceText = value["source_base64"] as? String,
+              let source = Data(base64Encoded: sourceText),
+              source.base64EncodedString() == sourceText,
+              KernelWorkspaceXPC.sha256Hex(manifest) == candidate.manifestDigest,
+              AgentHostProtocol.candidateContentDigest(
+                AgentCandidateFiles(manifest: manifest, source: source)
+              ) == candidate.candidateDigest else {
+            throw LauncherError.operationRejected("plugin_source_rejected")
+        }
+        return (manifest, source)
+    }
+
+    private static func loadMemoryEvaluationDataset() throws -> (
+        data: Data,
+        samples: [[String: Any]]
+    ) {
+        // Bind the exact bundled bytes; Foundation and Python sort casefold-
+        // colliding keys such as "Name" and "name" differently.
+        guard let url = Bundle.main.url(
+            forResource: "memory-evaluation",
+            withExtension: "json"
+        ),
+        let data = try? Data(contentsOf: url),
+        !data.isEmpty, data.count <= 16 * 1024,
+        let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        Set(value.keys) == ["format", "samples"],
+        value["format"] as? String == "khaos-memory-eval-v1",
+        let samples = value["samples"] as? [[String: Any]],
+        samples.count == AgentHostProtocol.maximumEvaluationSamples else {
+            throw LauncherError.operationRejected("evaluation_dataset_rejected")
+        }
+        var ids = Set<String>()
+        for sample in samples {
+            guard Set(sample.keys) == ["expected", "id", "initial_items", "request"],
+                  let id = sample["id"] as? String,
+                  !id.isEmpty, id.utf8.count <= 64, ids.insert(id).inserted,
+                  let initial = sample["initial_items"] as? [String: String],
+                  let request = sample["request"] as? [String: Any],
+                  let expected = sample["expected"] as? [String: Any],
+                  initial.allSatisfy({ $0.key.utf8.count <= 128 && $0.value.utf8.count <= 4_096 }) else {
+                throw LauncherError.operationRejected("evaluation_dataset_rejected")
+            }
+            switch request["operation"] as? String {
+            case "recall":
+                guard Set(request.keys) == ["key", "operation"],
+                      request["key"] as? String != nil,
+                      Set(expected.keys) == ["found", "value"],
+                      expected["found"] as? Bool != nil,
+                      (expected["value"] is NSNull || expected["value"] as? String != nil) else {
+                    throw LauncherError.operationRejected("evaluation_dataset_rejected")
+                }
+            case "remember":
+                guard Set(request.keys) == ["key", "operation", "value"],
+                      request["key"] as? String != nil,
+                      let value = request["value"] as? String,
+                      value.utf8.count <= 4_096,
+                      Set(expected.keys) == ["remembered"],
+                      expected["remembered"] as? Bool == true else {
+                    throw LauncherError.operationRejected("evaluation_dataset_rejected")
+                }
+            default:
+                throw LauncherError.operationRejected("evaluation_dataset_rejected")
+            }
+        }
+        return (data, samples)
+    }
+
+    private static func evaluateMemoryCandidates(
+        baseline: PluginCandidateReview,
+        candidate: PluginCandidateReview,
+        generation: Int,
+        samples: [[String: Any]]
+    ) throws -> [[String: Any]] {
+        var observations: [[String: Any]] = []
+        observations.reserveCapacity(samples.count)
+        for sample in samples {
+            guard let sampleID = sample["id"] as? String,
+                  let initialItems = sample["initial_items"] as? [String: String],
+                  let input = sample["request"] as? [String: Any],
+                  JSONSerialization.isValidJSONObject(input),
+                  let inputJSON = try? JSONSerialization.data(
+                    withJSONObject: input,
+                    options: [.sortedKeys, .withoutEscapingSlashes]
+                  ) else {
+                throw LauncherError.operationRejected("evaluation_dataset_rejected")
+            }
+            let initialState = AgentHostProtocol.canonicalMemoryState(items: initialItems)
+            let baselineResult = try evaluateMemoryCandidate(
+                baseline,
+                activeBaselineDigest: baseline.candidateDigest,
+                generation: generation,
+                initialState: initialState,
+                inputJSON: inputJSON
+            )
+            let candidateResult = try evaluateMemoryCandidate(
+                candidate,
+                activeBaselineDigest: baseline.candidateDigest,
+                generation: generation,
+                initialState: initialState,
+                inputJSON: inputJSON
+            )
+            observations.append([
+                "sample_id": sampleID,
+                "baseline": evaluationObservation(baselineResult),
+                "candidate": evaluationObservation(candidateResult),
+            ])
+        }
+        return observations
+    }
+
+    private static func evaluateMemoryCandidate(
+        _ candidate: PluginCandidateReview,
+        activeBaselineDigest: String,
+        generation: Int,
+        initialState: Data,
+        inputJSON: Data
+    ) throws -> WorkspaceResult {
+        let request = KernelWorkspaceXPC.PluginLifecycleRequest.evaluate(
+            baselineCandidateDigest: activeBaselineDigest,
+            candidateDigest: candidate.candidateDigest,
+            manifestDigest: candidate.manifestDigest,
+            scopeDigest: candidate.scopeDigest,
+            expectedGeneration: generation,
+            initialState: initialState,
+            inputJSON: inputJSON
+        )
+        let result = try parseWorkspaceResult(invokePluginKernel(request))
+        guard result.returncode == 0,
+              result.added == 0, result.modified == 0, result.deleted == 0 else {
+            throw LauncherError.operationRejected("evaluation_runner_failed")
+        }
+        return result
+    }
+
+    private static func evaluationObservation(
+        _ result: WorkspaceResult
+    ) -> [String: Any] {
+        [
+            "returncode": result.returncode,
+            "stdout": String(result.stdout.prefix(AgentHostProtocol.maximumEvaluationOutputBytes)),
+            "added": result.added,
+            "modified": result.modified,
+            "deleted": result.deleted,
+            "plugin_state_sha256": result.pluginStateSHA256 as Any? ?? NSNull(),
+        ]
+    }
+
+    private static func canonicalJSON(_ value: Any) throws -> Data {
+        guard JSONSerialization.isValidJSONObject(value),
+              let data = try? JSONSerialization.data(
+                withJSONObject: value,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ) else {
+            throw LauncherError.operationRejected("invalid_evaluation_input")
+        }
+        return data
     }
 
     private static func runAgentTool(
@@ -1588,6 +2037,7 @@ enum TrustedWorkspaceLauncherMain {
              "activation_state_unavailable", "approval_binding_mismatch",
              "approval_expired", "candidate_corrupt", "candidate_missing",
              "candidate_store_failed", "invalid_rollback_target", "invalid_time",
+             "evaluation_workspace_changed",
              "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
              "plugin_source_rejected", "stale_approval", "store_unavailable",
              "plugin_input_too_large", "plugin_invocation_unsupported",
@@ -1607,9 +2057,11 @@ enum TrustedWorkspaceLauncherMain {
         else {
             throw LauncherError.operationRejected("result_not_json")
         }
-        guard Set(result.keys) == [
+        let baseFields: Set<String> = [
             "returncode", "stdout", "stderr", "added", "modified", "deleted",
-        ] else {
+        ]
+        guard Set(result.keys) == baseFields
+                || Set(result.keys) == baseFields.union(["plugin_state_sha256"]) else {
             throw LauncherError.operationRejected("result_fields_mismatch")
         }
         guard let returncode = result["returncode"] as? Int,
@@ -1621,13 +2073,26 @@ enum TrustedWorkspaceLauncherMain {
         else {
             throw LauncherError.operationRejected("result_types_mismatch")
         }
+        let pluginStateSHA256: String?
+        if let value = result["plugin_state_sha256"] {
+            if value is NSNull {
+                pluginStateSHA256 = nil
+            } else if let digest = value as? String, isDigest(digest) {
+                pluginStateSHA256 = digest
+            } else {
+                throw LauncherError.operationRejected("result_types_mismatch")
+            }
+        } else {
+            pluginStateSHA256 = nil
+        }
         return WorkspaceResult(
             returncode: returncode,
             stdout: stdout,
             stderr: stderr,
             added: added,
             modified: modified,
-            deleted: deleted
+            deleted: deleted,
+            pluginStateSHA256: pluginStateSHA256
         )
     }
 

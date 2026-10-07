@@ -215,12 +215,14 @@ Keep Seed limited to the minimum execution path:
 - real sandboxed process execution;
 - one bounded stateful Memory Plugin v1 (`remember`, `recall`, `forget`) to prove
   Plugin-owned state isolation and persistence through the existing Harness;
+- one bounded, explicit-feedback Agent-generated Memory evolution path using the existing
+  Candidate admission, isolated A/B evaluation, activation, and rollback operations;
 - minimal Agent Loop and model adapter after the security path works;
 - simple Session and CLI/TUI only as needed to exercise the Seed.
 
-Seed must not add a general Memory or Storage Framework, Memory evolution, Planner,
-Browser, Subagents, Scheduler, MCP, complex Verification, self-evolution, Full Access,
-remote server infrastructure, or legacy compatibility layers.
+Seed must not add a general Memory or Storage Framework, background or automatic
+evolution, an Evolver Plugin, Planner, Browser, Subagents, Scheduler, MCP, complex
+Verification, Full Access, remote server infrastructure, or legacy compatibility layers.
 
 ## Security validation
 
@@ -248,6 +250,10 @@ before activation approval. Any content or permission change after approval inva
 Plugin business state belongs to the Plugin. The Kernel may persist it only as a bounded,
 opaque Plugin-owned state blob bound to the verified logical Plugin ID. Kernel lifecycle
 metadata remains minimal and is limited to what safe install, activate, run, and rollback need.
+
+For fixed Memory evolution replay, the Kernel may return a digest of each temporary post-run
+state blob. The untrusted Harness compares A/B digests for the state-mutating sample; the
+Kernel does not interpret or persist evaluation state.
 
 Do not add Core database schemas for Memory, Planner, Verifier, Evolver, or other Plugin
 business data.
@@ -444,7 +450,7 @@ is unchanged. No workspace Picker should appear. The test requires manual packag
 activation, and invocation approvals; do not run it while another Khaos Seed Picker
 is waiting for a selection.
 
-Run the opt-in signed-product Memory Candidate A-to-B evolution acceptance on
+Run the opt-in signed-product Agent-generated Memory evolution acceptance on
 macOS with:
 
 ```bash
@@ -453,15 +459,15 @@ KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1 python3 -m unittest discover -s tests \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```
 
-It selects A, persists a production value, evaluates A and B in separate
-non-production state roots using the fixed replay dataset, selects the
-Harness-packaged B Candidate, and opens a second-stage review containing the
-exact Candidate/Manifest/scope bindings, Agent interface, evaluation digest and
-result, and rollback target. Approve A activation, the production remember,
-B activation, B recall, rollback, and A recall in sequence. The report is
-informational and untrusted; activation remains the existing exact-digest
-Launcher/Kernel path. It requires manual package Picker and approval actions;
-do not run it while another Khaos Seed Picker is waiting for a selection.
+It installs A, writes production state, and opens Development Approval before the
+signed test model generates and admits a state-only Candidate from A's source.
+The isolated replay measures A 3/5 and B 4/5 with no regressions. The test denies
+one Activation Approval and checks that A remains active, then repeats the flow
+and approves B after reviewing the Proposal, actual scope, dataset, A/B record,
+and rollback target. It verifies B uses the same production state, rolls back to
+A, and verifies the state again. It needs one package Picker plus manual
+development and activation approvals; no workspace Picker opens. Do not run it
+while another Khaos Seed Picker is waiting for a selection.
 
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against

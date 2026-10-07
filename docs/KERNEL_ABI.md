@@ -4,8 +4,9 @@ This document records the current development ABI between the one-shot Kernel
 worker and its isolated Runner. Runner ABI v7 executes one untrusted Python
 `run()` entrypoint and adds bounded Plugin input, opaque logical-Plugin state,
 and bounded Plugin output to the existing Runner path. The separate native
-Workspace XPC operation ABI v10 provides a minimal, fixed-slot Candidate
-lifecycle and state-only invocation around that Runner. This is Seed product
+Workspace XPC operation ABI v11 provides a minimal, fixed-slot Candidate
+lifecycle, active-only state invocation, and isolated Memory Candidate
+evaluation around that Runner. This is Seed product
 behavior, not a complete production Plugin platform.
 
 The transport, session, operation, and Native macOS Workspace XPC sections below
@@ -454,7 +455,7 @@ ABI. The local Agent Host never calls lifecycle operations directly. The trusted
 Launcher reads `plugin.state`, shares only minimal active-Candidate metadata with
 the Host, and revalidates a returned Plugin proposal before approval.
 
-## Native macOS Workspace XPC operation ABI v10
+## Native macOS Workspace XPC operation ABI v11
 
 `khaos/macos/KernelWorkspaceXPC.swift` contains the shared bounded wire,
 bookmark-transfer implementation, and `KernelWorkspaceBootstrapEndpoint` protocol
@@ -465,7 +466,7 @@ executor callback. `khaos/macos/KernelWorkspacePythonExecutor.swift` is the shar
 fixed executor: it starts the bundled Python bridge in a separate process and passes
 only the request stream, pinned workspace-root descriptor, and request-bound
 cancellation descriptor. `khaos/kernel/workspace_xpc_bridge.py` validates the bounded
-Workspace XPC v10 envelope and calls the current Runner IPC v7
+Workspace XPC v11 envelope and calls the current Runner IPC v7
 `run_workspace_command()` path. The bounded `workspace.run` payload carries a
 separate `workspace_write_scope`; the product Launcher source supplies one
 generated marker path and makes its fixed Runner verify an exact `fs.write` plus
@@ -545,15 +546,17 @@ correct `KernelProduction` peer still answers the bootstrap probe. This is curre
 test-bundle evidence, not a shipped Launcher or release identity. Apple documents this
 client-side use in the [`NSXPCConnection.setCodeSigningRequirement` example](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement%28_%3A%29).
 
-### Candidate lifecycle operations
+### Candidate lifecycle and evolution operations
 
 The outer `NSXPC` method version remains `8`; the JSON operation envelope and
-bridge response version are `10`. The exact operation schemas are:
+bridge response version are `11`. The exact operation schemas are:
 
 | Operation | Exact payload | Workspace bookmark | Kernel behavior |
 |---|---|---:|---|
 | `workspace.run` | `timeout_seconds`, `runner_source`, `runner_source_sha256`, `workspace_read_scope`, `workspace_write_scope` | Required | Existing bounded one-request workspace path |
-| `plugin.admit` | `manifest_base64`, `source_base64` | Forbidden | Validate and store a content-addressed Candidate; return digest/scope summary |
+| `plugin.admit` | `manifest_base64`, `source_base64`; evolution admission may also include `baseline_candidate_digest`, `expected_generation` | Forbidden | Validate and store a content-addressed Candidate; evolution admission checks the exact active Memory baseline, generation, logical ID, interface, and capability ceiling under the lifecycle lock |
+| `plugin.source` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Forbidden | Return bounded Manifest/source bytes only for the exact active state-only Memory Candidate and generation |
+| `plugin.evaluate` | `baseline_candidate_digest`, `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation`, `initial_state_base64`, `input` | Forbidden; Snapshot Broker required | Execute an admitted Memory Candidate with bounded input in a fresh temporary state root and workspace, process execution disabled, fixed 10-second timeout, and no workspace scopes; require an unchanged workspace |
 | `plugin.activate` | `candidate_digest`, `manifest_digest`, `scope_digest`, `expected_generation` | Forbidden | Verify bindings and generation, then activate fixed `primary` slot for 30 days |
 | `plugin.state` | empty | Forbidden | Return verified active/previous metadata, including the bounded optional `agent_interface`, without source bytes |
 | `plugin.rollback` | the same four fields as activation | Forbidden | Verify the previous Candidate and generation, then route future runs to it |
@@ -577,6 +580,36 @@ retains active and previous Candidates, generation, approval ID, and fixed
 expiry. Its HMAC detects edits
 only while the key remains intact; the user-owned store does not resist an
 arbitrary same-UID process that can alter both key and data.
+
+The Agent evolution path keeps these operations narrow. The Launcher builds a
+bounded Proposal from explicit user feedback, the current active Candidate, a
+fixed bundled replay dataset, a state-format requirement, and fixed generation
+and evaluation limits. It asks for separate development approval over the exact
+Proposal digest before requesting `manifest.json` and `plugin.py` from the
+untrusted Agent Host. The Kernel does not accept an approval boolean. Evolution
+admission atomically checks the active baseline digest and generation, stable
+`memory` ID and Agent interface, and the approved state-only capability ceiling.
+Normal `plugin.run` remains bound to the active slot.
+
+`plugin.evaluate` resolves only admitted Candidate bytes while the exact active
+Memory baseline and generation remain current. It never selects production
+Plugin state: the caller supplies bounded fixture state derived by the fixed
+Launcher from the bundled dataset, and the bridge creates a fresh private state
+root and workspace for each sample. The existing Seatbelt Runner fixes
+`process_exec` false, empty workspace scopes, no bookmark, and a 10-second
+per-sample timeout; any workspace change rejects the run. The Kernel returns
+only the SHA-256 digest of the resulting opaque temporary state blob; it does
+not parse or retain that blob. The dataset, scoring rules, and evaluation
+record remain outside the Kernel. The untrusted Host checks recall leaves state
+unchanged and the fixed `remember` sample produces the same state digest for A
+and B, then scores bounded Runner output and ignores Candidate-reported scores.
+The Launcher checks record bindings and presents the result as informational
+data; it does not treat the score as Kernel authority. Activation remains the
+existing exact Candidate/Manifest/scope/generation operation and has separate
+user approval. Its review digest also includes the Proposal, dataset, and
+evaluation record; the Launcher rechecks the active generation and dataset
+before activation. This is fixed Memory evolution behavior, not a general
+Candidate scheduler, benchmark service, or promotion framework.
 
 Plugin business state lives under a separate per-caller-requirement
 `PluginState-*` root and a validated logical Plugin ID directory. It is one

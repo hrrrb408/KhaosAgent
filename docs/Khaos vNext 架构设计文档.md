@@ -1080,7 +1080,7 @@ structured error
 Plugin Runner 必须与 Host、Kernel 分进程运行。Runner 崩溃只能使该 Plugin
 失败，不能使 Kernel 或其他 Plugin 取得它的文件描述符、secret 或状态。
 
-当前 Runner ABI v7 与原生 Workspace XPC operation ABI v10 的精确请求顺序、字段、
+当前 Runner ABI v7 与原生 Workspace XPC operation ABI v11 的精确请求顺序、字段、
 错误码和字节上限记录在 `docs/KERNEL_ABI.md`。开发 `workspace.run` 路径仍不代表
 Plugin capability grant；产品 `plugin.run` 另外绑定已激活 Candidate 的 Plugin ID、
 内容摘要、Manifest scope 与 generation。开发 launcher 可为 Kernel 的 `fs.read` / `fs.list` 设置默认 deny-all 的相对路径
@@ -1433,72 +1433,52 @@ Khaos 的 evolution 不需要复杂 framework。
 核心只有：
 
 ```text
-Observe
-Reflect
+Explicit User Feedback
 Propose
-Build
+Development Approval
+Build Candidate
 Evaluate
+Activation Approval
 Adopt
+Rollback
 ```
 
 即：
 
 ```text
-执行任务
+用户明确指出能力缺陷
    ↓
-观察问题
+提出有界 Proposal
    ↓
-分析原因
+Development Approval
    ↓
-提出插件改进
+生成并准入不可变 Candidate
    ↓
-生成 candidate
+隔离 A/B Evaluation
    ↓
-测试
+Activation Approval
    ↓
-评估
+Adopt
    ↓
-用户批准
-   ↓
-替换
+可批准 Rollback
 ```
 
 ---
 
 # 22. Evolution 必须由真实证据触发
 
-Agent 不应该频繁随意重写插件。
-
-建议要求至少满足以下一种：
-
-```text
-重复失败
-用户明确反馈
-可测量性能问题
-插件异常
-明显 token 浪费
-检索质量问题
-工作流重复低效
-已有 benchmark 显示退化
-```
-
-例如：
+第一版只由当前用户在 Agent 对话中提供的明确反馈触发，不运行后台
+Observer、自动 Reflection、失败计数器或遥测数据库。例如：
 
 ```text
-Observation:
-memory plugin frequently returns irrelevant results.
-
-Evidence:
-8 of the last 12 recall operations were unused.
-
-Proposal:
-Build a recency-aware memory plugin.
+“当前 Memory 对大小写不同的 key recall 表现不好，请改进它。”
 ```
 
-Evidence 必须来自 Host/Kernel 记录的可追溯事件，而不能只由待评估 Plugin 自报。
-至少要保存样本范围、基线版本、指标定义、失败样本和统计阈值；涉及 workspace
-或 Memory 内容时，应保存脱敏后的引用或摘要，而不是把原始敏感数据复制到
-Evolution 日志。
+Launcher 将用户原始反馈绑定为 evidence digest；Proposal 还绑定当前
+Candidate / Manifest / scope digest、generation、固定 evaluation dataset digest、
+能力上限、`khaos-memory-v1` state format 和资源预算。Proposal 是不可信
+Agent 输出，Launcher 从 Kernel 重新读取并校验 active state。没有自动触发器或
+持久 Evidence 存储。
 
 ---
 
@@ -1526,11 +1506,12 @@ Khaos 可以：
 读取新的敏感目录
 ```
 
-开发批准发生在 Candidate 生成之前，因此绑定 proposal digest、生成范围、资源
-预算和允许申请的 capability 上限；它不能直接授权激活。激活批准必须绑定到不可变
-的 Candidate 内容 digest、完整 Manifest digest、目标 Plugin slot 和具体 capability
-scope。Candidate 在批准后发生任何内容或权限变化，都必须重新批准。批准不能由
-LLM、Host 或 Plugin 通过一个布尔值伪造。
+开发批准发生在 Candidate source 生成之前，因此绑定 Proposal digest、目标 Plugin、
+用户目标与 evidence、固定 dataset、生成范围、资源预算、state format 和 capability
+上限；它只允许生成、准入和隔离评估，不能直接授权激活。Host 或 Plugin 不能通过
+`approved=true` 伪造批准。激活批准必须绑定到不可变 Candidate 内容 digest、完整
+Manifest digest、目标 Plugin slot 和具体 capability scope。Candidate 在批准后发生
+任何内容或权限变化，都必须重新批准。批准不能由 LLM、Host 或 Plugin 伪造。
 
 ---
 
@@ -1595,16 +1576,23 @@ user home and secrets
 Candidate 的构建、依赖安装和测试全部按不可信代码执行：默认无网络、无 secret、
 无生产写入，并受独立的 CPU、内存、PID、磁盘、文件描述符和输出限制约束。
 
+Seed 的 Memory evolution 复用现有 content-addressed Candidate store 和
+`Launcher → Kernel → Runner` 路径，不建立额外 Candidate 管理框架。Host 只能返回
+有界的 `manifest.json` 和 `plugin.py` 字节；它不能写 store、选择 state namespace
+或激活 Candidate。Kernel admission 固定 logical ID 为 `memory`，要求 Agent
+interface 相同，并将能力限制在 baseline 的 state-only ceiling 内。
+
 ---
 
 # 26. Shadow Evaluation
 
-允许 Candidate 与当前 Plugin 并行评估，但 Candidate 不得接收生产写入。
+允许 admitted Candidate 与当前 Plugin 使用固定 dataset 做 A/B replay，但 Candidate
+不得读取或修改 production Plugin state。
 
 例如：
 
 ```text
-          Recorded Input / Read-only Snapshot
+          Fixed Bundled Replay Dataset
                          │
                   ┌──────┴──────┐
                   ▼             ▼
@@ -1618,21 +1606,27 @@ Candidate 的构建、依赖安装和测试全部按不可信代码执行：默�
 memory-v1
 ```
 
-但系统同时记录：
+Seed 的评估结果由不可信 Harness 基于实际 bounded Runner output 评分，并绑定：
 
 ```text
-v1 result
-v2 result
-latency
-token usage
-relevance
-task outcome
+proposal digest
+baseline Candidate digest
+new Candidate digest
+Manifest digest
+scope digest
+dataset digest
+sample count
+baseline and Candidate pass/fail counts
+regressions and improvements
 ```
 
-第一版 Shadow Evaluation 应优先使用历史事件 replay 或只读快照。它必须有独立的
-state、资源预算和固定的评估数据集；不得让 Candidate 修改 active 数据、产生
-外部副作用或自行写入评估指标。评估结果应记录样本数、基线、置信度和回归阈值，
-否则“更好”只是不可复现的主观判断。
+Candidate 只接收逐样本业务输入与独立的临时 state fixture；它看不到完整
+dataset 或预期答案。Kernel 提供最低权限 evaluation primitive：admitted Candidate、
+temporary isolated state、无 workspace scope、无 network/secret、固定超时和 bounded
+input/output；evaluation 不能切换 active slot。Kernel 只返回临时 state blob 的 SHA-256，
+不解析或持久化 state。固定 `remember` replay 样本由不可信 Harness 比较 A/B 的
+opaque state digest，以发现状态格式不兼容；Kernel 不判断评分。Candidate 自报 score
+不参与计算，Harness record 始终是非权威结果。
 
 当 v2 有足够证据更好时：
 

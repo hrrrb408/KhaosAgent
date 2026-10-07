@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import base64
 import ctypes
 import hashlib
 import json
@@ -17,6 +18,7 @@ from collections.abc import Iterator
 from ..ipc import (
     MAX_PLUGIN_INPUT_BYTES,
     MAX_PLUGIN_INPUT_NESTING,
+    MAX_PLUGIN_STATE_BYTES,
     _json_nesting_within_limit,
     _read_exact,
     is_valid_token,
@@ -33,13 +35,17 @@ from .plugin_lifecycle import (
     activate_candidate,
     active_candidate,
     admit_candidate,
+    evaluation_candidate,
+    evolution_source,
+    read_plugin_state,
+    replace_plugin_state,
     rollback,
 )
 from .workspace_snapshot import WorkspaceSnapshotError
 
 
 _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
-_WORKSPACE_XPC_OPERATION_VERSION = 10
+_WORKSPACE_XPC_OPERATION_VERSION = 11
 _MAXIMUM_WORKSPACE_BOOKMARK_BYTES = 64 * 1024
 _BOOKMARK_TRANSFER_LENGTH = struct.Struct("!I")
 _CFURL_BOOKMARK_RESOLUTION_DEFAULT = 0
@@ -62,6 +68,7 @@ _REPORTED_ERRORS = {
     "candidate_corrupt",
     "candidate_missing",
     "candidate_store_failed",
+    "evaluation_workspace_changed",
     "invalid_rollback_target",
     "invalid_time",
     "kernel_child_cleanup_failed",
@@ -233,6 +240,59 @@ def main() -> int:
                     )
             phase = "result"
             output = _workspace_result_json(result)
+        elif operation == "plugin.evaluate":
+            phase = "execution"
+            candidate = evaluation_candidate(
+                _plugin_store_root(),
+                baseline_candidate_digest=payload["baseline_candidate_digest"],
+                candidate_digest=payload["candidate_digest"],
+                manifest_digest=payload["manifest_digest"],
+                scope_digest=payload["scope_digest"],
+                expected_generation=payload["expected_generation"],
+            )
+            initial_state = _decode_bounded_base64(
+                payload["initial_state_base64"], MAX_PLUGIN_STATE_BYTES
+            )
+            _validate_plugin_input(payload["input"])
+            snapshot_mount_path = os.environ.get("KHAOS_SNAPSHOT_MOUNT_PATH")
+            snapshot_storage_text = os.environ.get("KHAOS_SNAPSHOT_STORAGE_BYTES")
+            if snapshot_mount_path is None or snapshot_storage_text is None:
+                raise KernelLaunchError("sandbox_unavailable")
+            if not snapshot_storage_text.isdecimal():
+                raise KernelLaunchError("sandbox_unavailable")
+            with tempfile.TemporaryDirectory(prefix="khaos-evaluation-") as value:
+                state_root = os.path.join(value, "state")
+                workspace = os.path.join(value, "workspace")
+                os.mkdir(workspace, 0o700)
+                replace_plugin_state(
+                    state_root,
+                    candidate.manifest.plugin_id,
+                    initial_state,
+                )
+                result = run_workspace_command(
+                    workspace,
+                    runner_source=candidate.source.decode("utf-8", errors="strict"),
+                    workspace_read_scope=(),
+                    workspace_write_scope=(),
+                    timeout_seconds=10,
+                    cancel_requested=_cancellation_reader(cancel_fd),
+                    brokered_snapshot_mount_path=snapshot_mount_path,
+                    brokered_snapshot_storage_bytes=int(snapshot_storage_text),
+                    process_exec_allowed=False,
+                    plugin_id=candidate.manifest.plugin_id,
+                    plugin_state_root=state_root,
+                    plugin_input=payload["input"],
+                )
+                if (result.added, result.modified, result.deleted) != (0, 0, 0):
+                    raise PluginLifecycleError("evaluation_workspace_changed")
+                if os.listdir(workspace):
+                    raise PluginLifecycleError("evaluation_workspace_changed")
+                evaluation_state = read_plugin_state(
+                    state_root,
+                    candidate.manifest.plugin_id,
+                )
+            phase = "result"
+            output = _plugin_evaluation_result_json(result, evaluation_state)
         else:
             phase = "lifecycle"
             if os.read(0, 1):
@@ -288,17 +348,29 @@ def main() -> int:
 
 def _workspace_result_json(result: object) -> str:
     return json.dumps(
-        {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "added": result.added,
-            "modified": result.modified,
-            "deleted": result.deleted,
-        },
+        _workspace_result_value(result),
         sort_keys=True,
         separators=(",", ":"),
     )
+
+
+def _plugin_evaluation_result_json(result: object, state: bytes | None) -> str:
+    value = _workspace_result_value(result)
+    value["plugin_state_sha256"] = (
+        hashlib.sha256(state).hexdigest() if state is not None else None
+    )
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _workspace_result_value(result: object) -> dict[str, object]:
+    return {
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "added": result.added,
+        "modified": result.modified,
+        "deleted": result.deleted,
+    }
 
 
 def _plugin_store_root() -> str:
@@ -320,9 +392,29 @@ def _handle_plugin_lifecycle(operation: str, payload: dict[str, object]) -> str:
     if operation == "plugin.admit":
         manifest = _decode_bounded_base64(payload["manifest_base64"], 4_096)
         source = _decode_bounded_base64(payload["source_base64"], 10_240)
-        candidate = admit_candidate(store_root, manifest, source)
+        candidate = admit_candidate(
+            store_root,
+            manifest,
+            source,
+            expected_active_candidate_digest=payload.get("baseline_candidate_digest"),
+            expected_generation=payload.get("expected_generation"),
+        )
         _, _, generation = activation_details(store_root)
         result = {"candidate": _candidate_summary(candidate), "generation": generation}
+    elif operation == "plugin.source":
+        candidate = evolution_source(
+            store_root,
+            candidate_digest=str(payload["candidate_digest"]),
+            manifest_digest=str(payload["manifest_digest"]),
+            scope_digest=str(payload["scope_digest"]),
+            expected_generation=int(payload["expected_generation"]),
+        )
+        result = {
+            "candidate_digest": candidate.candidate_digest,
+            "generation": activation_details(store_root)[2],
+            "manifest_base64": base64.b64encode(candidate.manifest_bytes).decode("ascii"),
+            "source_base64": base64.b64encode(candidate.source).decode("ascii"),
+        }
     elif operation == "plugin.activate":
         activate_candidate(
             store_root,
@@ -548,10 +640,21 @@ def _decode_invocation_request(
         ):
             raise ValueError("invalid workspace payload")
     elif operation == "plugin.admit":
-        if set(payload) != {"manifest_base64", "source_base64"}:
+        base_fields = {"manifest_base64", "source_base64"}
+        evolution_fields = {"baseline_candidate_digest", "expected_generation"}
+        if set(payload) not in (base_fields, base_fields | evolution_fields):
             raise ValueError("invalid lifecycle request")
         _validate_base64_field(payload.get("manifest_base64"), 4_096)
         _validate_base64_field(payload.get("source_base64"), 10_240)
+        if evolution_fields.issubset(payload) and (
+            type(payload.get("baseline_candidate_digest")) is not str
+            or re.fullmatch(
+                r"[0-9a-f]{64}", payload["baseline_candidate_digest"]
+            ) is None
+            or type(payload.get("expected_generation")) is not int
+            or payload["expected_generation"] < 0
+        ):
+            raise ValueError("invalid evolution binding")
     elif operation in ("plugin.activate", "plugin.rollback"):
         if set(payload) != {
             "candidate_digest", "manifest_digest", "scope_digest",
@@ -588,6 +691,47 @@ def _decode_invocation_request(
             or payload.get("input") is not None and type(payload.get("input")) is not dict
         ):
             raise ValueError("invalid lifecycle approval")
+        _validate_plugin_input(payload["input"])
+    elif operation == "plugin.source":
+        if set(payload) != {
+            "candidate_digest", "manifest_digest", "scope_digest",
+            "expected_generation",
+        }:
+            raise ValueError("invalid lifecycle request")
+        if (
+            any(
+                type(payload.get(field)) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", payload[field]) is None
+                for field in ("candidate_digest", "manifest_digest", "scope_digest")
+            )
+            or type(payload.get("expected_generation")) is not int
+            or payload["expected_generation"] < 0
+        ):
+            raise ValueError("invalid evolution binding")
+    elif operation == "plugin.evaluate":
+        if set(payload) != {
+            "baseline_candidate_digest", "candidate_digest", "manifest_digest",
+            "scope_digest", "expected_generation", "initial_state_base64", "input",
+        }:
+            raise ValueError("invalid evaluation request")
+        if (
+            any(
+                type(payload.get(field)) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", payload[field]) is None
+                for field in (
+                    "baseline_candidate_digest", "candidate_digest",
+                    "manifest_digest", "scope_digest",
+                )
+            )
+            or type(payload.get("expected_generation")) is not int
+            or payload["expected_generation"] < 0
+        ):
+            raise ValueError("invalid evaluation binding")
+        _validate_base64_field(
+            payload.get("initial_state_base64"), MAX_PLUGIN_STATE_BYTES
+        )
+        if type(payload["input"]) is not dict:
+            raise ValueError("evaluation input must be an object")
         _validate_plugin_input(payload["input"])
     elif operation == "plugin.state":
         if payload:

@@ -30,6 +30,55 @@ final class AgentHostClient {
         ))
     }
 
+    func generateCandidate(
+        proposal: Data,
+        evidence: String,
+        baselineManifest: Data,
+        baselineSource: Data
+    ) throws -> AgentCandidateFiles {
+        let frame = try AgentHostProtocol.candidateGenerationRequest(
+            proposal: proposal,
+            evidence: evidence,
+            baselineManifest: baselineManifest,
+            baselineSource: baselineSource
+        )
+        guard case let .candidate(files) = try request(
+            frame,
+            timeoutSeconds: TimeInterval(
+                AgentHostProtocol.candidateGenerationRequestTimeoutSeconds
+            )
+        ) else {
+            throw AgentHostClientError.invalidResponse
+        }
+        return files
+    }
+
+    func evaluateMemory(
+        proposalDigest: String,
+        baselineCandidateDigest: String,
+        candidateDigest: String,
+        manifestDigest: String,
+        scopeDigest: String,
+        datasetDigest: String,
+        dataset: Data,
+        results: [[String: Any]]
+    ) throws -> Data {
+        let frame = try AgentHostProtocol.memoryEvaluationRequest(
+            proposalDigest: proposalDigest,
+            baselineCandidateDigest: baselineCandidateDigest,
+            candidateDigest: candidateDigest,
+            manifestDigest: manifestDigest,
+            scopeDigest: scopeDigest,
+            datasetDigest: datasetDigest,
+            dataset: dataset,
+            results: results
+        )
+        guard case let .evaluation(record) = try request(frame) else {
+            throw AgentHostClientError.invalidResponse
+        }
+        return record
+    }
+
     func stop() {
         connection.invalidate()
     }
@@ -38,7 +87,10 @@ final class AgentHostClient {
         stop()
     }
 
-    private func request(_ frame: Data) throws -> AgentHostReply {
+    private func request(
+        _ frame: Data,
+        timeoutSeconds: TimeInterval = 180
+    ) throws -> AgentHostReply {
         let semaphore = DispatchSemaphore(value: 0)
         let lock = NSLock()
         var response: Data?
@@ -60,7 +112,7 @@ final class AgentHostClient {
             lock.unlock()
             semaphore.signal()
         }
-        guard semaphore.wait(timeout: .now() + 180) == .success else {
+        guard semaphore.wait(timeout: .now() + timeoutSeconds) == .success else {
             connection.invalidate()
             throw AgentHostClientError.timedOut
         }

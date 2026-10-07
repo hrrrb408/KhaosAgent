@@ -19,6 +19,8 @@ from khaos.kernel.plugin_lifecycle import (
     activate_candidate,
     active_candidate,
     admit_candidate,
+    evaluation_candidate,
+    evolution_source,
     rollback,
     read_plugin_state,
     replace_plugin_state,
@@ -274,6 +276,117 @@ class PluginLifecycleTests(unittest.TestCase):
         changed = self._admit("plugin-a", "return 2")
         self.assertNotEqual(first.candidate_digest, changed.candidate_digest)
         self.assertNotEqual(first.source, changed.source)
+
+    def test_evolution_admission_and_evaluation_require_active_memory_binding(self) -> None:
+        manifest = self._memory_manifest()
+        manifest_bytes = json.dumps(
+            manifest, sort_keys=True, separators=(",", ":")
+        ).encode()
+        baseline = admit_candidate(
+            self.root,
+            manifest_bytes,
+            b"def run(request):\n    return {'operation': 'recall'}\n",
+        )
+        activate_candidate(
+            self.root,
+            baseline.candidate_digest,
+            baseline.manifest_digest,
+            baseline.scope_digest,
+            expected_generation=0,
+            now=100,
+        )
+        baseline_bytes = evolution_source(
+            self.root,
+            candidate_digest=baseline.candidate_digest,
+            manifest_digest=baseline.manifest_digest,
+            scope_digest=baseline.scope_digest,
+            expected_generation=1,
+        )
+        self.assertEqual(baseline_bytes.manifest_bytes, manifest_bytes)
+        self.assertEqual(baseline_bytes.source, baseline.source)
+
+        candidate = admit_candidate(
+            self.root,
+            manifest_bytes,
+            b"def run(request):\n    return {'operation': 'recall', 'value': None}\n",
+            expected_active_candidate_digest=baseline.candidate_digest,
+            expected_generation=1,
+        )
+        self.assertEqual(
+            evaluation_candidate(
+                self.root,
+                baseline_candidate_digest=baseline.candidate_digest,
+                candidate_digest=candidate.candidate_digest,
+                manifest_digest=candidate.manifest_digest,
+                scope_digest=candidate.scope_digest,
+                expected_generation=1,
+            ),
+            candidate,
+        )
+
+        with self.assertRaisesRegex(PluginLifecycleError, "stale_approval"):
+            evolution_source(
+                self.root,
+                candidate_digest=baseline.candidate_digest,
+                manifest_digest=baseline.manifest_digest,
+                scope_digest=baseline.scope_digest,
+                expected_generation=0,
+            )
+        with self.assertRaisesRegex(PluginLifecycleError, "stale_approval"):
+            admit_candidate(
+                self.root,
+                manifest_bytes,
+                b"def run(request):\n    return {}\n",
+                expected_active_candidate_digest=baseline.candidate_digest,
+                expected_generation=0,
+            )
+
+        over_capability = self._memory_manifest()
+        over_capability["process_exec"] = True
+        over_capability.pop("agent_interface")
+        over_capability_bytes = json.dumps(
+            over_capability, sort_keys=True, separators=(",", ":")
+        ).encode()
+        with self.assertRaisesRegex(PluginLifecycleError, "capability_denied"):
+            admit_candidate(
+                self.root,
+                over_capability_bytes,
+                b"def run(request):\n    return {}\n",
+                expected_active_candidate_digest=baseline.candidate_digest,
+                expected_generation=1,
+            )
+
+        wrong_id = self._memory_manifest()
+        wrong_id["id"] = "memory-next"
+        wrong_id_bytes = json.dumps(
+            wrong_id, sort_keys=True, separators=(",", ":")
+        ).encode()
+        with self.assertRaisesRegex(PluginLifecycleError, "manifest_rejected"):
+            admit_candidate(
+                self.root,
+                wrong_id_bytes,
+                b"def run(request):\n    return {}\n",
+                expected_active_candidate_digest=baseline.candidate_digest,
+                expected_generation=1,
+            )
+
+    @staticmethod
+    def _memory_manifest() -> dict[str, object]:
+        return {
+            "abi_version": 6,
+            "agent_interface": {
+                "operations": [
+                    {"fields": ["key", "value"], "name": "remember"},
+                    {"fields": ["key"], "name": "recall"},
+                    {"fields": ["key"], "name": "forget"},
+                ],
+                "summary": "Store, retrieve, and remove short key/value notes for the user.",
+            },
+            "id": "memory",
+            "process_exec": False,
+            "read": [],
+            "write": [],
+        }
 
     def test_agent_interface_change_creates_a_new_candidate_without_scope_change(
         self,

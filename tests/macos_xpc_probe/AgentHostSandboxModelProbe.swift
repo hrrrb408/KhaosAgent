@@ -38,6 +38,7 @@ func textAction(_ text: String) -> [String: Any] {
         "candidateDigest": "",
         "generation": 0,
         "pluginInput": "",
+        "evolutionGoal": "",
     ]
 }
 
@@ -57,6 +58,27 @@ func pluginAction(
         "candidateDigest": digest,
         "generation": generation,
         "pluginInput": input,
+        "evolutionGoal": "",
+    ]
+}
+
+func evolutionAction(
+    _ pluginID: String,
+    _ digest: String,
+    _ generation: Int,
+    goal: String
+) -> [String: Any] {
+    [
+        "type": "evolution",
+        "text": "",
+        "argv": [String](),
+        "readScope": [String](),
+        "writeScope": [String](),
+        "pluginID": pluginID,
+        "candidateDigest": digest,
+        "generation": generation,
+        "pluginInput": "",
+        "evolutionGoal": goal,
     ]
 }
 
@@ -147,6 +169,8 @@ func requestedField(_ name: String, from request: String) -> String? {
     return nil
 }
 
+var sandboxFindings = [String]()
+
 if let marker = prompt.range(of: "CANARY_PATH=") {
     let path = String(prompt[marker.upperBound...])
         .components(separatedBy: .newlines)[0]
@@ -163,10 +187,76 @@ if let marker = prompt.range(of: "CANARY_PATH=") {
 
     let readDenied = denied(O_RDONLY)
     let writeDenied = denied(O_WRONLY | O_APPEND)
-    emit(textAction("read-denied=\(readDenied) write-denied=\(writeDenied)"))
+    sandboxFindings.append(
+        "read-denied=\(readDenied) write-denied=\(writeDenied)"
+    )
+}
+
+if let marker = prompt.range(of: "CANDIDATE_STORE_FILE=") {
+    let path = String(prompt[marker.upperBound...])
+        .components(separatedBy: .newlines)[0]
+    guard !path.isEmpty else { exit(EXIT_FAILURE) }
+
+    func deniedRead() -> Bool {
+        let descriptor = Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        if descriptor >= 0 {
+            Darwin.close(descriptor)
+            return false
+        }
+        return errno == EPERM || errno == EACCES
+    }
+
+    func deniedWrite() -> Bool {
+        let descriptor = Darwin.open(
+            path,
+            O_WRONLY | O_APPEND | O_CLOEXEC | O_NOFOLLOW
+        )
+        guard descriptor >= 0 else {
+            return errno == EPERM || errno == EACCES
+        }
+        defer { Darwin.close(descriptor) }
+        let bytes = Array("AgentHost must not write Candidate storage".utf8)
+        let written = bytes.withUnsafeBytes { buffer in
+            Darwin.write(descriptor, buffer.baseAddress, buffer.count)
+        }
+        return written < 0 && (errno == EPERM || errno == EACCES)
+    }
+
+    sandboxFindings.append(
+        "candidate-store-read-denied=\(deniedRead()) "
+            + "candidate-store-write-denied=\(deniedWrite())"
+    )
+}
+
+if !sandboxFindings.isEmpty {
+    emit(textAction(sandboxFindings.joined(separator: " ")))
 }
 
 let latestUser = latestUserRequest(prompt)
+
+if let request = try? JSONSerialization.jsonObject(with: input) as? [String: Any],
+   let baselineManifest = request["baseline_manifest"] as? String,
+   let baselineSource = request["baseline_source"] as? String {
+    let baselineRecall = "        value = items.get(key)\n"
+    let improvedRecall = "        value = items.get(key)\n"
+        + "        if value is None:\n"
+        + "            matches = [item for stored_key, item in items.items()\n"
+        + "                       if stored_key.casefold() == key.casefold()]\n"
+        + "            if len(matches) == 1:\n"
+        + "                value = matches[0]\n"
+    guard baselineSource.contains(baselineRecall) else {
+        exit(EXIT_FAILURE)
+    }
+    let generatedSource = baselineSource.replacingOccurrences(
+        of: baselineRecall,
+        with: improvedRecall
+    )
+    emit([
+        "manifestJSON": baselineManifest,
+        "pluginSource": generatedSource,
+    ])
+}
+
 if latestUser.contains("no_active_candidate") {
     emit(textAction("No active Candidate was available, so the Launcher denied execution."))
 }
@@ -211,6 +301,14 @@ if let metadata = activePluginMetadata(prompt),
    let generation = metadata["generation"] as? Int {
     if latestUser.contains("RUN_ACTIVE_PLUGIN") {
         emit(pluginAction(pluginID, digest, generation))
+    }
+    if pluginID == "memory", latestUser.contains("EVOLVE_MEMORY") {
+        emit(evolutionAction(
+            pluginID,
+            digest,
+            generation,
+            goal: "Improve case-insensitive Memory recall while preserving existing state and interface."
+        ))
     }
     if let interface = metadata["agent_interface"] as? [String: Any],
        let operations = interface["operations"] as? [[String: Any]] {

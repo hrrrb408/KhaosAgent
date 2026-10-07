@@ -167,14 +167,34 @@ Memory state. The state directory is user-owned Application Support data and
 does not defend against an arbitrary same-UID process with access to that
 directory.
 
-The separate examples/memory-candidate-b Candidate keeps the same ID,
-interface, and state format. Its recall behavior tries exact keys first, then
-uses Unicode NFKC plus casefold only when one stored key matches uniquely.
-It neither migrates nor copies state. The fixed replay dataset at
-tests/fixtures/memory-evaluation.json compares A and B through the existing
-Seatbelt Runner with separate temporary state roots. Its Harness-generated
-evaluation.json is informational and explicitly untrusted; the Kernel does not
-execute or endorse those scores.
+To request a Memory improvement in `--agent`, give explicit feedback such as
+“Memory recall fails when the key uses different capitalization.” The Agent
+first proposes a bounded goal. The Launcher re-reads the active Candidate and
+generation, loads the fixed bundled replay dataset, and asks for a digest-bound
+development approval. Only after that approval does the existing untrusted
+Agent Host generate `manifest.json` and `plugin.py`; the Kernel admits the exact
+bytes only if the logical ID, Agent interface, and state-only capability ceiling
+remain compatible. Development approval does not authorize activation.
+
+Each dataset sample runs against the baseline and admitted Candidate through
+the Kernel's isolated evaluation operation. Every run gets temporary Plugin
+state and a temporary workspace, with no workspace scope, network, secrets, or
+process execution. The Kernel returns only a SHA-256 digest of each temporary
+post-run state blob. The untrusted Host checks recall samples leave state intact
+and the fixed `remember` sample produces the same state bytes for A and B; this
+catches a state-format change without teaching the Kernel Memory's schema. The
+Host scores actual bounded Runner outputs and ignores Candidate-reported scores.
+The Launcher shows the bound A/B record
+and then asks for separate activation approval. Activation uses the existing
+Candidate, Manifest, scope, and generation bindings. The same `memory` state
+namespace continues across Candidate replacement and rollback. Evaluation
+results are informational and do not grant Kernel authority.
+
+The older `examples/memory-candidate-b` remains a deterministic replay fixture
+for the lower-level Harness tests. The signed-product Agent evolution path does
+not select or install it; its bundled test model generates a new Candidate from
+the active Candidate source after development approval. The fixed replay dataset
+is stored at `examples/memory/evaluation.json` and copied into the signed app.
 
 To directly run a workspace-capable active Candidate, choose a workspace and
 approve the displayed Candidate digest, scopes, validity, and invocation:
@@ -303,13 +323,16 @@ KHAOS_RUN_PRODUCT_MEMORY_PLUGIN_UI=1 python3 -m unittest discover -s tests \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```
 
-The opt-in Memory evolution acceptance selects Candidate A, persists one
-production value, evaluates A and B in isolated replay state, then opens a
-second-stage approval for the exact B package. The review shows B's digests and
-interface, its actual empty capability scope, the dataset result, and A as the
-rollback target. It then verifies Agent recall through B, user-approved
-rollback to A, and the same production state after both transitions. It needs
-two package selections and six approvals; no workspace Picker appears:
+The opt-in Agent-generated Memory evolution acceptance installs Candidate A
+and persists one production value. After Development Approval, the signed test
+model generates and admits a state-only Candidate from A's source. Isolated
+replay measures A 3/5 and B 4/5 with no regressions. The test denies one
+Activation Approval and verifies A remains active, then repeats the flow and
+approves B after reviewing the Proposal, digests, capability, dataset result,
+and rollback target. It verifies Agent recall through B, user-approved rollback
+to A, and the same production state after both transitions. It needs the initial
+package Picker and manual development/activation approvals; no workspace Picker
+opens:
 
 ```bash
 KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1 python3 -m unittest discover -s tests \

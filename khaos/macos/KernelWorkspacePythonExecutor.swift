@@ -3,6 +3,13 @@ import Darwin
 import Foundation
 import OSLog
 
+private enum KernelBridgeOutputKind {
+    case lifecycle
+    case evolutionSource
+    case workspace
+    case pluginEvaluation
+}
+
 /// Fixed trusted executor. The XPC caller cannot choose the runtime or
 /// inherit raw host descriptors.
 enum KernelWorkspacePythonExecutor {
@@ -53,10 +60,16 @@ enum KernelWorkspacePythonExecutor {
                 pluginStateRoot: try pluginStateRoot().path,
                 cancellation: cancellation
             )
+            let outputKind: KernelBridgeOutputKind
+            if case .source = request {
+                outputKind = .evolutionSource
+            } else {
+                outputKind = .lifecycle
+            }
             return try decodeBridgeResponse(
                 value,
                 requestID: invocation.requestID,
-                validateWorkspaceResult: false
+                outputKind: outputKind
             )
         }
         guard let snapshotBrokerEndpoint = invocation.snapshotBrokerEndpoint else {
@@ -121,10 +134,16 @@ enum KernelWorkspacePythonExecutor {
                 lease.invalidate()
                 throw KernelWorkspaceServiceError.commitOutcomeUncertain
             }
+            let outputKind: KernelBridgeOutputKind
+            if case .evaluate = request {
+                outputKind = .pluginEvaluation
+            } else {
+                outputKind = .workspace
+            }
             return try decodeBridgeResponse(
                 value,
                 requestID: invocation.requestID,
-                validateWorkspaceResult: true
+                outputKind: outputKind
             )
         }
         guard let bookmark = invocation.bookmark else {
@@ -226,7 +245,7 @@ enum KernelWorkspacePythonExecutor {
         return try decodeBridgeResponse(
             access.value,
             requestID: invocation.requestID,
-            validateWorkspaceResult: true
+            outputKind: .workspace
         )
     }
 
@@ -235,6 +254,7 @@ enum KernelWorkspacePythonExecutor {
         "activation_state_unavailable", "approval_binding_mismatch",
         "approval_expired", "candidate_corrupt", "candidate_missing",
         "candidate_store_failed", "invalid_rollback_target", "invalid_time",
+        "evaluation_workspace_changed",
         "manifest_rejected", "no_active_candidate", "plugin_lifecycle_failed",
         "plugin_source_rejected", "stale_approval", "store_unavailable",
         "plugin_input_too_large", "plugin_invocation_unsupported",
@@ -270,7 +290,7 @@ enum KernelWorkspacePythonExecutor {
     private static func decodeBridgeResponse(
         _ value: Data,
         requestID: KernelWorkspaceXPC.RequestID,
-        validateWorkspaceResult: Bool
+        outputKind: KernelBridgeOutputKind
     ) throws -> String {
         guard value.count >= KernelWorkspaceXPC.transferLengthBytes else {
             logger.error(
@@ -359,10 +379,15 @@ enum KernelWorkspacePythonExecutor {
             throw KernelWorkspaceServiceError.pythonBridgeFailed
         }
         do {
-            if validateWorkspaceResult {
+            switch outputKind {
+            case .workspace:
                 try validateResult(output)
-            } else {
+            case .lifecycle:
                 try validateLifecycleResult(output)
+            case .evolutionSource:
+                try validateEvolutionSourceResult(output)
+            case .pluginEvaluation:
+                try validatePluginEvaluationResult(output)
             }
         } catch {
             logger.error("executor=python-bridge-output-invalid")
@@ -782,13 +807,18 @@ enum KernelWorkspacePythonExecutor {
         while waitpid(processID, &status, 0) < 0 && errno == EINTR {}
     }
 
-    private static func validateResult(_ output: String) throws {
+    private static let workspaceResultKeys: Set<String> = [
+        "returncode", "stdout", "stderr", "added", "modified", "deleted",
+    ]
+
+    private static func validatedWorkspaceResult(
+        _ output: String,
+        additionalKeys: Set<String> = []
+    ) throws -> [String: Any] {
         guard let data = output.data(using: .utf8),
               let value = try? JSONSerialization.jsonObject(with: data),
               let result = value as? [String: Any],
-              Set(result.keys) == [
-                "returncode", "stdout", "stderr", "added", "modified", "deleted",
-              ],
+              Set(result.keys) == workspaceResultKeys.union(additionalKeys),
               let returncode = integer(result["returncode"]),
               let stdout = result["stdout"] as? String,
               let stderr = result["stderr"] as? String,
@@ -799,6 +829,25 @@ enum KernelWorkspacePythonExecutor {
               stdout.utf8.count <= KernelWorkspaceXPC.maximumMessageBytes,
               stderr.utf8.count <= KernelWorkspaceXPC.maximumMessageBytes
         else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
+        }
+        return result
+    }
+
+    private static func validateResult(_ output: String) throws {
+        _ = try validatedWorkspaceResult(output)
+    }
+
+    private static func validatePluginEvaluationResult(_ output: String) throws {
+        let result = try validatedWorkspaceResult(
+            output,
+            additionalKeys: ["plugin_state_sha256"]
+        )
+        guard let stateDigest = result["plugin_state_sha256"] as? String,
+              stateDigest.range(
+                of: #"^[0-9a-f]{64}$"#,
+                options: .regularExpression
+              ) != nil else {
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
         }
     }
@@ -822,6 +871,42 @@ enum KernelWorkspacePythonExecutor {
               validSlot(result["active"]), validSlot(result["previous"]) else {
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
         }
+    }
+
+    private static func validateEvolutionSourceResult(_ output: String) throws {
+        guard let data = output.data(using: .utf8),
+              data.count <= KernelWorkspaceXPC.maximumMessageBytes,
+              let result = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any],
+              Set(result.keys) == [
+                "candidate_digest", "generation", "manifest_base64", "source_base64",
+              ],
+              let candidateDigest = result["candidate_digest"] as? String,
+              candidateDigest.range(
+                of: #"^[0-9a-f]{64}$"#,
+                options: .regularExpression
+              ) != nil,
+              let generation = integer(result["generation"]), generation >= 0,
+              boundedUTF8Base64(result["manifest_base64"], maximumBytes: 4_096) != nil,
+              boundedUTF8Base64(result["source_base64"], maximumBytes: 10_240) != nil
+        else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))
+        }
+    }
+
+    private static func boundedUTF8Base64(
+        _ value: Any?,
+        maximumBytes: Int
+    ) -> Data? {
+        guard let encoded = value as? String,
+              let data = Data(base64Encoded: encoded),
+              !data.isEmpty,
+              data.count <= maximumBytes,
+              data.base64EncodedString() == encoded,
+              String(data: data, encoding: .utf8) != nil else {
+            return nil
+        }
+        return data
     }
 
     private static func validSlot(_ value: Any?) -> Bool {

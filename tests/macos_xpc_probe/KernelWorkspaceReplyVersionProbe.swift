@@ -99,7 +99,7 @@ struct KernelWorkspaceReplyVersionProbe {
 
         FileHandle.standardOutput.write(
             Data(
-                "kernel-workspace-response-versions=8-and-10-separated;bridge-input=one-request-frame-plus-bookmark\n".utf8
+                "kernel-workspace-response-versions=8-and-11-separated;bridge-input=one-request-frame-plus-bookmark\n".utf8
             )
         )
     }
