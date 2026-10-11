@@ -44,6 +44,54 @@ enum AgentHostProtocolProbe {
             AgentHostProtocol.activePlugin(in: decodedInput) == active,
             "active Candidate metadata did not survive the Launcher-to-Host frame"
         )
+        let modelAPIKey = "probe-token.with-safe-headers"
+        let keyedUserTurn = try AgentHostProtocol.userTurn(
+            "remote model opt-in probe",
+            activePlugin: active,
+            modelAPIKey: modelAPIKey
+        )
+        require(
+            AgentHostProtocol.decodeInput(keyedUserTurn)?["model_api_key"] as? String
+                == modelAPIKey,
+            "bounded model credential did not survive the existing XPC input frame"
+        )
+        var invalidModelKey = try JSONSerialization.jsonObject(
+            with: keyedUserTurn
+        ) as! [String: Any]
+        invalidModelKey["model_api_key"] = "bad\nheader"
+        require(
+            isNil(AgentHostProtocol.decodeInput(frame(invalidModelKey))),
+            "model credential accepted header control characters"
+        )
+        var oversizedModelKey = try JSONSerialization.jsonObject(
+            with: keyedUserTurn
+        ) as! [String: Any]
+        oversizedModelKey["model_api_key"] = String(
+            repeating: "k",
+            count: AgentHostProtocol.maximumModelAPIKeyBytes + 1
+        )
+        require(
+            isNil(AgentHostProtocol.decodeInput(frame(oversizedModelKey))),
+            "oversized model credential was accepted"
+        )
+        let keyedToolResult = try AgentHostProtocol.toolResult(
+            ok: true,
+            text: "bounded result",
+            activePlugin: active,
+            modelAPIKey: modelAPIKey
+        )
+        require(
+            AgentHostProtocol.decodeInput(keyedToolResult)?["model_api_key"] as? String
+                == modelAPIKey,
+            "bounded model credential did not survive the tool-result frame"
+        )
+        require(
+            AgentModelProvider.bigmodel.endpoint?.absoluteString
+                == "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                && AgentModelProvider.bigmodelCodingPlan.endpoint?.absoluteString
+                    == "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+            "BigModel provider did not resolve only its fixed HTTPS endpoints"
+        )
         let inputObject = try JSONSerialization.jsonObject(with: activeInput) as! [String: Any]
         let activeObject = inputObject["active_plugin"] as! [String: Any]
         require(
@@ -115,6 +163,37 @@ enum AgentHostProtocolProbe {
         require(
             AgentHostProtocol.proposalMatchesActive(proposal, active: active),
             "matching Plugin proposal did not bind to fresh state"
+        )
+
+        let validInterfaceInput = AgentHostProtocol.canonicalPluginInput(
+            #"{"operation":"publish","topic":"release","message":"complete"}"#
+        )!
+        require(
+            AgentHostProtocol.pluginInputMatchesInterface(
+                validInterfaceInput,
+                interface: agentInterface
+            ),
+            "listed Plugin operation and exact fields were rejected"
+        )
+        let extraInterfaceField = AgentHostProtocol.canonicalPluginInput(
+            #"{"operation":"publish","topic":"release","message":"complete","scope":"all"}"#
+        )!
+        require(
+            !AgentHostProtocol.pluginInputMatchesInterface(
+                extraInterfaceField,
+                interface: agentInterface
+            ),
+            "Plugin input accepted a field outside its informational interface"
+        )
+        let unknownInterfaceOperation = AgentHostProtocol.canonicalPluginInput(
+            #"{"operation":"erase_all","topic":"release","message":"complete"}"#
+        )!
+        require(
+            !AgentHostProtocol.pluginInputMatchesInterface(
+                unknownInterfaceOperation,
+                interface: agentInterface
+            ),
+            "Plugin input accepted an unlisted operation"
         )
 
         let businessInput = Data(
@@ -245,8 +324,10 @@ enum AgentHostProtocolProbe {
         require(
             context.contains("untrusted Plugin metadata")
                 && context.contains("information only")
+                && context.contains("must return a Plugin proposal")
+                && context.contains("only a later Launcher tool_result")
                 && context.contains(agentInterface.summary),
-            "Plugin metadata was not labeled as non-authoritative"
+            "Plugin context omitted the non-authoritative boundary or direct-action guidance"
         )
 
         let baselineManifest = Data(#"{"baseline":"memory"}"#.utf8)
@@ -254,6 +335,40 @@ enum AgentHostProtocolProbe {
         let baselineCandidateDigest = AgentHostProtocol.candidateContentDigest(
             AgentCandidateFiles(manifest: baselineManifest, source: baselineSource)
         )
+        let usageReply = try AgentHostProtocol.encodeReply(.candidate(
+            AgentCandidateFiles(
+                manifest: baselineManifest,
+                source: baselineSource,
+                modelUsage: AgentModelUsage(
+                    elapsedMilliseconds: 12_345,
+                    promptTokens: 789,
+                    completionTokens: 456
+                )
+            )
+        ))
+        guard case let .candidate(decodedUsageReply)? =
+                AgentHostProtocol.decodeReply(usageReply) else {
+            fatalError("bounded model usage reply did not round-trip")
+        }
+        require(
+            decodedUsageReply.modelUsage == AgentModelUsage(
+                elapsedMilliseconds: 12_345,
+                promptTokens: 789,
+                completionTokens: 456
+            ),
+            "model token counters changed in the informational reply"
+        )
+        var overBudgetUsage = try JSONSerialization.jsonObject(
+            with: usageReply
+        ) as! [String: Any]
+        var usageObject = overBudgetUsage["model_usage"] as! [String: Any]
+        usageObject["prompt_tokens"] = 1_000_001
+        overBudgetUsage["model_usage"] = usageObject
+        require(
+            AgentHostProtocol.decodeReply(frame(overBudgetUsage)) == nil,
+            "an over-budget informational token count was accepted"
+        )
+
         let evidence = "Please improve case-insensitive recall."
         let sampleValues: [[String: Any]] = (0..<5).map { index in
             if index == 4 {
@@ -313,12 +428,15 @@ enum AgentHostProtocolProbe {
             proposal: evolutionProposal,
             evidence: evidence,
             baselineManifest: baselineManifest,
-            baselineSource: baselineSource
+            baselineSource: baselineSource,
+            modelAPIKey: modelAPIKey
         )
         require(
             AgentHostProtocol.decodeInput(candidateRequest)?["operation"] as? String
-                == "candidate_generation",
-            "valid post-approval Candidate generation request was rejected"
+                == "candidate_generation"
+                && AgentHostProtocol.decodeInput(candidateRequest)?["model_api_key"] as? String
+                    == modelAPIKey,
+            "valid post-approval Candidate generation request or credential was rejected"
         )
         do {
             _ = try AgentHostProtocol.candidateGenerationRequest(
@@ -395,6 +513,14 @@ enum AgentHostProtocolProbe {
             datasetDigest: AgentHostProtocol.sha256(dataset),
             dataset: dataset,
             results: observations
+        )
+        var evaluationWithModelKey = try JSONSerialization.jsonObject(
+            with: evaluationRequest
+        ) as! [String: Any]
+        evaluationWithModelKey["model_api_key"] = modelAPIKey
+        require(
+            isNil(AgentHostProtocol.decodeInput(frame(evaluationWithModelKey))),
+            "model credential was accepted on the isolated evaluation operation"
         )
         guard let evaluationInput = AgentHostProtocol.decodeInput(evaluationRequest),
               let evaluationData = AgentHostProtocol.evaluateMemoryInput(evaluationInput),

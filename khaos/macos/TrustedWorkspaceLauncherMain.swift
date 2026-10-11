@@ -1158,10 +1158,30 @@ enum TrustedWorkspaceLauncherMain {
                 fputs("agent-plugin=approval-denied\n", stderr)
                 return (false, "The user denied this Plugin invocation.")
             default:
+                fputs(
+                    "agent-plugin=failed code=\(pluginFailureDiagnostic(code))\n",
+                    stderr
+                )
                 return (false, "Launcher could not run the Plugin: \(code)")
             }
         } catch {
+            fputs("agent-plugin=failed code=unexpected\n", stderr)
             return (false, "Launcher could not run the Plugin.")
+        }
+    }
+
+    private static func pluginFailureDiagnostic(_ code: String) -> String {
+        let runnerPrefix = "plugin_exit_"
+        if code.hasPrefix(runnerPrefix),
+           let status = Int(code.dropFirst(runnerPrefix.count)) {
+            return "\(runnerPrefix)\(status)"
+        }
+        switch code {
+        case "invalid_plugin_operation", "workspace_rejected",
+             "plugin_package_rejected", "invalid_kernel_response":
+            return code
+        default:
+            return "operation_rejected"
         }
     }
 
@@ -1227,6 +1247,9 @@ enum TrustedWorkspaceLauncherMain {
         isDigest(proposalDigest) else {
             throw LauncherError.operationRejected("invalid_evolution_proposal")
         }
+        writeDiagnostic(
+            "agent-evolution-proposal-base64=\(proposalData.base64EncodedString())"
+        )
 
         let developmentDetails = "Target Plugin: memory\n"
             + "Current Candidate SHA-256: \(baseline.candidateDigest)\n"
@@ -1238,7 +1261,7 @@ enum TrustedWorkspaceLauncherMain {
             + "Fixed evaluation dataset SHA-256: \(datasetDigest)\n"
             + "Maximum capability: process.exec disabled; workspace read/write scopes empty\n"
             + "Persistent state requirement: khaos-memory-v1 remains compatible\n"
-            + "Resource limits: generation 150 seconds / 4096 tokens; evaluation 5 samples, 10 seconds each, 100 seconds total\n"
+            + "Resource limits: generation \(AgentHostProtocol.maximumModelRequestSeconds) seconds / \(AgentHostProtocol.maximumCandidateGenerationTokens) tokens; evaluation 5 samples, 10 seconds each, 100 seconds total\n"
             + "Proposal digest: \(proposalDigest)\n"
             + "This approval permits only Candidate generation, admission, and isolated evaluation. It does not permit activation."
         writeDiagnostic("agent-evolution-development-review=presented")
@@ -1273,8 +1296,26 @@ enum TrustedWorkspaceLauncherMain {
             baselineManifest: baselineManifest,
             baselineSource: baselineSource
         )
+        if let usage = generated.modelUsage {
+            let promptTokens = usage.promptTokens.map(String.init) ?? "unknown"
+            let completionTokens = usage.completionTokens.map(String.init) ?? "unknown"
+            writeDiagnostic(
+                "agent-evolution-model-usage=untrusted "
+                    + "provider=\(AgentModelProvider.from(bundle: .main).rawValue) "
+                    + "elapsed_ms=\(usage.elapsedMilliseconds) "
+                    + "prompt_tokens=\(promptTokens) "
+                    + "completion_tokens=\(completionTokens)"
+            )
+        } else {
+            writeDiagnostic("agent-evolution-model-usage=unavailable")
+        }
         let generatedDigest = AgentHostProtocol.candidateContentDigest(generated)
         let generatedManifestDigest = AgentHostProtocol.sha256(generated.manifest)
+        writeDiagnostic(
+            "agent-evolution-candidate-generated digest=\(generatedDigest) "
+                + "manifest_digest=\(generatedManifestDigest) "
+                + "source_sha256=\(AgentHostProtocol.sha256(generated.source))"
+        )
         let admittedOutput = try invokePluginKernel(.admitEvolution(
             manifest: generated.manifest,
             source: generated.source,
@@ -1292,13 +1333,22 @@ enum TrustedWorkspaceLauncherMain {
               candidate.agentInterface == baseline.agentInterface else {
             throw LauncherError.operationRejected("evolution_candidate_rejected")
         }
-        writeDiagnostic("agent-evolution-candidate-admitted")
+        writeDiagnostic(
+            "agent-evolution-candidate-admitted digest=\(candidate.candidateDigest) "
+                + "manifest_digest=\(candidate.manifestDigest) "
+                + "scope_digest=\(candidate.scopeDigest)"
+        )
 
         let observations = try evaluateMemoryCandidates(
             baseline: baseline,
             candidate: candidate,
             generation: initialState.generation,
             samples: samples
+        )
+        let observationData = try canonicalJSON(observations)
+        writeDiagnostic(
+            "agent-evolution-evaluation-observations-base64="
+                + observationData.base64EncodedString()
         )
         let evaluationRecord = try host.evaluateMemory(
             proposalDigest: proposalDigest,
@@ -1309,6 +1359,10 @@ enum TrustedWorkspaceLauncherMain {
             datasetDigest: datasetDigest,
             dataset: dataset,
             results: observations
+        )
+        writeDiagnostic(
+            "agent-evolution-evaluation-record-base64="
+                + evaluationRecord.base64EncodedString()
         )
         let evaluation = try parseMemoryEvaluationReview(evaluationRecord)
         guard evaluation.proposalDigest == proposalDigest,
@@ -1322,7 +1376,6 @@ enum TrustedWorkspaceLauncherMain {
               evaluation.regressions.isEmpty else {
             throw LauncherError.operationRejected("evaluation_binding_rejected")
         }
-
         try requireCurrentEvolutionBaseline(baseline, generation: initialState.generation)
         guard KernelWorkspaceXPC.sha256Hex(try loadMemoryEvaluationDataset().data)
                 == datasetDigest else {
@@ -2196,6 +2249,12 @@ enum TrustedWorkspaceLauncherMain {
             return "agent_host_unavailable"
         case AgentHostClientError.invalidResponse:
             return "agent_host_invalid_response"
+        case AgentHostProtocolError.invalidRequest:
+            return "agent_host_request_invalid"
+        case AgentHostProtocolError.invalidResponse:
+            return "agent_host_protocol_invalid_response"
+        case AgentHostProtocolError.frameTooLarge:
+            return "agent_host_frame_too_large"
         default:
             return "operation_failed"
         }

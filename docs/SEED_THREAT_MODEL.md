@@ -2217,3 +2217,193 @@ attacks, protocol probes, real Seatbelt checks, and lifecycle tests. Python
 syntax compilation and `git diff --check` also passed. These results are local
 macOS evidence for this signed test product and test model; they do not establish
 distribution signing or real-provider candidate-generation quality.
+
+## 2026-10-08 real-model Memory self-evolution acceptance status
+
+The separate opt-in route `KHAOS_RUN_PRODUCT_REAL_MODEL_MEMORY_EVOLUTION_UI=1`
+packages a real local llama runtime and model into a fresh signed test app. Its
+predefined case fixture covers case-insensitive and Unicode compatibility
+recall. The route records proposal bindings, model-reported usage as untrusted
+telemetry, generated Candidate bytes/digests, compilation, signed Runner
+observations, A/B evaluation, activation decisions, and production-state
+hashes. It never takes Candidate B from a fixture. Deterministic Model Probe
+tests remain a separate protocol regression path.
+
+Two local attempts have not reached model generation. The first installed and
+activated Candidate A but timed out because the harness waited for an extra
+terminal keystroke after the native product action. The gate was changed to
+advance on signed-product diagnostic markers. The second attempt then waited
+for Candidate A's package Picker without receiving a selection; the install
+process produced no activation-review marker and the test timed out. The
+detached temporary `KhaosSeed --plugin-install` process was then terminated by
+its exact test-bundle path, and its scratch application directory disappeared.
+The harness now terminates that product before reporting a missing marker.
+The required evidence report and generated-Candidate artifact directory were
+not created. Proposal legality, real-model generation/admission, compile and
+execution rates, A/B outcomes, timing/token usage, refusal, activation, and
+rollback remain **NOT_PROVEN** for a real model. These attempts add no
+production-model capability or security evidence.
+
+## 2026-10-08 opt-in BigModel provider status
+
+The Seed builder now has explicit `bigmodel` and `bigmodel-coding-plan`
+provider choices for GLM-5.3-Flash. The default remains the local provider and
+retains no Agent Host network-client entitlement. A remote build packages no
+local-model fallback. The Launcher passes `KHAOS_BIGMODEL_API_KEY` through the
+existing version-7 AgentHost XPC frames only for model requests; the key is not
+written to the product, prompt, diagnostic output, evidence report, or disk.
+The untrusted Agent Host sends it only as an Authorization header to one of the
+two code-fixed BigModel HTTPS endpoints. No Kernel code, authority, operation,
+process, or persistent state changed.
+
+The BigModel acceptance uses the same independently defined defect cases,
+Candidate admission, isolated Runner evaluation, and double-approval lifecycle
+as the local-model acceptance. It records Candidate bytes/digests, compilation,
+Runner observations, A/B results, model usage when returned, user decisions,
+and production-state checks. Coding Plan attempts 1-10 are recorded in the
+companion evidence reports from
+`glm-5.3-flash-memory-evolution.json` through
+`glm-5.3-flash-memory-evolution-attempt-10.json`. Attempts 1-3 failed before any
+generated Candidate: the first returned `invalid_model_response`, the second
+was length-truncated at the then-current 2,048-token cap, and the third failed
+to decode the Agent action JSON during baseline `remember`. Attempt 4 completed
+both predefined trials with legal Proposals (2/2), generated and admitted
+Candidates (2/2), and recorded model timing/token usage. Both generated sources
+failed Python compilation on line 1 because the model emitted a bare `import`
+and removed the `json` module qualifier from unchanged helpers. No Runner sample
+passed, no A/B result was produced, and no Activation Approval was presented.
+The report confirms the active baseline Candidate and production state stayed
+unchanged after each evaluation failure. Candidate B was model-generated; no
+prewritten Candidate was substituted. The current
+Host configuration gives ordinary Agent turns and Candidate generation separate
+32,768-token response caps, maximum reasoning, and a 600-second model-request
+deadline. The Coding Plan model documents a 128K maximum output; the configured
+cap remains finite. The action prompt now contains the exact required JSON
+shape, and malformed JSON, wrong action shape, wrong field types, and oversized
+output have distinct fixed error codes. Candidate generation now explicitly
+preserves baseline imports and helpers and calls out the `json` module identifiers
+that the first generated sources accidentally dropped. Candidate source stays
+capped at 10,240 bytes and the existing admission, isolated evaluation, and
+dual-approval lifecycle is unchanged.
+Attempt 5 failed earlier in both predefined cases: after the user feedback, the
+Host rejected the model's decoded action as `invalid_agent_action` (proposal
+attempts 2, legal 0/2; observed elapsed times 21,229 ms and 52,313 ms; token
+usage for these action responses was unavailable). No Candidate was generated
+or admitted, no evaluation or approval followed, and both cases recorded the
+active Candidate and production Memory state unchanged. The refusal case was
+not reached. The untrusted Host now states the empty-field contract separately
+for each action type and allows one low-reasoning, 1,024-token correction request
+after an action fails validation, bounded by the original model-request deadline.
+This adds no Kernel authority or lifecycle behavior.
+Attempt 6 reached legal Proposals, generation, and admission in both cases
+(2/2 each). The generated Candidate digests were
+`6ee8cf113f5bf67e3c3f226d2ee3a37efb0e1b952b8b0b18ad27c0f27e25331f` and
+`1c59d4469cf1bd87b8f1b5b8d1033fa91c316564f9c0942910ff5f43ad018a65`. Model
+telemetry reported 56,347 ms with 1,349 prompt and 3,366 completion tokens for
+casefold, and 59,765 ms with 1,367 prompt and 3,423 completion tokens for
+Unicode compatibility. Both generated full files again removed `json` from the
+baseline import and serialization calls, so compilation passed 0/2 and Runner
+execution passed 0/2. No replay score or Activation Approval was produced; the
+active Candidate and production Memory state remained unchanged. The failure
+is recorded in the attempt-6 report and artifacts.
+
+To keep the model from rewriting untouched persistence code, the untrusted Host
+now asks for only a complete replacement of `run(request)` and inserts that
+model-generated function into the exact baseline source. It rejects malformed
+single-function output; the assembled source still goes through the existing
+Candidate admission and isolated Runner evaluation. Attempt 7 started the signed
+product but was canceled during baseline Candidate A setup. Its report records
+`workspace-kernel-smoke=cancelled`, no production state file, zero Plugin
+approvals, and zero Proposal, Candidate, evaluation, activation, or rollback
+attempts. The two predefined defect cases were not reached, so this attempt adds
+no real-model capability evidence and is excluded from the trial metrics. The
+report and its setup log are preserved. Attempt 8 was intended to measure this
+generation-context change. It installed and activated baseline Candidate A,
+but the first model-driven `remember` request failed before a Plugin proposal or
+production state write. Its terminal error was the generic Launcher code
+`operation_failed`; the report and captured stdout/stderr are preserved in
+`glm-5.3-flash-memory-evolution-attempt-8.json` and its `.logs` directory. No
+defect case, remote-model usage, generated Candidate, compilation, Runner replay,
+or evolution approval was recorded. The Launcher previously mapped local
+AgentHost protocol-construction errors to this generic code; it now reports
+bounded fixed codes for invalid requests, invalid responses, and oversized
+frames. Attempt 9 trims surrounding key whitespace, checks its printable-ASCII
+and 2,048-byte bounds without displaying or recording it, and prompts again
+with hidden input if the current value is malformed. Real-model self-evolution
+remains **NOT_PROVEN**.
+Attempt 9 reached both predefined trials. Both Proposals were legal (2/2), both
+model-generated Candidates were admitted and compiled (2/2), and both passed
+all five isolated Runner samples. Casefold improved 3/5 to 4/5 with no
+regressions; its Candidate digest was
+`1f6a3f65ba8576cdcb3855806dba00496d7bd5dc6ea0cbc97aa73d102507e6c6`. Unicode
+compatibility improved 3/5 to 5/5 with no regressions; its Candidate digest was
+`f2806545b41daef13675488c8974d4db0e2247c2e2c10874e042776169bf13cd`. The
+reported generation latency and usage were 39,734 ms / 1,216 prompt / 2,592
+completion tokens and 47,289 ms / 1,227 prompt / 2,878 completion tokens,
+respectively. Both Development Approvals and both Activation Approvals were
+approved. The first Candidate was then rolled back with unchanged production
+state. For the second Candidate, the signed product recorded the approved
+`recall` Plugin operation, but the test read stdout immediately after the
+`agent-plugin=passed` marker and failed before the model's final response was
+written. It therefore did not record the second Candidate's production recall
+state or perform its rollback. Attempt 9 is a failed test run, not a completed
+acceptance; it did not exercise a rejected Activation Approval. Its reports,
+logs, and both generated Candidate directories are preserved in the companion
+attempt-9 evidence bundle. The harness now waits up to the model request
+deadline for each recall response, records a timeout/error, and completes
+state checks and the approved rollback before asserting on response text. The
+next run prompts the user to deny the first Activation Approval and approve
+the second separately.
+Attempt 10 again reached both predefined cases: both Proposals were legal,
+Candidates were generated/admitted and compiled, and isolated execution passed
+all samples. Casefold improved 3/5 to 4/5 with no regressions (Candidate
+`1f6a3f65ba8576cdcb3855806dba00496d7bd5dc6ea0cbc97aa73d102507e6c6`); Unicode
+compatibility improved 3/5 to 5/5 with no regressions (Candidate
+`2a6c1cfe17c2aa760f87c84a52e57af7f7b1bf5fe488d72e72c19b2033998048`). Reported
+generation metrics were 52,819 ms / 1,229 prompt / 3,388 completion tokens and
+30,422 ms / 1,233 prompt / 2,381 completion tokens. The first Activation
+Approval was approved despite the terminal's explicit rejection instruction;
+that Candidate was rolled back and the production state hash remained
+`c3ab4ea4cd61d33f419538c4cbcdaeac7a92fb0dea862e75c2213dd3fef5128f`. The
+second Candidate was activated with state preserved, and its approved recall
+operation passed. Then the harness stopped with `NameError` because the recall
+wait helper was scoped inside a different test method. As a result, attempt 10
+did not record the recall response, rollback, or post-rollback state for the
+second case, and did not prove refusal-preserves-state. The failed report, logs,
+and generated Candidates are preserved. The helper is now scoped in the real-
+model trial method, and the next attempt explicitly labels its first activation
+dialog as a required rejection check. Attempt 10 is not a completed acceptance.
+The existing local-model attempts remain **NOT_PROVEN**; API support does not
+convert them into local-model evidence.
+
+The opt-in Agent Host entitlement permits general outbound client networking.
+The BigModel client uses fixed HTTPS URLs, but this is not an OS-enforced
+per-provider egress allowlist. API credentials are present in the untrusted Host
+process while a request is made; compromise of that process could misuse them.
+This is an explicit remote-provider configuration and must not be used with
+data the user does not intend to send externally. The default local build keeps
+network denied, and the Runner, Kernel, and trusted Launcher receive no new
+network entitlement.
+
+The completed signed-product Coding Plan run is recorded in
+`glm-5.3-flash-memory-evolution-attempt-15.json` (2026-10-11; GLM-5.3-Flash;
+deep signature verified; deterministic Model Probe not used). Both independently
+defined Proposals were legal (2/2); both Candidates were model-generated,
+admitted, compiled, and executed in the isolated Runner (2/2), and both fixed
+five-sample A/B replays improved without regressions. Case-fold recall improved
+from 3/5 to 4/5 with Candidate digest
+`9234f69cb6db26a08d749822e9b0f009d31c02615a24279002ba52c142d7b79b`. The user
+denied its Activation Approval; the baseline route, generation, and production
+state hash remained unchanged. Unicode compatibility recall improved from 3/5
+to 5/5 with Candidate digest
+`6f53e6f75f3c57d8cc845e380ed0b4aff70fa9a3c03ecaee4191a17f95f1bb75`. The user
+approved activation, the signed product recalled through the active Candidate,
+then the user approved rollback to the baseline. Recall after rollback passed;
+the `khaos-memory-v1` production state hash remained unchanged through activation,
+invocation, and rollback. Provider-reported generation latencies and token usage
+were 25,978 ms / 1,232 prompt / 1,772 completion tokens and 35,656 ms / 1,270
+prompt / 2,542 completion tokens, respectively; these usage figures are
+untrusted provider telemetry. This establishes remote Coding Plan evidence only:
+the existing local-model attempts remain **NOT_PROVEN**. The complete report
+and generated Candidate artifacts are retained in the user's external evidence
+directory.

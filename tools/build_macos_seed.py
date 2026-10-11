@@ -58,6 +58,12 @@ def main() -> int:
     )
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
+    parser.add_argument(
+        "--model-provider",
+        choices=("local", "bigmodel", "bigmodel-coding-plan"),
+        default="local",
+        help="local model (default) or the opt-in BigModel GLM-5.3-Flash API",
+    )
     parser.add_argument("--llama-cli", type=Path)
     parser.add_argument("--model-file", type=Path)
     parser.add_argument("--model-license", type=Path)
@@ -68,6 +74,7 @@ def main() -> int:
             args.signing_identity,
             keychain=args.keychain,
             python_executable=args.python_executable,
+            model_provider=args.model_provider,
             llama_cli=args.llama_cli,
             model_file=args.model_file,
             model_license=args.model_license,
@@ -85,6 +92,7 @@ def build_app(
     *,
     keychain: Path | None = None,
     python_executable: Path,
+    model_provider: str = "local",
     llama_cli: Path | None = None,
     model_file: Path | None = None,
     model_license: Path | None = None,
@@ -93,10 +101,14 @@ def build_app(
         raise BuildError("the Seed app supports macOS only")
     if not signing_identity.strip():
         raise BuildError("a stable code-signing identity is required")
+    if model_provider not in {"local", "bigmodel", "bigmodel-coding-plan"}:
+        raise BuildError("unsupported model provider")
     if any((llama_cli, model_file, model_license)) and not all(
         (llama_cli, model_file, model_license)
     ):
         raise BuildError("--llama-cli, --model-file, and --model-license must be used together")
+    if model_provider != "local" and any((llama_cli, model_file, model_license)):
+        raise BuildError("BigModel builds cannot bundle or fall back to a local model")
 
     output = output.expanduser().absolute()
     if output.suffix != ".app" or os.path.lexists(output):
@@ -124,6 +136,7 @@ def build_app(
             architecture=architecture,
             signing_identity=signing_identity,
             keychain=keychain,
+            model_provider=model_provider,
             llama_cli=llama_cli,
             model_file=model_file,
             model_license=model_license,
@@ -141,6 +154,7 @@ def _assemble_app(
     architecture: str,
     signing_identity: str,
     keychain: Path | None,
+    model_provider: str,
     llama_cli: Path | None,
     model_file: Path | None,
     model_license: Path | None,
@@ -187,6 +201,7 @@ def _assemble_app(
             "CFBundleVersion": "1",
             "LSMinimumSystemVersion": "13.0",
             "NSPrincipalClass": "NSApplication",
+            "KhaosModelProvider": model_provider,
         },
     )
     app_resources = contents / "Resources"
@@ -210,10 +225,10 @@ def _assemble_app(
     # untrusted Runner children. App Sandbox denies sandbox_apply in children.
     _write_plist(service_entitlements, {})
     _write_plist(broker_entitlements, {})
-    _write_plist(
-        agent_host_entitlements,
-        {"com.apple.security.app-sandbox": True},
-    )
+    agent_host_entitlement_values = {"com.apple.security.app-sandbox": True}
+    if model_provider != "local":
+        agent_host_entitlement_values["com.apple.security.network.client"] = True
+    _write_plist(agent_host_entitlements, agent_host_entitlement_values)
 
     # Derive the stable host requirement before adding its nested XPC service.
     _sign(app, signing_identity, app_entitlements, keychain)
@@ -228,6 +243,8 @@ def _assemble_app(
         agent_host_binary,
         (
             ROOT / "khaos/macos/AgentHostProtocol.swift",
+            ROOT / "khaos/macos/AgentHostCandidateSource.swift",
+            ROOT / "khaos/macos/AgentHostActionOutput.swift",
             ROOT / "khaos/macos/AgentHost.swift",
         ),
         minimum_os_version="26.0",
@@ -244,6 +261,7 @@ def _assemble_app(
             "CFBundleVersion": "1",
             "LSMinimumSystemVersion": "26.0",
             "KhaosLauncherRequirement": launcher_requirement,
+            "KhaosModelProvider": model_provider,
             "XPCService": {
                 "ServiceType": "Application",
                 "RunLoopType": "NSRunLoop",

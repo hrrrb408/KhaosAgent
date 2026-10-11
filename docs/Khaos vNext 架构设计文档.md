@@ -2733,6 +2733,14 @@ canary 的 App Sandbox 拒绝路径；没有证明模型对其他请求的质量
 Plugin 准入或用户批准流程已经完成。模型输出仍是不可信输入，工具请求仍由 Launcher 向用户征求
 批准，并由 Kernel 在既有 Runner/Sandbox 路径中执行。
 
+**2026-10-08 opt-in BigModel provider：**构建器可明确选择 BigModel GLM-5.3-Flash 的标准 API 或
+Coding Plan 固定端点；默认仍为无网络授权的本地 provider，远端构建没有本地回退。API key 由
+Launcher 环境读取，经现有 AgentHost XPC 请求字段临时传给不可信 Host，仅作 HTTP Authorization，
+不进入提示词、诊断或持久状态。只有 Agent Host 获得远程模式所需的 network-client entitlement，
+Launcher 和 Kernel 均无新增网络能力；macOS entitlement 不提供按目标域名限制，因此不声称 OS
+层面的 provider-only egress。此路径的 signed-product 多缺陷验收尚未运行，不能据此声称 GLM 已生成、
+准入、改进、激活或回滚真实 Candidate。
+
 当前 changeset 原型对既有文件替换和条目删除使用 macOS
 `renameatx_np(RENAME_SWAP)`，并核对被换出的 inode、内容、符号链接目标或目录身份；
 检测到 pre-swap 竞争写入时会尝试原子换回并拒绝提交。需要该原语但当前平台或文件系统

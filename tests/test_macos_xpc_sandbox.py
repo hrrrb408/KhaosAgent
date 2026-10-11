@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import base64
 import errno
+from datetime import datetime, timezone
 from functools import partial
 import hashlib
 import json
@@ -53,6 +55,12 @@ _PRODUCT_WRITEBACK_EVIDENCE = (
     "workspace-kernel-smoke=released-scope-direct-write=denied",
     "workspace-kernel-smoke=passed direct-write=denied",
 )
+# The AgentHost request is capped at 600 seconds; leave 30 seconds for IPC/UI teardown.
+_REAL_MODEL_REQUEST_WAIT_SECONDS = 630
+
+
+class ProductAgentEvolutionFailure(RuntimeError):
+    """A signed Agent Host/Launcher evolution request returned an explicit failure."""
 
 
 @unittest.skipUnless(
@@ -108,6 +116,93 @@ class MacOSXPCSandboxTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("agent-host-protocol=passed", result.stdout)
+
+    def test_agent_host_candidate_source_preserves_baseline_outside_run(self) -> None:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="khaos-agent-source-edit-") as value:
+            probe = Path(value) / "AgentHostCandidateSourceProbe"
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    "-sdk",
+                    sdk,
+                    "-target",
+                    f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                    str(MACOS_TCB_SOURCES / "AgentHostCandidateSource.swift"),
+                    str(PROBE_SOURCES / "AgentHostCandidateSourceProbe.swift"),
+                    "-o",
+                    str(probe),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("agent-host-candidate-source=passed", result.stdout)
+
+    def test_agent_host_action_output_correction_is_single_and_format_only(self) -> None:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="khaos-agent-output-correction-") as value:
+            probe = Path(value) / "AgentHostActionOutputProbe"
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    "-sdk",
+                    sdk,
+                    "-target",
+                    f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "AgentHostActionOutput.swift"),
+                    str(PROBE_SOURCES / "AgentHostActionOutputProbe.swift"),
+                    "-o",
+                    str(probe),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("agent-host-action-output=passed", result.stdout)
 
     def _assert_product_writeback_evidence(
         self,
@@ -338,7 +433,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 generation_run.stdout + generation_run.stderr,
             )
             generated = json.loads(generation_run.stdout.split("> ", 1)[1])
-            self.assertEqual(generated["manifestJSON"], generation_context["baseline_manifest"])
+            self.assertEqual(set(generated), {"pluginSource"})
             self.assertIn("casefold()", generated["pluginSource"])
             self.assertNotEqual(
                 generated["pluginSource"], generation_context["baseline_source"]
@@ -409,6 +504,28 @@ class MacOSXPCSandboxTests(unittest.TestCase):
         )
 
     def test_seed_app_builds_and_authenticates_its_kernel_service(self) -> None:
+        real_model_evolution = (
+            os.environ.get("KHAOS_RUN_PRODUCT_REAL_MODEL_MEMORY_EVOLUTION_UI") == "1"
+        )
+        bigmodel_evolution = (
+            os.environ.get("KHAOS_RUN_PRODUCT_BIGMODEL_MEMORY_EVOLUTION_UI") == "1"
+        )
+        deterministic_evolution = (
+            os.environ.get("KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI") == "1"
+        )
+        if sum((real_model_evolution, bigmodel_evolution, deterministic_evolution)) > 1:
+            self.fail("run deterministic-probe, local-model, and BigModel trials separately")
+        bigmodel_provider = os.environ.get("KHAOS_BIGMODEL_PROVIDER", "bigmodel")
+        if bigmodel_evolution:
+            self.assertIn(
+                bigmodel_provider,
+                {"bigmodel", "bigmodel-coding-plan"},
+                "KHAOS_BIGMODEL_PROVIDER must select one fixed BigModel endpoint",
+            )
+            self.assertTrue(
+                os.environ.get("KHAOS_BIGMODEL_API_KEY"),
+                "set KHAOS_BIGMODEL_API_KEY in the test process environment",
+            )
         signer_directory = tempfile.TemporaryDirectory(
             prefix="khaos-seed-test-signer-"
         )
@@ -434,34 +551,92 @@ class MacOSXPCSandboxTests(unittest.TestCase):
         ) as value:
             root = Path(value)
             product_app = root / "KhaosSeed.app"
-            model_probe = self._compile_agent_host_model_probe(root)
-            model_file = root / "agent-model.gguf"
-            model_file.write_bytes(b"test model fixture\n")
-            model_license = root / "model-license.txt"
-            model_license.write_text("test license fixture\n", encoding="utf-8")
+            build_arguments = [
+                sys.executable,
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "tools"
+                    / "build_macos_seed.py"
+                ),
+                "--output",
+                str(product_app),
+                "--signing-identity",
+                signing_identity,
+                "--keychain",
+                str(signing_keychain),
+                "--python-executable",
+                str(python_executable),
+            ]
+            if real_model_evolution:
+                model_app_value = os.environ.get("KHAOS_REAL_MODEL_APP")
+                evidence_value = os.environ.get("KHAOS_REAL_MODEL_EVIDENCE_PATH")
+                self.assertTrue(model_app_value, "KHAOS_REAL_MODEL_APP is required")
+                self.assertTrue(
+                    evidence_value,
+                    "KHAOS_REAL_MODEL_EVIDENCE_PATH is required to preserve acceptance evidence",
+                )
+                model_app = Path(model_app_value).expanduser().resolve(strict=True)
+                verified_signature = subprocess.run(
+                    ["codesign", "--verify", "--deep", "--strict", str(model_app)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(verified_signature.returncode, 0, verified_signature.stderr)
+                agent_host_contents = (
+                    model_app
+                    / "Contents"
+                    / "XPCServices"
+                    / "KhaosAgentHost.xpc"
+                    / "Contents"
+                )
+                model_runtime = agent_host_contents / "Frameworks/KhaosLlama/llama-cli"
+                model_file = agent_host_contents / "Resources/agent-model.gguf"
+                model_license = (
+                    agent_host_contents
+                    / "Resources/THIRD_PARTY_NOTICES/AgentModel-LICENSE"
+                )
+                self.assertTrue(model_runtime.is_file() and os.access(model_runtime, os.X_OK))
+                self.assertTrue(model_file.is_file() and model_file.stat().st_size > 0)
+                self.assertTrue(model_license.is_file() and model_license.stat().st_size > 0)
+                with (agent_host_contents / "Info.plist").open("rb") as stream:
+                    model_info = plistlib.load(stream)
+                self.assertEqual(
+                    model_info.get("KhaosLocalModelSHA256"),
+                    hashlib.sha256(model_file.read_bytes()).hexdigest(),
+                )
+                build_arguments.extend(
+                    [
+                        "--llama-cli",
+                        str(model_runtime),
+                        "--model-file",
+                        str(model_file),
+                        "--model-license",
+                        str(model_license),
+                    ]
+                )
+            elif bigmodel_evolution:
+                build_arguments.extend(
+                    ["--model-provider", bigmodel_provider]
+                )
+            else:
+                model_probe = self._compile_agent_host_model_probe(root)
+                model_file = root / "agent-model.gguf"
+                model_file.write_bytes(b"test model fixture\n")
+                model_license = root / "model-license.txt"
+                model_license.write_text("test license fixture\n", encoding="utf-8")
+                build_arguments.extend(
+                    [
+                        "--llama-cli",
+                        str(model_probe),
+                        "--model-file",
+                        str(model_file),
+                        "--model-license",
+                        str(model_license),
+                    ]
+                )
             build_product = subprocess.run(
-                [
-                    sys.executable,
-                    str(
-                        Path(__file__).resolve().parents[1]
-                        / "tools"
-                        / "build_macos_seed.py"
-                    ),
-                    "--output",
-                    str(product_app),
-                    "--signing-identity",
-                    signing_identity,
-                    "--keychain",
-                    str(signing_keychain),
-                    "--python-executable",
-                    str(python_executable),
-                    "--llama-cli",
-                    str(model_probe),
-                    "--model-file",
-                    str(model_file),
-                    "--model-license",
-                    str(model_license),
-                ],
+                build_arguments,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -514,9 +689,15 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 "com.apple.security.files.user-selected.read-write",
                 agent_host_entitlements,
             )
-            self.assertNotIn(
-                "com.apple.security.network.client", agent_host_entitlements
-            )
+            if bigmodel_evolution:
+                self.assertIs(
+                    agent_host_entitlements.get("com.apple.security.network.client"),
+                    True,
+                )
+            else:
+                self.assertNotIn(
+                    "com.apple.security.network.client", agent_host_entitlements
+                )
             self.assertNotIn(
                 "com.apple.security.network.server", agent_host_entitlements
             )
@@ -705,11 +886,53 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 0,
                 "the untrusted Agent Host must not satisfy the Kernel caller requirement",
             )
-            self._verify_agent_host_xpc_sandbox(
-                product_app=product_app,
-                launcher_binary=product_launcher,
-                scratch=root,
-            )
+            if real_model_evolution:
+                agent_host_contents = agent_host_bundle / "Contents"
+                packaged_model = (
+                    agent_host_contents / "Resources" / "agent-model.gguf"
+                )
+                packaged_runtime = (
+                    agent_host_contents
+                    / "Frameworks"
+                    / "KhaosLlama"
+                    / "llama-cli"
+                )
+                with (agent_host_contents / "Info.plist").open("rb") as stream:
+                    model_info = plistlib.load(stream)
+                self.assertEqual(
+                    hashlib.sha256(packaged_model.read_bytes()).hexdigest(),
+                    model_info.get("KhaosLocalModelSHA256"),
+                )
+                runtime_version = subprocess.run(
+                    [str(packaged_runtime), "--version"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertEqual(
+                    runtime_version.returncode,
+                    0,
+                    runtime_version.stdout + runtime_version.stderr,
+                )
+                self.assertEqual(
+                    (runtime_version.stdout or runtime_version.stderr).strip(),
+                    model_info.get("KhaosLocalModelRuntime"),
+                )
+            elif bigmodel_evolution:
+                with (agent_host_bundle / "Contents" / "Info.plist").open("rb") as stream:
+                    model_info = plistlib.load(stream)
+                self.assertEqual(model_info.get("KhaosModelProvider"), bigmodel_provider)
+                self.assertFalse(
+                    (agent_host_bundle / "Contents" / "Resources" / "agent-model.gguf").exists(),
+                    "the BigModel product must not package or silently use a local model",
+                )
+            else:
+                self._verify_agent_host_xpc_sandbox(
+                    product_app=product_app,
+                    launcher_binary=product_launcher,
+                    scratch=root,
+                )
             broker_info_path = broker_bundle / "Contents" / "Info.plist"
             with broker_info_path.open("rb") as stream:
                 broker_info = plistlib.load(stream)
@@ -923,6 +1146,58 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     product_requirement=product_requirement,
                     scratch=root,
                 )
+                self._remove_plugin_store(plugin_store)
+                self._remove_plugin_store(plugin_state)
+
+            if real_model_evolution or bigmodel_evolution:
+                plugin_store = self._plugin_store_path_for_requirement(
+                    product_requirement
+                )
+                plugin_state = self._plugin_state_path_for_requirement(
+                    product_requirement
+                )
+                self.assertFalse(plugin_store.exists(), f"unexpected Plugin store: {plugin_store}")
+                self.assertFalse(plugin_state.exists(), f"unexpected Plugin state: {plugin_state}")
+                self.addCleanup(self._remove_plugin_store, plugin_store)
+                self.addCleanup(self._remove_plugin_store, plugin_state)
+                evidence_env = (
+                    "KHAOS_BIGMODEL_EVIDENCE_PATH"
+                    if bigmodel_evolution
+                    else "KHAOS_REAL_MODEL_EVIDENCE_PATH"
+                )
+                self.assertTrue(
+                    os.environ.get(evidence_env),
+                    f"{evidence_env} is required to preserve acceptance evidence",
+                )
+                real_model_evidence = Path(os.environ[evidence_env]).expanduser().absolute()
+                real_model_artifacts = real_model_evidence.parent / (
+                    f"{real_model_evidence.stem}.artifacts"
+                )
+                self.assertFalse(
+                    real_model_evidence.exists() or real_model_artifacts.exists(),
+                    "refusing to overwrite prior real-model evidence: "
+                    f"{real_model_evidence} or {real_model_artifacts} already exists",
+                )
+                try:
+                    self._assert_product_memory_evolution_ui(
+                        product_app=product_app,
+                        product_launcher=product_launcher,
+                        product_requirement=product_requirement,
+                        scratch=root,
+                        real_model=True,
+                        evidence_path=real_model_evidence,
+                        model_provider=(bigmodel_provider if bigmodel_evolution else "local"),
+                    )
+                except BaseException as error:
+                    self._record_real_model_test_failure(
+                        evidence_path=real_model_evidence,
+                        product_app=product_app,
+                        scratch=root,
+                        plugin_store=plugin_store,
+                        plugin_state=plugin_state,
+                        error=error,
+                    )
+                    raise
                 self._remove_plugin_store(plugin_store)
                 self._remove_plugin_store(plugin_state)
 
@@ -4804,7 +5079,14 @@ def run():
             )
 
         def gate(message: str) -> None:
-            print(message, flush=True)
+            without_terminal_prompt = message.replace(
+                ", press Return.", "."
+            ).replace(" press Return.", ".")
+            print(
+                without_terminal_prompt
+                + " The test continues automatically when the signed product records this action.",
+                flush=True,
+            )
             ready, _, _ = select.select([sys.stdin], [], [], 300)
             self.assertTrue(ready, "timed out at the stale-generation UI gate")
             self.assertNotEqual(sys.stdin.readline(), "", "test input closed")
@@ -5516,6 +5798,291 @@ def run():
             flush=True,
         )
 
+    def _record_real_model_test_failure(
+        self,
+        *,
+        evidence_path: Path,
+        product_app: Path,
+        scratch: Path,
+        plugin_store: Path,
+        plugin_state: Path,
+        error: BaseException,
+    ) -> None:
+        report_path = evidence_path.expanduser().absolute()
+        had_trial_report = report_path.exists()
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        log_source = scratch / "agent-memory-evolution-logs"
+        logs_path = report_path.parent / f"{report_path.stem}.logs"
+        if logs_path.exists():
+            logs_path = report_path.parent / (
+                f"{report_path.stem}.logs-{os.getpid()}"
+            )
+        if log_source.is_dir():
+            shutil.copytree(log_source, logs_path)
+        diagnostics = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in sorted(logs_path.glob("*.stderr"))
+        ) if logs_path.is_dir() else ""
+
+        def marker_fields(marker: str) -> dict[str, str] | None:
+            prefix = f"workspace-kernel-smoke={marker} "
+            for line in diagnostics.splitlines():
+                if line.startswith(prefix):
+                    return dict(
+                        field.split("=", 1)
+                        for field in line[len(prefix):].split()
+                        if "=" in field
+                    )
+            return None
+
+        proposal: dict[str, object] | None = None
+        proposal_prefix = "workspace-kernel-smoke=agent-evolution-proposal-base64="
+        for line in diagnostics.splitlines():
+            if line.startswith(proposal_prefix):
+                encoded = line[len(proposal_prefix):]
+                try:
+                    parsed = json.loads(
+                        base64.b64decode(encoded, validate=True).decode("utf-8")
+                    )
+                except (ValueError, UnicodeError, json.JSONDecodeError):
+                    break
+                if isinstance(parsed, dict):
+                    proposal = parsed
+                break
+
+        generated = marker_fields("agent-evolution-candidate-generated")
+        admitted = marker_fields("agent-evolution-candidate-admitted")
+        model_usage = marker_fields("agent-evolution-model-usage")
+        candidate_artifact: dict[str, object] | None = None
+        candidate_compile_passed: bool | None = None
+        candidate_digest = (generated or {}).get("digest")
+        if (not had_trial_report and candidate_digest and admitted
+                and admitted.get("digest") == candidate_digest):
+            stored_candidate = plugin_store / "candidates" / candidate_digest
+            source_path = stored_candidate / "plugin.py"
+            manifest_path = stored_candidate / "manifest.json"
+            if source_path.is_file() and manifest_path.is_file():
+                source_bytes = source_path.read_bytes()
+                manifest_bytes = manifest_path.read_bytes()
+                content_digest = hashlib.sha256(
+                    b"Khaos Seed Plugin Candidate v1\0"
+                    + len(manifest_bytes).to_bytes(8, "big")
+                    + manifest_bytes
+                    + len(source_bytes).to_bytes(8, "big")
+                    + source_bytes
+                ).hexdigest()
+                artifact_root = report_path.parent / f"{report_path.stem}.artifacts"
+                artifact_directory = (
+                    artifact_root / "candidates" / "unassigned-baseline-action"
+                    / candidate_digest
+                )
+                if content_digest == candidate_digest and not artifact_directory.exists():
+                    artifact_directory.mkdir(parents=True)
+                    shutil.copy2(manifest_path, artifact_directory / "manifest.json")
+                    shutil.copy2(source_path, artifact_directory / "plugin.py")
+                    try:
+                        compile(
+                            source_bytes.decode("utf-8", errors="strict"),
+                            f"unassigned-candidate-{candidate_digest}.py",
+                            "exec",
+                        )
+                        candidate_compile_passed = True
+                    except (SyntaxError, UnicodeError, ValueError):
+                        candidate_compile_passed = False
+                    candidate_artifact = {
+                        "digest": candidate_digest,
+                        "source_sha256": hashlib.sha256(source_bytes).hexdigest(),
+                        "manifest_digest": hashlib.sha256(manifest_bytes).hexdigest(),
+                        "source_bytes": len(source_bytes),
+                        "manifest_bytes": len(manifest_bytes),
+                        "artifact_directory": str(artifact_directory),
+                        "case_id": None,
+                        "compile_passed": candidate_compile_passed,
+                    }
+
+        agent_host_contents = (
+            product_app
+            / "Contents"
+            / "XPCServices"
+            / "KhaosAgentHost.xpc"
+            / "Contents"
+        )
+        model_path = agent_host_contents / "Resources" / "agent-model.gguf"
+        llama_path = (
+            agent_host_contents / "Frameworks" / "KhaosLlama" / "llama-cli"
+        )
+        model_info_path = agent_host_contents / "Info.plist"
+        model_info = (
+            plistlib.loads(model_info_path.read_bytes())
+            if model_info_path.is_file()
+            else {}
+        )
+        signature = subprocess.run(
+            ["codesign", "--verify", "--deep", "--strict", str(product_app)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        case_file = ROOT / "tests" / "fixtures" / "real_model_memory_evolution_cases.json"
+        case_bytes = case_file.read_bytes()
+        case_document = json.loads(case_bytes.decode("utf-8", errors="strict"))
+        dataset_path = product_app / "Contents" / "Resources" / "memory-evaluation.json"
+        dataset_bytes = dataset_path.read_bytes() if dataset_path.is_file() else b""
+
+        if report_path.exists():
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        else:
+            diff = subprocess.run(
+                ["git", "diff", "--binary", "HEAD"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+            ).stdout
+            commit = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            report = {
+                "format": "khaos-real-model-self-evolution-v1",
+                "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                "status": "failed_before_evolution_trials",
+                "repository": {
+                    "commit": commit,
+                    "working_diff_sha256": hashlib.sha256(diff).hexdigest(),
+                },
+                "signed_product": {
+                    "deep_signature_verified": signature.returncode == 0,
+                    "bundle_identifier": "org.khaos.Seed",
+                    "launcher_sha256": hashlib.sha256(
+                        (product_app / "Contents" / "MacOS" / "KhaosSeed").read_bytes()
+                    ).hexdigest(),
+                    "agent_host_sha256": hashlib.sha256(
+                        (agent_host_contents / "MacOS" / "KhaosAgentHost").read_bytes()
+                    ).hexdigest(),
+                    "deterministic_model_probe_used": False,
+                },
+                "model": {
+                    "provider": model_info.get("KhaosModelProvider", "local"),
+                    "model_id": (
+                        "glm-5.3-flash"
+                        if model_info.get("KhaosModelProvider", "local") != "local"
+                        else None
+                    ),
+                    "endpoint_profile": (
+                        model_info.get("KhaosModelProvider")
+                        if model_info.get("KhaosModelProvider", "local") != "local"
+                        else None
+                    ),
+                    "runtime": model_info.get("KhaosLocalModelRuntime"),
+                    "model_sha256": (
+                        hashlib.sha256(model_path.read_bytes()).hexdigest()
+                        if model_path.is_file()
+                        else None
+                    ),
+                    "model_metadata_sha256": model_info.get("KhaosLocalModelSHA256"),
+                    "llama_cli_sha256": (
+                        hashlib.sha256(llama_path.read_bytes()).hexdigest()
+                        if llama_path.is_file()
+                        else None
+                    ),
+                },
+                "fixed_evaluation": {
+                    "sha256": hashlib.sha256(dataset_bytes).hexdigest(),
+                    "bytes": len(dataset_bytes),
+                    "evaluator_version": "fixed-memory-replay-v2",
+                },
+                "trial_definitions": {
+                    "sha256": hashlib.sha256(case_bytes).hexdigest(),
+                    "cases": case_document.get("cases", []),
+                },
+                "candidate_artifacts_directory": None,
+                "cases": [],
+                "summary": {
+                    "case_count": len(case_document.get("cases", [])),
+                    "proposal_attempt_count": 0,
+                    "proposal_legal_count": 0,
+                    "proposal_legal_rate": None,
+                    "candidate_generation_success_count": 0,
+                    "candidate_admission_success_count": 0,
+                    "candidate_compile_pass_count": 0,
+                    "isolated_evaluation_attempt_count": 0,
+                    "isolated_evaluation_improved_count": 0,
+                    "activation_attempt_count": 0,
+                    "rollback_attempt_count": 0,
+                },
+            }
+        report["status"] = "failed"
+        report["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
+        if not had_trial_report:
+            report["setup_anomaly"] = {
+                "stage": (
+                    "misclassified_baseline_action"
+                    if proposal is not None and generated is not None
+                    else "unexpected_tool_result_action"
+                    if proposal is not None and "agent-plugin=passed" in diagnostics
+                    else "baseline_agent_action"
+                    if "invalid_agent_action" in str(error)
+                    else "signed_product_baseline_setup"
+                ),
+                "proposal": proposal,
+                "candidate_generated": generated,
+                "candidate_admitted": admitted,
+                "candidate_compile_passed": candidate_compile_passed,
+                "candidate_artifact": candidate_artifact,
+                "model_usage": model_usage,
+                "baseline_state_file_exists": (
+                    plugin_state / "memory" / "state.json"
+                ).is_file(),
+                "plugin_approval_count": diagnostics.count(
+                    "agent-plugin=approval-presented"
+                ),
+                "plugin_success_count": diagnostics.count("agent-plugin=passed"),
+                "unexpected_post_result_evolution_proposal": (
+                    proposal is not None
+                    and "agent-plugin=passed" in diagnostics
+                    and generated is None
+                ),
+                "evaluation_failure": (
+                    "runner_failed"
+                    if "agent-evolution=denied code=runner_failed" in diagnostics
+                    else None
+                ),
+                "evaluation_record_present": (
+                    "workspace-kernel-smoke=agent-evolution-evaluation-record-base64="
+                    in diagnostics
+                ),
+                "activation_review_presented": (
+                    "agent-evolution-activation-review=presented" in diagnostics
+                ),
+                "note": (
+                    "This event occurred during baseline setup and is excluded from the "
+                    "predefined defect-case metrics."
+                ),
+            }
+        report["test_failure"] = {
+            "stage": (
+                report.get("setup_anomaly", {}).get("stage")
+                if isinstance(report.get("setup_anomaly"), dict)
+                else "trial_execution"
+            ),
+            "error_type": type(error).__name__,
+            "message": str(error)[:4096],
+            "evidence_logs_directory": str(logs_path) if logs_path.exists() else None,
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+        temporary = report_path.with_name(
+            f".{report_path.name}.{os.getpid()}.tmp"
+        )
+        temporary.write_text(
+            json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, report_path)
+
     def _assert_product_memory_evolution_ui(
         self,
         *,
@@ -5523,6 +6090,9 @@ def run():
         product_launcher: Path,
         product_requirement: str,
         scratch: Path,
+        real_model: bool = False,
+        evidence_path: Path | None = None,
+        model_provider: str = "local",
     ) -> None:
         plugin_store = self._plugin_store_path_for_requirement(product_requirement)
         plugin_state = self._plugin_state_path_for_requirement(product_requirement)
@@ -5537,15 +6107,26 @@ def run():
         logs.mkdir()
 
         def gate(message: str) -> None:
-            print(message, flush=True)
-            ready, _, _ = select.select([sys.stdin], [], [], 300)
-            self.assertTrue(ready, "timed out at the Memory evolution UI gate")
-            self.assertNotEqual(sys.stdin.readline(), "", "test input closed")
+            # Each gate is followed by a bounded wait for the signed product's
+            # decision marker. Requiring a second terminal keystroke after the
+            # user has already completed the native UI action creates a false
+            # timeout and can abandon an otherwise recorded approval.
+            without_terminal_prompt = message.replace(
+                ", press Return.", "."
+            ).replace(" press Return.", ".")
+            print(
+                without_terminal_prompt
+                + " The test continues automatically when the signed product records this action.",
+                flush=True,
+            )
 
         def wait_for_marker(
-            process: subprocess.Popen[str], path: Path, marker: str
+            process: subprocess.Popen[str],
+            path: Path,
+            marker: str,
+            response_path: Path | None = None,
         ) -> str:
-            deadline = time.monotonic() + 300
+            deadline = time.monotonic() + _REAL_MODEL_REQUEST_WAIT_SECONDS
             while time.monotonic() < deadline:
                 try:
                     diagnostics = path.read_text(
@@ -5555,6 +6136,30 @@ def run():
                     diagnostics = ""
                 if marker in diagnostics:
                     return diagnostics
+                if real_model and response_path is not None:
+                    try:
+                        response = response_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                    except FileNotFoundError:
+                        response = ""
+                    if "Khaos:" in response and response.rstrip().endswith("You:"):
+                        raise ProductAgentEvolutionFailure(
+                            "the real model returned a text response without proposing "
+                            "the requested Plugin operation; no operation was run"
+                        )
+                if real_model and any(
+                    failure in diagnostics
+                    for failure in (
+                        "agent-evolution=denied code=",
+                        "agent-evolution=failed code=",
+                        "agent-evolution-development=denied",
+                        "agent-plugin=failed code=",
+                        "Local Agent error:",
+                        "Local Agent request failed:",
+                    )
+                ):
+                    raise ProductAgentEvolutionFailure(diagnostics)
                 if "workspace-kernel-smoke=failed code=" in diagnostics:
                     self.fail(f"the signed product rejected an operation: {diagnostics}")
                 if process.poll() is not None:
@@ -5564,16 +6169,36 @@ def run():
                 diagnostics = path.read_text(encoding="utf-8", errors="replace")
             except FileNotFoundError:
                 diagnostics = ""
+            if real_model and any(
+                failure in diagnostics
+                for failure in (
+                    "agent-evolution=denied code=",
+                    "agent-evolution=failed code=",
+                    "agent-evolution-development=denied",
+                    "agent-plugin=failed code=",
+                    "Local Agent error:",
+                    "Local Agent request failed:",
+                )
+            ):
+                raise ProductAgentEvolutionFailure(diagnostics)
+            # Product apps launched with `open` can outlive this test process.
+            # Stop the exact temporary product before TemporaryDirectory removes
+            # its executable, so framework cleanup can still resolve the path.
+            self._terminate_product_executable(product_launcher)
             self.fail(f"{marker!r} did not occur: {diagnostics}")
 
         def finish_agent(
             process: subprocess.Popen[str], stdout_path: Path, stderr_path: Path
         ) -> None:
-            self.assertIsNotNone(process.stdin)
-            process.stdin.write("/exit\n")
-            process.stdin.close()
+            if process.poll() is None:
+                self.assertIsNotNone(process.stdin)
+                try:
+                    process.stdin.write("/exit\n")
+                    process.stdin.close()
+                except (BrokenPipeError, OSError):
+                    pass
             try:
-                process.wait(timeout=180)
+                process.wait(timeout=_REAL_MODEL_REQUEST_WAIT_SECONDS)
             except subprocess.TimeoutExpired:
                 self._terminate_product_executable(product_launcher)
                 process.kill()
@@ -5608,7 +6233,7 @@ def run():
         )
         print(
             "Review Candidate A's memory interface and empty workspace scope, "
-            "approve activation, dismiss the success alert, then press Return.",
+            "approve activation, and dismiss the success alert. The test continues automatically.",
             flush=True,
         )
         gate("After Candidate A activation and alert dismissal, press Return.")
@@ -5664,33 +6289,81 @@ def run():
             )
             remember.stdin.flush()
             wait_for_marker(
-                remember, remember_stderr, "agent-plugin=approval-presented"
+                remember,
+                remember_stderr,
+                "agent-plugin=approval-presented",
+                response_path=remember_stdout,
             )
             print(
                 "Approve Candidate A's remember(project_codename, Project K) "
-                "invocation, then press Return.",
+                "invocation. The test continues automatically.",
                 flush=True,
             )
             gate("After approving remember, press Return.")
-            wait_for_marker(remember, remember_stderr, "agent-plugin=passed")
+            wait_for_marker(
+                remember,
+                remember_stderr,
+                "agent-plugin=passed",
+                response_path=remember_stdout,
+            )
             expected_remember = (
                 'Agent received untrusted Plugin output; state-only changeset counts '
                 'are zero: {"key":"project_codename","operation":"remember",'
                 '"remembered":true}'
             )
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + _REAL_MODEL_REQUEST_WAIT_SECONDS
             while time.monotonic() < deadline:
-                if expected_remember in remember_stdout.read_text(
+                remember_output = remember_stdout.read_text(
                     encoding="utf-8", errors="replace"
+                )
+                remember_diagnostics = remember_stderr.read_text(
+                    encoding="utf-8", errors="replace"
+                )
+                real_model_reply = (
+                    "Khaos:" in remember_output
+                    and remember_output.rstrip().endswith("You:")
+                )
+                if (real_model and real_model_reply) or (
+                    not real_model and expected_remember in remember_output
                 ):
                     break
+                if any(
+                    failure in remember_diagnostics
+                    for failure in (
+                        "agent-plugin=failed code=",
+                        "Local Agent error:",
+                        "Local Agent request failed:",
+                    )
+                ):
+                    self.fail(
+                        "the approved Plugin returned but AgentHost did not finish "
+                        "the tool_result response: " + remember_diagnostics
+                    )
+                if "Khaos:" in remember_output and remember_output.rstrip().endswith("You:"):
+                    self.fail(
+                        "AgentHost returned to the prompt without the expected "
+                        "tool_result summary: " + remember_output
+                        + "\n" + remember_diagnostics
+                    )
                 if remember.poll() is not None:
                     break
                 time.sleep(0.1)
-            self.assertIn(
-                expected_remember,
-                remember_stdout.read_text(encoding="utf-8", errors="replace"),
+            remember_output = remember_stdout.read_text(
+                encoding="utf-8", errors="replace"
             )
+            if real_model:
+                self.assertIn(
+                    "Khaos:",
+                    remember_output,
+                    remember_stderr.read_text(encoding="utf-8", errors="replace"),
+                )
+                self.assertTrue(remember_output.rstrip().endswith("You:"))
+            else:
+                self.assertIn(
+                    expected_remember,
+                    remember_output,
+                    remember_stderr.read_text(encoding="utf-8", errors="replace"),
+                )
             self.assertIsNotNone(remember.stdin)
             remember.stdin.write("/exit\n")
             remember.stdin.close()
@@ -5707,6 +6380,31 @@ def run():
 
         def candidate_digests() -> set[str]:
             return {entry.name for entry in candidates_dir.iterdir() if entry.is_dir()}
+
+        if real_model:
+            self.assertIsNotNone(evidence_path)
+            self._assert_product_real_model_memory_trials(
+                product_app=product_app,
+                product_launcher=product_launcher,
+                product_requirement=product_requirement,
+                plugin_store=plugin_store,
+                plugin_state=plugin_state,
+                candidate_a=candidate_a,
+                manifest_a=manifest_a,
+                source_a=source_a,
+                production_state=production_state,
+                memory_file=memory_file,
+                candidates_dir=candidates_dir,
+                scratch=scratch,
+                logs=logs,
+                evidence_path=evidence_path,
+                model_provider=model_provider,
+                gate=gate,
+                wait_for_marker=wait_for_marker,
+                finish_agent=finish_agent,
+                candidate_digests=candidate_digests,
+            )
+            return
 
         def run_agent_evolution(
             label: str,
@@ -5864,7 +6562,8 @@ def run():
                 wait_for_marker(process, stderr_path, "agent-plugin=approval-presented")
                 print(
                     f"The Agent approval must show Plugin memory and generation "
-                    f"{expected_generation}. Approve the exact recall once, then press Return.",
+                    f"{expected_generation}. Approve the exact recall once. "
+                    "The test continues automatically.",
                     flush=True,
                 )
                 gate("After approving the Agent Plugin invocation, press Return.")
@@ -5912,7 +6611,7 @@ def run():
         )
         print(
             "Approve rollback to Candidate A; it changes future routing and keeps "
-            "the Memory state blob. Dismiss the success alert, then press Return.",
+            "the Memory state blob. Dismiss the success alert. The test continues automatically.",
             flush=True,
         )
         gate("After approving rollback and dismissing the alert, press Return.")
@@ -5961,6 +6660,1260 @@ def run():
             "improved isolated replay from A 3/5 to B 4/5 without regressions; "
             "activation denial left A active; approved B reused the production "
             "state; rollback returned to A with that state unchanged.",
+            flush=True,
+        )
+
+    def _assert_product_real_model_memory_trials(
+        self,
+        *,
+        product_app: Path,
+        product_launcher: Path,
+        product_requirement: str,
+        plugin_store: Path,
+        plugin_state: Path,
+        candidate_a: object,
+        manifest_a: bytes,
+        source_a: bytes,
+        production_state: bytes,
+        memory_file: Path,
+        candidates_dir: Path,
+        scratch: Path,
+        logs: Path,
+        evidence_path: Path,
+        model_provider: str,
+        gate: Callable[[str], None],
+        wait_for_marker: Callable[[subprocess.Popen[str], Path, str], str],
+        finish_agent: Callable[[subprocess.Popen[str], Path, Path], None],
+        candidate_digests: Callable[[], set[str]],
+    ) -> None:
+        report_path = evidence_path.expanduser().absolute()
+        artifact_root = report_path.parent / f"{report_path.stem}.artifacts"
+        if report_path.exists() or artifact_root.exists():
+            self.fail(
+                "refusing to overwrite prior real-model evidence: "
+                f"{report_path} or {artifact_root} already exists"
+            )
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_root.mkdir(parents=True)
+
+        case_file = ROOT / "tests" / "fixtures" / "real_model_memory_evolution_cases.json"
+        case_bytes = case_file.read_bytes()
+        case_document = json.loads(case_bytes.decode("utf-8", errors="strict"))
+        self.assertEqual(case_document.get("format"), "khaos-real-model-memory-cases-v1")
+        cases = case_document.get("cases")
+        self.assertIsInstance(cases, list)
+        self.assertGreaterEqual(len(cases), 2)
+        self.assertEqual(len({case.get("id") for case in cases}), len(cases))
+        target_sample_ids: list[str] = []
+        for case in cases:
+            self.assertIsInstance(case, dict)
+            targets = case.get("target_sample_ids")
+            self.assertIsInstance(targets, list)
+            self.assertTrue(targets)
+            self.assertTrue(
+                all(type(sample_id) is str and sample_id for sample_id in targets)
+            )
+            target_sample_ids.extend(targets)
+        self.assertEqual(
+            len(target_sample_ids),
+            len(set(target_sample_ids)),
+            "each predefined defect case must target distinct evaluation samples",
+        )
+
+        def wait_for_agent_text(
+            process: subprocess.Popen[str],
+            stdout_path: Path,
+            stderr_path: Path,
+            expected: str,
+        ) -> tuple[bool, str | None]:
+            deadline = time.monotonic() + _REAL_MODEL_REQUEST_WAIT_SECONDS
+            while time.monotonic() < deadline:
+                try:
+                    response = stdout_path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                except FileNotFoundError:
+                    response = ""
+                if expected in response:
+                    return True, None
+                try:
+                    diagnostics = stderr_path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                except FileNotFoundError:
+                    diagnostics = ""
+                for marker, reason in (
+                    ("Local Agent error:", "local_agent_error"),
+                    ("Local Agent request failed:", "local_agent_request_failed"),
+                    ("agent-plugin=failed code=", "agent_plugin_failed"),
+                ):
+                    if marker in diagnostics:
+                        return False, reason
+                if "Khaos:" in response and response.rstrip().endswith("You:"):
+                    return False, "model_response_completed_without_expected_text"
+                if process.poll() is not None:
+                    return False, "agent_process_exited"
+                time.sleep(0.1)
+            return False, "agent_response_timeout"
+
+        def finish_agent_recording_result(
+            process: subprocess.Popen[str], stdout_path: Path, stderr_path: Path
+        ) -> bool:
+            try:
+                finish_agent(process, stdout_path, stderr_path)
+            except AssertionError:
+                return False
+            return True
+
+        agent_host_contents = (
+            product_app
+            / "Contents"
+            / "XPCServices"
+            / "KhaosAgentHost.xpc"
+            / "Contents"
+        )
+        model_path = agent_host_contents / "Resources" / "agent-model.gguf"
+        llama_path = (
+            agent_host_contents
+            / "Frameworks"
+            / "KhaosLlama"
+            / "llama-cli"
+        )
+        with (agent_host_contents / "Info.plist").open("rb") as stream:
+            model_info = plistlib.load(stream)
+        self.assertEqual(model_info.get("KhaosModelProvider", "local"), model_provider)
+        dataset_bytes = (
+            product_app / "Contents" / "Resources" / "memory-evaluation.json"
+        ).read_bytes()
+        source_diff = subprocess.run(
+            ["git", "diff", "--binary", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+        source_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        report: dict[str, object] = {
+            "format": "khaos-real-model-self-evolution-v1",
+            "status": "in_progress",
+            "started_at_utc": datetime.now(timezone.utc).isoformat(),
+            "repository": {
+                "commit": source_commit,
+                "working_diff_sha256": hashlib.sha256(source_diff).hexdigest(),
+            },
+            "signed_product": {
+                "deep_signature_verified": True,
+                "bundle_identifier": "org.khaos.Seed",
+                "launcher_sha256": hashlib.sha256(
+                    product_launcher.read_bytes()
+                ).hexdigest(),
+                "agent_host_sha256": hashlib.sha256(
+                    (agent_host_contents / "MacOS" / "KhaosAgentHost").read_bytes()
+                ).hexdigest(),
+                "deterministic_model_probe_used": False,
+            },
+            "model": {
+                "provider": model_provider,
+                "model_id": "glm-5.3-flash" if model_provider != "local" else None,
+                "endpoint_profile": model_provider if model_provider != "local" else None,
+                "runtime": model_info.get("KhaosLocalModelRuntime"),
+                "model_sha256": (
+                    hashlib.sha256(model_path.read_bytes()).hexdigest()
+                    if model_path.is_file()
+                    else None
+                ),
+                "model_metadata_sha256": model_info.get("KhaosLocalModelSHA256"),
+                "llama_cli_sha256": (
+                    hashlib.sha256(llama_path.read_bytes()).hexdigest()
+                    if llama_path.is_file()
+                    else None
+                ),
+            },
+            "fixed_evaluation": {
+                "sha256": hashlib.sha256(dataset_bytes).hexdigest(),
+                "bytes": len(dataset_bytes),
+                "evaluator_version": "fixed-memory-replay-v2",
+            },
+            "trial_definitions": {
+                "sha256": hashlib.sha256(case_bytes).hexdigest(),
+                "cases": cases,
+            },
+            "candidate_artifacts_directory": str(artifact_root),
+            "cases": [],
+        }
+
+        def flush_report() -> None:
+            temporary = report_path.with_name(
+                f".{report_path.name}.{os.getpid()}.tmp"
+            )
+            temporary.write_text(
+                json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, report_path)
+
+        def marked_value(diagnostics: str, marker: str) -> str | None:
+            prefix = f"workspace-kernel-smoke={marker}"
+            for line in diagnostics.splitlines():
+                if line.startswith(prefix):
+                    return line[len(prefix):]
+            return None
+
+        def decoded_marker_json(diagnostics: str, marker: str) -> object | None:
+            value = marked_value(diagnostics, marker)
+            if value is None:
+                return None
+            encoded = value.removeprefix("=")
+            try:
+                decoded = base64.b64decode(encoded, validate=True)
+                result = json.loads(decoded.decode("utf-8", errors="strict"))
+            except (ValueError, UnicodeError, json.JSONDecodeError):
+                return None
+            return result if type(result) in (dict, list) else None
+
+        def candidate_content_digest(manifest: bytes, source: bytes) -> str:
+            digest_input = (
+                b"Khaos Seed Plugin Candidate v1\0"
+                + len(manifest).to_bytes(8, "big")
+                + manifest
+                + len(source).to_bytes(8, "big")
+                + source
+            )
+            return hashlib.sha256(digest_input).hexdigest()
+
+        def proposal_is_legal(
+            proposal: dict[str, object],
+            *,
+            feedback: str,
+            baseline_digest: str,
+            generation: int,
+            baseline_manifest_digest: str,
+            baseline_scope_digest: str,
+        ) -> bool:
+            digest = proposal.get("proposal_digest")
+            body = dict(proposal)
+            body.pop("proposal_digest", None)
+            canonical = json.dumps(
+                body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            expected_digest = hashlib.sha256(
+                b"Khaos Seed Evolution Proposal v1\0" + canonical
+            ).hexdigest()
+            return (
+                proposal.get("target_plugin_id") == "memory"
+                and proposal.get("baseline_candidate_digest") == baseline_digest
+                and proposal.get("current_generation") == generation
+                and proposal.get("baseline_manifest_digest") == baseline_manifest_digest
+                and proposal.get("baseline_scope_digest") == baseline_scope_digest
+                and proposal.get("evidence_digest")
+                    == hashlib.sha256(feedback.encode("utf-8")).hexdigest()
+                and proposal.get("dataset_digest")
+                    == hashlib.sha256(dataset_bytes).hexdigest()
+                and proposal.get("state_format") == "khaos-memory-v1"
+                and proposal.get("capability_ceiling") == {
+                    "plugin_id": "memory",
+                    "process_exec": False,
+                    "read_scope": [],
+                    "write_scope": [],
+                }
+                and proposal.get("generation_budget") == {
+                    "max_seconds": 600,
+                    "max_tokens": 32768,
+                }
+                and proposal.get("evaluation_budget") == {
+                    "sample_count": 5,
+                    "per_sample_seconds": 10,
+                    "max_seconds": 100,
+                }
+                and isinstance(proposal.get("improvement_goal"), str)
+                and bool(proposal.get("improvement_goal"))
+                and digest == expected_digest
+            )
+
+        def observe_model_process(stop: threading.Event, result: dict[str, object]) -> None:
+            while not stop.is_set():
+                try:
+                    processes = subprocess.run(
+                        ["/bin/ps", "-ww", "-axo", "pid=,ppid=,command="],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                    )
+                except (OSError, subprocess.SubprocessError):
+                    stop.wait(0.1)
+                    continue
+                match = next(
+                    (
+                        line.strip()
+                        for line in processes.stdout.splitlines()
+                        if str(llama_path) in line and str(model_path) in line
+                    ),
+                    None,
+                )
+                if match is not None:
+                    result["observed"] = True
+                    result["command_sha256"] = hashlib.sha256(
+                        match.encode("utf-8")
+                    ).hexdigest()
+                    return
+                stop.wait(0.05)
+
+        def current_activation() -> tuple[str, str | None, int]:
+            active, previous, generation = activation_state(plugin_store)
+            self.assertEqual(active.candidate_digest, candidate_a.candidate_digest)
+            self.assertEqual(memory_file.read_bytes(), production_state)
+            return (
+                active.candidate_digest,
+                previous.candidate_digest if previous is not None else None,
+                generation,
+            )
+
+        def parse_evaluation(diagnostics: str, case_record: dict[str, object]) -> None:
+            observations = decoded_marker_json(
+                diagnostics,
+                "agent-evolution-evaluation-observations-base64=",
+            )
+            record = decoded_marker_json(
+                diagnostics,
+                "agent-evolution-evaluation-record-base64=",
+            )
+            if isinstance(observations, list):
+                case_record["runner_observations"] = observations
+            if type(record) is dict:
+                case_record["evaluation"] = record
+
+        def runner_observations_ok(observations: object) -> bool:
+            return (
+                isinstance(observations, list)
+                and len(observations) == 5
+                and all(
+                    type(sample) is dict
+                    and all(
+                        type(sample.get(which)) is dict
+                        and sample[which].get("returncode") == 0
+                        and (
+                            sample[which].get("added"),
+                            sample[which].get("modified"),
+                            sample[which].get("deleted"),
+                        ) == (0, 0, 0)
+                        for which in ("baseline", "candidate")
+                    )
+                    for sample in observations
+                )
+            )
+
+        def evaluation_binding_matches(
+            evaluation: object,
+            *,
+            baseline_digest: str,
+            candidate_digest: str,
+            proposal_digest: object,
+        ) -> bool:
+            return (
+                type(evaluation) is dict
+                and evaluation.get("baseline_digest") == baseline_digest
+                and evaluation.get("candidate_digest") == candidate_digest
+                and evaluation.get("dataset_digest")
+                    == hashlib.sha256(dataset_bytes).hexdigest()
+                and evaluation.get("proposal_digest") == proposal_digest
+                and evaluation.get("candidate_manifest_digest")
+                    == candidate_a.manifest_digest
+                and evaluation.get("candidate_scope_digest")
+                    == candidate_a.scope_digest
+                and evaluation.get("sample_count") == 5
+                and evaluation.get("evaluator_version") == "fixed-memory-replay-v2"
+            )
+
+        def evaluation_improved_without_regressions(
+            evaluation: object,
+            *,
+            baseline_digest: str,
+            candidate_digest: str,
+            proposal_digest: object,
+            target_sample_ids: object,
+        ) -> bool:
+            if not evaluation_binding_matches(
+                evaluation,
+                baseline_digest=baseline_digest,
+                candidate_digest=candidate_digest,
+                proposal_digest=proposal_digest,
+            ):
+                return False
+            baseline_pass = evaluation.get("baseline_pass")
+            candidate_pass = evaluation.get("candidate_pass")
+            improvements = evaluation.get("improvements")
+            return (
+                type(baseline_pass) is int
+                and type(candidate_pass) is int
+                and 0 <= baseline_pass <= 5
+                and 0 <= candidate_pass <= 5
+                and type(improvements) is list
+                and all(type(sample_id) is str for sample_id in improvements)
+                and type(target_sample_ids) is list
+                and bool(target_sample_ids)
+                and all(
+                    type(sample_id) is str and sample_id in improvements
+                    for sample_id in target_sample_ids
+                )
+                and candidate_pass > baseline_pass
+                and evaluation.get("regressions") == []
+            )
+
+        def rollback_to_baseline(
+            label: str,
+            expected_previous_digest: str,
+            case_record: dict[str, object],
+        ) -> bool:
+            active_before, previous_before, generation_before = activation_state(
+                plugin_store
+            )
+            self.assertEqual(active_before.candidate_digest, expected_previous_digest)
+            self.assertIsNotNone(previous_before)
+            self.assertEqual(
+                previous_before.candidate_digest,
+                candidate_a.candidate_digest,
+            )
+            self.assertEqual(memory_file.read_bytes(), production_state)
+            stdout_path = logs / f"{label}-rollback.stdout"
+            stderr_path = logs / f"{label}-rollback.stderr"
+            process = self._launch_product_app(
+                product_app,
+                stdout_path,
+                stderr_path,
+                "--plugin-rollback",
+            )
+            wait_for_marker(
+                process,
+                stderr_path,
+                "workspace-kernel-smoke=plugin-rollback-review=presented",
+            )
+            print(
+                f"Approve rollback for {label}; routing returns to Candidate A and "
+                "the same production Memory state must remain.",
+                flush=True,
+            )
+            gate("After approving rollback and dismissing the alert, press Return.")
+            wait_for_marker(
+                process,
+                stderr_path,
+                "workspace-kernel-smoke=plugin-rollback=passed",
+            )
+            stdout, stderr = process.communicate(timeout=180)
+            self.assertEqual(
+                process.returncode,
+                0,
+                stdout + stderr + stderr_path.read_text(
+                    encoding="utf-8", errors="replace"
+                ),
+            )
+            active, previous, generation = activation_state(plugin_store)
+            state_after = memory_file.read_bytes()
+            rolled_back = (
+                active.candidate_digest == candidate_a.candidate_digest
+                and previous is not None
+                and previous.candidate_digest == expected_previous_digest
+                and generation == generation_before + 1
+                and state_after == production_state
+            )
+            case_record["rollback"] = {
+                "user_decision": "approved",
+                "active_candidate_before_rollback": active_before.candidate_digest,
+                "previous_candidate_before_rollback": previous_before.candidate_digest,
+                "generation_before_rollback": generation_before,
+                "active_candidate_digest": active.candidate_digest,
+                "previous_candidate_digest": (
+                    previous.candidate_digest if previous is not None else None
+                ),
+                "generation": generation,
+                "production_state_sha256": hashlib.sha256(state_after).hexdigest(),
+                "production_state_unchanged": state_after == production_state,
+                "verified": rolled_back,
+            }
+            flush_report()
+            return rolled_back
+
+        case_list: list[dict[str, object]] = report["cases"]  # type: ignore[assignment]
+        flush_report()
+        for index, case in enumerate(cases):
+            self.assertIsInstance(case, dict)
+            case_id = case["id"]
+            feedback = case["feedback"]
+            self.assertIsInstance(case_id, str)
+            self.assertIsInstance(feedback, str)
+            (
+                baseline_digest,
+                baseline_previous_digest,
+                baseline_generation,
+            ) = current_activation()
+            case_record: dict[str, object] = {
+                "case_id": case_id,
+                "user_feedback": feedback,
+                "target_sample_ids": case["target_sample_ids"],
+                "baseline_candidate_digest": baseline_digest,
+                "baseline_previous_candidate_digest": baseline_previous_digest,
+                "baseline_generation": baseline_generation,
+                "proposal_legal": False,
+                "development_decision": None,
+                "candidate_generation_success": False,
+                "candidate_admission_success": False,
+                "compile_passed": None,
+                "runner_execution_passed": None,
+                "activation_decision": None,
+            }
+            case_list.append(case_record)
+            flush_report()
+
+            stdout_path = logs / f"{case_id}.stdout"
+            stderr_path = logs / f"{case_id}.stderr"
+            with stdout_path.open("w", encoding="utf-8") as output, \
+                    stderr_path.open("w", encoding="utf-8") as errors:
+                process = subprocess.Popen(
+                    [str(product_launcher), "--agent"],
+                    stdin=subprocess.PIPE,
+                    stdout=output,
+                    stderr=errors,
+                    text=True,
+                )
+                self.addCleanup(self._terminate_product_executable, product_launcher)
+                self.assertIsNotNone(process.stdin)
+                proposal_started = time.monotonic()
+                process.stdin.write(feedback + "\n")
+                process.stdin.flush()
+                try:
+                    diagnostics = wait_for_marker(
+                        process,
+                        stderr_path,
+                        "agent-evolution-development-review=presented",
+                    )
+                except (ProductAgentEvolutionFailure, AssertionError) as error:
+                    case_record["proposal_failure"] = str(error)
+                    case_record["proposal_latency_ms"] = round(
+                        (time.monotonic() - proposal_started) * 1000
+                    )
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        case_record["state_unchanged_after_failure"] = (
+                            memory_file.read_bytes() == production_state
+                        )
+                        case_record["active_candidate_unchanged_after_failure"] = (
+                            active_candidate(plugin_store)[0].candidate_digest
+                            == candidate_a.candidate_digest
+                        )
+                        flush_report()
+                    continue
+
+                case_record["proposal_latency_ms"] = round(
+                    (time.monotonic() - proposal_started) * 1000
+                )
+                proposal = decoded_marker_json(
+                    diagnostics,
+                    "agent-evolution-proposal-base64=",
+                )
+                legal = type(proposal) is dict and proposal_is_legal(
+                    proposal,
+                    feedback=feedback,
+                    baseline_digest=baseline_digest,
+                    generation=baseline_generation,
+                    baseline_manifest_digest=candidate_a.manifest_digest,
+                    baseline_scope_digest=candidate_a.scope_digest,
+                )
+                case_record["proposal"] = proposal
+                case_record["proposal_legal"] = legal
+                case_record["proposal_digest"] = (
+                    proposal.get("proposal_digest") if type(proposal) is dict else None
+                )
+                case_record["proposal_goal"] = (
+                    proposal.get("improvement_goal") if type(proposal) is dict else None
+                )
+                print(
+                    f"Signed real-model Proposal for {case_id}: "
+                    f"{case_record['proposal_goal']}\n"
+                    "Review the complete development approval in Khaos. Approve "
+                    "development only; the later activation decision is separate.",
+                    flush=True,
+                )
+                gate("After approving development, press Return.")
+                case_record["development_decision"] = "approved"
+                flush_report()
+
+                watcher_stop = threading.Event()
+                model_process: dict[str, object] = {"observed": False}
+                watcher = None
+                if model_provider == "local":
+                    watcher = threading.Thread(
+                        target=observe_model_process,
+                        args=(watcher_stop, model_process),
+                        daemon=True,
+                    )
+                generation_started = time.monotonic()
+                if watcher is not None:
+                    watcher.start()
+                try:
+                    diagnostics = wait_for_marker(
+                        process,
+                        stderr_path,
+                        "agent-evolution-candidate-generated digest=",
+                    )
+                except (ProductAgentEvolutionFailure, AssertionError) as error:
+                    watcher_stop.set()
+                    if watcher is not None:
+                        watcher.join(timeout=3)
+                    case_record["generation_failure"] = str(error)
+                    case_record["candidate_generation_wall_latency_ms"] = round(
+                        (time.monotonic() - generation_started) * 1000
+                    )
+                    if model_provider == "local":
+                        case_record["model_process_observed"] = model_process
+                    case_record["model_invocation_observed"] = False
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        case_record["state_unchanged_after_failure"] = (
+                            memory_file.read_bytes() == production_state
+                        )
+                        case_record["active_candidate_unchanged_after_failure"] = (
+                            active_candidate(plugin_store)[0].candidate_digest
+                            == candidate_a.candidate_digest
+                        )
+                        flush_report()
+                    continue
+                finally:
+                    watcher_stop.set()
+                    if watcher is not None:
+                        watcher.join(timeout=3)
+
+                generated_marker = marked_value(
+                    diagnostics,
+                    "agent-evolution-candidate-generated",
+                )
+                generated_fields = dict(
+                    field.split("=", 1)
+                    for field in (generated_marker or "").split()
+                    if "=" in field
+                )
+                model_usage_marker = marked_value(
+                    diagnostics,
+                    "agent-evolution-model-usage",
+                )
+                usage_fields = dict(
+                    field.split("=", 1)
+                    for field in (model_usage_marker or "").split()
+                    if "=" in field
+                )
+                def optional_int(value: str | None) -> int | None:
+                    try:
+                        return int(value) if value not in (None, "unknown") else None
+                    except ValueError:
+                        return None
+
+                case_record["candidate_generation_success"] = bool(
+                    generated_fields.get("digest")
+                )
+                case_record["candidate_generation_wall_latency_ms"] = round(
+                    (time.monotonic() - generation_started) * 1000
+                )
+                model_invocation_observed = (
+                    bool(model_process.get("observed"))
+                    if model_provider == "local"
+                    else usage_fields.get("provider") == model_provider
+                )
+                case_record["model_invocation_observed"] = model_invocation_observed
+                if model_provider == "local":
+                    case_record["model_process_observed"] = model_process
+                case_record["model_usage"] = {
+                    "provider": usage_fields.get("provider"),
+                    "source": (
+                        "untrusted AgentHost llama.cpp --perf telemetry"
+                        if model_provider == "local"
+                        else "untrusted BigModel Chat Completions usage response"
+                    ),
+                    "elapsed_ms": optional_int(usage_fields.get("elapsed_ms")),
+                    "prompt_tokens": optional_int(usage_fields.get("prompt_tokens")),
+                    "completion_tokens": optional_int(usage_fields.get("completion_tokens")),
+                }
+                case_record["candidate_generation_latency_ms"] = (
+                    case_record["model_usage"]["elapsed_ms"]
+                    if case_record["model_usage"]["elapsed_ms"] is not None
+                    else case_record["candidate_generation_wall_latency_ms"]
+                )
+                case_record["candidate_generation_latency_source"] = (
+                    f"AgentHost {model_provider} elapsed_ms"
+                    if case_record["model_usage"]["elapsed_ms"] is not None
+                    else "test harness wall clock from development checkpoint"
+                )
+                case_record["candidate_generated"] = generated_fields
+                if not case_record["proposal_legal"]:
+                    case_record["failure_stage"] = "invalid_proposal_binding"
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        flush_report()
+                    continue
+                if not model_invocation_observed:
+                    case_record["failure_stage"] = "real_model_invocation_not_observed"
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        flush_report()
+                    continue
+
+                candidate_digest = generated_fields.get("digest")
+                candidate_path = candidates_dir / str(candidate_digest)
+                try:
+                    diagnostics = wait_for_marker(
+                        process,
+                        stderr_path,
+                        "agent-evolution-candidate-admitted digest=",
+                    )
+                except (ProductAgentEvolutionFailure, AssertionError) as error:
+                    case_record["candidate_admission_failure"] = str(error)
+                    case_record["candidate_admission_success"] = False
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        case_record["state_unchanged_after_admission_failure"] = (
+                            memory_file.read_bytes() == production_state
+                        )
+                        case_record["active_candidate_unchanged_after_admission_failure"] = (
+                            active_candidate(plugin_store)[0].candidate_digest
+                            == candidate_a.candidate_digest
+                        )
+                        flush_report()
+                    continue
+
+                case_record["candidate_admission_success"] = True
+                admitted_fields = dict(
+                    field.split("=", 1)
+                    for field in (
+                        marked_value(
+                            diagnostics,
+                            "agent-evolution-candidate-admitted",
+                        ) or ""
+                    ).split()
+                    if "=" in field
+                )
+                self.assertEqual(admitted_fields.get("digest"), candidate_digest)
+                self.assertIn(candidate_digest, candidate_digests())
+                self.assertEqual(
+                    {entry.name for entry in candidate_path.iterdir()},
+                    {"manifest.json", "plugin.py"},
+                )
+                generated_manifest = (candidate_path / "manifest.json").read_bytes()
+                generated_source = (candidate_path / "plugin.py").read_bytes()
+                self.assertEqual(
+                    json.loads(generated_manifest.decode("utf-8")),
+                    json.loads(manifest_a.decode("utf-8")),
+                )
+                self.assertEqual(
+                    hashlib.sha256(generated_manifest).hexdigest(),
+                    generated_fields.get("manifest_digest"),
+                )
+                self.assertEqual(
+                    hashlib.sha256(generated_source).hexdigest(),
+                    generated_fields.get("source_sha256"),
+                )
+                self.assertEqual(
+                    candidate_content_digest(generated_manifest, generated_source),
+                    candidate_digest,
+                )
+                manifest_object = json.loads(generated_manifest.decode("utf-8"))
+                self.assertEqual(manifest_object, json.loads(manifest_a.decode("utf-8")))
+                try:
+                    compile(
+                        generated_source.decode("utf-8", errors="strict"),
+                        f"generated-{case_id}-memory-plugin.py",
+                        "exec",
+                    )
+                    compile_result: dict[str, object] = {"passed": True}
+                except (SyntaxError, UnicodeError, ValueError) as error:
+                    compile_result = {
+                        "passed": False,
+                        "error_type": type(error).__name__,
+                        "message": str(error),
+                    }
+                case_record["compile_passed"] = compile_result["passed"]
+                case_record["compile"] = compile_result
+                artifact_directory = (
+                    artifact_root / "candidates" / str(case_id) / str(candidate_digest)
+                )
+                artifact_directory.mkdir(parents=True)
+                (artifact_directory / "manifest.json").write_bytes(generated_manifest)
+                (artifact_directory / "plugin.py").write_bytes(generated_source)
+                case_record["candidate"] = {
+                    "digest": candidate_digest,
+                    "manifest_digest": generated_fields.get("manifest_digest"),
+                    "scope_digest": admitted_fields.get("scope_digest"),
+                    "source_sha256": generated_fields.get("source_sha256"),
+                    "source_changed_from_baseline": generated_source != source_a,
+                    "manifest_bytes": len(generated_manifest),
+                    "source_bytes": len(generated_source),
+                    "artifact_directory": str(artifact_directory),
+                }
+                flush_report()
+                print(
+                    f"Generated Candidate {candidate_digest} for {case_id}.\n"
+                    f"Candidate directory: {artifact_directory}\n"
+                    f"plugin.py: {artifact_directory / 'plugin.py'}\n"
+                    f"manifest.json: {artifact_directory / 'manifest.json'}",
+                    flush=True,
+                )
+
+                try:
+                    diagnostics = wait_for_marker(
+                        process,
+                        stderr_path,
+                        "agent-evolution-activation-review=presented",
+                    )
+                except (ProductAgentEvolutionFailure, AssertionError) as error:
+                    parse_evaluation(
+                        stderr_path.read_text(encoding="utf-8", errors="replace"),
+                        case_record,
+                    )
+                    case_record["evaluation_failure"] = str(error)
+                    case_record["runner_execution_passed"] = runner_observations_ok(
+                        case_record.get("runner_observations")
+                    )
+                    evaluation = case_record.get("evaluation")
+                    case_record["evaluation_binding_valid"] = (
+                        evaluation_binding_matches(
+                            evaluation,
+                            baseline_digest=baseline_digest,
+                            candidate_digest=candidate_digest,
+                            proposal_digest=case_record.get("proposal_digest"),
+                        )
+                    )
+                    case_record["evaluation_improved_without_regressions"] = (
+                        evaluation_improved_without_regressions(
+                            evaluation,
+                            baseline_digest=baseline_digest,
+                            candidate_digest=candidate_digest,
+                            proposal_digest=case_record.get("proposal_digest"),
+                            target_sample_ids=case_record.get("target_sample_ids"),
+                        )
+                    )
+                    case_record["activation_decision"] = "not_presented"
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        case_record["state_unchanged_after_evaluation_failure"] = (
+                            memory_file.read_bytes() == production_state
+                        )
+                        case_record["active_candidate_unchanged_after_evaluation_failure"] = (
+                            active_candidate(plugin_store)[0].candidate_digest
+                            == candidate_a.candidate_digest
+                        )
+                        flush_report()
+                    continue
+
+                observations = decoded_marker_json(
+                    diagnostics,
+                    "agent-evolution-evaluation-observations-base64=",
+                )
+                evaluation = decoded_marker_json(
+                    diagnostics,
+                    "agent-evolution-evaluation-record-base64=",
+                )
+                case_record["runner_observations"] = observations
+                case_record["evaluation"] = evaluation
+                runner_passed = runner_observations_ok(observations)
+                case_record["runner_execution_passed"] = runner_passed
+                binding_valid = evaluation_binding_matches(
+                    evaluation,
+                    baseline_digest=baseline_digest,
+                    candidate_digest=candidate_digest,
+                    proposal_digest=case_record.get("proposal_digest"),
+                )
+                case_record["evaluation_binding_valid"] = binding_valid
+                evaluation_improved = evaluation_improved_without_regressions(
+                    evaluation,
+                    baseline_digest=baseline_digest,
+                    candidate_digest=candidate_digest,
+                    proposal_digest=case_record.get("proposal_digest"),
+                    target_sample_ids=case_record.get("target_sample_ids"),
+                )
+                case_record["evaluation_improved_without_regressions"] = evaluation_improved
+                flush_report()
+                if not runner_passed or not evaluation_improved:
+                    case_record["failure_stage"] = "execution_or_evaluation_did_not_improve"
+                    try:
+                        finish_agent(process, stdout_path, stderr_path)
+                    finally:
+                        case_record["state_unchanged_after_non_activation"] = (
+                            memory_file.read_bytes() == production_state
+                        )
+                        flush_report()
+                    continue
+
+                planned_decision = "deny" if index == 0 else "user_choice"
+                if planned_decision == "deny":
+                    print(
+                        f"CASE 1 — REQUIRED REJECTION CHECK. Candidate {candidate_digest} "
+                        "passed A/B. When its Activation Approval appears, click "
+                        "Cancel/Reject; do not click Approve. This records that a "
+                        "user refusal preserves Candidate A and production state.",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"Review Candidate {candidate_digest}, the exact A/B record, "
+                        "and Candidate A rollback target. Approve only if you want "
+                        "to activate this locally generated Candidate.",
+                        flush=True,
+                    )
+                gate("After your Activation Approval decision, press Return.")
+
+                deadline = time.monotonic() + _REAL_MODEL_REQUEST_WAIT_SECONDS
+                decision: str | None = None
+                while time.monotonic() < deadline:
+                    current_diagnostics = stderr_path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                    if "workspace-kernel-smoke=agent-evolution=adopted" in current_diagnostics:
+                        decision = "approved"
+                        break
+                    if "workspace-kernel-smoke=agent-evolution-activation=denied" in current_diagnostics:
+                        decision = "denied"
+                        break
+                    if any(
+                        failure in current_diagnostics
+                        for failure in (
+                            "agent-evolution=failed code=",
+                            "Local Agent error:",
+                        )
+                    ):
+                        raise ProductAgentEvolutionFailure(current_diagnostics)
+                    time.sleep(0.1)
+                self.assertIsNotNone(decision, "activation decision was not recorded")
+                case_record["activation_decision"] = decision
+                active, previous, generation = activation_state(plugin_store)
+                state_after_decision = memory_file.read_bytes()
+                case_record["production_state_after_activation_decision"] = {
+                    "sha256": hashlib.sha256(state_after_decision).hexdigest(),
+                    "unchanged": state_after_decision == production_state,
+                    "active_candidate_digest": active.candidate_digest,
+                    "previous_candidate_digest": (
+                        previous.candidate_digest if previous is not None else None
+                    ),
+                    "generation": generation,
+                }
+                if decision == "denied":
+                    case_record["activation_denial_preserved_state_and_route"] = (
+                        active.candidate_digest == candidate_a.candidate_digest
+                        and (previous.candidate_digest if previous is not None else None)
+                            == baseline_previous_digest
+                        and generation == baseline_generation
+                        and state_after_decision == production_state
+                    )
+                else:
+                    case_record["activation_preserved_state"] = (
+                        active.candidate_digest == candidate_digest
+                        and previous is not None
+                        and previous.candidate_digest == candidate_a.candidate_digest
+                        and generation == baseline_generation + 1
+                        and state_after_decision == production_state
+                    )
+                    case_record["activated_candidate_generation"] = generation
+                finish_agent(process, stdout_path, stderr_path)
+                flush_report()
+
+                if decision == "approved":
+                    if index == 0:
+                        case_record["rollback_before_next_independent_trial"] = (
+                            rollback_to_baseline(
+                                str(case_id), candidate_digest, case_record
+                            )
+                        )
+                    else:
+                        recall_stdout = logs / "real-model-recall-after-activation.stdout"
+                        recall_stderr = logs / "real-model-recall-after-activation.stderr"
+                        with recall_stdout.open("w", encoding="utf-8") as output, \
+                                recall_stderr.open("w", encoding="utf-8") as errors:
+                            recall = subprocess.Popen(
+                                [str(product_launcher), "--agent"],
+                                stdin=subprocess.PIPE,
+                                stdout=output,
+                                stderr=errors,
+                                text=True,
+                            )
+                            self.addCleanup(
+                                self._terminate_product_executable,
+                                product_launcher,
+                            )
+                            self.assertIsNotNone(recall.stdin)
+                            recall.stdin.write("Please recall key=project_codename\n")
+                            recall.stdin.flush()
+                            wait_for_marker(
+                                recall,
+                                recall_stderr,
+                                "agent-plugin=approval-presented",
+                            )
+                            print(
+                                "Approve the active Candidate's exact-key recall of "
+                                "the previously stored Project K value. The test continues automatically.",
+                                flush=True,
+                            )
+                            gate("After approving the recall, press Return.")
+                            wait_for_marker(
+                                recall,
+                                recall_stderr,
+                                "agent-plugin=passed",
+                            )
+                            case_record["post_activation_plugin_run_passed"] = True
+                            flush_report()
+                            # A production model summarizes the untrusted tool result in
+                            # its own words; only require the recalled value, not the
+                            # deterministic Model Probe's exact response string.
+                            expected_recall = "Project K"
+                            active_recall_received, active_recall_failure = (
+                                wait_for_agent_text(
+                                    recall,
+                                    recall_stdout,
+                                    recall_stderr,
+                                    expected_recall,
+                                )
+                            )
+                            case_record[
+                                "post_activation_recall_response_received"
+                            ] = active_recall_received
+                            case_record[
+                                "post_activation_recall_failure"
+                            ] = active_recall_failure
+                            flush_report()
+                            case_record[
+                                "post_activation_recall_agent_exit_success"
+                            ] = finish_agent_recording_result(
+                                recall, recall_stdout, recall_stderr
+                            )
+                            flush_report()
+                        state_after_recall = memory_file.read_bytes()
+                        case_record["production_state_after_candidate_recall"] = {
+                            "sha256": hashlib.sha256(state_after_recall).hexdigest(),
+                            "unchanged": state_after_recall == production_state,
+                        }
+                        case_record["rollback_after_activation"] = rollback_to_baseline(
+                            str(case_id), candidate_digest, case_record
+                        )
+                        rollback_active, _, rollback_generation = activation_state(
+                            plugin_store
+                        )
+                        state_after_rollback = memory_file.read_bytes()
+                        case_record["production_state_after_rollback"] = {
+                            "active_candidate_digest": rollback_active.candidate_digest,
+                            "generation": rollback_generation,
+                            "state_sha256": hashlib.sha256(
+                                state_after_rollback
+                            ).hexdigest(),
+                            "unchanged": state_after_rollback == production_state,
+                        }
+                        exact_recall_stdout = logs / "real-model-recall-after-rollback.stdout"
+                        exact_recall_stderr = logs / "real-model-recall-after-rollback.stderr"
+                        with exact_recall_stdout.open("w", encoding="utf-8") as output, \
+                                exact_recall_stderr.open("w", encoding="utf-8") as errors:
+                            exact_recall = subprocess.Popen(
+                                [str(product_launcher), "--agent"],
+                                stdin=subprocess.PIPE,
+                                stdout=output,
+                                stderr=errors,
+                                text=True,
+                            )
+                            self.addCleanup(
+                                self._terminate_product_executable,
+                                product_launcher,
+                            )
+                            self.assertIsNotNone(exact_recall.stdin)
+                            exact_recall.stdin.write(
+                                "Please recall key=project_codename\n"
+                            )
+                            exact_recall.stdin.flush()
+                            wait_for_marker(
+                                exact_recall,
+                                exact_recall_stderr,
+                                "agent-plugin=approval-presented",
+                            )
+                            print(
+                                "Approve Candidate A's exact-key recall of the same "
+                                "Project K value after rollback. The test continues automatically.",
+                                flush=True,
+                            )
+                            gate("After approving the post-rollback recall, press Return.")
+                            wait_for_marker(
+                                exact_recall,
+                                exact_recall_stderr,
+                                "agent-plugin=passed",
+                            )
+                            case_record["post_rollback_plugin_run_passed"] = True
+                            flush_report()
+                            rollback_recall_received, rollback_recall_failure = (
+                                wait_for_agent_text(
+                                    exact_recall,
+                                    exact_recall_stdout,
+                                    exact_recall_stderr,
+                                    expected_recall,
+                                )
+                            )
+                            case_record[
+                                "post_rollback_recall_response_received"
+                            ] = rollback_recall_received
+                            case_record[
+                                "post_rollback_recall_failure"
+                            ] = rollback_recall_failure
+                            flush_report()
+                            case_record[
+                                "post_rollback_recall_agent_exit_success"
+                            ] = finish_agent_recording_result(
+                                exact_recall,
+                                exact_recall_stdout,
+                                exact_recall_stderr,
+                            )
+                            flush_report()
+                        final_state = memory_file.read_bytes()
+                        final_active = active_candidate(plugin_store)[0]
+                        case_record["production_state_after_rollback_recall"] = {
+                            "active_candidate_digest": final_active.candidate_digest,
+                            "state_sha256": hashlib.sha256(final_state).hexdigest(),
+                            "unchanged": final_state == production_state,
+                        }
+                        flush_report()
+                        self.assertTrue(
+                            active_recall_received,
+                            "Candidate recall response was not observed; failure="
+                            f"{active_recall_failure}; see {recall_stdout} and {recall_stderr}",
+                        )
+                        self.assertTrue(
+                            rollback_recall_received,
+                            "post-rollback Candidate A response was not observed; "
+                            f"failure={rollback_recall_failure}; see "
+                            f"{exact_recall_stdout} and {exact_recall_stderr}",
+                        )
+                        self.assertTrue(
+                            case_record["post_activation_recall_agent_exit_success"]
+                            and case_record["post_rollback_recall_agent_exit_success"],
+                            "a recall Agent session failed to exit cleanly; see saved logs",
+                        )
+                        self.assertTrue(
+                            case_record["production_state_after_candidate_recall"]["unchanged"]
+                            and case_record["production_state_after_rollback"]["unchanged"]
+                            and case_record["production_state_after_rollback_recall"]["unchanged"]
+                            and final_active.candidate_digest == candidate_a.candidate_digest,
+                            "production Memory state or routing changed during recall/rollback",
+                        )
+
+        completed_trials = [
+            case for case in case_list
+            if case.get("candidate_admission_success") is True
+        ]
+        evaluation_successes = [
+            case for case in case_list
+            if case.get("evaluation_improved_without_regressions") is True
+        ]
+        denied_trials = [
+            case for case in case_list
+            if case.get("activation_decision") == "denied"
+            and case.get("activation_denial_preserved_state_and_route") is True
+        ]
+        activated_trials = [
+            case for case in case_list
+            if case.get("activation_decision") == "approved"
+            and case.get("activation_preserved_state") is True
+            and case.get("post_activation_plugin_run_passed") is True
+            and case.get("post_activation_recall_response_received") is True
+            and (
+                case.get("rollback_after_activation") is True
+            )
+            and case.get("post_rollback_plugin_run_passed") is True
+            and case.get("post_rollback_recall_response_received") is True
+        ]
+        proposal_legal = sum(case.get("proposal_legal") is True for case in case_list)
+        candidate_generated = sum(
+            case.get("candidate_generation_success") is True for case in case_list
+        )
+        admission_successes = sum(
+            case.get("candidate_admission_success") is True for case in case_list
+        )
+        runner_successes = sum(
+            case.get("runner_execution_passed") is True for case in case_list
+        )
+        regression_cases = sum(
+            type(case.get("evaluation")) is dict
+            and bool(case["evaluation"].get("regressions"))
+            for case in case_list
+        )
+        generated_and_admitted = sum(
+            case.get("candidate_generation_success") is True
+            and case.get("candidate_admission_success") is True
+            for case in case_list
+        )
+        report["summary"] = {
+            "case_count": len(case_list),
+            "model_provider": model_provider,
+            "proposal_attempt_count": len(case_list),
+            "proposal_legal_count": proposal_legal,
+            "proposal_legal_rate": proposal_legal / len(case_list),
+            "candidate_generation_success_count": candidate_generated,
+            "candidate_generation_success_rate": candidate_generated / len(case_list),
+            "candidate_admission_success_count": admission_successes,
+            "candidate_admission_success_rate": admission_successes / len(case_list),
+            "candidate_generated_and_admitted_count": generated_and_admitted,
+            "candidate_generated_and_admitted_rate": generated_and_admitted / len(case_list),
+            "candidate_compile_pass_count": sum(
+                case.get("compile_passed") is True for case in case_list
+            ),
+            "runner_execution_pass_count": runner_successes,
+            "runner_execution_pass_rate": runner_successes / len(case_list),
+            "isolated_evaluation_improved_count": len(evaluation_successes),
+            "isolated_evaluation_improved_rate": len(evaluation_successes) / len(case_list),
+            "isolated_evaluation_regression_case_count": regression_cases,
+            "activation_denial_preserved_state_count": len(denied_trials),
+            "activation_and_rollback_state_preserved_count": len(activated_trials),
+            "activation_user_decisions": [
+                case.get("activation_decision") for case in case_list
+            ],
+            "all_cases_generated_admitted_compiled_runner_passed_and_improved": (
+                all(case.get("proposal_legal") is True for case in case_list)
+                and all(
+                    case.get("candidate_generation_success") is True
+                    and case.get("candidate_admission_success") is True
+                    and case.get("compile_passed") is True
+                    and case.get("runner_execution_passed") is True
+                    and case.get("evaluation_binding_valid") is True
+                    and case.get("evaluation_improved_without_regressions") is True
+                    for case in case_list
+                )
+                and len(completed_trials) == len(case_list)
+                and len(evaluation_successes) == len(case_list)
+            ),
+            "refusal_state_preserved": bool(denied_trials),
+            "activation_and_rollback_production_state_preserved": bool(activated_trials),
+        }
+        required_complete = (
+            report["summary"][
+                "all_cases_generated_admitted_compiled_runner_passed_and_improved"
+            ]
+            and report["summary"]["refusal_state_preserved"]
+            and report["summary"]["activation_and_rollback_production_state_preserved"]
+        )
+        report["status"] = "passed" if required_complete else "failed"
+        report["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
+        flush_report()
+        self.assertTrue(
+            required_complete,
+            "real-model Memory acceptance did not reach every required product outcome; "
+            f"saved evidence at {report_path}",
+        )
+        print(
+            f"real-model Memory evidence saved to {report_path}\n"
+            + json.dumps(report["summary"], sort_keys=True),
             flush=True,
         )
 

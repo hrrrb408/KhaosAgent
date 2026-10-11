@@ -2,8 +2,13 @@ import Foundation
 
 final class AgentHostClient {
     private let connection: NSXPCConnection
+    private let modelAPIKey: String?
 
     init() {
+        let provider = AgentModelProvider.from(bundle: .main)
+        modelAPIKey = provider.isRemote
+            ? ProcessInfo.processInfo.environment["KHAOS_BIGMODEL_API_KEY"]
+            : nil
         connection = NSXPCConnection(serviceName: "org.khaos.Seed.AgentHost")
         connection.remoteObjectInterface = NSXPCInterface(
             with: AgentHostSessionEndpoint.self
@@ -15,7 +20,11 @@ final class AgentHostClient {
         _ text: String,
         activePlugin: AgentHostPluginMetadata?
     ) throws -> AgentHostReply {
-        try request(AgentHostProtocol.userTurn(text, activePlugin: activePlugin))
+        try request(AgentHostProtocol.userTurn(
+            text,
+            activePlugin: activePlugin,
+            modelAPIKey: modelAPIKey
+        ))
     }
 
     func sendToolResult(
@@ -26,7 +35,8 @@ final class AgentHostClient {
         try request(AgentHostProtocol.toolResult(
             ok: ok,
             text: text,
-            activePlugin: activePlugin
+            activePlugin: activePlugin,
+            modelAPIKey: modelAPIKey
         ))
     }
 
@@ -40,12 +50,13 @@ final class AgentHostClient {
             proposal: proposal,
             evidence: evidence,
             baselineManifest: baselineManifest,
-            baselineSource: baselineSource
+            baselineSource: baselineSource,
+            modelAPIKey: modelAPIKey
         )
         guard case let .candidate(files) = try request(
             frame,
             timeoutSeconds: TimeInterval(
-                AgentHostProtocol.candidateGenerationRequestTimeoutSeconds
+                AgentHostProtocol.modelRequestTimeoutSeconds
             )
         ) else {
             throw AgentHostClientError.invalidResponse
@@ -89,7 +100,9 @@ final class AgentHostClient {
 
     private func request(
         _ frame: Data,
-        timeoutSeconds: TimeInterval = 180
+        timeoutSeconds: TimeInterval = TimeInterval(
+            AgentHostProtocol.modelRequestTimeoutSeconds
+        )
     ) throws -> AgentHostReply {
         let semaphore = DispatchSemaphore(value: 0)
         let lock = NSLock()
