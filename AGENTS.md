@@ -469,6 +469,29 @@ A, and verifies the state again. It needs one package Picker plus manual
 development and activation approvals; no workspace Picker opens. Do not run it
 while another Khaos Seed Picker is waiting for a selection.
 
+Run the opt-in signed-product BigModel Memory evolution acceptance separately
+from the deterministic Model Probe and local-model acceptance. Set
+`KHAOS_BIGMODEL_API_KEY` in the test process environment without writing it to
+the command line or evidence file. Choose `KHAOS_BIGMODEL_PROVIDER=bigmodel` for
+the standard API or `bigmodel-coding-plan` for a Coding Plan key, then run:
+
+```bash
+KHAOS_RUN_PRODUCT_BIGMODEL_MEMORY_EVOLUTION_UI=1 \
+KHAOS_BIGMODEL_EVIDENCE_PATH="$PWD/bigmodel-memory-evolution.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+The remote product has no local fallback. Only the untrusted Agent Host receives
+the network-client entitlement; macOS does not restrict that entitlement to the
+provider hostname. The user feedback, bounded Plugin metadata/results, and
+post-Development-Approval baseline source are sent to BigModel. Preserve the
+separate deterministic and local-model results; API output does not replace
+protocol regression evidence or local-model evidence. The test requires manual
+package selection and separate development/activation decisions; do not run it
+while another Khaos Seed Picker is waiting for a selection.
+
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against
 the real Kernel XPC service. Scope attacks use a valid Runner source digest and no

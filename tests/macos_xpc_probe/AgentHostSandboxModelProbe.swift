@@ -251,10 +251,7 @@ if let request = try? JSONSerialization.jsonObject(with: input) as? [String: Any
         of: baselineRecall,
         with: improvedRecall
     )
-    emit([
-        "manifestJSON": baselineManifest,
-        "pluginSource": generatedSource,
-    ])
+    emit(["pluginSource": generatedSource])
 }
 
 if latestUser.contains("no_active_candidate") {

@@ -585,9 +585,10 @@ The Agent evolution path keeps these operations narrow. The Launcher builds a
 bounded Proposal from explicit user feedback, the current active Candidate, a
 fixed bundled replay dataset, a state-format requirement, and fixed generation
 and evaluation limits. It asks for separate development approval over the exact
-Proposal digest before requesting `manifest.json` and `plugin.py` from the
-untrusted Agent Host. The Kernel does not accept an approval boolean. Evolution
-admission atomically checks the active baseline digest and generation, stable
+Proposal digest before requesting a new `plugin.py` from the untrusted Agent
+Host. The Host carries forward the exact baseline Manifest bytes. The Kernel
+does not accept an approval boolean. Evolution admission atomically checks the
+active baseline digest and generation, stable
 `memory` ID and Agent interface, and the approved state-only capability ceiling.
 Normal `plugin.run` remains bound to the active slot.
 
@@ -671,9 +672,9 @@ positive-control lookup succeeds. Its only committed writes are the exact
 Manifest paths. This validates the Python Kernel/Runner composition on this
 host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
 
-### Agent Host Plugin invocation proposal
+### Agent Host proposals and Candidate generation
 
-The AgentHost XPC protocol is version 4. For the active Candidate, the
+The AgentHost XPC protocol is version 7. For the active Candidate, the
 Launcher includes `plugin_id`, `candidate_digest`, `generation`, and
 `agent_interface` (or `null`) in each user-turn and result frame. The interface
 is untrusted information even though it is read from a verified Candidate; its
@@ -687,6 +688,34 @@ Host cannot provide Runner source, Manifest bytes, read/write scopes, state
 namespace/path, capability, approval, or lifecycle operation names. Metadata
 values identify a proposal and describe business input only; they do not grant
 authority.
+
+After separate digest-bound Development Approval, the Launcher may send the
+untrusted Host the approved user feedback and the exact active Memory Manifest
+and source so it can write a new `plugin.py`. The Host combines that source with
+the exact baseline Manifest bytes; the model does not rewrite Candidate
+capability metadata. The reply is still bounded untrusted input; Kernel
+admission enforces the existing Memory identity, interface, state-only scope
+ceiling, and generation binding. Candidate replies also carry a nullable
+`model_usage` object containing bounded elapsed
+milliseconds and optional prompt/completion token counts. These are
+informational Host telemetry, may be unavailable or inaccurate, and are not
+included in any Kernel request or approval binding. They never affect
+admission, evaluation, activation, or rollback.
+
+An explicitly built `bigmodel` or `bigmodel-coding-plan` product may also
+include `model_api_key` in the existing XPC input frames for `user`,
+`tool_result`, and post-approval `candidate_generation`. The field is limited to
+2 KiB of printable ASCII and is rejected on evaluation and other operations.
+The Launcher obtains it from `KHAOS_BIGMODEL_API_KEY`; it is passed only in
+memory to the untrusted Agent Host and used only in the HTTP Authorization
+header for the provider's fixed HTTPS endpoint. It is not part of the model
+prompt, reply, diagnostics, or persistent state. Remote builds do not fall back
+to local models. Only Agent Host receives the App Sandbox network-client
+entitlement; the trusted Launcher and Kernel do not. This entitlement is not a
+per-host OS egress allowlist, so provider-only network confinement is not
+claimed. Remote mode explicitly sends user messages, informational active
+Plugin metadata, tool results, and approved baseline source/feedback to the
+external provider.
 
 Before presenting an Agent proposal, the Launcher performs a fresh `plugin.state`
 read and requires all three proposal values to match the current active Candidate

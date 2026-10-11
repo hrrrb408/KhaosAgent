@@ -54,8 +54,8 @@ cmake --build /tmp/llama.cpp/build --target llama-completion \
 
 Then pass `/tmp/llama.cpp/build/bin/llama-completion` as `--llama-cli`. The
 builder copies the binary's non-system dylib dependencies, Homebrew or source
-license notices, and GGUF model into the separately sandboxed Agent Host. No
-model download or remote provider is used at runtime. The tested development
+license notices, and GGUF model into the separately sandboxed Agent Host. The
+default local build uses no remote provider at runtime. The tested development
 model is the official Qwen2.5-1.5B-Instruct Q4_0 artifact from revision
 `91cad51170dc346986eccefdc2dd33a9da36ead9` (Apache-2.0); fetch that exact
 model and its license with:
@@ -69,6 +69,43 @@ curl --fail --location --output /tmp/Qwen-LICENSE \
 
 See the [llama.cpp build and CLI documentation](https://github.com/ggml-org/llama.cpp/blob/v0.5.0/docs/build.md)
 and the [pinned official Qwen model card and license](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/tree/91cad51170dc346986eccefdc2dd33a9da36ead9).
+
+## Optional BigModel provider
+
+An explicitly remote build selects GLM-5.3-Flash and bundles no local model:
+
+```bash
+python3 tools/build_macos_seed.py \
+  --output /tmp/KhaosSeed-BigModel.app \
+  --signing-identity "IDENTITY" \
+  --model-provider bigmodel
+```
+
+Use `--model-provider bigmodel-coding-plan` only with a Coding Plan API key.
+The two build choices use fixed BigModel HTTPS endpoints; arbitrary endpoint
+URLs are not accepted. The default remains `local`, with no network entitlement
+on Agent Host and no remote fallback. A BigModel build grants the network client
+entitlement only to the untrusted Agent Host. The Launcher and Kernel retain no
+network entitlement.
+
+The Launcher reads `KHAOS_BIGMODEL_API_KEY` from its environment and forwards it
+in memory over the existing XPC frame. Agent Host uses it only in the HTTP
+Authorization header; it does not persist or log the key or include it in a
+model prompt. The key is available to the untrusted Agent Host process, and the
+macOS entitlement allows general outbound client networking; OS-level
+provider-only egress confinement is not established. Remote mode sends user
+messages, active Plugin interface metadata, returned tool results, and—only
+after Development Approval—the approved feedback and baseline Candidate source
+to BigModel. Do not use this mode with data you are not willing to send to the
+provider. Missing credentials, API errors, malformed model output, failed
+admission, or a non-improving evaluation fail explicitly without a local or
+fixture Candidate fallback.
+
+Routine Agent turns and Candidate source generation use maximum reasoning with separate
+32,768-token response caps and a 600-second model-request deadline. These finite
+Host-side limits bound each request. Candidate source remains capped at 10,240 bytes
+and must pass the existing admission, isolated evaluation, and separate development
+and activation approvals. A length-truncated response fails explicitly.
 
 The builder copies only the Seed's reviewed Python modules into the trusted
 Kernel XPC bundle; adding a new module to the repository does not implicitly
@@ -172,9 +209,10 @@ To request a Memory improvement in `--agent`, give explicit feedback such as
 first proposes a bounded goal. The Launcher re-reads the active Candidate and
 generation, loads the fixed bundled replay dataset, and asks for a digest-bound
 development approval. Only after that approval does the existing untrusted
-Agent Host generate `manifest.json` and `plugin.py`; the Kernel admits the exact
-bytes only if the logical ID, Agent interface, and state-only capability ceiling
-remain compatible. Development approval does not authorize activation.
+Agent Host write a new `plugin.py`. The Host combines it with the exact baseline
+`manifest.json` bytes; the Kernel still admits the resulting Candidate only if
+its logical ID, Agent interface, and state-only capability ceiling remain
+compatible. Development approval does not authorize activation.
 
 Each dataset sample runs against the baseline and admitted Candidate through
 the Kernel's isolated evaluation operation. Every run gets temporary Plugin
@@ -229,9 +267,10 @@ APP="/tmp/KhaosSeed.app"  # use the --output path from the build command above
 
 The Agent Host uses the bundled local llama.cpp CLI and GGUF model on CPU when present;
 without a bundled model, it uses Apple's on-device Foundation Model when
-available. It has no remote fallback. The launchd-managed XPC service has its
-own App Sandbox, no user-selected file or network entitlement, and a different
-code-signing requirement from the Launcher accepted by Kernel XPC. It receives
+available. The default local build has no remote fallback. The launchd-managed
+XPC service has its own App Sandbox and a different code-signing requirement
+from the Launcher accepted by Kernel XPC. In a local build it has no network
+entitlement. It receives
 conversation text, bounded results, and only the active Plugin's ID, Candidate
 digest, and slot generation over a 64 KiB XPC protocol. It can propose a shell
 command with exact read/write paths, or propose the active Plugin with those
@@ -339,6 +378,62 @@ KHAOS_RUN_PRODUCT_MEMORY_EVOLUTION_UI=1 python3 -m unittest discover -s tests \
   -p test_macos_xpc_sandbox.py \
   -k test_seed_app_builds_and_authenticates_its_kernel_service -v
 ```
+
+Real-model self-evolution is a separate opt-in acceptance. It embeds the
+runtime and model from an existing signed Seed app into a fresh signed test
+product, then runs the fixed cases in
+`tests/fixtures/real_model_memory_evolution_cases.json`. Candidate B must come
+from the untrusted local model after Development Approval; this route never
+uses the deterministic Model Probe or a prewritten replacement Candidate. Set
+`KHAOS_REAL_MODEL_APP` to the signed app bundle and choose a new evidence path:
+
+```bash
+KHAOS_RUN_PRODUCT_REAL_MODEL_MEMORY_EVOLUTION_UI=1 \
+KHAOS_REAL_MODEL_APP="/Applications/Khaos Seed with Local Model.app" \
+KHAOS_REAL_MODEL_EVIDENCE_PATH="$PWD/real-model-self-evolution.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+The acceptance saves Proposal legality, generated Candidate digests and source
+artifacts, compile and Runner results, isolated A/B records, local-model timing
+and token telemetry when available, user decisions, and production-state
+checks. Candidate-generation telemetry is untrusted and informational; it does
+not enter Kernel requests or approvals. The first Activation Approval is
+cancelled to verify refusal preserves routing and state. The second decision is
+left to the user; approval exercises live recall and a separately approved
+rollback. A missing/invalid model result or a non-improving evaluation is a
+recorded failure, not a substitution with a fixture Candidate. This product
+capability acceptance supplements the deterministic protocol and security
+regression tests; it does not replace them.
+
+BigModel self-evolution is a separate remote-provider product acceptance. It
+uses the same predefined defect cases and Candidate/lifecycle path, but builds
+a fresh signed product with the selected fixed BigModel endpoint and does not
+bundle a local model. The API key is required only in the test process
+environment and is never included in the evidence file. Enter it without
+putting it in shell history, then run:
+
+```zsh
+read -s "KHAOS_BIGMODEL_API_KEY?BigModel API key: "
+export KHAOS_BIGMODEL_API_KEY
+KHAOS_RUN_PRODUCT_BIGMODEL_MEMORY_EVOLUTION_UI=1 \
+KHAOS_BIGMODEL_PROVIDER=bigmodel \
+KHAOS_BIGMODEL_EVIDENCE_PATH="$PWD/bigmodel-memory-evolution.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+Set `KHAOS_BIGMODEL_PROVIDER=bigmodel-coding-plan` for a Coding Plan key. This
+check requires manual package selection and separate Development and Activation
+decisions. It preserves each generated Candidate under the report's companion
+`.artifacts` directory and records proposal legality, generation/admission,
+compilation, isolated Runner outcomes, A/B improvements or regressions, usage
+telemetry when returned, refusal state, and activation/rollback state. The
+remote-provider result is measured separately from the local-model result and
+the deterministic Model Probe regression.
 
 The focused test also sends headless malformed, over-budget, and caller-asserted
 authority requests to the signed Kernel XPC service. It exercises real XPC

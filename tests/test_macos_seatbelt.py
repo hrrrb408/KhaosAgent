@@ -1976,8 +1976,12 @@ else:
         self.assertRegex(result.stdout, r"^resolver-pid:\d+\nresolver-request-failed\n$")
         child_pid = int(result.stdout.splitlines()[0].partition(":")[2])
         predicate = (
-            f'eventMessage CONTAINS[c] "({child_pid})" '
-            'AND eventMessage CONTAINS[c] "deny(1)"'
+            f'(eventMessage CONTAINS[c] "[{child_pid}]" '
+            f'OR eventMessage CONTAINS[c] "({child_pid})") '
+            'AND (eventMessage CONTAINS[c] '
+            '"com.apple.system.opendirectoryd.libinfo" '
+            'OR eventMessage CONTAINS[c] "/var/run/mDNSResponder" '
+            'OR eventMessage CONTAINS[c] "network-outbound")'
         )
         log_result = subprocess.run(
             (
@@ -2002,7 +2006,10 @@ else:
         records = log_result.stdout.decode("utf-8", "replace").splitlines()
         self.assertTrue(
             any(
-                "com.apple.system.opendirectoryd.libinfo" in line
+                (
+                    "com.apple.system.opendirectoryd.libinfo" in line
+                    and "denied lookup" in line
+                )
                 or "/var/run/mDNSResponder" in line
                 or "deny(1) network-outbound" in line
                 for line in records

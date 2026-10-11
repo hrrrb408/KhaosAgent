@@ -1,0 +1,15 @@
+{
+  "format": "khaos-real-model-memory-cases-v1",
+  "cases": [
+    {
+      "feedback": "The current Memory Plugin cannot recall a value if the request changes only the letter casing of an existing key. Improve recall so a differently cased key works only when it maps to a single stored key; preserve exact-match behavior and the khaos-memory-v1 state.",
+      "id": "casefold-recall",
+      "target_sample_ids": ["casefold-fallback"]
+    },
+    {
+      "feedback": "Memory recall fails when a request uses Unicode compatibility characters, such as full-width PROJECT_CODENAME for stored project_codename. Add a narrowly scoped fallback that normalizes NFKC plus case folding and succeeds only for one matching stored key; leave ambiguous matches unfound.",
+      "id": "unicode-compatibility-recall",
+      "target_sample_ids": ["compatibility-fallback"]
+    }
+  ]
+}
