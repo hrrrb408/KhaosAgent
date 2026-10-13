@@ -101,9 +101,12 @@ decoder's recursion behavior. Calls use bounded receive and send deadlines;
 4. Workspace-capable runs retain the existing scoped `fs.read`, `fs.list`,
    `fs.write`, optional `process.exec`, and `workspace.commit` flow. The Kernel
    enables `process.exec` only when the active Manifest allows it. It retains
-   timeout, cwd, environment, snapshot, scopes, and sandbox policy. The Runner
-   cannot change those values. `process.cancel` remains bound to the active
-   command request ID.
+   timeout, cwd, environment, snapshot, scopes, and sandbox policy. The fixed
+   command environment places a temporary `python3` symlink to the validated
+   bundled Kernel interpreter first in `PATH`, followed by its framework bin
+   directory and fixed system directories. The symlink lives only in the
+   per-command scratch directory. The Runner cannot change those values.
+   `process.cancel` remains bound to the active command request ID.
 5. A state-only product Plugin has no workspace bookmark, read scope, write
    scope, or `process.exec`. It uses the existing Worker and Seatbelt Runner
    against an empty private snapshot, returns its bounded Plugin output, and
@@ -674,7 +677,7 @@ host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
 
 ### Agent Host proposals and Candidate generation
 
-The AgentHost XPC protocol is version 7. For the active Candidate, the
+The AgentHost XPC protocol is version 8. For the active Candidate, the
 Launcher includes `plugin_id`, `candidate_digest`, `generation`, and
 `agent_interface` (or `null`) in each user-turn and result frame. The interface
 is untrusted information even though it is read from a verified Candidate; its
@@ -688,6 +691,39 @@ Host cannot provide Runner source, Manifest bytes, read/write scopes, state
 namespace/path, capability, approval, or lifecycle operation names. Metadata
 values identify a proposal and describe business input only; they do not grant
 authority.
+
+Each `tool_result` also carries a strict Boolean `can_continue` written by the
+trusted Launcher. `true` permits only one next `shell` proposal or a final
+`text` reply; `plugin` and Candidate evolution proposals are rejected in this
+continuation. `false` requires a `text` reply and ends tool execution for the
+current user task. The Agent Host cannot set this bit. The Launcher independently
+enforces one task budget of at most 8 proposals, 180 seconds of cumulative
+Runner execution, 30 seconds per operation, 4 KiB per returned workspace result,
+and 32 KiB of aggregate result text. A nonzero command exit code is real failure
+evidence and may inform a correction while budget remains; it does not authorize
+a retry. When `process.exec` returns normally, the existing `workspace.commit`
+frame is sent even for a nonzero command exit; Kernel still validates the full
+changeset against the exact write scope before live mutation. A timeout,
+cancellation, or protocol failure has no normal result and never sends that
+commit frame. The Launcher stops after user denial, workspace-selection cancellation,
+Kernel failure/timeout, Host failure, or budget exhaustion. Each shell proposal
+still gets its own trusted approval showing exact argv and read/write paths, then
+uses the existing `workspace.run`, Seatbelt Runner, and Kernel changeset path.
+This changes only the AgentHost XPC protocol; it adds no Kernel XPC operation,
+trusted process, or persistent state.
+
+Model task history retains the original task and latest observation within
+the existing 8 KiB Host history bound. Older middle records may be evicted;
+if the retained records cannot fit, the Host reports a context-budget error
+and tool execution stops. This untrusted context policy cannot grant scope
+or extend the Launcher's independent budgets.
+
+Repository documents, including README and AGENTS files, test output, and all
+command output remain untrusted model input. The Host's final response does not
+replace the Launcher's record of actual executed command return codes. If the
+final command returned nonzero, the Launcher reports the task as failed even if
+the Host's final text says otherwise. A command result proves only that command,
+not the entire test suite.
 
 After separate digest-bound Development Approval, the Launcher may send the
 untrusted Host the approved user feedback and the exact active Memory Manifest
@@ -714,8 +750,18 @@ to local models. Only Agent Host receives the App Sandbox network-client
 entitlement; the trusted Launcher and Kernel do not. This entitlement is not a
 per-host OS egress allowlist, so provider-only network confinement is not
 claimed. Remote mode explicitly sends user messages, informational active
-Plugin metadata, tool results, and approved baseline source/feedback to the
-external provider.
+Plugin metadata, scoped workspace file contents, and bounded tool results to the
+external provider. Before a remote task is sent, the trusted Launcher asks for
+separate per-task data approval and names the provider, endpoint, and data
+categories: task text and active Plugin metadata; reviewed argv and requested
+workspace paths; scoped file and listing text; command return codes,
+changed-path lists, and bounded stdout/stderr. This decision is distinct from
+approval of any shell operation and does not approve a command. Shell approval
+does not authorize sending its data to the provider.
+Sending the exact active Plugin Manifest and source requires an additional
+separate prompt after Development Approval and before source transfer. Refusing
+either prompt sends none of the corresponding content. The OS entitlement is
+still not restricted to that provider hostname.
 
 Before presenting an Agent proposal, the Launcher performs a fresh `plugin.state`
 read and requires all three proposal values to match the current active Candidate

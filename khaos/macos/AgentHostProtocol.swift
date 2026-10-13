@@ -121,7 +121,7 @@ enum AgentModelProvider: String {
 }
 
 enum AgentHostProtocol {
-    static let version = 7
+    static let version = 8
     static let maximumFrameBytes = 64 * 1024
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
@@ -145,6 +145,11 @@ enum AgentHostProtocol {
     static let maximumAgentResponseTokens = 32_768
     static let maximumCandidateGenerationTokens = 32_768
     static let maximumModelAPIKeyBytes = 2_048
+    static let maximumToolCallsPerTask = 8
+    static let maximumToolExecutionSecondsPerTask = 180.0
+    static let maximumToolExecutionSecondsPerCall = 30.0
+    static let maximumToolResultBytes = 4 * 1_024
+    static let maximumToolResultBytesPerTask = 32 * 1_024
 
     static func userTurn(
         _ text: String,
@@ -166,6 +171,7 @@ enum AgentHostProtocol {
 
     static func toolResult(
         ok: Bool,
+        canContinue: Bool,
         text: String,
         activePlugin: AgentHostPluginMetadata?,
         modelAPIKey: String? = nil
@@ -177,6 +183,7 @@ enum AgentHostProtocol {
             "version": version,
             "operation": "tool_result",
             "ok": ok,
+            "can_continue": canContinue,
             "text": text,
             "active_plugin": activePluginObject(activePlugin),
         ]
@@ -495,9 +502,10 @@ enum AgentHostProtocol {
             }
         case "tool_result":
             guard inputKeysMatch(object, required: [
-                "version", "operation", "ok", "text", "active_plugin"
+                "version", "operation", "ok", "can_continue", "text", "active_plugin"
             ], allowModelAPIKey: true),
                   let ok = object["ok"] as? Bool,
+                  let canContinue = object["can_continue"] as? Bool,
                   let text = object["text"] as? String,
                   boundedBytes(text, maximum: maximumTextBytes),
                   validOptionalActivePlugin(object["active_plugin"]) else {
@@ -506,7 +514,10 @@ enum AgentHostProtocol {
             // JSON booleans and numeric 0/1 must not be interchangeable on the wire.
             guard let number = object["ok"] as? NSNumber,
                   CFGetTypeID(number) == CFBooleanGetTypeID(),
-                  number.boolValue == ok else {
+                  number.boolValue == ok,
+                  let continuation = object["can_continue"] as? NSNumber,
+                  CFGetTypeID(continuation) == CFBooleanGetTypeID(),
+                  continuation.boolValue == canContinue else {
                 return nil
             }
         case "candidate_generation":
@@ -1069,6 +1080,56 @@ enum AgentHostProtocol {
             generation: generation,
             agentInterface: parsedInterface
         )
+    }
+
+    static func toolResultAllowsContinuation(_ input: [String: Any]) -> Bool {
+        input["operation"] as? String == "tool_result"
+            && boolean(input["can_continue"]) == true
+    }
+
+    static func repeatsFailedCommand(
+        _ argv: [String],
+        failedCommand: [String]?
+    ) -> Bool {
+        guard let failedCommand else { return false }
+        return argv == failedCommand
+    }
+
+    static func resultContainsWorkspaceChanges(_ text: String) -> Bool {
+        struct ChangeCounts: Decodable {
+            let added: Int
+            let modified: Int
+            let deleted: Int
+        }
+        guard let data = text.data(using: .utf8),
+              let counts = try? JSONDecoder().decode(ChangeCounts.self, from: data),
+              counts.added >= 0,
+              counts.modified >= 0,
+              counts.deleted >= 0 else {
+            return false
+        }
+        return counts.added > 0 || counts.modified > 0 || counts.deleted > 0
+    }
+
+    static func actionTypeAllowedAfterToolResult(
+        _ type: String,
+        canContinue: Bool
+    ) -> Bool {
+        type == "text" || (canContinue && type == "shell")
+    }
+
+    static func replyAllowedAfterToolResult(
+        _ reply: AgentHostReply,
+        canContinue: Bool
+    ) -> Bool {
+        switch reply {
+        case .text, .failure:
+            return true
+        case .shell:
+            return canContinue
+        default:
+            return false
+        }
     }
 
     static func pluginContext(_ metadata: AgentHostPluginMetadata?) -> String {

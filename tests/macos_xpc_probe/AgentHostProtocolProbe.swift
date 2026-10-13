@@ -33,6 +33,15 @@ enum AgentHostProtocolProbe {
             generation: 7,
             agentInterface: agentInterface
         )
+        require(AgentHostProtocol.version == 8, "Agent Host protocol version was not advanced")
+        require(
+            AgentHostProtocol.maximumToolCallsPerTask == 8
+                && AgentHostProtocol.maximumToolExecutionSecondsPerTask == 180
+                && AgentHostProtocol.maximumToolExecutionSecondsPerCall == 30
+                && AgentHostProtocol.maximumToolResultBytes == 4 * 1_024
+                && AgentHostProtocol.maximumToolResultBytesPerTask == 32 * 1_024,
+            "coding task budgets changed unexpectedly"
+        )
         let activeInput = try AgentHostProtocol.userTurn(
             "publish topic=release message=complete",
             activePlugin: active
@@ -76,6 +85,7 @@ enum AgentHostProtocolProbe {
         )
         let keyedToolResult = try AgentHostProtocol.toolResult(
             ok: true,
+            canContinue: true,
             text: "bounded result",
             activePlugin: active,
             modelAPIKey: modelAPIKey
@@ -84,6 +94,158 @@ enum AgentHostProtocolProbe {
             AgentHostProtocol.decodeInput(keyedToolResult)?["model_api_key"] as? String
                 == modelAPIKey,
             "bounded model credential did not survive the tool-result frame"
+        )
+        let continuedResult = AgentHostProtocol.decodeInput(keyedToolResult)!
+        require(
+            AgentHostProtocol.toolResultAllowsContinuation(continuedResult),
+            "Launcher continuation decision was not preserved"
+        )
+        let terminalResultFrame = try AgentHostProtocol.toolResult(
+            ok: true,
+            canContinue: false,
+            text: "task budget exhausted",
+            activePlugin: active
+        )
+        let terminalResult = AgentHostProtocol.decodeInput(terminalResultFrame)!
+        require(
+            !AgentHostProtocol.toolResultAllowsContinuation(terminalResult),
+            "terminal Launcher result authorized another action"
+        )
+        require(
+            AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                "shell",
+                canContinue: true
+            )
+                && AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                    "text",
+                    canContinue: true
+                )
+                && !AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                    "plugin",
+                    canContinue: true
+                )
+                && !AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                    "evolution",
+                    canContinue: true
+                )
+                && AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                    "text",
+                    canContinue: false
+                )
+                && !AgentHostProtocol.actionTypeAllowedAfterToolResult(
+                    "shell",
+                    canContinue: false
+                ),
+            "tool-result continuation allowed an unrelated or terminal action"
+        )
+        let shellProposal = AgentShellProposal(
+            argv: ["/usr/bin/true"],
+            readScope: [],
+            writeScope: []
+        )
+        let pluginProposal = AgentPluginBinding(
+            pluginID: active.pluginID,
+            candidateDigest: active.candidateDigest,
+            generation: active.generation
+        )
+        let rejectedEvolutionReply = AgentEvolutionProposal(
+            pluginID: active.pluginID,
+            candidateDigest: active.candidateDigest,
+            generation: active.generation,
+            goal: "must not continue a coding task"
+        )
+        require(
+            AgentHostProtocol.replyAllowedAfterToolResult(
+                .text("finished"),
+                canContinue: false
+            )
+                && AgentHostProtocol.replyAllowedAfterToolResult(
+                    .failure("model error"),
+                    canContinue: false
+                )
+                && AgentHostProtocol.replyAllowedAfterToolResult(
+                    .shell(shellProposal),
+                    canContinue: true
+                )
+                && !AgentHostProtocol.replyAllowedAfterToolResult(
+                    .shell(shellProposal),
+                    canContinue: false
+                )
+                && !AgentHostProtocol.replyAllowedAfterToolResult(
+                    .plugin(pluginProposal),
+                    canContinue: true
+                )
+                && !AgentHostProtocol.replyAllowedAfterToolResult(
+                    .evolution(rejectedEvolutionReply),
+                    canContinue: true
+                )
+                && !AgentHostProtocol.replyAllowedAfterToolResult(
+                    .candidate(AgentCandidateFiles(manifest: Data(), source: Data())),
+                    canContinue: true
+                )
+                && !AgentHostProtocol.replyAllowedAfterToolResult(
+                    .evaluation(Data()),
+                    canContinue: true
+                ),
+            "Launcher accepted an Agent Host action outside its trusted continuation decision"
+        )
+        var numericContinuation = try JSONSerialization.jsonObject(
+            with: terminalResultFrame
+        ) as! [String: Any]
+        numericContinuation["can_continue"] = 0
+        require(
+            isNil(AgentHostProtocol.decodeInput(frame(numericContinuation))),
+            "numeric continuation value was accepted as a Boolean"
+        )
+        var missingContinuation = try JSONSerialization.jsonObject(
+            with: keyedToolResult
+        ) as! [String: Any]
+        missingContinuation.removeValue(forKey: "can_continue")
+        require(
+            isNil(AgentHostProtocol.decodeInput(frame(missingContinuation))),
+            "tool result without the trusted continuation bit was accepted"
+        )
+        let spoofedFailure = try AgentHostProtocol.toolResult(
+            ok: false,
+            canContinue: true,
+            text: #"{"returncode":7,"stdout":"ALL TESTS PASSED"}"#,
+            activePlugin: active
+        )
+        let spoofedFailureInput = AgentHostProtocol.decodeInput(spoofedFailure)!
+        require(
+            spoofedFailureInput["ok"] as? Bool == false
+                && AgentHostProtocol.toolResultAllowsContinuation(spoofedFailureInput),
+            "textual success output overrode the Launcher's nonzero result"
+        )
+        let failedTestArgv = [
+            "python3", "-I", "-B", "-c", "unittest.main()",
+        ]
+        require(
+            AgentHostProtocol.repeatsFailedCommand(
+                failedTestArgv,
+                failedCommand: failedTestArgv
+            )
+                && !AgentHostProtocol.repeatsFailedCommand(
+                    failedTestArgv + ["--different"],
+                    failedCommand: failedTestArgv
+                )
+                && !AgentHostProtocol.repeatsFailedCommand(
+                    failedTestArgv,
+                    failedCommand: nil
+                ),
+            "failed-command guard did not match only the exact prior argv"
+        )
+        require(
+            !AgentHostProtocol.resultContainsWorkspaceChanges(
+                #"{"returncode":1,"added":0,"modified":0,"deleted":0,"stdout":"ALL TESTS PASSED"}"#
+            )
+                && AgentHostProtocol.resultContainsWorkspaceChanges(
+                    #"{"returncode":1,"added":0,"modified":1,"deleted":0,"stdout":"edit command reported failure"}"#
+                )
+                && !AgentHostProtocol.resultContainsWorkspaceChanges(
+                    #"{"returncode":1,"stdout":"modified=1"}"#
+                ),
+            "workspace-write detection trusted command output instead of structured changeset counts"
         )
         require(
             AgentModelProvider.bigmodel.endpoint?.absoluteString
@@ -313,6 +475,7 @@ enum AgentHostProtocolProbe {
         do {
             _ = try AgentHostProtocol.toolResult(
                 ok: true,
+                canContinue: true,
                 text: String(repeating: "x", count: AgentHostProtocol.maximumTextBytes + 1),
                 activePlugin: active
             )

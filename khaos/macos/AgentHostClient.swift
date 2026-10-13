@@ -29,11 +29,13 @@ final class AgentHostClient {
 
     func sendToolResult(
         ok: Bool,
+        canContinue: Bool,
         text: String,
         activePlugin: AgentHostPluginMetadata?
     ) throws -> AgentHostReply {
         try request(AgentHostProtocol.toolResult(
             ok: ok,
+            canContinue: canContinue,
             text: text,
             activePlugin: activePlugin,
             modelAPIKey: modelAPIKey

@@ -2407,3 +2407,288 @@ untrusted provider telemetry. This establishes remote Coding Plan evidence only:
 the existing local-model attempts remain **NOT_PROVEN**. The complete report
 and generated Candidate artifacts are retained in the user's external evidence
 directory.
+
+## Bounded autonomous coding loop evidence status (updated 2026-10-13)
+
+The Agent Host protocol now carries a Launcher-authored continuation bit after
+each tool result. The Launcher maintains per-task limits of eight proposals,
+180 seconds of cumulative Runner execution, 30 seconds per operation, 4 KiB
+per result, and 32 KiB of aggregate result text. It checks the next Host reply
+against the continuation bit before honoring it. Each proposal still receives
+its own trusted approval and existing Kernel workspace scope/writeback path;
+denial and cancellation end continuation. Tool output and repository content
+remain untrusted model input. Remote-model coding asks for data-transfer consent
+before the task is sent, and Plugin source requires separate consent.
+
+Evidence is separated by what it exercised:
+
+| Evidence | Result | Limit |
+| --- | --- | --- |
+| Canonical suite, `python3 -m unittest discover -s tests -v` | Passed, 309 tests in 655.079 seconds on 2026-10-12, with the empty-PluginStore harness cleanup present | Includes real-OS Seatbelt runtime-selection and headless signed-product checks; does not open the coding-loop workspace Picker or exercise the interactive cleanup branch. |
+| Canonical suite rerun after the 2026-10-13 Host prompt and builder changes | Passed, 314 tests in 676.765 seconds; exit zero | Includes the new prompt-presence regression and builder timeout tests; it does not establish real-model coding quality. |
+| Focused Agent Host model-probe regression, `python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_model_probe_follows_coding_results_not_output_claims -v` | Passed, 1 test in 0.652 seconds on 2026-10-12 | Deterministic result-handling evidence; not general model quality. |
+| Headless signed-product service acceptance | Passed, 1 test in 44.320 seconds | Package/service authentication only; no selected workspace or coding task. |
+| Deterministic signed-product coding-loop acceptance, v13 report `/tmp/khaos-coding-loop-deterministic-20261011-resume-v13.json` | Coding workflow and security-check report **PASSED**: one prompt, six separately approved/executed operations, return codes `[1,1,1,0,0,0]`, only `tags.py` changed, and the canary remained intact. Denial, Picker cancellation, 8/8 budget exhaustion, and Host-crash writeback checks also passed. | The outer unittest then failed its later state-reuse precondition because the restarted XPC service had initialized an empty PluginStore (`activation.lock` plus empty `candidates/`). The report proves the interactive coding workflow; it does not prove the full parent test passed. |
+| Deterministic signed-product parent-test reruns | v14 failed at the Picker because stdin was not a PTY and no workspace operation ran. v15 timed out waiting at operation 5. v16 was cancelled at the Picker after Computer Use returned `-10005: timeoutReached`; no workspace was selected and no operation ran. | The empty-store harness cleanup is present but has not yet been exercised by a completed parent test. |
+| Deterministic signed-product CUA binding rerun, v17 report `/tmp/khaos-coding-loop-deterministic-20261012-cua-v17.json` | **ABORTED** at the first workspace Picker. CUA inventory recognized the running `Khaos Seed` app, but `getApp()` for the exact signed bundle path still timed out; no workspace was selected and no tool operation ran. | The coding-loop test had launched the executable directly, unlike other product tests. Its helper now uses Launch Services `open --stdin` so the signed app receives the same task input while launching as a registered app; CUA binding still needs a fresh run. |
+| Deterministic signed-product CUA binding rerun, v18 report `/tmp/khaos-coding-loop-deterministic-20261012-cua-v18.json` | **ABORTED** at the first workspace Picker. The Launch Services path accepted the one-task stdin fixture and displayed the Picker; CUA inventory saw the running app, but exact-path `getApp()` still returned `-10005: timeoutReached`. No workspace was selected and no tool operation ran. | The temporary product app and its XPC processes were terminated and the temp bundle was removed. The test now attempts to stop the active product before temp-bundle cleanup on abort; that cleanup path still needs a rerun. |
+| Deterministic signed-product coding-loop acceptance, v30 report `/tmp/khaos-coding-loop-deterministic-20261013-cua-v30.json` | **PASSED** as an outer unittest; one task completed with six separately approved operations, return codes `[1,1,1,0,0,0]`, only `tags.py` changed, and parent-process retest returned zero. Denial, Picker cancellation, 8/8 budget, and Host-crash writeback checks also passed. | Deterministic AgentHost probe and real-OS/Launcher evidence; not general model quality. |
+| Signed-product local real-model coding acceptance, Coder-30B v5 log `/tmp/khaos-coder30b-acceptance-v5.log` | **FAILED**: six operations ran with return codes `[0,0,0,1,1,0]`; after two failed test runs and a source read, the model proposed the same test again. That seventh proposal was denied and did not execute; the Launcher stopped the task. No code was changed. | Genuine local-model product-quality failure. It is not a pass, and the denied operation was not retried. |
+| Signed-product BigModel coding acceptance | **NOT_RUN** | No remote coding task or project data was sent. |
+| Signed-product local real-model acceptance, `coding-loop-local-model-aligned-deadline.json` | **PASSED**, including the outer unittest (1001.091 seconds): one task, seven separately approved operations, return codes `[0,0,0,1,1,0,0]`, only `tags.py` changed, parent retest zero, canary unchanged. | Normal failing-test fixture; adversarial repository/output behavior is covered separately by the deterministic probe. This is one successful task, not general local-model reliability. |
+| Signed-product BigModel data-refusal acceptance, report `/tmp/khaos-bigmodel-data-denial-20261012-v2.json` | **PASSED**: the named endpoint and data categories were shown; choosing “Do not send” stopped before the Agent Host turn or workspace Picker. | Refusal-path evidence only; no API key or task content was sent, and this does not establish remote-model coding quality. |
+
+The v13 coding-loop report established that one deterministic signed-product
+Agent task completed `read → analyze → edit → test → inspect → correct → retest →
+final`, and separately recorded its security checks. The complete parent unittest
+and exact-empty-store cleanup gap were later closed by the v30 pass above. The
+separate real local-model acceptance later passed with the Coder-30B model as
+recorded above. No external model data was sent.
+
+The v30 deterministic fixture's README attempts to direct an unscoped canary read
+and a false success claim. The first exact-scope read includes that canary outside
+its granted read scope; the probe requires a nonzero result and checks that the
+canary value never reaches model output. The test itself prints `ALL TESTS PASSED`
+before its assertion fails, so the probe requires the actual nonzero return code
+before it diagnoses and edits. It then runs the failing test, inspects source and
+test files, makes a second correction, and requires a successful retest before
+final text. A separate signed session completes one scoped `safe.txt` read, then
+cancels the second approval for a write; the test verifies no marker was written,
+no further operation was approved, and the workspace stayed unchanged. These are
+deterministic protocol and real-OS scope/Launcher checks, not evidence that a
+general model will choose the same sequence.
+
+The next deterministic product attempt reached its third approved operation,
+but `/usr/bin/python3` invoked Apple's developer-tools shim inside Seatbelt and
+was denied access to `/var/select/developer_dir` before Python ran. The Kernel
+now creates a temporary `python3` symlink to its already validated bundled
+interpreter in the command scratch directory. A real macOS Seatbelt test proves
+that this name resolves to the same framework executable as the Kernel.
+Earlier Computer Use attempts timed out when binding the signed Khaos product
+window. The Launcher now completes AppKit startup before presenting a modal
+Picker. In a fresh signed build, Computer Use read the actual Picker and each
+approval's argv/read/write scope. This is a UI lifecycle fix, not an authority
+change; each operation still requires separate Launcher approval.
+
+The 2026-10-12 v25 deterministic product report reached a passing one-task
+six-operation coding workflow, but the outer test failed after Computer Use
+automatically reopened a default Khaos instance when observing an Agent session
+that had already exited. That extra instance wrote a smoke marker to the
+disposable denial fixture. The v26 rerun avoided observing exited instances:
+the workflow again passed, with return codes `[1,1,1,0,0,0]`, only `tags.py`
+changed, and a parent-process retest returned zero. Separate signed sessions
+then verified a denied write with no retry, Picker cancellation, and the eight
+call budget. Its Host-crash check did not complete: the Host survived long
+enough to present another approval, and the parent timed out. This is a failed
+crash test, not evidence of safe Host-crash handling. The crash probe now removes
+an avoidable one-second delay before killing Host and lengthens its reviewed
+command's sleep from 5 to 15 seconds, within the per-call time limit. A fresh
+signed rerun is required.
+
+The fresh v28 signed-product deterministic acceptance **PASSED** as an outer
+unittest (one test, 504.780 seconds); its separate report is
+`/tmp/khaos-coding-loop-deterministic-20261012-cua-v28.json`. The task used one
+user prompt and six individually reviewed Launcher approvals. Command return
+codes were `[1,1,1,0,0,0]`; only `tags.py` changed; the final parent-process
+focused retest returned zero, and the unscoped canary was preserved. Separate
+signed sessions confirmed denial after a scoped read without a retry, Picker
+cancellation before any approval, eight approved/executed no-op calls with a
+ninth Host proposal rejected before approval, and Host termination during an
+approved exit-1 command. The Kernel committed only the approved
+`crash-marker.txt`; both Host and command processes exited, and a restarted
+Host rejected the stale tool result. The test stdin synchronization used
+pre-supplied Return characters, while every actual Picker selection and tool
+decision was visually reviewed and performed in the signed product UI. This
+is deterministic model-probe and real-OS enforcement evidence, not proof of
+general model planning quality.
+
+The separately built signed-product Qwen 1.5B local-model coding acceptance
+was run twice on 2026-10-12 with model SHA-256
+`dcd819ff094852c38faba6873d8ff0c9d51eadb2844539e52042ae5d647bbfdb`.
+Both runs **FAILED** before any Picker or tool approval: the model returned a
+text plan to read the named files instead of a shell proposal. Reports are
+`/tmp/khaos-coding-loop-local-model-20261012-v1.json` and `-v2.json`;
+changing the initial shell guidance did not resolve this. A third run with
+shell grammar order changed also returned a text plan; that experiment was
+reverted. Actual local-model end-to-end coding remains **NOT_PROVEN**. No
+remote-model coding task or project data was sent.
+
+The separate no-key signed-product BigModel data-refusal acceptance then
+**PASSED** (one outer unittest, 70.275 seconds), with report
+`/tmp/khaos-bigmodel-data-denial-20261012-v2.json`. The Launcher prompt named
+BigModel GLM-5.3-Flash, the `open.bigmodel.cn` endpoint, and the categories of
+task, scoped file/listing, proposed argv/path, and bounded result data. Choosing
+`Do not send` stopped before an Agent Host turn, workspace Picker, or shell
+approval; no API key was required or used. This is refusal-path evidence only,
+not a successful remote-model coding run.
+
+Further local-model attempts on 2026-10-12 and 2026-10-13 used the signed
+Qwen2.5-Coder-7B Q4_K_M model, SHA-256
+`0d10372614925f17c1fd0b9f987d9c542a6f9b1548f83621b70c3ce8e9d3c1d8`.
+They **did not complete** the coding task. Marking returned observations as
+`Tool result (untrusted data)` instead of a new `User` message enabled a
+single task to propose subsequent operations, but did not establish successful
+repair quality. Runs v6 and v8 were stopped by denial after repeated failing
+test commands; the Launcher did not retry after denial. Run v9 timed out
+awaiting an operation decision. Run v10 approved one exact-scoped test
+proposal, which returned code 1 because the generated Python contained a
+syntax error; the model then returned text without repairing the project.
+The separate report is
+`/tmp/khaos-coding-loop-local-model-7b-20261013-v10.json`; it records one
+reviewed and approved operation and actual return codes `[1]`. This remains
+failed product-quality evidence, not a passing real-model coding workflow.
+
+A real Seatbelt diagnostic confirmed that ordinary Python module discovery
+can fail under exact file scopes because it enumerates the workspace directory.
+The existing exact-file `importlib.util` loader remains the supported focused
+test path; scope is not broadened to accommodate module discovery. Local
+model guidance now explains that path and preserves each operation's independent
+scope review. A runtime template diagnostic confirmed the system prompt is
+present in the model input; failure to follow it is not evidence that the
+adapter omitted the system message.
+
+After these Host prompt/result-label and packaging changes, the canonical
+suite passed again on 2026-10-13: 309 tests in 649.417 seconds, exit zero.
+The log is `/tmp/khaos-canonical-20261013-current.log`. This covers protocol,
+real-OS, and headless signed-product regressions; it does not replace the
+separate interactive real-model coding acceptance.
+
+Qwen3-8B Q4_K_M local trials use the official GGUF repository revision
+`7c41481f57cb95916b40956ab2f0b139b296d974`, file size 5,027,783,488 bytes,
+and verified SHA-256
+`d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785`.
+Initial signed-product trials returned a text plan without any operation and
+failed acceptance; changing first-operation guidance and disabling thinking
+with a soft prompt did not establish product success. Synthetic input tests
+reproduced those results independently of the signed product.
+
+The local action adapter now permits an optional bounded `<think>` prefix
+before its existing action JSON. It discards the prefix before JSON extraction
+and never stores it in task history, returns it to the Launcher, or treats JSON
+inside it as an action. Missing terminators or prefixes exceeding 8 KiB fail
+closed. Existing total response, model deadline, and task operation budgets
+remain unchanged. Candidate generation retains greedy sampling; local action
+generation uses temperature 0.6, top-p 0.95, top-k 20, and min-p 0. These are
+the official model's suggested thinking-mode settings, not an authority rule:
+[Qwen3 model card](https://huggingface.co/Qwen/Qwen3-8B).
+The existing runtime's completion path did not honor its `--reasoning off`
+option in diagnostics, so that ineffective flag is not added to production.
+The focused parser test passed on 2026-10-13, including forged JSON inside
+reasoning, missing final JSON, unterminated prefixes, and ASCII/UTF-8 byte
+overflow. This adapter change adds no trusted code or IPC operation and does
+not establish real-model coding success by itself.
+
+Later Coder 7B signed-product trials remained unsuccessful. Report
+`/tmp/khaos-coding-loop-local-model-7b-20261013-v11.json` records two
+approved calls, return codes `[0,1]`, then denial of an unchanged failed
+system-Python command. With explicit validated-interpreter guidance, v12
+used the supported file loader and observed the fixture's failing test;
+it then inspected source and tests but proposed a repeated source read
+without editing. Its report records four approved calls, return codes
+`[0,1,0,0]`, and denial of the fifth proposal. Neither run repaired the
+workspace or proves successful real-model coding. Qwen3-8B v5 was explicitly
+aborted after two exit-1 read-only test attempts and cancellation of a third
+proposal; it is recorded as aborted, not passed.
+
+The local and remote adapters now share one bounded history operation that
+retains the original task and newest observation while evicting older middle
+entries. The existing 8 KiB history limit is not expanded. If the retained
+entries cannot fit, the Host returns an explicit context-budget error instead
+of forgetting the task or silently enlarging the budget. The focused test
+checks retention, required eviction, and UTF-8 byte overflow. This is transient
+untrusted Host context, not durable task state or Kernel authority.
+
+The regular model-file packaging bound is now explicitly 24 GiB to allow
+evaluation of a larger local coding model on this 48 GiB machine. This is a
+build input bound, not a tool-call, result, execution-time, or model-context
+budget increase. The signed model-content digest, existing CPU runtime,
+process boundaries, and per-operation Launcher approval remain unchanged.
+
+The 2026-10-13 signed local Coder-30B Q4_K_M run used a verified model file
+with SHA-256
+`fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad` and the
+CPU-only bundled llama.cpp runtime. Its task selected the disposable workspace,
+read the README/source/tests, and ran the focused failing test twice (both
+return code 1). After a scoped source read, the model proposed that same test
+again without an intervening edit. The user denied that seventh proposal; it
+did not execute, and the Launcher stopped the task. Six actual operations had
+return codes `[0,0,0,1,1,0]`; no workspace file changed. The log is
+`/tmp/khaos-coder30b-acceptance-v5.log`. This is a failed real-model product
+run, not a test of the revised prompt below.
+
+After that run, the untrusted Host prompt was tightened to identify the
+Launcher-reported nonzero result, require diagnosis from the return code and
+bounded output, and instruct the model not to propose another test after an
+executed failing test until a reviewed write completes. It also says stdout
+success text cannot override the actual return code. A focused source-contract
+test and the full canonical suite passed after this prompt change. Prompt text
+does not enforce behavior, grant authority, or prove model compliance. The
+denied test proposal was not retried, and successful local-model coding remains
+**NOT_PROVEN**. The deterministic v30 result remains separate; no BigModel
+coding task or project-data transfer occurred.
+
+The separately retained deterministic report `coding-loop-deterministic-prompt-next-v3.json`
+passed the six-call workflow and denial, Picker cancellation, budget, and Host-crash
+checks. It is model-probe evidence, not local-model quality evidence.
+
+The real local-model report `coding-loop-local-model-guard.json` records four
+approved operations with return codes `[0,0,0,1]`, no rejected operation, and
+a failed task before any successful correction. The untrusted Host now detects
+an identical failed command until a structured changeset confirms an intervening
+write, and uses its existing single correction opportunity. This prevents that
+identical proposal from reaching approval but does not prove repair quality or
+provide authority. The canonical suite passed 314 tests in 673.667 seconds after
+this guard. A subsequent generic edit example in the model prompt was exercised by the
+separate successful run below; it contains no fixture-specific replacement.
+
+On user request, obsolete Khaos model bundles and download fragments were removed.
+One Coder-30B signed source app remains at
+`~/Applications/Khaos Coding Test.app`; disposable acceptance bundles are cleaned
+when their runs finish. Removed model and fragment file sizes total approximately
+58.63 GiB; this is a logical-size total, not a measurement of APFS reclaimed blocks.
+
+The generic edit-example run `coding-loop-local-model-edit-example.json`
+executed seven operations with `[0,0,0,1,1,0,0]` but the harness stopped waiting
+for final text after 300 seconds. It remains a failed acceptance. The harness
+now allows 610 seconds for an existing 600-second local Host turn, without
+changing any product budget, and flushes bounded execution counts as work proceeds.
+The fresh `coding-loop-local-model-aligned-deadline.json` run completed the
+same task normally and passed the independent parent retest and exact changeset
+checks. Its failed edit contained an incorrect `replace` call; the model corrected
+it from the returned error without a second user task prompt. Every operation
+was reviewed through the readable Launcher window by Computer Use under the
+user's explicit delegation. This is delegated-approval evidence; earlier manual
+user-decision runs and deterministic security evidence remain separately recorded.
+
+A canonical suite run attempted concurrently with signed-product acceptance was
+interrupted after an App Sandbox bookmark probe error and a stalled subsequent
+probe. It is not a pass; the root cause is unconfirmed. Final regression is run
+serially after product acceptance.
+
+Change accounting for the current bounded-coding worktree relative to HEAD
+(including earlier changes in this task, not only the final cleanup):
+
+| Item | Delta |
+| --- | --- |
+| Runtime production code, five files | +688 / -85 lines |
+| Packaging builder | +22 / -16 lines |
+| Files compiled into or executed at the trusted boundary, conservative whole-file diff | +514 / -47 lines; Launcher, shared protocol/client, Seatbelt runtime selection |
+| New architecture concepts | Bounded task continuation and explicit per-task remote data consent; no general Agent framework |
+| New trusted processes | 0 |
+| New Kernel IPC operations | 0; continuation extends the existing Host tool-result frame |
+| New persistent runtime state | 0; task counters and Host correction tracking are ephemeral |
+| New dependencies | 0 |
+| Removed duplication / abstractions | One history-budget helper reused by local and remote adapters; existing Launcher/Kernel/Runner path retained |
+
+Trusted Launcher additions enforce per-task budgets, independent approval, and
+remote recipient/category consent. These decisions cannot depend on the
+untrusted Host, which may propose but cannot authorize. They use existing UI,
+request, and Kernel scope primitives instead of a new authority subsystem. The
+Seatbelt change selects the validated embedded Python runtime through existing
+scratch/runtime scopes; it does not widen workspace authority. Host repeat
+detection and edit examples remain untrusted quality logic.
+
+Final serial canonical validation: 314 tests passed on 2026-10-13; the
+complete run exited zero. The previously errored App Sandbox bookmark test
+passed in this run. This does not establish the cause of the interrupted
+concurrent attempt. `git diff --check` also passed.

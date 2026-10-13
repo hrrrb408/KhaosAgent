@@ -929,7 +929,38 @@ AgentLoop 也不能把模型输出当作授权。模型只能提出 Tool request
 工具 schema 校验、session policy、用户批准和 Kernel capability 检查。任何一个
 环节失败都应拒绝该调用，而不是尝试 Host fallback。
 
-## 11.1 Data Flow Boundary
+## 11.1 Seed bounded coding iteration
+
+一个用户任务可在同一 Agent Host session 中包含多次 workspace 操作。Agent Host
+根据最近一次结果建议下一步；只有 Trusted Launcher 写入的严格布尔
+`tool_result.can_continue` 能允许继续。`true` 只允许再提出一个 `shell` 建议或返回最终文本；
+`plugin` 和 Candidate evolution 不属于 Coding continuation。`false` 要求 Host 只返回文本，
+并终止本任务的操作路径。该位来自 Launcher，模型不能写入或扩大它。
+
+Trusted Launcher 对每个用户任务独立执行固定预算：最多 8 个操作建议、累计 Runner 执行
+180 秒、单次最多 30 秒、每份 workspace 结果最多 4 KiB、累计结果最多 32 KiB。预算耗尽
+后不展示或执行下一操作。每个建议仍独立展示 exact argv 和读写 scope，并等待用户确认；
+Kernel 再强制执行所请求的 scope、Seatbelt 隔离和完整 changeset 写回规则。非零退出码是
+一次真实失败结果，可以在剩余预算内引导修复，但不构成重试授权。`process.exec` 正常返回后，
+Runner 会发送现有 `workspace.commit`；即使命令退出码非零，Kernel 仍先按精确 write scope 校验
+完整 changeset，再决定是否写回。超时、取消或协议失败没有正常结果，不会发送提交请求。用户拒绝、取消 workspace
+Picker、Kernel 失败或超时、Host 失败都会结束任务；拒绝后不改写参数再次尝试。Launcher
+保存并报告实际命令退出码，模型不得把命令输出中的成功文字当成执行证据。
+若最后一个命令非零退出，即使 Host 最终回复声称成功，Launcher 也将任务状态报告为失败。
+面向编码任务的 AgentHost 指引应要求模型先依据真实 returncode 和有界失败输出诊断；已执行的测试返回非零后，完成一个经批准的相关源码写入之前，不应再次提出测试命令。若 Runner 在测试启动前失败，应先修正具体启动问题并如实报告。该顺序仅用于改善不可信 Host 的建议质量，不是可信状态，也不限制 Launcher 对每次独立提议的审批或 Kernel 的 scope enforcement。
+
+README、AGENTS、测试内容与命令输出都是不可信模型输入，不会因为进入 prompt 获得指令权威。
+Local provider 仍是默认值。远端 provider 发送任务前，Launcher 单独说明接收服务、endpoint
+和将发送的数据类别并要求授权，包括任务文本、Plugin metadata、经审查的 argv 与读写路径、
+scope 内文件/目录文本、命令退出码、changeset 路径及有界 stdout/stderr；该授权不等于
+shell 执行审批。远端 Candidate evolution 的 Plugin source 继续要求 Development Approval
+后的单独数据确认。
+
+这条路径复用现有 `AgentHost → Trusted Launcher → Kernel → Seatbelt Runner`，不新增
+Kernel operation、可信进程、持久状态、依赖或通用 Agent framework。Kernel execution、取消、
+超时和 changeset 提交/拒绝继续使用现有实现。
+
+## 11.2 Data Flow Boundary
 
 Capability 不仅限制副作用，也必须限制数据读取和数据转发。Event Bus、Session
 和 Config 不能默认对所有 Plugin 广播。

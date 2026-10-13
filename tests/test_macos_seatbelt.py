@@ -1274,6 +1274,119 @@ print(os.environ.get("KHAOS_SECRET", "missing"))
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt backend",
     )
+    def test_sandboxed_command_path_selects_the_validated_python_runtime(self) -> None:
+        expected = Path(sys.executable).resolve(strict=True)
+        with tempfile.TemporaryDirectory(prefix="khaos-python-path-source-") as value:
+            with workspace_snapshot(Path(value)) as snapshot:
+                result = run_sandboxed_process(
+                    snapshot,
+                    [
+                        "python3",
+                        "-I",
+                        "-S",
+                        "-B",
+                        "-c",
+                        "import os, sys; print(os.path.realpath(sys.executable))",
+                    ],
+                    timeout_seconds=5,
+                )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(Path(result.stdout.strip()).resolve(strict=True), expected)
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt backend",
+    )
+    def test_sandboxed_python_edit_test_retest_use_exact_file_scopes(self) -> None:
+        scoped_test_runner = """\
+import importlib.util, sys, unittest
+for name in ("tags", "test_tags"):
+    spec = importlib.util.spec_from_file_location(name, name + ".py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+unittest.main(module=module, argv=["test_tags"], verbosity=2)
+"""
+        with tempfile.TemporaryDirectory(prefix="khaos-python-test-source-") as value:
+            source = Path(value)
+            (source / "tags.py").write_text(
+                'def parse_tags(value):\n    return value.split(",")\n',
+                encoding="utf-8",
+            )
+            (source / "test_tags.py").write_text(
+                "import unittest\n"
+                "from tags import parse_tags\n\n"
+                "class TagTests(unittest.TestCase):\n"
+                "    def test_tags_are_trimmed_and_empty_tokens_ignored(self):\n"
+                "        print('ALL TESTS PASSED')\n"
+                "        self.assertEqual(parse_tags('alpha, beta, '), ['alpha', 'beta'])\n\n"
+                "if __name__ == '__main__':\n"
+                "    unittest.main()\n",
+                encoding="utf-8",
+            )
+            with workspace_snapshot(source) as snapshot:
+                first_edit = run_sandboxed_process(
+                    snapshot,
+                    [
+                        "python3",
+                        "-I",
+                        "-B",
+                        "-c",
+                        "from pathlib import Path; p=Path('tags.py'); s=p.read_text(); p.write_text(s.replace('value.split(\",\")', '[part.strip() for part in value.split(\",\")]')); raise SystemExit(1)",
+                    ],
+                    timeout_seconds=5,
+                    workspace_read_scope=("tags.py",),
+                    workspace_write_scope=("tags.py",),
+                )
+                first_edited_source = (snapshot.path / "tags.py").read_text(
+                    encoding="utf-8"
+                )
+                first_test = run_sandboxed_process(
+                    snapshot,
+                    ["python3", "-I", "-B", "-c", scoped_test_runner],
+                    timeout_seconds=5,
+                    workspace_read_scope=("tags.py", "test_tags.py"),
+                    workspace_write_scope=(),
+                )
+                correction = run_sandboxed_process(
+                    snapshot,
+                    [
+                        "python3",
+                        "-I",
+                        "-B",
+                        "-c",
+                        "from pathlib import Path; p=Path('tags.py'); s=p.read_text(); p.write_text(s.replace('[part.strip() for part in value.split(\",\")]', '[part.strip() for part in value.split(\",\") if part.strip()]'))",
+                    ],
+                    timeout_seconds=5,
+                    workspace_read_scope=("tags.py",),
+                    workspace_write_scope=("tags.py",),
+                )
+                retest = run_sandboxed_process(
+                    snapshot,
+                    ["python3", "-I", "-B", "-c", scoped_test_runner],
+                    timeout_seconds=5,
+                    workspace_read_scope=("tags.py", "test_tags.py"),
+                    workspace_write_scope=(),
+                )
+
+        self.assertEqual(first_edit.returncode, 1, first_edit.stderr)
+        self.assertIn(
+            "[part.strip() for part in value.split(\",\")]",
+            first_edited_source,
+        )
+        self.assertEqual(first_test.returncode, 1, first_test.stderr)
+        self.assertIn("ALL TESTS PASSED", first_test.stdout)
+        self.assertIn("AssertionError", first_test.stderr)
+        self.assertNotIn("ModuleNotFoundError", first_test.stderr)
+        self.assertEqual(correction.returncode, 0, correction.stderr)
+        self.assertEqual(retest.returncode, 0, retest.stderr)
+        self.assertIn("ALL TESTS PASSED", retest.stdout)
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt backend",
+    )
     def test_sandboxed_command_and_runner_cannot_relax_their_sandboxes(self) -> None:
         with tempfile.TemporaryDirectory() as value:
             root = Path(value)

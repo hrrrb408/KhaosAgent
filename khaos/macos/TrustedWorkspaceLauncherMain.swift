@@ -71,6 +71,15 @@ private struct WorkspaceResult {
     let pluginStateSHA256: String?
 }
 
+private struct AgentToolOutcome {
+    let ok: Bool
+    let canContinue: Bool
+    let text: String
+    let returncode: Int?
+    let executionSeconds: Double
+    var stopReason: String? = nil
+}
+
 @main
 enum TrustedWorkspaceLauncherMain {
     // Keep diagnostics useful without recording paths or command output.
@@ -156,6 +165,7 @@ enum TrustedWorkspaceLauncherMain {
     static func main() {
         let application = NSApplication.shared
         application.setActivationPolicy(.regular)
+        application.finishLaunching()
         let arguments = Array(CommandLine.arguments.dropFirst())
         let isBootstrapCheck = arguments == ["--bootstrap-check"]
         let isCommandRun = arguments.first == "--command"
@@ -1036,8 +1046,9 @@ enum TrustedWorkspaceLauncherMain {
     private static func runAgentSession() throws {
         let host = AgentHostClient()
         defer { host.stop() }
+        let modelProvider = AgentModelProvider.from(bundle: .main)
         fputs(
-            "Khaos local Agent. The model is untrusted; each shell or Plugin invocation needs your approval. Type /exit to quit.\n",
+            "Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.\n",
             stdout
         )
 
@@ -1047,6 +1058,19 @@ enum TrustedWorkspaceLauncherMain {
             fflush(stdout)
             guard let prompt = readLine(strippingNewline: true) else { return }
             if prompt == "/exit" { return }
+            if modelProvider.isRemote,
+               !approveRemoteModelData(
+                    provider: modelProvider,
+                    includesPluginSource: false
+               ) {
+                fputs(
+                    "Khaos: This task was not sent to the remote model; no task or workspace content was transmitted.\n",
+                    stdout
+                )
+                fflush(stdout)
+                writeAgentDiagnostic("remote-data=denied")
+                continue
+            }
             var reply: AgentHostReply
             do {
                 reply = try host.sendUserTurn(
@@ -1059,36 +1083,175 @@ enum TrustedWorkspaceLauncherMain {
             }
 
             var awaitingNextUser = false
+            var taskToolCalls = 0
+            var taskExecutionSeconds = 0.0
+            var taskResultBytes = 0
+            var commandReturnCodes: [Int] = []
+            var taskStopReason: String?
             while !awaitingNextUser {
                 switch reply {
                 case let .text(text):
                     fputs("Khaos: \(terminalSafe(text))\n", stdout)
+                    if taskToolCalls > 0 {
+                        let status: String
+                        if let taskStopReason {
+                            status = "stopped: \(taskStopReason)"
+                        } else if let lastReturnCode = commandReturnCodes.last,
+                                  lastReturnCode != 0 {
+                            status = "failed: last executed command returned code \(lastReturnCode)"
+                        } else {
+                            status = "finished: Agent Host returned a final response"
+                        }
+                        fputs("Launcher task status: \(status).\n", stdout)
+                        taskStopReason = status
+                    }
+                    printAgentTaskRecord(
+                        toolCalls: taskToolCalls,
+                        executionSeconds: taskExecutionSeconds,
+                        resultBytes: taskResultBytes,
+                        returnCodes: commandReturnCodes,
+                        stopReason: taskStopReason
+                    )
                     fflush(stdout)
                     awaitingNextUser = true
                 case let .shell(proposal):
-                    let outcome = try runAgentTool(proposal, workspace: &workspace)
+                    let outcome: AgentToolOutcome
+                    if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
+                        outcome = AgentToolOutcome(
+                            ok: false,
+                            canContinue: false,
+                            text: "Launcher stopped this proposal because the per-task tool-call budget is exhausted. It was not shown for approval or executed.",
+                            returncode: nil,
+                            executionSeconds: 0,
+                            stopReason: "tool-call budget exhausted"
+                        )
+                    } else {
+                        taskToolCalls += 1
+                        let remainingExecution = max(
+                            0,
+                            AgentHostProtocol.maximumToolExecutionSecondsPerTask
+                                - taskExecutionSeconds
+                        )
+                        let remainingResultBytes = max(
+                            0,
+                            AgentHostProtocol.maximumToolResultBytesPerTask
+                                - taskResultBytes
+                        )
+                        if remainingExecution <= 0 || remainingResultBytes < 512 {
+                            outcome = AgentToolOutcome(
+                                ok: false,
+                                canContinue: false,
+                                text: "Launcher stopped this proposal because the per-task execution-time or result-size budget is exhausted. It was not shown for approval or executed.",
+                                returncode: nil,
+                                executionSeconds: 0,
+                                stopReason: remainingExecution <= 0
+                                    ? "cumulative Runner time budget exhausted"
+                                    : "cumulative result-size budget exhausted"
+                            )
+                        } else {
+                            outcome = runAgentTool(
+                                proposal,
+                                workspace: &workspace,
+                                timeoutSeconds: min(
+                                    AgentHostProtocol.maximumToolExecutionSecondsPerCall,
+                                    remainingExecution
+                                ),
+                                maximumResultBytes: min(
+                                    AgentHostProtocol.maximumToolResultBytes,
+                                    remainingResultBytes
+                                )
+                            )
+                        }
+                    }
+                    taskExecutionSeconds += outcome.executionSeconds
+                    taskResultBytes += outcome.text.utf8.count
+                    if let returncode = outcome.returncode {
+                        commandReturnCodes.append(returncode)
+                    }
+                    let budgetExhausted = taskToolCalls
+                            >= AgentHostProtocol.maximumToolCallsPerTask
+                        || taskExecutionSeconds
+                            >= AgentHostProtocol.maximumToolExecutionSecondsPerTask
+                        || taskResultBytes
+                            >= AgentHostProtocol.maximumToolResultBytesPerTask
+                    let canContinue = outcome.canContinue && !budgetExhausted
+                    if budgetExhausted {
+                        taskStopReason = taskToolCalls
+                                >= AgentHostProtocol.maximumToolCallsPerTask
+                            ? "tool-call budget exhausted"
+                            : taskExecutionSeconds
+                                >= AgentHostProtocol.maximumToolExecutionSecondsPerTask
+                                ? "cumulative Runner time budget exhausted"
+                                : "cumulative result-size budget exhausted"
+                    } else if let stopReason = outcome.stopReason {
+                        taskStopReason = stopReason
+                    }
                     do {
-                        reply = try host.sendToolResult(
+                        let nextReply = try host.sendToolResult(
                             ok: outcome.ok,
+                            canContinue: canContinue,
                             text: outcome.text,
                             activePlugin: currentAgentPluginMetadata()
                         )
+                        if AgentHostProtocol.replyAllowedAfterToolResult(
+                            nextReply,
+                            canContinue: canContinue
+                        ) {
+                            reply = nextReply
+                        } else {
+                            writeAgentDiagnostic("task=disallowed_post_result_reply_ignored")
+                            taskStopReason = (taskStopReason ?? "tool result ended the task")
+                                + "; Launcher ignored a disallowed Agent Host action"
+                            reply = .text(outcome.text)
+                        }
                     } catch {
+                        printAgentTaskRecord(
+                            toolCalls: taskToolCalls,
+                            executionSeconds: taskExecutionSeconds,
+                            resultBytes: taskResultBytes,
+                            returnCodes: commandReturnCodes,
+                            stopReason: "Agent Host failed while receiving a tool result"
+                        )
                         fputs(
-                            "Local Agent stopped: \(failureCode(for: error))\n",
-                            stderr
+                            "Launcher task status: stopped: Agent Host failed while receiving a tool result (\(failureCode(for: error))).\n",
+                            stdout
                         )
                         return
                     }
                 case let .plugin(proposal):
+                    if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
+                        do {
+                            reply = try host.sendToolResult(
+                                ok: false,
+                                canContinue: false,
+                                text: "Launcher stopped this proposal because the per-task tool-call budget is exhausted. It was not approved or executed.",
+                                activePlugin: currentAgentPluginMetadata()
+                            )
+                        } catch {
+                            fputs("Local Agent stopped: \(failureCode(for: error))\n", stderr)
+                            return
+                        }
+                        continue
+                    }
+                    taskToolCalls += 1
                     let outcome = runAgentPlugin(proposal, workspace: &workspace)
+                    taskResultBytes += outcome.text.utf8.count
+                    taskStopReason = "Plugin operation ended the task"
                     do {
                         reply = try host.sendToolResult(
                             ok: outcome.ok,
+                            canContinue: false,
                             text: outcome.text,
                             activePlugin: currentAgentPluginMetadata()
                         )
                     } catch {
+                        printAgentTaskRecord(
+                            toolCalls: taskToolCalls,
+                            executionSeconds: taskExecutionSeconds,
+                            resultBytes: taskResultBytes,
+                            returnCodes: commandReturnCodes,
+                            stopReason: "Agent Host failed while receiving a Plugin result"
+                        )
                         fputs(
                             "Local Agent stopped: \(failureCode(for: error))\n",
                             stderr
@@ -1096,18 +1259,43 @@ enum TrustedWorkspaceLauncherMain {
                         return
                     }
                 case let .evolution(proposal):
+                    if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
+                        do {
+                            reply = try host.sendToolResult(
+                                ok: false,
+                                canContinue: false,
+                                text: "Launcher stopped this proposal because the per-task tool-call budget is exhausted. It was not approved or executed.",
+                                activePlugin: currentAgentPluginMetadata()
+                            )
+                        } catch {
+                            fputs("Local Agent stopped: \(failureCode(for: error))\n", stderr)
+                            return
+                        }
+                        continue
+                    }
+                    taskToolCalls += 1
                     let outcome = runAgentEvolution(
                         proposal,
                         evidence: prompt,
                         host: host
                     )
+                    taskResultBytes += outcome.text.utf8.count
+                    taskStopReason = "Candidate evolution operation ended the task"
                     do {
                         reply = try host.sendToolResult(
                             ok: outcome.ok,
+                            canContinue: false,
                             text: outcome.text,
                             activePlugin: currentAgentPluginMetadata()
                         )
                     } catch {
+                        printAgentTaskRecord(
+                            toolCalls: taskToolCalls,
+                            executionSeconds: taskExecutionSeconds,
+                            resultBytes: taskResultBytes,
+                            returnCodes: commandReturnCodes,
+                            stopReason: "Agent Host failed while receiving an evolution result"
+                        )
                         fputs(
                             "Local Agent stopped: \(failureCode(for: error))\n",
                             stderr
@@ -1116,13 +1304,84 @@ enum TrustedWorkspaceLauncherMain {
                     }
                 case let .failure(code):
                     fputs("Local Agent error: \(code)\n", stderr)
+                    taskStopReason = taskStopReason
+                        ?? "Agent Host or model failed: \(code)"
+                    if taskToolCalls > 0 {
+                        fputs("Launcher task status: stopped: \(taskStopReason!).\n", stdout)
+                    }
+                    printAgentTaskRecord(
+                        toolCalls: taskToolCalls,
+                        executionSeconds: taskExecutionSeconds,
+                        resultBytes: taskResultBytes,
+                        returnCodes: commandReturnCodes,
+                        stopReason: taskStopReason
+                    )
                     awaitingNextUser = true
                 case .candidate(_), .evaluation(_):
                     fputs("Local Agent error: unexpected_evolution_reply\n", stderr)
+                    taskStopReason = "unexpected Agent Host reply"
+                    printAgentTaskRecord(
+                        toolCalls: taskToolCalls,
+                        executionSeconds: taskExecutionSeconds,
+                        resultBytes: taskResultBytes,
+                        returnCodes: commandReturnCodes,
+                        stopReason: taskStopReason
+                    )
                     awaitingNextUser = true
                 }
             }
         }
+    }
+
+    private static func approveRemoteModelData(
+        provider: AgentModelProvider,
+        includesPluginSource: Bool
+    ) -> Bool {
+        guard provider.isRemote, let endpoint = provider.endpoint else { return true }
+        writeAgentDiagnostic("remote-data=approval-presented")
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Send this task's data to BigModel?"
+        var categories = [
+            "This task's text and bounded active Plugin metadata",
+            "Proposed argv and requested workspace paths for each separately approved operation",
+            "Text returned from files and workspace listings within each approved read scope",
+            "Command return codes, changed-path lists, and bounded stdout/stderr from approved operations",
+        ]
+        if includesPluginSource {
+            categories.append("The exact active Plugin Manifest and source")
+        }
+        let service = provider == .bigmodelCodingPlan
+            ? "BigModel GLM-5.3-Flash Coding Plan"
+            : "BigModel GLM-5.3-Flash"
+        alert.informativeText = "Service: \(service)\nEndpoint: \(endpoint.absoluteString)\n\n"
+            + "Data that may be sent:\n• " + categories.joined(separator: "\n• ") + "\n\n"
+            + "The API key is used only in the request Authorization header. BigModel is an external recipient. This decision authorizes these data categories for this task only. It does not approve any command; each operation still needs separate Launcher approval. Approving a shell command does not authorize sending its data to BigModel."
+        alert.addButton(withTitle: "Do not send")
+        alert.addButton(withTitle: "Send task data")
+        let approved = alert.runModal() == .alertSecondButtonReturn
+        writeAgentDiagnostic(approved ? "remote-data=approved" : "remote-data=denied")
+        return approved
+    }
+
+    private static func printAgentTaskRecord(
+        toolCalls: Int,
+        executionSeconds: Double,
+        resultBytes: Int,
+        returnCodes: [Int],
+        stopReason: String? = nil
+    ) {
+        guard toolCalls > 0 else { return }
+        let values = returnCodes.map(String.init).joined(separator: ",")
+        fputs(
+            "Launcher task record: proposals=\(toolCalls); executed command return codes=[\(values)]; cumulative Runner time=\(String(format: "%.3f", executionSeconds))s; bounded result bytes=\(resultBytes); stop reason=\(stopReason ?? "Agent Host returned final text"). Only these command results are verified; broader test coverage is not inferred.\n",
+            stdout
+        )
+    }
+
+    private static func writeAgentDiagnostic(_ result: String) {
+        fputs("agent-session=\(result)\n", stderr)
+        fflush(stderr)
     }
 
     private static func currentAgentPluginMetadata() -> AgentHostPluginMetadata? {
@@ -1196,6 +1455,9 @@ enum TrustedWorkspaceLauncherMain {
             return (false, "The user denied Memory development or activation.")
         } catch LauncherError.operationRejected(let code) {
             fputs("agent-evolution=denied code=\(code)\n", stderr)
+            if code == "remote_data_denied" {
+                return (false, "The user declined sending Plugin source to BigModel; no Plugin source was transmitted.")
+            }
             return (false, "Launcher denied Memory evolution: \(code)")
         } catch {
             fputs("agent-evolution=failed code=\(failureCode(for: error))\n", stderr)
@@ -1289,6 +1551,12 @@ enum TrustedWorkspaceLauncherMain {
             candidate: baseline,
             generation: initialState.generation
         )
+
+        let provider = AgentModelProvider.from(bundle: .main)
+        if provider.isRemote,
+           !approveRemoteModelData(provider: provider, includesPluginSource: true) {
+            throw LauncherError.operationRejected("remote_data_denied")
+        }
 
         let generated = try host.generateCandidate(
             proposal: proposalData,
@@ -1632,24 +1900,45 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func runAgentTool(
         _ proposal: AgentShellProposal,
-        workspace: inout TrustedWorkspaceSelection?
-    ) throws -> (ok: Bool, text: String) {
+        workspace: inout TrustedWorkspaceSelection?,
+        timeoutSeconds: Double,
+        maximumResultBytes: Int
+    ) -> AgentToolOutcome {
         guard !proposal.argv.isEmpty,
               proposal.argv.count <= AgentHostProtocol.maximumArguments,
               proposal.argv.allSatisfy(reviewable),
               proposal.readScope.count + proposal.writeScope.count
                 <= AgentHostProtocol.maximumScopePaths,
-              (proposal.readScope + proposal.writeScope).allSatisfy(reviewable) else {
-            return (false, "Launcher rejected the malformed tool proposal.")
+              (proposal.readScope + proposal.writeScope).allSatisfy(reviewable),
+              timeoutSeconds.isFinite,
+              timeoutSeconds > 0,
+              timeoutSeconds <= AgentHostProtocol.maximumToolExecutionSecondsPerCall,
+              maximumResultBytes >= 512,
+              maximumResultBytes <= AgentHostProtocol.maximumToolResultBytes else {
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Launcher rejected the malformed or over-budget tool proposal.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "malformed or over-budget proposal rejected"
+            )
         }
         let source: String
         do {
             source = try agentRunnerSource(argv: proposal.argv)
         } catch {
-            return (false, "Launcher could not encode the bounded tool proposal.")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Launcher could not encode the bounded tool proposal.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "Launcher could not encode the tool proposal"
+            )
         }
         let request = KernelWorkspaceXPC.WorkspaceRunRequest(
-            timeoutSeconds: 30,
+            timeoutSeconds: timeoutSeconds,
             runnerSource: source,
             runnerSourceSHA256: KernelWorkspaceXPC.runnerSourceSHA256(source),
             workspaceReadScope: proposal.readScope,
@@ -1658,27 +1947,66 @@ enum TrustedWorkspaceLauncherMain {
         do {
             _ = try request.encodeFrame(requestID: KernelWorkspaceXPC.newRequestID())
         } catch {
-            return (false, "Kernel rejected the requested argv or workspace scope as invalid.")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Kernel rejected the requested argv or workspace scope as invalid.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "Kernel rejected the proposed argv or scope"
+            )
         }
 
         if workspace == nil {
             do {
+                writeAgentDiagnostic("tool=workspace-picker-requested")
                 let selected = try TrustedWorkspacePicker.selectWorkspace(
                     message: "Choose the workspace for this reviewed Agent tool request."
                 )
                 guard reviewable(selected.scopeURL.path) else {
                     selected.scopeURL.stopAccessingSecurityScopedResource()
-                    return (false, "Launcher rejected the selected workspace path.")
+                    return AgentToolOutcome(
+                        ok: false,
+                        canContinue: false,
+                        text: "Launcher rejected the selected workspace path.",
+                        returncode: nil,
+                        executionSeconds: 0,
+                        stopReason: "selected workspace path rejected"
+                    )
                 }
                 selected.scopeURL.stopAccessingSecurityScopedResource()
                 workspace = selected
             } catch TrustedWorkspacePickerError.cancelled {
-                return (false, "User cancelled workspace selection.")
+                writeAgentDiagnostic("tool=workspace-selection-cancelled")
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "The user cancelled workspace selection. This task stopped; no command ran.",
+                    returncode: nil,
+                    executionSeconds: 0,
+                    stopReason: "user cancelled workspace selection; no command ran"
+                )
+            } catch {
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Launcher could not establish the selected workspace.",
+                    returncode: nil,
+                    executionSeconds: 0,
+                    stopReason: "Launcher could not establish the workspace"
+                )
             }
         }
         guard let selection = workspace,
               let bundleID = Bundle.main.bundleIdentifier else {
-            return (false, "Trusted workspace session is unavailable.")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Trusted workspace session is unavailable.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "trusted workspace session unavailable"
+            )
         }
 
         let requestID = KernelWorkspaceXPC.newRequestID()
@@ -1690,19 +2018,37 @@ enum TrustedWorkspaceLauncherMain {
                 bookmark: selection.bookmark
             )
         } catch {
-            return (false, "Launcher could not encode the trusted workspace invocation.")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Launcher could not encode the trusted workspace invocation.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "Launcher could not encode the workspace invocation"
+            )
         }
         let command = proposal.argv.map { "  \($0)" }.joined(separator: "\n")
+        writeAgentDiagnostic("tool=approval-presented")
         guard approveReviewedRequest(
             request,
-            title: "Run this local Agent tool once?",
+            title: "Approve this local Agent tool once?",
             details: "Proposed argv:\n\(command)",
             workspace: selection.scopeURL,
             digest: KernelWorkspaceXPC.sha256Hex(invocation)
         ) else {
-            return (false, "User denied this tool request.")
+            writeAgentDiagnostic("tool=approval-denied")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "The user denied this tool request. This task stopped; the command was not executed. Do not retry or restate it.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "user denied the proposed operation; it was not executed"
+            )
         }
 
+        writeAgentDiagnostic("tool=approved")
+        let startedAt = ProcessInfo.processInfo.systemUptime
         do {
             let output = try runInKernel(
                 bundleID: bundleID,
@@ -1710,34 +2056,79 @@ enum TrustedWorkspaceLauncherMain {
                 requestID: requestID,
                 request: request
             )
-            return try agentResult(parseWorkspaceResult(output))
+            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
+            let result = try parseWorkspaceResult(output)
+            let bounded = try agentResult(result, maximumBytes: maximumResultBytes)
+            writeAgentDiagnostic("tool=executed returncode=\(result.returncode)")
+            return AgentToolOutcome(
+                ok: result.returncode == 0,
+                canContinue: true,
+                text: bounded.text,
+                returncode: result.returncode,
+                executionSeconds: elapsed
+            )
         } catch let LauncherError.operationRejected(code) {
-            return (false, "Kernel rejected or failed the request: \(code)")
+            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
+            writeAgentDiagnostic("tool=stopped code=\(code)")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Kernel rejected or failed the request: \(code). This task stopped without retrying.",
+                returncode: nil,
+                executionSeconds: elapsed,
+                stopReason: "Kernel rejected or failed the request: \(code)"
+            )
         } catch {
-            return (false, "Kernel request failed closed.")
+            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
+            writeAgentDiagnostic("tool=stopped code=kernel_request_failed")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Kernel request failed closed. This task stopped without retrying.",
+                returncode: nil,
+                executionSeconds: elapsed,
+                stopReason: "Kernel request failed closed"
+            )
         }
     }
 
     private static func agentResult(
-        _ result: WorkspaceResult
+        _ result: WorkspaceResult,
+        maximumBytes: Int = AgentHostProtocol.maximumToolResultBytes
     ) throws -> (ok: Bool, text: String) {
-        let resultObject: [String: Any] = [
-            "returncode": result.returncode,
-            "added": result.added,
-            "modified": result.modified,
-            "deleted": result.deleted,
-            "stdout": String(result.stdout.prefix(2_000)),
-            "stderr": String(result.stderr.prefix(2_000)),
-        ]
-        let resultData = try JSONSerialization.data(
-            withJSONObject: resultObject,
-            options: [.sortedKeys, .withoutEscapingSlashes]
-        )
-        let boundedResult = boundedUTF8Prefix(
-            String(decoding: resultData, as: UTF8.self),
-            maximumBytes: AgentHostProtocol.maximumTextBytes
-        )
-        return (result.returncode == 0, boundedResult)
+        guard maximumBytes >= 512,
+              maximumBytes <= AgentHostProtocol.maximumToolResultBytes else {
+            throw LauncherError.invalidArguments
+        }
+        var streamLimit = min(1_400, (maximumBytes - 512) / 2)
+        while true {
+            let stdout = boundedUTF8Prefix(result.stdout, maximumBytes: streamLimit)
+            let stderr = boundedUTF8Prefix(result.stderr, maximumBytes: streamLimit)
+            let resultObject: [String: Any] = [
+                "returncode": result.returncode,
+                "added": result.added,
+                "modified": result.modified,
+                "deleted": result.deleted,
+                "stdout": stdout,
+                "stderr": stderr,
+                "stdout_truncated": stdout.utf8.count < result.stdout.utf8.count,
+                "stderr_truncated": stderr.utf8.count < result.stderr.utf8.count,
+            ]
+            let resultData = try JSONSerialization.data(
+                withJSONObject: resultObject,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+            )
+            if resultData.count <= maximumBytes {
+                return (
+                    result.returncode == 0,
+                    String(decoding: resultData, as: UTF8.self)
+                )
+            }
+            guard streamLimit > 0 else {
+                throw LauncherError.operationRejected("tool_result_too_large")
+            }
+            streamLimit /= 2
+        }
     }
 
     private static func agentRunnerSource(argv: [String]) throws -> String {
@@ -1752,10 +2143,10 @@ enum TrustedWorkspaceLauncherMain {
             ARGV = json.loads(base64.b64decode(\(String(reflecting: encodedArgv))))
 
             def run():
-                result = process_exec(tuple(ARGV))
-                if result["returncode"] == 0:
-                    workspace_commit()
-                return result["returncode"]
+                process_exec(tuple(ARGV))
+                # A normal nonzero command result still needs the Kernel's scoped commit frame.
+                workspace_commit()
+                return 0
             """
         guard source.utf8.count <= 10_240 else {
             throw LauncherError.invalidArguments
