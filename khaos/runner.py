@@ -22,6 +22,7 @@ from .kernel.peer_identity import verify_local_parent_pid
 
 
 _START_FIELDS = {"version", "request_id", "operation", "payload"}
+_WORKER_STARTUP_STDERR_FLAG = "KHAOS_RUNNER_STARTUP_STDERR_ONLY"
 
 
 def main() -> int:
@@ -30,6 +31,13 @@ def main() -> int:
         return 2
     verify_local_parent_pid(Path(sys.argv[1]), os.getppid())
     answer_ping()
+    if os.environ.get(_WORKER_STARTUP_STDERR_FLAG) == "1":
+        stderr_to_discard = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(stderr_to_discard, 2)
+        finally:
+            if stderr_to_discard != 2:
+                os.close(stderr_to_discard)
     request = receive_frame(0, timeout_seconds=5)
     request_id = request.get("request_id")
     payload = request.get("payload")

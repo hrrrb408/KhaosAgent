@@ -69,6 +69,7 @@ from .workspace_snapshot import (
 
 _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
 _RUNNER_STARTUP_TIMEOUT_SECONDS = 10
+_MAX_RUNNER_STARTUP_STDERR_BYTES = 4 * 1024
 _PT_DENY_ATTACH = 31  # macOS sys/ptrace.h
 _WORKER_IO_STAGES = {
     "_path_is_within": "ancestry",
@@ -502,10 +503,14 @@ def _run_workspace_command(
                                 "TMPDIR": str(scratch),
                                 "LC_ALL": "C",
                                 "PYTHONDONTWRITEBYTECODE": "1",
+                                "KHAOS_RUNNER_STARTUP_STDERR_ONLY": "1",
                             },
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,
+                            # Runner keeps this pipe only through peer-PID
+                            # verification, then redirects its stderr to null
+                            # before receiving Plugin source.
+                            stderr=subprocess.PIPE,
                             close_fds=True,
                         )
                     except (OSError, subprocess.SubprocessError) as exc:
@@ -596,17 +601,31 @@ def _run_workspace_command(
                     failed_stage = runner_diagnostic.stage
                     runner_diagnostic.set_stage("cleanup")
                     try:
-                        _kill_runner(process)
+                        _kill_runner(
+                            process,
+                            runner_diagnostic=runner_diagnostic,
+                            diagnostic_stage=failed_stage,
+                        )
                     except BaseException:
                         raise
                     runner_diagnostic.stage = failed_stage
                 raise
 
 
-def _kill_runner(process: subprocess.Popen[bytes]) -> None:
+def _kill_runner(
+    process: subprocess.Popen[bytes],
+    *,
+    runner_diagnostic: _RunnerDiagnosticState | None = None,
+    diagnostic_stage: str | None = None,
+) -> None:
     if process.poll() is None:
         process.send_signal(signal.SIGKILL)
         process.wait()
+    if runner_diagnostic is not None and diagnostic_stage in {
+        "peer_identity",
+        "pipe_handshake",
+    }:
+        runner_diagnostic.capture_startup_stderr(process)
     for stream in (process.stdin, process.stdout, process.stderr):
         if stream is not None and not stream.closed:
             stream.close()
@@ -682,11 +701,37 @@ class _RunnerDiagnosticState:
         self.stage: str | None = None
         self.started_ns: int | None = None
         self.process: subprocess.Popen[bytes] | None = None
+        self.startup_error_category: str | None = None
 
     def set_stage(self, stage: str) -> None:
         if self.started_ns is None:
             self.started_ns = time.monotonic_ns()
         self.stage = stage
+
+    def capture_startup_stderr(self, process: subprocess.Popen[bytes]) -> None:
+        stream = process.stderr
+        if stream is None or stream.closed:
+            return
+        try:
+            os.set_blocking(stream.fileno(), False)
+        except OSError:
+            return
+        captured = bytearray()
+        while len(captured) < _MAX_RUNNER_STARTUP_STDERR_BYTES:
+            try:
+                chunk = os.read(
+                    stream.fileno(),
+                    min(1024, _MAX_RUNNER_STARTUP_STDERR_BYTES - len(captured)),
+                )
+            except (BlockingIOError, OSError):
+                break
+            if not chunk:
+                break
+            captured.extend(chunk)
+        if captured:
+            self.startup_error_category = _runner_startup_stderr_category(
+                bytes(captured)
+            )
 
     def failed(self, error: BaseException) -> dict[str, object] | None:
         if self.stage is None or self.started_ns is None:
@@ -703,10 +748,32 @@ class _RunnerDiagnosticState:
         )
         return {
             "stage": self.stage,
-            "category": _runner_diagnostic_category(self.stage, error),
+            "category": self.startup_error_category
+            or _runner_diagnostic_category(self.stage, error),
             "child_exit_status": process_status,
             "elapsed_ms": elapsed_ms,
         }
+
+
+def _runner_startup_stderr_category(stderr: bytes) -> str:
+    """Reduce bounded, untrusted pre-Plugin stderr to a closed category."""
+    if b"ModuleNotFoundError" in stderr or b"ImportError" in stderr:
+        return "runner_import_error"
+    if b"ConnectionRefusedError" in stderr:
+        return "runner_peer_connection_refused"
+    if b"FileNotFoundError" in stderr:
+        return "runner_os_file_not_found"
+    if b"PermissionError" in stderr:
+        return "runner_os_permission_error"
+    if b"OS parent PID" in stderr or b"OS peer PID" in stderr:
+        return "runner_peer_identity_error"
+    if b"IPC ping challenge" in stderr:
+        return "runner_ping_protocol_error"
+    if b"IPCProtocolError" in stderr:
+        return "runner_ipc_protocol_error"
+    if b"OSError" in stderr or b"Error:" in stderr:
+        return "runner_os_error"
+    return "runner_startup_exception"
 
 
 def _runner_diagnostic_category(stage: str, error: BaseException) -> str:

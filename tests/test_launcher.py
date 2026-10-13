@@ -198,6 +198,37 @@ def run(request):
 
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_runner_discards_plugin_stderr_after_startup_handshake(self) -> None:
+        source = """\
+import os
+from khaos.runner_sdk import plugin_output
+
+def run(request):
+    os.write(2, b'x' * 131072)
+    plugin_output({"ok": True})
+"""
+        with tempfile.TemporaryDirectory() as value:
+            workspace = Path(value) / "workspace"
+            workspace.mkdir()
+            state_root = Path(value) / "plugin-state"
+            result = run_workspace_command(
+                workspace,
+                runner_source=source,
+                process_exec_allowed=False,
+                plugin_id="stderr-probe",
+                plugin_state_root=state_root,
+                plugin_input={"operation": "probe"},
+                timeout_seconds=10,
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"ok": True})
+        self.assertEqual((result.added, result.modified, result.deleted), (0, 0, 0))
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt backend",
     )
     def test_workspace_startup_retries_a_failed_pipe_ping_before_request(self) -> None:

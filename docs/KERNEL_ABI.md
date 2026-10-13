@@ -85,6 +85,14 @@ keeps it on the local `KernelLaunchError`; the native Workspace XPC bridge
 returns only the original public error code. It contains no Runner stderr,
 workspace bytes, Plugin state, command output, or exception text.
 
+For a Runner launched by the Worker, the Worker may read at most 4 KiB of
+stderr only before the Runner has received Plugin source, reduce it in memory
+to a closed error category, and discard the bytes. The Worker sets a fixed
+Runner-local environment marker; after the peer-PID and pipe-ping handshakes,
+that Runner redirects stderr to `/dev/null` before reading Plugin source.
+Standalone Runner invocations keep their existing stderr behavior. No stderr
+bytes are included in a frame or persisted in CI output.
+
 Frames are limited to 64 KiB and eight structural JSON nesting levels. Plugin
 input is limited to 8 KiB and six structural nesting levels. State blobs are
 limited to 32 KiB; Plugin output is limited to 8 KiB. The depth check ignores

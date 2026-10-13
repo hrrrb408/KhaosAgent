@@ -2625,9 +2625,10 @@ raise SystemExit(21)
                 if matched and name.startswith(".khaos-") and not race["started"]:
                     race["started"] = True
                     staging = next(staging_parent.glob("khaos-changes-*"))
-                    (staging / ".backup-race-ready").write_text(
-                        name, encoding="utf-8"
-                    )
+                    ready = staging / ".backup-race-ready"
+                    ready_temporary = staging / ".backup-race-ready.tmp"
+                    ready_temporary.write_text(name, encoding="utf-8")
+                    os.replace(ready_temporary, ready)
                     deadline = time.monotonic() + 5
                     done = staging / ".backup-race-done"
                     while not done.exists() and time.monotonic() < deadline:
