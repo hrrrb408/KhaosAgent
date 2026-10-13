@@ -465,6 +465,7 @@ def serve_runner_execution(
     plugin_state_root: str | os.PathLike[str] | None = None,
     plugin_output_expected: bool = False,
     allow_process_exec: bool = True,
+    on_runner_request: Callable[[], None] | None = None,
 ) -> SandboxedProcessResult | PluginOutput:
     """Serve bounded Plugin state/output and scoped workspace operations."""
     read_scope = WorkspaceReadScope.from_paths(
@@ -483,6 +484,8 @@ def serve_runner_execution(
         request_id, operation, payload = _receive_request(
             request_read_fd, response_write_fd, timeout_seconds
         )
+        if on_runner_request is not None:
+            on_runner_request()
         if operation in {_READ_OPERATION, _LIST_OPERATION, _WRITE_OPERATION}:
             if filesystem_requests >= MAX_WORKSPACE_FILESYSTEM_OPERATIONS:
                 _send_error(

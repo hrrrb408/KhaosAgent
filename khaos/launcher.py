@@ -25,6 +25,7 @@ from .ipc import (
     _json_nesting_within_limit,
     answer_ping,
     send_frame,
+    validate_runner_diagnostic,
     validate_runner_source,
 )
 from .kernel.macos_seatbelt import (
@@ -44,6 +45,15 @@ from .kernel.workspace_snapshot import (
 
 class KernelLaunchError(RuntimeError):
     """The isolated Kernel could not complete its bounded workspace session."""
+
+    def __init__(
+        self,
+        code: str,
+        *,
+        diagnostic: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(code)
+        self.diagnostic = diagnostic
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,11 +281,17 @@ def run_workspace_command(
             if (
                 response["ok"] is not False
                 or type(error) is not dict
-                or set(error) != {"code"}
+                or set(error) not in ({"code"}, {"code", "diagnostic"})
                 or type(error.get("code")) is not str
+                or ("diagnostic" in error and error["code"] != "runner_failed")
             ):
                 raise IPCProtocolError("Kernel error response is invalid")
-            raise KernelLaunchError(error["code"])
+            diagnostic = (
+                validate_runner_diagnostic(error["diagnostic"])
+                if "diagnostic" in error
+                else None
+            )
+            raise KernelLaunchError(error["code"], diagnostic=diagnostic)
         if set(response) != {"version", "request_id", "ok", "result"}:
             raise IPCProtocolError("Kernel response schema is invalid")
         result = response["result"]

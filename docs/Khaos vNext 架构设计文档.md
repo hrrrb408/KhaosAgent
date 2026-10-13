@@ -1111,7 +1111,7 @@ structured error
 Plugin Runner 必须与 Host、Kernel 分进程运行。Runner 崩溃只能使该 Plugin
 失败，不能使 Kernel 或其他 Plugin 取得它的文件描述符、secret 或状态。
 
-当前 Runner ABI v7 与原生 Workspace XPC operation ABI v11 的精确请求顺序、字段、
+当前 Runner ABI v8 与原生 Workspace XPC operation ABI v11 的精确请求顺序、字段、
 错误码和字节上限记录在 `docs/KERNEL_ABI.md`。开发 `workspace.run` 路径仍不代表
 Plugin capability grant；产品 `plugin.run` 另外绑定已激活 Candidate 的 Plugin ID、
 内容摘要、Manifest scope 与 generation。开发 launcher 可为 Kernel 的 `fs.read` / `fs.list` 设置默认 deny-all 的相对路径

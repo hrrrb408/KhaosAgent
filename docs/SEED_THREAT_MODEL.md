@@ -267,6 +267,28 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
 suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
 must pass before merge.
 
+## 2026-10-13 PR #9 Runner startup diagnostic
+
+PR #9 head `1157e60d3f92c515ef5f4790abcf06c7540756b6` failed GitHub run
+`38438380132`: 319 tests ran in 787.844 seconds, with one failure in
+`test_fixed_replay_improves_memory_b_and_preserves_state_through_rollback`.
+The bounded Worker diagnostic was `stage=pipe_handshake`, `category=ipc_eof`,
+`child_exit_status=1`, `elapsed_ms=236`. The Worker had accepted the Runner's
+OS peer PID connection, but the Runner exited before returning a valid pipe
+ping. This was a process exit, not a handshake timeout. At that head stderr
+was discarded, so the exact Runner exception and root cause remain unknown.
+
+The follow-up keeps startup stderr in a pipe only until the ping completes.
+For a Worker-launched Runner, a fixed internal environment marker makes the
+Runner redirect stderr to `/dev/null` before it reads Plugin source; standalone
+Runner invocations keep their existing behavior. On a startup failure the
+Worker reads at most 4 KiB and reduces those untrusted bytes to a closed
+diagnostic category in memory. Raw stderr is discarded and never enters an
+IPC frame or test log. A real Runner test writes 128 KiB to stderr from Plugin
+code and verifies the output path remains live. This is diagnostic
+instrumentation, not yet a root-cause fix; rerun the canonical GitHub suite
+before claiming closure.
+
 ## 2026-10-06 Candidate-bound informational Agent interface
 
 An optional Manifest `agent_interface` now gives the Agent bounded operation

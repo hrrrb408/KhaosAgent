@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from khaos.ipc import (
     IPCProtocolError,
@@ -17,7 +17,9 @@ from khaos.kernel.macos_seatbelt import SandboxUnavailable, SandboxedProcessErro
 from khaos.kernel.worker import (
     _WorkspaceAncestryIOError,
     _WorkspaceCancellation,
+    _RunnerDiagnosticState,
     _run_workspace_command,
+    _runner_startup_stderr_category,
     _sandbox_unavailable_error_code,
     _workspace_io_error_code,
 )
@@ -31,6 +33,53 @@ _RUNNER_SOURCE = "def run():\n    pass\n"
 
 
 class KernelWorkerTests(unittest.TestCase):
+    def test_runner_startup_stderr_is_reduced_to_a_closed_category(self) -> None:
+        stderr = (
+            b"Traceback (most recent call last):\n"
+            b"PermissionError: /private/secret/workspace\n"
+        )
+        self.assertEqual(
+            _runner_startup_stderr_category(stderr),
+            "runner_os_permission_error",
+        )
+
+    def test_runner_startup_stderr_capture_has_a_fixed_byte_limit(self) -> None:
+        stream = Mock()
+        stream.closed = False
+        stream.fileno.return_value = 17
+        process = Mock()
+        process.stderr = stream
+
+        def read_filled_buffer(_fd: int, size: int) -> bytes:
+            marker = b"PermissionError: "
+            return marker[:size] + b"x" * max(0, size - len(marker))
+
+        diagnostic = _RunnerDiagnosticState()
+        with (
+            patch("khaos.kernel.worker.os.set_blocking"),
+            patch("khaos.kernel.worker.os.read", side_effect=read_filled_buffer) as read,
+        ):
+            diagnostic.capture_startup_stderr(process)
+
+        self.assertEqual(
+            sum(call.args[1] for call in read.call_args_list), 4 * 1024
+        )
+        self.assertEqual(
+            diagnostic.startup_error_category,
+            "runner_os_permission_error",
+        )
+        self.assertNotIn("stderr", vars(diagnostic))
+
+    def test_runner_startup_stderr_classifies_peer_connection_failure(self) -> None:
+        stderr = (
+            b"ConnectionRefusedError: [Errno 61] /private/secret/peer.sock\n"
+            b"khaos.ipc.IPCProtocolError: OS parent PID could not be verified\n"
+        )
+        self.assertEqual(
+            _runner_startup_stderr_category(stderr),
+            "runner_peer_connection_refused",
+        )
+
     def test_sandbox_unavailable_diagnostics_are_bounded_and_path_free(self) -> None:
         for stage, expected in (
             ("probe-child", "sandbox_unavailable_probe_child"),

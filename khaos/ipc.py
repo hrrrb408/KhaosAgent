@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 MAX_FRAME_BYTES = 64 * 1024
 MAX_JSON_NESTING = 8
 MAX_PLUGIN_INPUT_NESTING = MAX_JSON_NESTING - 2
@@ -35,6 +35,44 @@ _LENGTH = struct.Struct("!I")
 
 class IPCProtocolError(RuntimeError):
     """The local peer sent an invalid, oversized, or late message."""
+
+
+_RUNNER_DIAGNOSTIC_STAGES = frozenset(
+    {
+        "spawn",
+        "peer_identity",
+        "pipe_handshake",
+        "plugin_start",
+        "execution_ipc",
+        "completion",
+        "cleanup",
+    }
+)
+_RUNNER_DIAGNOSTIC_CATEGORIES = frozenset(
+    {
+        "ipc_eof",
+        "ipc_io_error",
+        "ipc_protocol",
+        "ipc_timeout",
+        "os_error",
+        "other",
+        "peer_identity_error",
+        "peer_mismatch",
+        "peer_timeout",
+        "runner_import_error",
+        "runner_ipc_protocol_error",
+        "runner_os_error",
+        "runner_os_file_not_found",
+        "runner_os_permission_error",
+        "runner_peer_connection_refused",
+        "runner_peer_identity_error",
+        "runner_ping_protocol_error",
+        "runner_startup_exception",
+        "subprocess_error",
+        "subprocess_timeout",
+    }
+)
+_MAX_RUNNER_DIAGNOSTIC_ELAPSED_MS = 300_000
 
 
 class FrameReader:
@@ -100,18 +138,47 @@ def send_error_frame(
     request_id: str,
     code: str,
     timeout_seconds: float = 5.0,
+    *,
+    diagnostic: dict[str, Any] | None = None,
 ) -> None:
     """Send the shared bounded error envelope for one IPC request."""
+    error: dict[str, Any] = {"code": code}
+    if diagnostic is not None:
+        error["diagnostic"] = validate_runner_diagnostic(diagnostic)
     send_frame(
         write_fd,
         {
             "version": PROTOCOL_VERSION,
             "request_id": request_id,
             "ok": False,
-            "error": {"code": code},
+            "error": error,
         },
         timeout_seconds=timeout_seconds,
     )
+
+
+def validate_runner_diagnostic(value: object) -> dict[str, Any]:
+    """Validate the small internal diagnostic attached to runner_failed."""
+    if (
+        type(value) is not dict
+        or set(value)
+        != {"stage", "category", "child_exit_status", "elapsed_ms"}
+        or type(value.get("stage")) is not str
+        or value["stage"] not in _RUNNER_DIAGNOSTIC_STAGES
+        or type(value.get("category")) is not str
+        or value["category"] not in _RUNNER_DIAGNOSTIC_CATEGORIES
+        or (
+            value.get("child_exit_status") is not None
+            and (
+                type(value["child_exit_status"]) is not int
+                or not -255 <= value["child_exit_status"] <= 255
+            )
+        )
+        or type(value.get("elapsed_ms")) is not int
+        or not 0 <= value["elapsed_ms"] <= _MAX_RUNNER_DIAGNOSTIC_ELAPSED_MS
+    ):
+        raise IPCProtocolError("Runner diagnostic is invalid")
+    return dict(value)
 
 
 def receive_frame(
