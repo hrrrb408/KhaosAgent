@@ -85,6 +85,30 @@ class KernelWorkerTests(unittest.TestCase):
             "runner_peer_connection_refused",
         )
 
+    def test_runner_startup_stderr_does_not_misclassify_python_errors_as_os(self) -> None:
+        for exception_name in (b"RuntimeError", b"TypeError", b"ValueError"):
+            with self.subTest(exception_name=exception_name):
+                self.assertEqual(
+                    _runner_startup_stderr_category(
+                        b"Traceback (most recent call last):\n"
+                        + exception_name
+                        + b": /private/secret/workspace\n"
+                    ),
+                    "runner_startup_exception",
+                )
+
+    def test_runner_startup_stderr_classifies_os_exception_types(self) -> None:
+        for exception_name in (b"OSError", b"BrokenPipeError", b"TimeoutError"):
+            with self.subTest(exception_name=exception_name):
+                self.assertEqual(
+                    _runner_startup_stderr_category(
+                        b"Traceback (most recent call last):\n"
+                        + exception_name
+                        + b": /private/secret/peer.sock\n"
+                    ),
+                    "runner_os_error",
+                )
+
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt Runner",
