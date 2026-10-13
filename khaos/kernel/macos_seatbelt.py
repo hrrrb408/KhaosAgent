@@ -1424,6 +1424,10 @@ def run_sandboxed_process(
             prefix="khaos-command-", dir=workspace.parent
         ) as scratch_value:
             scratch = Path(scratch_value).resolve(strict=True)
+            # The bundled framework ships a versioned executable name. Give
+            # approved commands a stable python3 name without falling back to
+            # Apple's developer-tools shim in /usr/bin.
+            os.symlink(executable, scratch / "python3")
             profile = _snapshot_profile(
                 workspace,
                 runtime_paths,
@@ -1452,7 +1456,16 @@ def run_sandboxed_process(
                 ),
                 cwd=workspace,
                 env={
-                    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                    "PATH": os.pathsep.join(
+                        (
+                            str(scratch),
+                            str(executable.parent),
+                            "/usr/bin",
+                            "/bin",
+                            "/usr/sbin",
+                            "/sbin",
+                        )
+                    ),
                     "HOME": str(scratch),
                     # Seatbelt intentionally hides ancestor directory entries;
                     # provide the private cwd so shells need not reconstruct it.

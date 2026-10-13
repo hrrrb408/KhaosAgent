@@ -1,0 +1,35 @@
+{
+  "coding_workflow": {
+    "changed_paths": [
+      "tags.py"
+    ],
+    "command_return_codes": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    "final_source_sha256": "19fe2651d37879d113a364980fc572f56b7db5b23e3819655edfa97dbf37ce3a",
+    "focused_test_command": "python3 -I -B -c <file-scoped unittest loader>",
+    "launcher_approved_and_executed_calls": 7,
+    "one_user_prompt": true,
+    "parent_final_test_return_code": 0,
+    "scoped_nonzero_edit_returned_and_committed": null,
+    "synthetic_unscoped_canary_preserved": true
+  },
+  "finished_at_utc": "2026-10-13T10:42:50.505089+00:00",
+  "format": "khaos-bounded-coding-loop-acceptance-v1",
+  "local_model": {
+    "model_sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad",
+    "provider": "local",
+    "runtime_version": "version: 0.5.0-dev (build 1, commit 7fe450e)\nbuilt with AppleClang 21.0.0.21000101 for Darwin arm64"
+  },
+  "model_mode": "local-real-model-product",
+  "provider": "local",
+  "security_checks": {},
+  "started_at_utc": "2026-10-13T10:30:44.752055+00:00",
+  "status": "passed"
+}

@@ -21,6 +21,7 @@ APP_ID = "org.khaos.Seed"
 AGENT_HOST_ID = f"{APP_ID}.AgentHost"
 SERVICE_ID = f"{APP_ID}.KernelProduction"
 SNAPSHOT_BROKER_ID = f"{APP_ID}.KernelSnapshotBroker"
+MODEL_RUNTIME_VERSION_TIMEOUT_SECONDS = 60
 SEED_PYTHON_SOURCES = (
     "khaos/__init__.py",
     "khaos/ipc.py",
@@ -46,6 +47,25 @@ PYTHON_CODE = (
 
 class BuildError(RuntimeError):
     pass
+
+
+def _query_model_runtime_version(executable: Path) -> str:
+    try:
+        version_result = subprocess.run(
+            [str(executable), "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=MODEL_RUNTIME_VERSION_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise BuildError(f"could not query bundled llama.cpp version: {error}") from error
+    if version_result.returncode != 0:
+        raise BuildError("could not query bundled llama.cpp version")
+    model_version = (version_result.stdout or version_result.stderr).strip()
+    if not model_version:
+        raise BuildError("llama.cpp returned no runtime version")
+    return model_version
 
 
 def main() -> int:
@@ -516,7 +536,7 @@ def _bundle_local_model(
     keychain: Path | None,
 ) -> None:
     executable = _regular_source(llama_cli, executable=True)
-    model = _regular_source(model_file, maximum_bytes=4 * 1024**3)
+    model = _regular_source(model_file, maximum_bytes=24 * 1024**3)
     license_file = _regular_source(model_license, maximum_bytes=1024**2)
     otool = shutil.which("otool")
     if otool is None:
@@ -613,21 +633,7 @@ def _bundle_local_model(
         ) + "\n",
         encoding="utf-8",
     )
-    try:
-        version_result = subprocess.run(
-            [str(executable), "--version"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError) as error:
-        raise BuildError(f"could not query bundled llama.cpp version: {error}") from error
-    if version_result.returncode != 0:
-        raise BuildError("could not query bundled llama.cpp version")
-    model_version = (version_result.stdout or version_result.stderr).strip()
-    if not model_version:
-        raise BuildError("llama.cpp returned no runtime version")
+    model_version = _query_model_runtime_version(executable)
     host_info = agent_host_contents / "Info.plist"
     values = _read_plist(host_info)
     values["KhaosLocalModelRuntime"] = model_version

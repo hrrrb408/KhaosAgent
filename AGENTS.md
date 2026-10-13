@@ -375,7 +375,9 @@ the named and anonymous Kernel XPC peer checks without opening the workspace pic
 To bundle the Agent's local CPU model, use a CPU-only llama.cpp build
 (`GGML_METAL=OFF`, `LLAMA_OPENSSL=OFF`, `GGML_OPENMP=OFF`) and pass its
 `llama-completion` binary as `--llama-cli PATH`, with `--model-file PATH` and
-`--model-license PATH`. The builder bundles non-system dynamic libraries and
+`--model-license PATH`. The model input is bounded to a regular file of at most
+24 GiB, with its SHA-256 bound into the signed Agent Host metadata. The builder
+bundles non-system dynamic libraries and
 their notices into the separately signed Agent Host. Do not use the default
 Metal-enabled Homebrew binary: it initializes Metal in the Agent Host despite
 CPU layer settings. No model download or remote provider is used at runtime.
@@ -491,6 +493,90 @@ separate deterministic and local-model results; API output does not replace
 protocol regression evidence or local-model evidence. The test requires manual
 package selection and separate development/activation decisions; do not run it
 while another Khaos Seed Picker is waiting for a selection.
+
+Run the deterministic signed-product Bounded Autonomous Coding Loop acceptance
+separately from the real BigModel product acceptance:
+
+```bash
+KHAOS_RUN_PRODUCT_CODING_LOOP_UI=1 \
+KHAOS_CODING_LOOP_EVIDENCE_PATH="$PWD/coding-loop-deterministic.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+This builds a disposable signed product with the deterministic Agent Host model
+probe. Its one-task coding fixture includes hostile README instructions, a
+scope-denied canary read, a test that prints a fake success string before
+failing, an edit, inspection, correction, and successful retest. It also checks
+a successful scoped read followed by a denied write mid-task with no next
+approval, Picker cancellation, the 8-call budget, and Agent Host termination
+during an approved exit-1 command whose in-scope write is committed while the
+command and Host processes are then confirmed exited. It requires
+manual workspace selection and per-operation decisions; approve only the
+displayed scopes in the disposable fixtures. The report does not contain raw
+model prompts, command output, API credentials, or workspace file contents.
+
+Run the signed-product coding acceptance with the real local model separately
+from the deterministic probe and BigModel test. Point `KHAOS_REAL_MODEL_APP`
+at a signed Seed app that bundles the local `llama-cli`, model, and license:
+
+```bash
+export KHAOS_REAL_MODEL_APP="$HOME/Applications/Khaos Coding Test.app"
+KHAOS_RUN_PRODUCT_REAL_MODEL_CODING_LOOP_UI=1 \
+KHAOS_REAL_MODEL_CODING_LOOP_EVIDENCE_PATH="$PWD/coding-loop-local-model.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+This uses the same disposable failing-test repository and requires manual
+workspace selection plus separate review of every proposed operation. The
+evidence records the local model mode, actual command return codes, scoped
+changeset, and parent-process retest. It does not send project data to a remote
+provider. Preserve this report separately from deterministic and BigModel
+reports.
+
+To exercise the remote-data refusal in the signed product without transmitting
+task content or using an API key, run this separate UI acceptance:
+
+```bash
+env -u KHAOS_BIGMODEL_API_KEY KHAOS_RUN_PRODUCT_BIGMODEL_DATA_DENIAL_UI=1 \
+KHAOS_BIGMODEL_DATA_DENIAL_EVIDENCE_PATH="$PWD/bigmodel-data-denial.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+Review the named BigModel endpoint and data categories, then choose `Do not
+send`. This route has no API key and verifies the Launcher denies the task
+before an Agent Host turn, workspace Picker, or shell approval. It is refusal
+evidence only; it does not establish successful remote-model coding quality.
+
+Run the real BigModel signed-product coding acceptance separately. Set the API
+key in the test process environment without writing the value to the command
+line or evidence file, choose the matching provider, and run:
+
+```bash
+read -s "KHAOS_BIGMODEL_API_KEY?BigModel API key: "
+export KHAOS_BIGMODEL_API_KEY
+KHAOS_RUN_PRODUCT_BIGMODEL_CODING_LOOP_UI=1 \
+KHAOS_BIGMODEL_PROVIDER=bigmodel \
+KHAOS_BIGMODEL_CODING_LOOP_EVIDENCE_PATH="$PWD/coding-loop-bigmodel.json" \
+python3 -m unittest discover -s tests \
+  -p test_macos_xpc_sandbox.py \
+  -k test_seed_app_builds_and_authenticates_its_kernel_service -v
+```
+
+Use `KHAOS_BIGMODEL_PROVIDER=bigmodel-coding-plan` for a Coding Plan key. This
+build has no local-model fallback. Before sending the task, the signed Launcher
+shows a separate prompt naming BigModel, its endpoint, and the data categories
+that may be sent: task text, active Plugin metadata, proposed argv and requested
+paths, scoped file/listing text, command return codes, changed-path lists, and
+bounded stdout/stderr. The user must approve that data flow and then review each
+shell operation independently. Cancel the data prompt to verify that no task
+or workspace content is sent. Preserve its evidence separately from the
+deterministic probe; neither result substitutes for the other.
 
 The canonical suite includes headless product-bundle source-digest, duplicate-field,
 over-depth JSON, malformed/over-budget scope, and caller-authority attacks against

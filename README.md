@@ -8,8 +8,8 @@ writeback smoke, a one-shot shell command, a persistent single-slot Plugin lifec
 a small local Agent Loop. The smoke Runner receives one generated marker path for SDK
 `fs.write`; acceptance runs may also receive an exact fixture read/list scope,
 while an ordinary no-argument launch uses deny-all read scope. The Agent Loop
-uses an on-device model and only submits user-approved bounded
-tool requests to the Kernel; it is not a general coding assistant.
+uses the on-device model by default and supports bounded multi-step coding
+tasks through separately reviewed Kernel tool requests.
 
 ## Build the local app
 
@@ -29,7 +29,9 @@ notarize or install it.
 
 To bundle the local CPU model used by the Agent, provide a CPU-only
 `llama-completion` binary with `--llama-cli PATH`, plus `--model-file PATH` and
-`--model-license PATH`. Build llama.cpp without Metal or OpenSSL so the
+`--model-license PATH`. The model file must be a regular file of at most 24 GiB;
+the builder binds its SHA-256 into the signed Agent Host metadata. Build llama.cpp
+without Metal or OpenSSL so the
 app-sandboxed Agent Host does not initialize a GPU backend or carry an unused
 HTTPS runtime:
 
@@ -93,11 +95,21 @@ in memory over the existing XPC frame. Agent Host uses it only in the HTTP
 Authorization header; it does not persist or log the key or include it in a
 model prompt. The key is available to the untrusted Agent Host process, and the
 macOS entitlement allows general outbound client networking; OS-level
-provider-only egress confinement is not established. Remote mode sends user
-messages, active Plugin interface metadata, returned tool results, and—only
-after Development Approval—the approved feedback and baseline Candidate source
-to BigModel. Do not use this mode with data you are not willing to send to the
-provider. Missing credentials, API errors, malformed model output, failed
+provider-only egress confinement is not established. Before each remote task,
+the Launcher presents a separate data-sharing prompt that names the service,
+endpoint, and categories that may be sent: task text and active Plugin metadata;
+proposed argv and requested workspace paths for separately approved operations;
+text from files and listings within approved read scopes; and command exit codes,
+changed-path lists, and bounded stdout/stderr. This data approval does not
+approve commands, and shell approval does not authorize data transmission.
+Sending Plugin Manifest/source requires another prompt after Development
+Approval and before source transfer. If the user declines, the corresponding
+data is not sent. Remote mode sends user messages, active Plugin interface
+metadata, reviewed argv and scopes, scoped workspace contents, and bounded tool
+results to BigModel; it sends approved feedback and baseline
+Candidate source only after the extra prompt. Do not use this mode with data you
+are not willing to send to the provider. Missing credentials, API errors,
+malformed model output, failed
 admission, or a non-improving evaluation fail explicitly without a local or
 fixture Candidate fallback.
 
@@ -106,6 +118,36 @@ Routine Agent turns and Candidate source generation use maximum reasoning with s
 Host-side limits bound each request. Candidate source remains capped at 10,240 bytes
 and must pass the existing admission, isolated evaluation, and separate development
 and activation approvals. A length-truncated response fails explicitly.
+
+## Bounded multi-step coding task
+
+One user task may produce up to 8 operation proposals, with at most 180 seconds
+of cumulative Runner execution, 30 seconds per operation, 4 KiB per workspace
+result, and 32 KiB of aggregate result text. The trusted Launcher enforces
+these limits. It presents each proposed command and exact read/write paths for
+a separate approval; Kernel and Seatbelt enforce the approved request and the
+Kernel checks the full changeset before writeback. A normally returned command
+result, including a nonzero exit, sends the scoped changeset through that
+writeback check; timeouts, cancellation, and protocol failures do not request a
+commit. A failed command can inform a correction while budget remains. A denial, workspace-picker cancellation,
+Kernel failure/timeout, Host failure, or exhausted budget ends the task. A
+command's exit code verifies only that command; it does not imply the full
+project test suite passed. The Launcher reports a nonzero final command as a
+failed task even if the Agent Host returns successful-sounding text, and prints
+the actual command return-code ledger.
+
+README, AGENTS, test fixtures, and command output are untrusted model input.
+Instructions in those files do not grant authority. In remote mode, the separate
+task data-sharing prompt covers the listed categories for that task only; it
+never replaces approval of a shell operation.
+
+On 2026-10-13, the signed local Qwen3-Coder-30B acceptance completed one task
+with seven separately approved operations: scoped reads, a failing test, a failed
+edit, a corrected source edit, and a passing retest. The parent independently
+retested successfully and confirmed only `tags.py` changed. See
+`coding-loop-local-model-aligned-deadline.json`; adversarial deterministic evidence
+remains separate in `coding-loop-deterministic-prompt-next-v3.json`. This demonstrates
+one disposable coding task, not general model reliability or a full project suite.
 
 The builder copies only the Seed's reviewed Python modules into the trusted
 Kernel XPC bundle; adding a new module to the repository does not implicitly
@@ -454,7 +496,7 @@ from a private snapshot. Its fixed Runner also exercises bounded `fs.read` and
 `fs.list` in acceptance mode with a one-file fixture scope; an ordinary
 no-argument launch passes an empty read scope. The one-shot command mode now
 uses the same XPC request and Kernel commit path with user-reviewed scopes.
-The product is not yet a general coding assistant. The Launcher provides one
+The product offers a bounded coding loop, not a general Agent platform. The Launcher provides one
 persistent `primary` Candidate slot with explicit activation, execution, and
 rollback confirmations. The untrusted Agent Host can propose a bounded Plugin
 invocation from the active Candidate's informational interface; the Launcher
