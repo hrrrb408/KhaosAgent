@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 
 from ..ipc import (
@@ -242,6 +243,7 @@ def main() -> int:
             return 0
 
         cancellation = _WorkspaceCancellation(request_id)
+        runner_diagnostic = _RunnerDiagnosticState()
         process_started_fd = os.dup(1)
         try:
             def report_process_finished(process_group_id: int) -> None:
@@ -266,6 +268,7 @@ def main() -> int:
                         plugin_state_root=plugin_state_root,
                         plugin_input=request["payload"].get("plugin_input"),
                         process_exec_allowed=request["payload"]["process_exec_allowed"],
+                        runner_diagnostic=runner_diagnostic,
                     )
                 finally:
                     os.close(workspace_root_fd)
@@ -299,14 +302,19 @@ def main() -> int:
         except WorkspaceSnapshotError:
             _send_error(request_id, "workspace_rejected_snapshot")
         except OSError as exc:
-            _send_error(request_id, _workspace_io_error_code(exc))
+            diagnostic = runner_diagnostic.failed(exc)
+            if diagnostic is None:
+                _send_error(request_id, _workspace_io_error_code(exc))
+            else:
+                _send_error(request_id, "runner_failed", diagnostic=diagnostic)
         except (ValueError, TypeError):
             _send_error(request_id, "workspace_rejected_input")
-        except (IPCProtocolError, subprocess.SubprocessError):
-            _send_error(
-                request_id,
-                "process_cancelled" if cancellation.requested else "runner_failed",
+        except (IPCProtocolError, subprocess.SubprocessError) as exc:
+            code = "process_cancelled" if cancellation.requested else "runner_failed"
+            diagnostic = (
+                None if code == "process_cancelled" else runner_diagnostic.failed(exc)
             )
+            _send_error(request_id, code, diagnostic=diagnostic)
         else:
             send_frame(
                 1,
@@ -359,7 +367,10 @@ def _run_workspace_command(
     plugin_state_root: str | None = None,
     plugin_input: dict[str, object] | None = None,
     process_exec_allowed: bool = True,
+    runner_diagnostic: _RunnerDiagnosticState | None = None,
 ):
+    if runner_diagnostic is None:
+        runner_diagnostic = _RunnerDiagnosticState()
     package_root = Path(__file__).resolve().parents[2]
     timeout = validate_command_timeout(timeout_seconds)
     source = validate_runner_source(runner_source)
@@ -457,7 +468,9 @@ def _run_workspace_command(
             )
             process: subprocess.Popen[bytes] | None = None
             try:
+                runner_diagnostic.set_stage("peer_identity")
                 with local_peer_pid_listener(scratch) as (listener, peer_socket_path):
+                    runner_diagnostic.set_stage("spawn")
                     # Keep the IPC Runner in scratch; only the Broker handles the snapshot.
                     profile = _snapshot_profile(
                         scratch,
@@ -468,33 +481,40 @@ def _run_workspace_command(
                         additional_unix_socket_paths=(peer_socket_path,),
                         readable_paths=readable_paths,
                     )
-                    process = subprocess.Popen(
-                        (
-                            str(SANDBOX_EXECUTABLE),
-                            "-p",
-                            profile,
-                            str(executable),
-                            "-I",
-                            "-S",
-                            "-B",
-                            "-c",
-                            bootstrap,
-                            peer_socket_path.name,
-                        ),
-                        cwd=scratch,
-                        env={
-                            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-                            "HOME": str(scratch),
-                            "TMPDIR": str(scratch),
-                            "LC_ALL": "C",
-                            "PYTHONDONTWRITEBYTECODE": "1",
-                        },
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        close_fds=True,
-                    )
+                    try:
+                        process = subprocess.Popen(
+                            (
+                                str(SANDBOX_EXECUTABLE),
+                                "-p",
+                                profile,
+                                str(executable),
+                                "-I",
+                                "-S",
+                                "-B",
+                                "-c",
+                                bootstrap,
+                                peer_socket_path.name,
+                            ),
+                            cwd=scratch,
+                            env={
+                                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                                "HOME": str(scratch),
+                                "TMPDIR": str(scratch),
+                                "LC_ALL": "C",
+                                "PYTHONDONTWRITEBYTECODE": "1",
+                            },
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL,
+                            close_fds=True,
+                        )
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        raise IPCProtocolError("Runner process spawn failed") from exc
+                    runner_diagnostic.process = process
+                    runner_diagnostic.set_stage("peer_identity")
                     accept_local_peer_pid(listener, process.pid)
+                    runner_diagnostic.set_stage("cleanup")
+                runner_diagnostic.set_stage("pipe_handshake")
                 if process.stdin is None or process.stdout is None:
                     raise IPCProtocolError("Runner IPC pipes are unavailable")
                 ping_peer(
@@ -507,6 +527,7 @@ def _run_workspace_command(
                     if plugin_input is not None
                     else {"source": source}
                 )
+                runner_diagnostic.set_stage("plugin_start")
                 send_frame(
                     process.stdin.fileno(),
                     {
@@ -528,6 +549,9 @@ def _run_workspace_command(
                     plugin_state_root=plugin_state_root,
                     plugin_output_expected=plugin_input is not None,
                     allow_process_exec=process_exec_allowed,
+                    on_runner_request=lambda: runner_diagnostic.set_stage(
+                        "execution_ipc"
+                    ),
                     timeout_seconds=5,
                     cancel_requested=cancel_requested,
                     process_started_fd=process_started_fd,
@@ -535,6 +559,7 @@ def _run_workspace_command(
                     process_finished=process_finished,
                 )
                 if isinstance(result, PluginOutput):
+                    runner_diagnostic.set_stage("completion")
                     if plugin_input is None:
                         raise IPCProtocolError("unexpected Plugin output")
                     from .macos_seatbelt import SandboxedProcessResult
@@ -546,6 +571,7 @@ def _run_workspace_command(
                     )
                     changes = WorkspaceCommitSummary(0, 0, 0)
                 else:
+                    runner_diagnostic.set_stage("completion")
                     changes = serve_workspace_commit(
                         process.stdout.fileno(),
                         process.stdin.fileno(),
@@ -561,11 +587,19 @@ def _run_workspace_command(
                 except subprocess.TimeoutExpired:
                     # The validated commit result is authoritative; Runner code
                     # after its final IPC request cannot revoke it.
+                    runner_diagnostic.set_stage("cleanup")
                     _kill_runner(process)
+                    runner_diagnostic.set_stage("completion")
                 return result, changes
             except BaseException:
                 if process is not None:
-                    _kill_runner(process)
+                    failed_stage = runner_diagnostic.stage
+                    runner_diagnostic.set_stage("cleanup")
+                    try:
+                        _kill_runner(process)
+                    except BaseException:
+                        raise
+                    runner_diagnostic.stage = failed_stage
                 raise
 
 
@@ -641,12 +675,87 @@ class _WorkspaceAncestryIOError(RuntimeError):
         super().__init__(stage)
 
 
-def _send_error(request_id: str, code: str) -> None:
+class _RunnerDiagnosticState:
+    """Bounded, non-content metadata for one Runner launch attempt."""
+
+    def __init__(self) -> None:
+        self.stage: str | None = None
+        self.started_ns: int | None = None
+        self.process: subprocess.Popen[bytes] | None = None
+
+    def set_stage(self, stage: str) -> None:
+        if self.started_ns is None:
+            self.started_ns = time.monotonic_ns()
+        self.stage = stage
+
+    def failed(self, error: BaseException) -> dict[str, object] | None:
+        if self.stage is None or self.started_ns is None:
+            return None
+        try:
+            process_status = self.process.poll() if self.process is not None else None
+        except (OSError, subprocess.SubprocessError):
+            process_status = None
+        if type(process_status) is not int or not -255 <= process_status <= 255:
+            process_status = None
+        elapsed_ms = min(
+            300_000,
+            max(0, (time.monotonic_ns() - self.started_ns) // 1_000_000),
+        )
+        return {
+            "stage": self.stage,
+            "category": _runner_diagnostic_category(self.stage, error),
+            "child_exit_status": process_status,
+            "elapsed_ms": elapsed_ms,
+        }
+
+
+def _runner_diagnostic_category(stage: str, error: BaseException) -> str:
+    if isinstance(error, IPCProtocolError):
+        message = str(error)
+        cause = error.__cause__
+        if isinstance(cause, subprocess.TimeoutExpired):
+            return "subprocess_timeout"
+        if isinstance(cause, subprocess.SubprocessError):
+            return "subprocess_error"
+        if isinstance(cause, OSError) and message == "Runner process spawn failed":
+            return "os_error"
+        if stage == "peer_identity":
+            if message == "OS peer PID connection timed out":
+                return "peer_timeout"
+            if message == "OS peer PID did not match the spawned Runner":
+                return "peer_mismatch"
+            return "peer_identity_error"
+        if message == "IPC deadline expired":
+            return "ipc_timeout"
+        if message in {
+            "IPC peer closed its input pipe",
+            "IPC peer closed an incomplete frame",
+        }:
+            return "ipc_eof"
+        if message in {"IPC pipe read failed", "IPC pipe write failed"}:
+            return "ipc_io_error"
+        return "ipc_protocol"
+    if isinstance(error, subprocess.TimeoutExpired):
+        return "subprocess_timeout"
+    if isinstance(error, subprocess.SubprocessError):
+        return "subprocess_error"
+    if isinstance(error, OSError):
+        return "os_error"
+    return "other"
+
+
+def _send_error(
+    request_id: str,
+    code: str,
+    *,
+    diagnostic: dict[str, object] | None = None,
+) -> None:
     send_error_frame(
         1,
         request_id,
         code,
         timeout_seconds=5,
+        diagnostic=diagnostic,
     )
 
 

@@ -22,6 +22,7 @@ from khaos.ipc import (
     receive_frame,
     send_error_frame,
     send_frame,
+    validate_runner_diagnostic,
     validate_runner_source,
 )
 
@@ -39,6 +40,52 @@ class IPCProtocolTests(unittest.TestCase):
                     "error": {"code": "invalid_request"},
                 },
             )
+
+    def test_runner_failure_error_frame_carries_only_bounded_diagnostics(self) -> None:
+        diagnostic = {
+            "stage": "execution_ipc",
+            "category": "ipc_eof",
+            "child_exit_status": 47,
+            "elapsed_ms": 321,
+        }
+        with _pipe() as (receiver, sender):
+            send_error_frame(
+                sender,
+                "a" * 32,
+                "runner_failed",
+                timeout_seconds=2,
+                diagnostic=diagnostic,
+            )
+            self.assertEqual(
+                receive_frame(receiver, timeout_seconds=2),
+                {
+                    "version": PROTOCOL_VERSION,
+                    "request_id": "a" * 32,
+                    "ok": False,
+                    "error": {"code": "runner_failed", "diagnostic": diagnostic},
+                },
+            )
+
+    def test_runner_diagnostic_rejects_unbounded_or_content_fields(self) -> None:
+        valid = {
+            "stage": "execution_ipc",
+            "category": "ipc_eof",
+            "child_exit_status": 47,
+            "elapsed_ms": 321,
+        }
+        invalid_diagnostics = (
+            {**valid, "stage": "user-file-content"},
+            {**valid, "category": "secret-token"},
+            {**valid, "child_exit_status": True},
+            {**valid, "elapsed_ms": 300_001},
+            {**valid, "stdout": "untrusted command output"},
+        )
+        self.assertEqual(validate_runner_diagnostic(valid), valid)
+        for diagnostic in invalid_diagnostics:
+            with self.subTest(diagnostic=diagnostic), self.assertRaisesRegex(
+                IPCProtocolError, "diagnostic"
+            ):
+                validate_runner_diagnostic(diagnostic)
 
     def test_runner_source_is_bounded_utf8_and_nonempty(self) -> None:
         source = "#" * MAX_RUNNER_SOURCE_BYTES

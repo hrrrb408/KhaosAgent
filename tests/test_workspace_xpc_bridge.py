@@ -254,6 +254,44 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
         )
         self.assertNotIn("private path detail", repr(response))
 
+    def test_runner_diagnostic_stays_inside_worker_launcher_boundary(self) -> None:
+        source = "def run():\n    return 0\n"
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        request = self._request(source, digest)
+        diagnostic = {
+            "stage": "execution_ipc",
+            "category": "ipc_eof",
+            "child_exit_status": 47,
+            "elapsed_ms": 321,
+        }
+        with (
+            patch.object(workspace_xpc_bridge.sys, "argv", ["bridge", "", "/workspace", "3", "4"]),
+            patch.object(workspace_xpc_bridge.os, "fstat"),
+            patch.object(workspace_xpc_bridge, "receive_frame", return_value=request),
+            patch.object(workspace_xpc_bridge, "_read_workspace_bookmark", return_value=b"bookmark"),
+            patch.object(workspace_xpc_bridge, "_scoped_workspace_bookmark", return_value=nullcontext()),
+            patch.object(
+                workspace_xpc_bridge,
+                "run_workspace_command",
+                side_effect=workspace_xpc_bridge.KernelLaunchError(
+                    "runner_failed", diagnostic=diagnostic
+                ),
+            ),
+            patch.object(workspace_xpc_bridge, "send_frame") as send_frame,
+            patch.dict(
+                workspace_xpc_bridge.os.environ,
+                {
+                    "KHAOS_SNAPSHOT_MOUNT_PATH": "/private/snapshot",
+                    "KHAOS_SNAPSHOT_STORAGE_BYTES": "2621440000",
+                },
+            ),
+        ):
+            self.assertEqual(workspace_xpc_bridge.main(), 0)
+
+        response = send_frame.call_args.args[1]
+        self.assertEqual(response["error"], {"code": "runner_failed"})
+        self.assertNotIn("diagnostic", repr(response))
+
     def test_classifies_workspace_root_rejection_without_path(self) -> None:
         error_code = workspace_xpc_bridge._execution_failure_code(
             ValueError("workspace is unavailable or changed")

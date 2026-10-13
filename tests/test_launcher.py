@@ -131,6 +131,73 @@ class KernelLauncherTests(unittest.TestCase):
 
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_runner_diagnostic_identifies_plugin_start_exit(self) -> None:
+        source = "def run(request):\n    raise SystemExit(47)\n"
+        with tempfile.TemporaryDirectory() as value:
+            workspace = Path(value) / "workspace"
+            workspace.mkdir()
+            state_root = Path(value) / "plugin-state"
+            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
+                run_workspace_command(
+                    workspace,
+                    runner_source=source,
+                    process_exec_allowed=False,
+                    plugin_id="runner-diagnostic",
+                    plugin_state_root=state_root,
+                    plugin_input={"operation": "probe"},
+                    timeout_seconds=10,
+                )
+
+            diagnostic = caught.exception.diagnostic
+            self.assertIsNotNone(diagnostic)
+            self.assertEqual(diagnostic["stage"], "plugin_start")
+            self.assertEqual(diagnostic["category"], "ipc_eof")
+            self.assertEqual(diagnostic["child_exit_status"], 47)
+            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
+            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
+            self.assertEqual(list(workspace.iterdir()), [])
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_runner_diagnostic_identifies_execution_ipc_exit(self) -> None:
+        source = """\
+import os
+from khaos.runner_sdk import state_read
+
+def run(request):
+    state_read()
+    os._exit(48)
+"""
+        with tempfile.TemporaryDirectory() as value:
+            workspace = Path(value) / "workspace"
+            workspace.mkdir()
+            state_root = Path(value) / "plugin-state"
+            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
+                run_workspace_command(
+                    workspace,
+                    runner_source=source,
+                    process_exec_allowed=False,
+                    plugin_id="runner-diagnostic",
+                    plugin_state_root=state_root,
+                    plugin_input={"operation": "probe"},
+                    timeout_seconds=10,
+                )
+
+            diagnostic = caught.exception.diagnostic
+            self.assertIsNotNone(diagnostic)
+            self.assertEqual(diagnostic["stage"], "execution_ipc")
+            self.assertEqual(diagnostic["category"], "ipc_eof")
+            self.assertEqual(diagnostic["child_exit_status"], 48)
+            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
+            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
+            self.assertEqual(list(workspace.iterdir()), [])
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt backend",
     )
     def test_workspace_startup_retries_a_failed_pipe_ping_before_request(self) -> None:

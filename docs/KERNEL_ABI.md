@@ -1,7 +1,7 @@
-# Kernel Runner ABI v7
+# Kernel Runner ABI v8
 
 This document records the current development ABI between the one-shot Kernel
-worker and its isolated Runner. Runner ABI v7 executes one untrusted Python
+worker and its isolated Runner. Runner ABI v8 executes one untrusted Python
 `run()` entrypoint and adds bounded Plugin input, opaque logical-Plugin state,
 and bounded Plugin output to the existing Runner path. The separate native
 Workspace XPC operation ABI v11 provides a minimal, fixed-slot Candidate
@@ -62,20 +62,28 @@ tests exercise peer-identity rejection.
 Each request has exactly these fields:
 
 ```json
-{"version":7,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
+{"version":8,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
 ```
 
 Each response is either:
 
 ```json
-{"version":7,"request_id":"...","ok":true,"result":{}}
+{"version":8,"request_id":"...","ok":true,"result":{}}
 ```
 
 or:
 
 ```json
-{"version":7,"request_id":"...","ok":false,"error":{"code":"..."}}
+{"version":8,"request_id":"...","ok":false,"error":{"code":"..."}}
 ```
+
+An internal Worker error with code `runner_failed` may include a bounded
+`diagnostic` object containing only `stage`, `category`, nullable child exit
+status, and elapsed milliseconds. The stage and category are closed enums;
+elapsed time is capped at 300,000 ms. The Launcher validates this object and
+keeps it on the local `KernelLaunchError`; the native Workspace XPC bridge
+returns only the original public error code. It contains no Runner stderr,
+workspace bytes, Plugin state, command output, or exception text.
 
 Frames are limited to 64 KiB and eight structural JSON nesting levels. Plugin
 input is limited to 8 KiB and six structural nesting levels. State blobs are
@@ -449,7 +457,7 @@ before retrying or cleaning them.
 The Runner cannot open the snapshot directly. `fs.read` and `fs.list` are
 explicit Kernel-mediated data flows; their results are still untrusted workspace
 data. They do not classify secrets and do not authorize sending content to a
-remote model. Runner ABI v7 retains a trusted logical Plugin ID only in the
+remote model. Runner ABI v8 retains a trusted logical Plugin ID only in the
 Kernel Broker; it is not sent to the Runner as an identity or namespace field.
 The development `workspace.run` path still enables `process.exec` for one
 trusted workspace request. The product `plugin.run` wrapper resolves source and

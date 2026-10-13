@@ -48,6 +48,15 @@ class MemoryEvolutionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def _evaluate_with_runner_diagnostics(self, *args, **kwargs):
+        try:
+            return evaluate_memory_candidates(*args, **kwargs)
+        except KernelLaunchError as exc:
+            diagnostic = json.dumps(exc.diagnostic, sort_keys=True)
+            raise AssertionError(
+                f"Memory evaluation Runner failed: {diagnostic}"
+            ) from exc
+
     def test_evaluation_binding_rejects_changed_candidate_or_dataset(self) -> None:
         dataset_bytes, _ = load_dataset(DATASET)
         record = {
@@ -183,7 +192,7 @@ class MemoryEvolutionTests(unittest.TestCase):
         self.assertIsNone(before_previous)
         self.assertEqual(before_generation, 1)
 
-        result = evaluate_memory_candidates(
+        result = self._evaluate_with_runner_diagnostics(
             self.candidate_a,
             self.candidate_b,
             DATASET,
@@ -268,7 +277,7 @@ class MemoryEvolutionTests(unittest.TestCase):
             incompatible_source,
         )
 
-        evaluation = evaluate_memory_candidates(
+        evaluation = self._evaluate_with_runner_diagnostics(
             self.candidate_a,
             incompatible,
             DATASET,
@@ -398,7 +407,7 @@ def run(request):
         candidate_files = self._candidate_store_snapshot()
 
         with patch.dict(os.environ, {"KHAOS_EVALUATION_SECRET": "host sentinel"}):
-            evaluation = evaluate_memory_candidates(
+            evaluation = self._evaluate_with_runner_diagnostics(
                 self.candidate_a,
                 hostile,
                 DATASET,
