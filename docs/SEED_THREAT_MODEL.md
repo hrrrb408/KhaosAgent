@@ -267,6 +267,18 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
 suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
 must pass before merge.
 
+## 2026-10-14 Runner startup exception classification
+
+The bounded startup stderr classifier previously treated any traceback text
+containing `Error:` as an OS error, which conflated exceptions such as
+`ValueError` and `RuntimeError` with `OSError`. The Worker now extracts only
+exception class labels from the bounded pre-Plugin traceback and maps a fixed
+set of OS exception classes to `runner_os_error`; unknown Python exceptions map
+to `runner_startup_exception`. It still discards all raw stderr and emits only
+the existing closed diagnostic categories. Tests cover both mappings. This
+corrects diagnostic classification only; it does not identify the historical
+`pipe_handshake` failure's root cause.
+
 ## 2026-10-13 PR #9 Runner startup diagnostic
 
 PR #9 head `1157e60d3f92c515ef5f4790abcf06c7540756b6` failed GitHub run
