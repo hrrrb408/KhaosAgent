@@ -267,6 +267,37 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
 suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
 must pass before merge.
 
+## 2026-10-14 Runner peer socket lifetime race
+
+The accepting parent previously queried the child's `LOCAL_PEERPID` and closed
+the socket immediately. A child scheduled after that close could not query the
+parent's PID: Darwin returned `ENOTCONN`, Python raised `IPCProtocolError`, and
+the Runner exited 1 before its pipe ping. Apple's
+[XNU implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/uipc_usrreq.c)
+returns `ENOTCONN` for `LOCAL_PEERPID` when the peer connection is absent. This
+was already a known limitation in the native workspace-stream admission path;
+the Python startup handshake had not retained the peer for both queries.
+
+Delaying the child's OS query by 100 ms reproduced exit 1 in 10/10 real macOS
+helper launches. A real Seatbelt Worker regression with a 200 ms delayed query
+failed before the fix with `stage=pipe_handshake`,
+`category=runner_peer_identity_error`, child exit 1, and 346 ms elapsed. The
+parent's exception was pipe EOF, matching the historical failure shape. The
+historical run discarded stderr, so its exact exception cannot be recovered;
+this experiment proves a concrete race in that same startup path rather than
+attributing every historical failure exclusively to it.
+
+The child now validates its parent's OS PID before sending one fixed completion
+byte. The parent validates the child PID and keeps the socket open until that
+byte arrives. Parent accept and completion share the original ten-second
+deadline; no PID check, nonce, sandbox, scope,
+or approval is relaxed. Tests reject missing/invalid completion and wrong
+identities, and the delayed-query Seatbelt regression now completes Plugin
+output successfully. The Worker also closes its startup stderr stream on
+successful completion; the regression verifies all three pipe streams close.
+There is no new process, framed IPC operation, persistent state, dependency,
+or architectural component.
+
 ## 2026-10-14 Runner startup exception classification
 
 The bounded startup stderr classifier previously treated any traceback text

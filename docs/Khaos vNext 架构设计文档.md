@@ -2745,7 +2745,9 @@ Khaos 攻击测试，因此不是当前 Seed 能力。
 fork；将该限制降至 2 后，OS 返回 `EAGAIN` 并拒绝后续 fork。这证明当前 Darwin 内核
 确实执行该 per-UID 限制，但没有证明 1024 个命令进程的专属上限，也不提供命令树级资源配额。
 launcher→Kernel 与 Kernel→Runner 均通过一次性 AF_UNIX 凭据握手双向验证 OS peer PID；
-握手不承载应用数据，有界帧仍走匿名管道。Runner 的 Seatbelt 只为 scratch 内的精确
+握手不承载应用数据；子端完成 OS PID 验证后发送固定 `0x01` 完成字节，父端收到后才关闭
+socket，子端随后等待 EOF。双方接收仍有界，完成字节不授予权限；这避免父端提前关闭后
+Darwin `LOCAL_PEERPID` 返回 `ENOTCONN` 的启动竞态。有界帧仍走匿名管道。Runner 的 Seatbelt 只为 scratch 内的精确
 socket 路径增加 network-outbound 例外；真实攻击测试确认同一 scratch 下另一个 AF_UNIX
 listener 仍无法连接，IPv4 loopback 也保持拒绝。两条 IPC 链路仍没有用户 capability grant 或
 approval 绑定。Kernel 源码安装仍可由同一用户修改；其他同 UID 进程也不受 Kernel 写入

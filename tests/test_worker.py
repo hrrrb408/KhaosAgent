@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -38,6 +39,72 @@ _RUNNER_SOURCE = "def run():\n    pass\n"
 
 
 class KernelWorkerTests(unittest.TestCase):
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
+    def test_runner_peer_pid_query_survives_parent_finishing_first(self) -> None:
+        real_popen = subprocess.Popen
+
+        def delay_runner_peer_query(argv, *args, **kwargs):
+            argv = list(argv)
+            for index, argument in enumerate(argv):
+                if (
+                    isinstance(argument, str)
+                    and "from khaos.runner import main\n" in argument
+                ):
+                    argv[index] = argument.replace(
+                        "from khaos.runner import main\n",
+                        "from khaos.runner import main\n"
+                        "import time, khaos.kernel.peer_identity as peer\n"
+                        "original_peer_pid = peer._local_peer_pid\n"
+                        "def delayed_peer_pid(connection):\n"
+                        "    time.sleep(0.2)\n"
+                        "    return original_peer_pid(connection)\n"
+                        "peer._local_peer_pid = delayed_peer_pid\n",
+                    )
+            return real_popen(argv, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as value:
+            workspace = Path(value).resolve(strict=True)
+            workspace_fd = os.open(workspace, os.O_RDONLY | os.O_DIRECTORY)
+            diagnostic = _RunnerDiagnosticState()
+            try:
+                with patch(
+                    "khaos.kernel.worker.subprocess.Popen",
+                    side_effect=delay_runner_peer_query,
+                ):
+                    try:
+                        result, changes = _run_workspace_command(
+                            str(workspace),
+                            5,
+                            'def run(value):\n    return {"ok": True}\n',
+                            workspace_root_fd=workspace_fd,
+                            process_exec_allowed=False,
+                            plugin_input={},
+                            runner_diagnostic=diagnostic,
+                        )
+                    except IPCProtocolError as exc:
+                        self.fail(f"Runner startup failed: {diagnostic.failed(exc)}")
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(
+                    (changes.added, changes.modified, changes.deleted), (0, 0, 0)
+                )
+                self.assertIsNotNone(diagnostic.process)
+                assert diagnostic.process is not None
+                self.assertEqual(diagnostic.process.returncode, 0)
+                for stream in (
+                    diagnostic.process.stdin,
+                    diagnostic.process.stdout,
+                    diagnostic.process.stderr,
+                ):
+                    self.assertIsNotNone(stream)
+                    assert stream is not None
+                    self.assertTrue(stream.closed)
+                self.assertEqual(list(workspace.iterdir()), [])
+            finally:
+                os.close(workspace_fd)
+
     def test_runner_startup_stderr_is_reduced_to_a_closed_category(self) -> None:
         stderr = (
             b"Traceback (most recent call last):\n"

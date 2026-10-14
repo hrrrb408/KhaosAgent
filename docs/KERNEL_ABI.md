@@ -21,6 +21,15 @@ pipes. A separate one-time macOS AF_UNIX handshake checks both OS peer PIDs
 before framed messages begin. Pipes do not carry descriptor-passing ancillary
 data. The Runner SDK reads replies from standard input and writes requests to
 standard output; its public functions do not accept descriptor overrides.
+The accepting parent validates the spawned child's OS PID and retains the
+connected socket until it receives the fixed byte `0x01`. The child queries
+and validates its parent's OS PID before sending that byte, then waits for
+parent EOF. The byte synchronizes socket lifetime and grants no authority.
+The parent's accept and completion receive share the existing ten-second
+deadline; the child's socket waits retain their finite timeout. Missing
+or invalid completion, identity mismatch, and timeout fail closed. This avoids
+Darwin `LOCAL_PEERPID` returning `ENOTCONN` if the parent closes before the
+child's query. It adds no framed operation or application payload.
 After the ping, the Kernel sends one `plugin.start` frame containing up to
 10 KiB of UTF-8 source and, for a product Plugin invocation, one optional
 bounded JSON object input. The Runner executes it inside its Seatbelt process;
