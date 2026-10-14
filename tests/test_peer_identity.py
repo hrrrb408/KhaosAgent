@@ -4,11 +4,11 @@ import ctypes
 import os
 from pathlib import Path
 import socket
-import struct
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from khaos.ipc import (
     PROTOCOL_VERSION,
@@ -34,6 +34,79 @@ _BOOTSTRAP_NOT_PRIVILEGED = 1100  # BOOTSTRAP_NOT_PRIVILEGED from <bootstrap.h>
 
 
 class PeerIdentityTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
+    def test_peer_identity_completion_wait_is_bounded(self) -> None:
+        script = (
+            "import socket,sys,time\n"
+            "client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
+            "client.connect(sys.argv[1])\n"
+            "print('connected',flush=True)\n"
+            "time.sleep(0.3)\n"
+            "client.recv(1)\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
+            with local_peer_pid_listener(Path(value)) as (listener, path):
+                runner = subprocess.Popen(
+                    [sys.executable, "-I", "-S", "-c", script, str(path)],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    close_fds=True,
+                )
+                try:
+                    assert runner.stdout is not None
+                    self.assertEqual(runner.stdout.readline(), b"connected\n")
+                    with patch(
+                        "khaos.kernel.peer_identity._PEER_HANDSHAKE_TIMEOUT_SECONDS",
+                        0.05,
+                    ):
+                        with self.assertRaisesRegex(
+                            IPCProtocolError, "completion acknowledgement failed"
+                        ):
+                            accept_local_peer_pid(listener, runner.pid)
+                    self.assertEqual(runner.wait(timeout=5), 0)
+                finally:
+                    if runner.poll() is None:
+                        runner.kill()
+                        runner.wait()
+                    if runner.stdout is not None:
+                        runner.stdout.close()
+
+    @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
+    def test_peer_identity_rejects_missing_or_invalid_completion(self) -> None:
+        script = (
+            "import socket,sys\n"
+            "client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
+            "client.connect(sys.argv[1])\n"
+            "client.sendall(bytes.fromhex(sys.argv[2]))\n"
+            "client.shutdown(socket.SHUT_WR)\n"
+            "client.recv(1)\n"
+        )
+        for acknowledgement in ("", "02"):
+            with self.subTest(acknowledgement=acknowledgement):
+                with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
+                    with local_peer_pid_listener(Path(value)) as (listener, path):
+                        runner = subprocess.Popen(
+                            [
+                                sys.executable, "-I", "-S", "-c", script,
+                                str(path), acknowledgement,
+                            ],
+                            stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            close_fds=True,
+                        )
+                        try:
+                            with self.assertRaisesRegex(
+                                IPCProtocolError, "completion acknowledgement"
+                            ):
+                                accept_local_peer_pid(listener, runner.pid)
+                            self.assertEqual(runner.wait(timeout=5), 0)
+                        finally:
+                            if runner.poll() is None:
+                                runner.kill()
+                                runner.wait()
+
     @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
     def test_launcher_and_kernel_check_peer_pids_before_pipe_requests(self) -> None:
         with tempfile.TemporaryDirectory(prefix="khaos-kernel-") as value:
@@ -250,7 +323,8 @@ class PeerIdentityTests(unittest.TestCase):
                     close_fds=True,
                     start_new_session=True,
                 )
-                accept_local_peer_pid(listener, runner.pid)
+                with self.assertRaises(IPCProtocolError):
+                    accept_local_peer_pid(listener, runner.pid)
                 self.assertEqual(runner.wait(timeout=5), 0)
 
     @unittest.skipUnless(
@@ -417,19 +491,7 @@ print(f"mach-lookup-denied status={{status}}", file=sys.stderr)
                 start_new_session=True,
             )
             try:
-                try:
-                    connection, _ = peer_listener.accept()
-                except TimeoutError:
-                    _, stderr = runner.communicate(timeout=5)
-                    self.fail(
-                        "Runner failed before peer authentication: "
-                        + stderr.decode(errors="replace")
-                    )
-                with connection:
-                    peer_pid = struct.unpack(
-                        "=i", connection.getsockopt(0, 2, 4)
-                    )[0]
-                self.assertEqual(peer_pid, runner.pid)
+                accept_local_peer_pid(peer_listener, runner.pid)
                 _, stderr = runner.communicate(timeout=5)
                 self.assertEqual(runner.returncode, 0, stderr.decode(errors="replace"))
                 self.assertIn(

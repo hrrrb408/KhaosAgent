@@ -612,6 +612,8 @@ def _run_workspace_command(
                     runner_diagnostic.set_stage("cleanup")
                     _kill_runner(process)
                     runner_diagnostic.set_stage("completion")
+                if process.stderr is not None and not process.stderr.closed:
+                    process.stderr.close()
                 return result, changes
             except BaseException:
                 if process is not None:

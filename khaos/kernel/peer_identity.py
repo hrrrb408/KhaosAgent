@@ -9,6 +9,7 @@ from pathlib import Path
 import socket
 import struct
 import sys
+import time
 
 from ..ipc import IPCProtocolError
 
@@ -16,6 +17,7 @@ from ..ipc import IPCProtocolError
 _SOL_LOCAL = 0
 _LOCAL_PEERPID = 0x002
 _PEER_HANDSHAKE_TIMEOUT_SECONDS = 10.0
+_PEER_IDENTITY_VERIFIED = b"\x01"
 
 
 @contextmanager
@@ -66,6 +68,7 @@ def local_peer_pid_listener(
 def accept_local_peer_pid(listener: socket.socket, expected_pid: int) -> None:
     """Accept exactly one connection and require the spawned child's PID."""
     _validate_pid(expected_pid)
+    deadline = time.monotonic() + _PEER_HANDSHAKE_TIMEOUT_SECONDS
     listener.settimeout(_PEER_HANDSHAKE_TIMEOUT_SECONDS)
     try:
         connection, _ = listener.accept()
@@ -73,8 +76,20 @@ def accept_local_peer_pid(listener: socket.socket, expected_pid: int) -> None:
         raise IPCProtocolError("OS peer PID connection timed out") from exc
     with connection:
         peer_pid = _local_peer_pid(connection)
-    if peer_pid != expected_pid:
-        raise IPCProtocolError("OS peer PID did not match the spawned Runner")
+        if peer_pid != expected_pid:
+            raise IPCProtocolError("OS peer PID did not match the spawned Runner")
+        # Darwin LOCAL_PEERPID needs a live peer. Keep our endpoint open
+        # until the child has completed its own OS identity query.
+        try:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("peer identity completion deadline expired")
+            connection.settimeout(remaining)
+            verified = connection.recv(1)
+        except OSError as exc:
+            raise IPCProtocolError("OS peer PID completion acknowledgement failed") from exc
+        if verified != _PEER_IDENTITY_VERIFIED:
+            raise IPCProtocolError("OS peer PID completion acknowledgement is invalid")
 
 
 def verify_local_parent_pid(path: Path, expected_pid: int) -> None:
@@ -87,14 +102,15 @@ def verify_local_parent_pid(path: Path, expected_pid: int) -> None:
     try:
         connection.connect(os.fspath(path))
         peer_pid = _local_peer_pid(connection)
+        if peer_pid != expected_pid:
+            raise IPCProtocolError("OS peer PID did not match the Kernel parent")
+        connection.sendall(_PEER_IDENTITY_VERIFIED)
         if connection.recv(1):
             raise IPCProtocolError("OS peer PID handshake carried unexpected data")
     except OSError as exc:
         raise IPCProtocolError("OS parent PID could not be verified") from exc
     finally:
         connection.close()
-    if peer_pid != expected_pid:
-        raise IPCProtocolError("OS peer PID did not match the Kernel parent")
 
 
 def _local_peer_pid(connection: socket.socket) -> int:
