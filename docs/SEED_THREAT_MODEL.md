@@ -267,6 +267,33 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
 suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
 must pass before merge.
 
+## 2026-10-14 Disk-image attack fixture reconciliation
+
+Main run `38504009893` attempt 1 on `26f36c84` passed both Memory Evolution
+tests and the delayed Runner peer-PID regression, but failed the disk-image
+mount attack fixture with `APFS work image could not be safely removed`.
+The fixture's inner-image cleanup read OS inventory once and required a
+nonempty device list. An empty transient `system-entities` record caused that
+cleanup to raise while the inner image still held the outer work volume.
+Outer bounded reconciliation then refused to remove the work image and masked
+the primary fixture error. Injecting one empty inventory record reproduced
+the same outer cleanup error on real mounted APFS images; explicit recovery
+using the existing reconciler subsequently detached both owned images.
+
+The test now reuses `_reconcile_pending_image_operation` for its owned inner
+image instead of implementing a second detach path. Its canonical execution
+injects one transient empty record and requires cleanup to settle. The existing
+finite deadline, exact image/device/mount validation, and failure preservation
+are unchanged. Host control attach is also covered by its cleanup `finally`
+when the invocation raises; interrupted attach calls retain the existing
+pending-operation uncertainty flag. Ten consecutive real-OS runs with the
+transient record passed. A separate interrupted-host-attach injection retained
+its primary exception and confirmed both owned images were removed.
+Production code, TCB, authority, processes, IPC,
+state, and dependencies are unchanged. The original CI primary exception was
+not retained, so this proves and repairs a concrete fixture race with the same
+failure shape without claiming exclusive attribution for that CI event.
+
 ## 2026-10-14 Runner peer socket lifetime race
 
 The accepting parent previously queried the child's `LOCAL_PEERPID` and closed
