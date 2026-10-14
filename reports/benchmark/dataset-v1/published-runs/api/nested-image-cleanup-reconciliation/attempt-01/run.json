@@ -1,0 +1,117 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:10:45.095042+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:10:52.627703+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:11:13.188444+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:11:39.485074+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:11:43.962224+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:11:47.426449+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:12:01.274732+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:12:31.198173+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:12:34.459418+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:12:47.668220+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:12:47.668284+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:28:21.077380+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1f34a784637c8fe2d9e3899b55e47aa426340b9e",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/nested-image-cleanup-reconciliation/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_seatbelt.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:28:21.077182+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:27:41.814275+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=2; executed command return codes=[1,1]; cumulative Runner time=6.557s; bounded result bytes=614; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "failed: last executed command returned code 1."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:53.517106+00:00",
+  "prompt_sha256": "9e44b563799e2f4ad0ef41e0d6d790efc20d8a9ee28ba62bf868742e21723433",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_seatbelt.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "abc854bdb7081945661a25842e5dcd5f13de23f6",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/abc854bdb7081945661a25842e5dcd5f13de23f6",
+  "started_at_utc": "2026-10-14T16:10:44.865979+00:00",
+  "status": "completed",
+  "task_id": "nested-image-cleanup-reconciliation",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

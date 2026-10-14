@@ -1,0 +1,35 @@
+{
+  "all_test_commands_passed": true,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "79acce565016bf304b2e08b77e6676e156b2065c",
+  "graded_at_utc": "2026-10-14T16:38:13.290250+00:00",
+  "grading_note": "Test-only task; also review that the new test fails under a deliberately wrong diagnostic category.",
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "078633abdb2c898c96b74795f776858479736ed495d3648fc23fd6e007a2ebfe",
+  "task_id": "pipe-handshake-diagnostic-test",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:38:13.290224+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:38:09.529298+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

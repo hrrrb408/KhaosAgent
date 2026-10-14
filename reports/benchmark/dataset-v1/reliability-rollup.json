@@ -1,0 +1,1024 @@
+{
+  "api_benchmark": {
+    "agent_command_return_codes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "agenthost_path": "signed product; untrusted AgentHost → Trusted Launcher → Kernel → Seatbelt Runner",
+    "all_workspaces_clean": true,
+    "api_attempts": 12,
+    "api_key_value_recorded": false,
+    "approval_windows": {
+      "note": "Sums of event-recorded dialog intervals; they include UI/wait time and may overlap across task sessions, so do not add them to model latency or end-to-end time.",
+      "remote_data_prompt_count": 12,
+      "remote_data_prompt_to_approval_seconds_sum": 132.43,
+      "tool_prompt_count": 12,
+      "tool_prompt_to_approval_seconds_sum": 184.94
+    },
+    "candidate_paths_copied": 0,
+    "completed_tasks": 0,
+    "data_send_approvals": 12,
+    "hidden_grading": {
+      "candidate_paths_copied": 0,
+      "command_groups_failed": 4,
+      "command_groups_passed": 8,
+      "data_send_approvals": 12,
+      "runner_seconds_recorded": 38.989000000000004,
+      "tasks": 12,
+      "test_only_fault_injection_run": false,
+      "tool_approvals": 12,
+      "tool_proposals": 13,
+      "tool_return_codes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "workspaces_clean": true
+    },
+    "interpretation": "All candidates were empty. Eight focused suites pass on the unchanged baseline and gold; four Runner fix suites fail on the unchanged baseline. This is baseline evidence, not an API model success score. Test-only task mutation checks were not run.",
+    "model_usage": "Unavailable from the Agent protocol; tokens, model-only latency, and API cost are unknown, not zero.",
+    "network_boundary": "Only the untrusted AgentHost received the remote-model network entitlement; the Kernel did not. BigModel mode had no local fallback. Each formal task data flow had an independent product approval.",
+    "provider": "BigModel GLM-5.3-Flash Coding Plan",
+    "runner_seconds_recorded_across_task_records": 38.989,
+    "status": "ATTEMPTED; 0/12 task completions",
+    "task_completion_rate": "0/12",
+    "task_data_transmitted": true,
+    "tasks": [
+      {
+        "agent_command_return_codes": [
+          1
+        ],
+        "attempt": "attempt-04",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-04",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/ipc-json-depth-bounds/attempt-04/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.534,
+        "task_completed_by_model": false,
+        "task_id": "ipc-json-depth-bounds",
+        "task_result_note": "Prompt and Launcher logs are staged under /tmp because Launch Services could not redirect from the Desktop workspace path.",
+        "title": "Bound IPC JSON nesting consistently",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/ipc-json-depth-bounds/attempt-04/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/plugin-package-grant/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 0,
+        "recorded_runner_seconds": 0.0,
+        "task_completed_by_model": false,
+        "task_id": "plugin-package-grant",
+        "task_result_note": "No command/task-record output was captured.",
+        "title": "Honor the selected Plugin package grant",
+        "tool_approvals": 0,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/plugin-package-grant/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/macos26-agent-generation-api/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "incorrect_scope_security_denial",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 0.0,
+        "task_completed_by_model": false,
+        "task_id": "macos26-agent-generation-api",
+        "task_result_note": "proposals=1; executed command return codes=[]; cumulative Runner time=0.000s; bounded result bytes=65; stop reason=stopped: Kernel rejected the proposed argv or scope. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Restore local generation on macOS 26",
+        "tool_approvals": 0,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/macos26-agent-generation-api/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/trusted-kernel-apfs-trim/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "context_or_tool_planning",
+        "proposal_count": 0,
+        "recorded_runner_seconds": 0.0,
+        "task_completed_by_model": false,
+        "task_id": "trusted-kernel-apfs-trim",
+        "task_result_note": "No command/task-record output was captured.",
+        "title": "Remove the duplicate direct APFS backend",
+        "tool_approvals": 0,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/trusted-kernel-apfs-trim/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": false,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": true,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/runner-failure-diagnostics/attempt-01/grade.json",
+          "return_codes": [
+            1,
+            1,
+            1
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [
+          "runner_failed"
+        ],
+        "primary_blocker_class": "runner_kernel_failure_unresolved",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.151,
+        "task_completed_by_model": false,
+        "task_id": "runner-failure-diagnostics",
+        "task_result_note": "proposals=1; executed command return codes=[]; cumulative Runner time=3.151s; bounded result bytes=89; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Add bounded Runner failure diagnostics",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/runner-failure-diagnostics/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [
+          1
+        ],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": false,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": true,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/runner-startup-classification/attempt-01/grade.json",
+          "return_codes": [
+            1,
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [
+          "runner_failed"
+        ],
+        "primary_blocker_class": "runner_kernel_failure_unresolved",
+        "proposal_count": 2,
+        "recorded_runner_seconds": 6.384,
+        "task_completed_by_model": false,
+        "task_id": "runner-startup-classification",
+        "task_result_note": "proposals=2; executed command return codes=[1]; cumulative Runner time=6.384s; bounded result bytes=305; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Classify bounded Runner startup failures",
+        "tool_approvals": 2,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/runner-startup-classification/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [
+          1
+        ],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": false,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": true,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/runner-exception-classification/attempt-01/grade.json",
+          "return_codes": [
+            1
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.275,
+        "task_completed_by_model": false,
+        "task_id": "runner-exception-classification",
+        "task_result_note": "proposals=1; executed command return codes=[1]; cumulative Runner time=3.275s; bounded result bytes=216; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Distinguish OS and Python startup exceptions",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/runner-exception-classification/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [
+          1
+        ],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": false,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": true,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/runner-peer-socket-race/attempt-01/grade.json",
+          "return_codes": [
+            1,
+            1
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.224,
+        "task_completed_by_model": false,
+        "task_id": "runner-peer-socket-race",
+        "task_result_note": "proposals=1; executed command return codes=[1]; cumulative Runner time=3.224s; bounded result bytes=216; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Keep the peer socket through both PID checks",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/runner-peer-socket-race/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [
+          1,
+          1
+        ],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/nested-image-cleanup-reconciliation/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": null,
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 2,
+        "recorded_runner_seconds": 6.557,
+        "task_completed_by_model": false,
+        "task_id": "nested-image-cleanup-reconciliation",
+        "task_result_note": "proposals=2; executed command return codes=[1,1]; cumulative Runner time=6.557s; bounded result bytes=614; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Reconcile nested image cleanup in the mount probe",
+        "tool_approvals": 2,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/nested-image-cleanup-reconciliation/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/pipe-handshake-diagnostic-test/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": "manifest_fault_injection_not_run",
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [
+          "runner_failed"
+        ],
+        "primary_blocker_class": "runner_kernel_failure_unresolved",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.164,
+        "task_completed_by_model": false,
+        "task_id": "pipe-handshake-diagnostic-test",
+        "task_result_note": "proposals=1; executed command return codes=[]; cumulative Runner time=3.164s; bounded result bytes=89; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Test real Runner pipe-handshake diagnostics",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/pipe-handshake-diagnostic-test/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/bounded-lifecycle-acceptance-wait/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": "manifest_fault_injection_not_run",
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [
+          "commit_rejected"
+        ],
+        "primary_blocker_class": "runner_kernel_failure_unresolved",
+        "proposal_count": 1,
+        "recorded_runner_seconds": 3.304,
+        "task_completed_by_model": false,
+        "task_id": "bounded-lifecycle-acceptance-wait",
+        "task_result_note": "proposals=1; executed command return codes=[]; cumulative Runner time=3.304s; bounded result bytes=91; stop reason=stopped: Kernel rejected or failed the request: commit_rejected. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Bound the interactive lifecycle test wait",
+        "tool_approvals": 1,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/bounded-lifecycle-acceptance-wait/attempt-01/run.json"
+      },
+      {
+        "agent_command_return_codes": [
+          1,
+          1
+        ],
+        "attempt": "attempt-01",
+        "candidate_paths": [],
+        "data_send_approved": true,
+        "hidden_grader": {
+          "all_test_commands_passed_on_unchanged_workspace": true,
+          "attempt": "attempt-01",
+          "baseline_discriminates_task": false,
+          "candidate_paths_copied": [],
+          "candidate_test_edits_excluded": [],
+          "grade_path": "published-runs/api/replacement-racer-termination-wait/attempt-01/grade.json",
+          "return_codes": [
+            0
+          ],
+          "scoring_limit": "manifest_fault_injection_not_run",
+          "task_completion_credited": false,
+          "workspace_clean": true
+        },
+        "kernel_or_runner_stop_codes": [],
+        "primary_blocker_class": "tool_planning_path_discovery",
+        "proposal_count": 2,
+        "recorded_runner_seconds": 6.396,
+        "task_completed_by_model": false,
+        "task_id": "replacement-racer-termination-wait",
+        "task_result_note": "proposals=2; executed command return codes=[1,1]; cumulative Runner time=6.396s; bounded result bytes=598; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+        "title": "Wait for the replacement racer to exit",
+        "tool_approvals": 2,
+        "workspace_clean": true,
+        "attempt_json": "published-runs/api/replacement-racer-termination-wait/attempt-01/run.json"
+      }
+    ],
+    "tool_approvals": 12,
+    "tool_proposals": 13
+  },
+  "architecture_delta": {
+    "candidate_workspace_edits": 0,
+    "evaluation_artifacts_only": true,
+    "new_architecture_concepts": 0,
+    "new_kernel_ipc_operations": 0,
+    "new_persistent_product_state": 0,
+    "new_runtime_dependencies": 0,
+    "new_trusted_processes": 0,
+    "production_code": 0,
+    "removed_duplication_abstractions": 0,
+    "trusted_code": 0
+  },
+  "comparison": {
+    "api_completed_tasks": 0,
+    "baseline_discriminating_tasks": [
+      "runner-failure-diagnostics",
+      "runner-startup-classification",
+      "runner-exception-classification",
+      "runner-peer-socket-race"
+    ],
+    "baseline_nondiscriminating_tasks": [
+      "ipc-json-depth-bounds",
+      "plugin-package-grant",
+      "macos26-agent-generation-api",
+      "trusted-kernel-apfs-trim",
+      "nested-image-cleanup-reconciliation",
+      "pipe-handshake-diagnostic-test",
+      "bounded-lifecycle-acceptance-wait",
+      "replacement-racer-termination-wait"
+    ],
+    "quality_ranking_supported": false,
+    "qwen_completed_tasks": 0,
+    "same_focused_test_pattern": "8 pass / 4 fail on unchanged workspace for both models",
+    "shared_observed_bottleneck": "Task-root file discovery and scoped tool planning; attribution between model behavior and the existing Harness remains unresolved."
+  },
+  "dataset": {
+    "frozen_at": "2026-10-14T00:00:00+08:00",
+    "limitations": "12 recent Khaos maintenance and test-reliability fixes/features from the public repository history, stratified across protocol, scope, compatibility, refactor, Runner, race, cleanup, and test-harness work; selection is fixed before model runs.",
+    "manifest_sha256": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+    "path": "reports/benchmark/dataset-v1",
+    "task_count": 12
+  },
+  "format": "khaos-coding-reliability-rollup-v1",
+  "goal_completion_met": true,
+  "local_benchmark": {
+    "all_workspaces_clean": true,
+    "candidate_paths_copied": 0,
+    "candidate_tests_run": 0,
+    "completed_tasks": 0,
+    "hidden_grading": {
+      "candidate_paths_copied": 0,
+      "command_groups_failed": 4,
+      "command_groups_passed": 8,
+      "tasks": 12,
+      "test_only_fault_injection_run": false,
+      "workspaces_clean": true
+    },
+    "interpretation": "The sampled process-lifetime sum includes model process startup/loading and repeated turns; it is not pure token-generation time. Per-task values are sampled process-lifetime estimates; some run.json files also record model_inference_seconds, a distinct inference-interval measure that may differ. The IPC task has incomplete process telemetry.",
+    "status": "ATTEMPTED; 0/12 task completions",
+    "summed_sampled_llama_cli_process_seconds_telemetry_available": 4709,
+    "task_attempts": 12,
+    "task_completion_rate": "0/12",
+    "telemetry_missing_tasks": [
+      "ipc-json-depth-bounds"
+    ],
+    "test_discriminating_tasks": 4,
+    "test_nondiscriminating_tasks": 8
+  },
+  "model": {
+    "id": "Qwen/Qwen3.8-27B",
+    "mode": "CPU-only; no Metal/GPU",
+    "quantization": "Q4_K_M",
+    "runtime": "llama.cpp v0.5.0-dev, build 1, commit 7fe450e19305b828c199d602c23a8337aaa1f03b",
+    "sha256": "c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747"
+  },
+  "overall_status": "COMPLETED_WITH_LIMITATIONS",
+  "phase_status": {
+    "phase_0": "PASS: CPU-only 8K/16K feasibility; average 5.87 generation tok/s and 16.44 prompt tok/s; no attributable swap increase.",
+    "phase_1": "PASS: one signed-product read/edit/verify coding smoke; 4 approved operations; parent retest returned 0 in 27m24s. Narrow smoke only.",
+    "phase_2": "PASS: 12 frozen tasks; manifest SHA-256 ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491.",
+    "phase_3_api": "ATTEMPTED: 12 formal signed-product GLM-5.3-Flash Coding Plan tasks with data-send approval; 0 candidates and 0/12 completed.",
+    "phase_4_local": "ATTEMPTED: 12 formal signed-product Qwen3.8-27B CPU-only tasks; 0 candidates and 0/12 completed.",
+    "phase_5": "CLOSED WITH LIMITATIONS: identical focused grading results; four discriminating tasks fail without patches; three test-only tasks need additional manifest fault-injection scoring."
+  },
+  "recommendation": {
+    "largest_observed_bottleneck": "Repository path discovery and scoped tool planning, observed for both models. GLM also received opaque runner_failed and commit_rejected responses on approved operations; their underlying causes are unknown.",
+    "make_qwen_default_local_coding_model": false,
+    "reason": "Phase 0 and one Phase 1 smoke pass, but Qwen and GLM both completed 0/12 frozen tasks. Qwen also has high CPU-only wait cost. The 8/12 unchanged-baseline test passes are not task successes; only four task suites discriminate baseline from gold.",
+    "single_next_investment": "Run one bounded, approval-gated repository-discovery experiment through the existing read/list path. Limit it to the selected task root and prove an out-of-scope canary remains unreadable, then rerun one discriminating task. Do not add Kernel authority unless the existing ABI is proven insufficient."
+  },
+  "report_date": "2026-10-15",
+  "repository_baseline": "95cad40cdf2540ffa409a5ec276d53720d6f9ce8",
+  "tasks": [
+    {
+      "attempt": "attempt-06",
+      "attempt_json": "published-runs/local/ipc-json-depth-bounds/attempt-06/run.json",
+      "baseline_commit": "6c6670922f0dc8fe3d4631e48f1292120a4b3031",
+      "candidate_tests_run": false,
+      "categories": [
+        "single-file bug",
+        "protocol boundary",
+        "test diagnosis"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1
+      ],
+      "failure_summary": "One wrong-root read of ipc.py returned 1; model did not produce a patch.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-06",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/ipc-json-depth-bounds/attempt-06/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": null,
+      "peak_llama_rss_gib": null,
+      "proposal_count": 1,
+      "runner_seconds": 3.534,
+      "task_id": "ipc-json-depth-bounds",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Bound IPC JSON nesting consistently",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/plugin-package-grant/attempt-01/run.json",
+      "baseline_commit": "3baf48e7d542ef1bab473970d2862275a3357f56",
+      "candidate_tests_run": false,
+      "categories": [
+        "boundary bug",
+        "single production module",
+        "signed-product test"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1
+      ],
+      "failure_summary": "First root-path read returned 1; reviewer cancelled a second wrong-path read after confirming that file was absent.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/plugin-package-grant/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 868,
+      "peak_llama_rss_gib": 33.38,
+      "proposal_count": 2,
+      "runner_seconds": 3.383,
+      "task_id": "plugin-package-grant",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Honor the selected Plugin package grant",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/macos26-agent-generation-api/attempt-01/run.json",
+      "baseline_commit": "3bdba37f4cca683b17151e6c51aeeefec751b755",
+      "candidate_tests_run": false,
+      "categories": [
+        "single-file compatibility bug",
+        "runtime integration"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1,
+        1
+      ],
+      "failure_summary": "A root-path read and a directory listing without read scope both returned 1; model stopped without locating AgentHost.swift.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/macos26-agent-generation-api/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 631,
+      "peak_llama_rss_gib": 33.87,
+      "proposal_count": 2,
+      "runner_seconds": 6.837,
+      "task_id": "macos26-agent-generation-api",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Restore local generation on macOS 26",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/trusted-kernel-apfs-trim/attempt-01/run.json",
+      "baseline_commit": "e74589c5cc9afe1ae3512fc84d82c1dc0f0e3058",
+      "candidate_tests_run": false,
+      "categories": [
+        "behavior-preserving refactor",
+        "TCB reduction"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Text response asked for repository paths; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/trusted-kernel-apfs-trim/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 218,
+      "peak_llama_rss_gib": 33.29,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "trusted-kernel-apfs-trim",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Remove the duplicate direct APFS backend",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/runner-failure-diagnostics/attempt-01/run.json",
+      "baseline_commit": "1d9ee36d48e637df25d6367332d5a56c025cc4f6",
+      "candidate_tests_run": false,
+      "categories": [
+        "multi-file failure handling",
+        "bounded diagnostics",
+        "composite"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Bounded text response said it lacked repository context; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": false,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": true,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/runner-failure-diagnostics/attempt-01/grade.json",
+        "return_codes": [
+          1,
+          1,
+          1
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 242,
+      "peak_llama_rss_gib": 33.27,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "runner-failure-diagnostics",
+      "task_success": false,
+      "test_discriminates_baseline": true,
+      "title": "Add bounded Runner failure diagnostics",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/runner-startup-classification/attempt-01/run.json",
+      "baseline_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+      "candidate_tests_run": false,
+      "categories": [
+        "multi-file exception handling",
+        "failure diagnosis"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Text response asked for the exact Runner source paths; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": false,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": true,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/runner-startup-classification/attempt-01/grade.json",
+        "return_codes": [
+          1,
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 228,
+      "peak_llama_rss_gib": 33.16,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "runner-startup-classification",
+      "task_success": false,
+      "test_discriminates_baseline": true,
+      "title": "Classify bounded Runner startup failures",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/runner-exception-classification/attempt-01/run.json",
+      "baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+      "candidate_tests_run": false,
+      "categories": [
+        "single-module bug",
+        "exception classification",
+        "secret-safe diagnostics"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1
+      ],
+      "failure_summary": "Wrong root-path read returned 1; text response then asked for exact source paths.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": false,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": true,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/runner-exception-classification/attempt-01/grade.json",
+        "return_codes": [
+          1
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 425,
+      "peak_llama_rss_gib": 33.4,
+      "proposal_count": 1,
+      "runner_seconds": 3.413,
+      "task_id": "runner-exception-classification",
+      "task_success": false,
+      "test_discriminates_baseline": true,
+      "title": "Distinguish OS and Python startup exceptions",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/runner-peer-socket-race/attempt-01/run.json",
+      "baseline_commit": "47943deb5f55302cff7f6b486f6ab1ca95486aca",
+      "candidate_tests_run": false,
+      "categories": [
+        "multi-file race",
+        "process identity boundary",
+        "adversarial test"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Text response asked for parent/child AF_UNIX source paths; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": false,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": true,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/runner-peer-socket-race/attempt-01/grade.json",
+        "return_codes": [
+          1,
+          1
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 250,
+      "peak_llama_rss_gib": 33.64,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "runner-peer-socket-race",
+      "task_success": false,
+      "test_discriminates_baseline": true,
+      "title": "Keep the peer socket through both PID checks",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/nested-image-cleanup-reconciliation/attempt-01/run.json",
+      "baseline_commit": "1f34a784637c8fe2d9e3899b55e47aa426340b9e",
+      "candidate_tests_run": false,
+      "categories": [
+        "edge-case cleanup",
+        "test failure diagnosis",
+        "real-OS test"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1,
+        1
+      ],
+      "failure_summary": "Two nonexistent root-path reads returned 1; model asked for fixture paths.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/nested-image-cleanup-reconciliation/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": null,
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 759,
+      "peak_llama_rss_gib": 33.41,
+      "proposal_count": 2,
+      "runner_seconds": 6.792,
+      "task_id": "nested-image-cleanup-reconciliation",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Reconcile nested image cleanup in the mount probe",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/pipe-handshake-diagnostic-test/attempt-01/run.json",
+      "baseline_commit": "79acce565016bf304b2e08b77e6676e156b2065c",
+      "candidate_tests_run": false,
+      "categories": [
+        "test failure diagnosis",
+        "real-OS regression coverage"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [
+        1
+      ],
+      "failure_summary": "One nonexistent root-path read returned 1; Kernel rejected a second proposal before it reached an approval dialog.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/pipe-handshake-diagnostic-test/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": "manifest_fault_injection_not_run",
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 529,
+      "peak_llama_rss_gib": 33.65,
+      "proposal_count": 2,
+      "runner_seconds": 14.133,
+      "task_id": "pipe-handshake-diagnostic-test",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Test real Runner pipe-handshake diagnostics",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/bounded-lifecycle-acceptance-wait/attempt-01/run.json",
+      "baseline_commit": "3b36292b723d4430626af438b9ff3a8490742509",
+      "candidate_tests_run": false,
+      "categories": [
+        "test harness repair",
+        "bounded wait",
+        "failure diagnostics"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Text response asked for the signed-product lifecycle test path; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/bounded-lifecycle-acceptance-wait/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": "manifest_fault_injection_not_run",
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 282,
+      "peak_llama_rss_gib": 33.61,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "bounded-lifecycle-acceptance-wait",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Bound the interactive lifecycle test wait",
+      "workspace_clean_after": true
+    },
+    {
+      "attempt": "attempt-01",
+      "attempt_json": "published-runs/local/replacement-racer-termination-wait/attempt-01/run.json",
+      "baseline_commit": "1dd4204bb125886119cf95f8c71b629fc5c17688",
+      "candidate_tests_run": false,
+      "categories": [
+        "test harness repair",
+        "process race",
+        "cleanup"
+      ],
+      "changed_paths": [],
+      "executed_return_codes": [],
+      "failure_summary": "Text response asked for the workspace-race test path; no tool proposal.",
+      "gold_tests_passed": true,
+      "hidden_grader": {
+        "all_test_commands_passed_on_unchanged_workspace": true,
+        "attempt": "attempt-01",
+        "baseline_discriminates_task": false,
+        "candidate_paths_copied": [],
+        "candidate_test_edits_excluded": [],
+        "grade_path": "published-runs/local/replacement-racer-termination-wait/attempt-01/grade.json",
+        "return_codes": [
+          0
+        ],
+        "scoring_limit": "manifest_fault_injection_not_run",
+        "task_completion_credited": false,
+        "workspace_clean": true
+      },
+      "llama_cli_process_seconds_sampled": 277,
+      "peak_llama_rss_gib": 32.76,
+      "proposal_count": 0,
+      "runner_seconds": 0.0,
+      "task_id": "replacement-racer-termination-wait",
+      "task_success": false,
+      "test_discriminates_baseline": false,
+      "title": "Wait for the replacement racer to exit",
+      "workspace_clean_after": true
+    }
+  ]
+}

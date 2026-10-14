@@ -1,0 +1,117 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:17:39.066879+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:17:54.985898+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:18:26.704719+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:18:41.781367+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:18:44.638386+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:18:47.892754+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:19:13.545886+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:19:43.279872+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:19:46.539082+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:19:56.318662+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:19:56.318709+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:29:59.860790+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1dd4204bb125886119cf95f8c71b629fc5c17688",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/replacement-racer-termination-wait/attempt-01/grade.json",
+  "grading_note": "Test-only task; score via a delayed child-exit fault injection and bounded process cleanup.",
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_changes.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:29:59.860593+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:28:55.654718+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=2; executed command return codes=[1,1]; cumulative Runner time=6.396s; bounded result bytes=598; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "failed: last executed command returned code 1."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:54.206701+00:00",
+  "prompt_sha256": "cc3fc71870b15f559f51677277ed33807ae02086eda363cfe06d904a52b1cbb4",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_workspace_changes.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "98f8a72966aa2f74643431b6c9ca2f6d0e095511",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/98f8a72966aa2f74643431b6c9ca2f6d0e095511",
+  "started_at_utc": "2026-10-14T16:17:38.836097+00:00",
+  "status": "completed",
+  "task_id": "replacement-racer-termination-wait",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

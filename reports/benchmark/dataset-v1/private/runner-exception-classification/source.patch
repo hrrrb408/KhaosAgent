@@ -1,0 +1,61 @@
+diff --git a/khaos/kernel/worker.py b/khaos/kernel/worker.py
+index 1daba93..210739a 100644
+--- a/khaos/kernel/worker.py
++++ b/khaos/kernel/worker.py
+@@ -70,6 +70,23 @@ from .workspace_snapshot import (
+ _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
+ _RUNNER_STARTUP_TIMEOUT_SECONDS = 10
+ _MAX_RUNNER_STARTUP_STDERR_BYTES = 4 * 1024
++_RUNNER_OS_EXCEPTION_NAMES = frozenset(
++    {
++        b"OSError",
++        b"BlockingIOError",
++        b"BrokenPipeError",
++        b"ChildProcessError",
++        b"ConnectionAbortedError",
++        b"ConnectionError",
++        b"ConnectionResetError",
++        b"FileExistsError",
++        b"InterruptedError",
++        b"IsADirectoryError",
++        b"NotADirectoryError",
++        b"ProcessLookupError",
++        b"TimeoutError",
++    }
++)
+ _PT_DENY_ATTACH = 31  # macOS sys/ptrace.h
+ _WORKER_IO_STAGES = {
+     "_path_is_within": "ancestry",
+@@ -757,21 +774,26 @@ class _RunnerDiagnosticState:
+ 
+ def _runner_startup_stderr_category(stderr: bytes) -> str:
+     """Reduce bounded, untrusted pre-Plugin stderr to a closed category."""
+-    if b"ModuleNotFoundError" in stderr or b"ImportError" in stderr:
++    exception_names = {
++        line.partition(b":")[0].rsplit(b".", 1)[-1]
++        for line in stderr.splitlines()
++        if b":" in line
++    }
++    if exception_names & {b"ModuleNotFoundError", b"ImportError"}:
+         return "runner_import_error"
+-    if b"ConnectionRefusedError" in stderr:
++    if b"ConnectionRefusedError" in exception_names:
+         return "runner_peer_connection_refused"
+-    if b"FileNotFoundError" in stderr:
++    if b"FileNotFoundError" in exception_names:
+         return "runner_os_file_not_found"
+-    if b"PermissionError" in stderr:
++    if b"PermissionError" in exception_names:
+         return "runner_os_permission_error"
+     if b"OS parent PID" in stderr or b"OS peer PID" in stderr:
+         return "runner_peer_identity_error"
+     if b"IPC ping challenge" in stderr:
+         return "runner_ping_protocol_error"
+-    if b"IPCProtocolError" in stderr:
++    if b"IPCProtocolError" in exception_names:
+         return "runner_ipc_protocol_error"
+-    if b"OSError" in stderr or b"Error:" in stderr:
++    if exception_names & _RUNNER_OS_EXCEPTION_NAMES:
+         return "runner_os_error"
+     return "runner_startup_exception"
+ 

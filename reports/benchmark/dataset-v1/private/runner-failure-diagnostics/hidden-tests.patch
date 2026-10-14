@@ -1,0 +1,239 @@
+diff --git a/tests/test_ipc.py b/tests/test_ipc.py
+index e28c8df..64b885b 100644
+--- a/tests/test_ipc.py
++++ b/tests/test_ipc.py
+@@ -22,6 +22,7 @@ from khaos.ipc import (
+     receive_frame,
+     send_error_frame,
+     send_frame,
++    validate_runner_diagnostic,
+     validate_runner_source,
+ )
+ 
+@@ -40,6 +41,52 @@ class IPCProtocolTests(unittest.TestCase):
+                 },
+             )
+ 
++    def test_runner_failure_error_frame_carries_only_bounded_diagnostics(self) -> None:
++        diagnostic = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        with _pipe() as (receiver, sender):
++            send_error_frame(
++                sender,
++                "a" * 32,
++                "runner_failed",
++                timeout_seconds=2,
++                diagnostic=diagnostic,
++            )
++            self.assertEqual(
++                receive_frame(receiver, timeout_seconds=2),
++                {
++                    "version": PROTOCOL_VERSION,
++                    "request_id": "a" * 32,
++                    "ok": False,
++                    "error": {"code": "runner_failed", "diagnostic": diagnostic},
++                },
++            )
++
++    def test_runner_diagnostic_rejects_unbounded_or_content_fields(self) -> None:
++        valid = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        invalid_diagnostics = (
++            {**valid, "stage": "user-file-content"},
++            {**valid, "category": "secret-token"},
++            {**valid, "child_exit_status": True},
++            {**valid, "elapsed_ms": 300_001},
++            {**valid, "stdout": "untrusted command output"},
++        )
++        self.assertEqual(validate_runner_diagnostic(valid), valid)
++        for diagnostic in invalid_diagnostics:
++            with self.subTest(diagnostic=diagnostic), self.assertRaisesRegex(
++                IPCProtocolError, "diagnostic"
++            ):
++                validate_runner_diagnostic(diagnostic)
++
+     def test_runner_source_is_bounded_utf8_and_nonempty(self) -> None:
+         source = "#" * MAX_RUNNER_SOURCE_BYTES
+         self.assertEqual(validate_runner_source(source), source)
+diff --git a/tests/test_launcher.py b/tests/test_launcher.py
+index d9d98b3..cccc776 100644
+--- a/tests/test_launcher.py
++++ b/tests/test_launcher.py
+@@ -129,6 +129,73 @@ class KernelLauncherTests(unittest.TestCase):
+                 )
+             self.assertEqual(list(workspace.iterdir()), [])
+ 
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_diagnostic_identifies_plugin_start_exit(self) -> None:
++        source = "def run(request):\n    raise SystemExit(47)\n"
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            state_root = Path(value) / "plugin-state"
++            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
++                run_workspace_command(
++                    workspace,
++                    runner_source=source,
++                    process_exec_allowed=False,
++                    plugin_id="runner-diagnostic",
++                    plugin_state_root=state_root,
++                    plugin_input={"operation": "probe"},
++                    timeout_seconds=10,
++                )
++
++            diagnostic = caught.exception.diagnostic
++            self.assertIsNotNone(diagnostic)
++            self.assertEqual(diagnostic["stage"], "plugin_start")
++            self.assertEqual(diagnostic["category"], "ipc_eof")
++            self.assertEqual(diagnostic["child_exit_status"], 47)
++            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
++            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
++            self.assertEqual(list(workspace.iterdir()), [])
++
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_diagnostic_identifies_execution_ipc_exit(self) -> None:
++        source = """\
++import os
++from khaos.runner_sdk import state_read
++
++def run(request):
++    state_read()
++    os._exit(48)
++"""
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            state_root = Path(value) / "plugin-state"
++            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
++                run_workspace_command(
++                    workspace,
++                    runner_source=source,
++                    process_exec_allowed=False,
++                    plugin_id="runner-diagnostic",
++                    plugin_state_root=state_root,
++                    plugin_input={"operation": "probe"},
++                    timeout_seconds=10,
++                )
++
++            diagnostic = caught.exception.diagnostic
++            self.assertIsNotNone(diagnostic)
++            self.assertEqual(diagnostic["stage"], "execution_ipc")
++            self.assertEqual(diagnostic["category"], "ipc_eof")
++            self.assertEqual(diagnostic["child_exit_status"], 48)
++            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
++            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
++            self.assertEqual(list(workspace.iterdir()), [])
++
+     @unittest.skipUnless(
+         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+         "requires the real macOS Seatbelt backend",
+diff --git a/tests/test_memory_evolution.py b/tests/test_memory_evolution.py
+index e260078..d221c19 100644
+--- a/tests/test_memory_evolution.py
++++ b/tests/test_memory_evolution.py
+@@ -48,6 +48,15 @@ class MemoryEvolutionTests(unittest.TestCase):
+     def tearDown(self) -> None:
+         self.temporary.cleanup()
+ 
++    def _evaluate_with_runner_diagnostics(self, *args, **kwargs):
++        try:
++            return evaluate_memory_candidates(*args, **kwargs)
++        except KernelLaunchError as exc:
++            diagnostic = json.dumps(exc.diagnostic, sort_keys=True)
++            raise AssertionError(
++                f"Memory evaluation Runner failed: {diagnostic}"
++            ) from exc
++
+     def test_evaluation_binding_rejects_changed_candidate_or_dataset(self) -> None:
+         dataset_bytes, _ = load_dataset(DATASET)
+         record = {
+@@ -183,7 +192,7 @@ class MemoryEvolutionTests(unittest.TestCase):
+         self.assertIsNone(before_previous)
+         self.assertEqual(before_generation, 1)
+ 
+-        result = evaluate_memory_candidates(
++        result = self._evaluate_with_runner_diagnostics(
+             self.candidate_a,
+             self.candidate_b,
+             DATASET,
+@@ -268,7 +277,7 @@ class MemoryEvolutionTests(unittest.TestCase):
+             incompatible_source,
+         )
+ 
+-        evaluation = evaluate_memory_candidates(
++        evaluation = self._evaluate_with_runner_diagnostics(
+             self.candidate_a,
+             incompatible,
+             DATASET,
+@@ -398,7 +407,7 @@ def run(request):
+         candidate_files = self._candidate_store_snapshot()
+ 
+         with patch.dict(os.environ, {"KHAOS_EVALUATION_SECRET": "host sentinel"}):
+-            evaluation = evaluate_memory_candidates(
++            evaluation = self._evaluate_with_runner_diagnostics(
+                 self.candidate_a,
+                 hostile,
+                 DATASET,
+diff --git a/tests/test_workspace_xpc_bridge.py b/tests/test_workspace_xpc_bridge.py
+index 818c176..1b8e71b 100644
+--- a/tests/test_workspace_xpc_bridge.py
++++ b/tests/test_workspace_xpc_bridge.py
+@@ -254,6 +254,44 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
+         )
+         self.assertNotIn("private path detail", repr(response))
+ 
++    def test_runner_diagnostic_stays_inside_worker_launcher_boundary(self) -> None:
++        source = "def run():\n    return 0\n"
++        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
++        request = self._request(source, digest)
++        diagnostic = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        with (
++            patch.object(workspace_xpc_bridge.sys, "argv", ["bridge", "", "/workspace", "3", "4"]),
++            patch.object(workspace_xpc_bridge.os, "fstat"),
++            patch.object(workspace_xpc_bridge, "receive_frame", return_value=request),
++            patch.object(workspace_xpc_bridge, "_read_workspace_bookmark", return_value=b"bookmark"),
++            patch.object(workspace_xpc_bridge, "_scoped_workspace_bookmark", return_value=nullcontext()),
++            patch.object(
++                workspace_xpc_bridge,
++                "run_workspace_command",
++                side_effect=workspace_xpc_bridge.KernelLaunchError(
++                    "runner_failed", diagnostic=diagnostic
++                ),
++            ),
++            patch.object(workspace_xpc_bridge, "send_frame") as send_frame,
++            patch.dict(
++                workspace_xpc_bridge.os.environ,
++                {
++                    "KHAOS_SNAPSHOT_MOUNT_PATH": "/private/snapshot",
++                    "KHAOS_SNAPSHOT_STORAGE_BYTES": "2621440000",
++                },
++            ),
++        ):
++            self.assertEqual(workspace_xpc_bridge.main(), 0)
++
++        response = send_frame.call_args.args[1]
++        self.assertEqual(response["error"], {"code": "runner_failed"})
++        self.assertNotIn("diagnostic", repr(response))
++
+     def test_classifies_workspace_root_rejection_without_path(self) -> None:
+         error_code = workspace_xpc_bridge._execution_failure_code(
+             ValueError("workspace is unavailable or changed")

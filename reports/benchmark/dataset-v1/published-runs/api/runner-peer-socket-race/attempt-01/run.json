@@ -1,0 +1,135 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:09:17.572695+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:09:25.299278+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:09:58.066020+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:10:10.915996+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:10:14.378491+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:10:17.444407+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:10:24.769212+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:10:24.769267+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:27:41.574726+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "47943deb5f55302cff7f6b486f6ab1ca95486aca",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "published-runs/api/runner-peer-socket-race/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_peer_identity.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:27:33.898793+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:27:30.159119+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:27:41.574544+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:27:33.898816+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=1; executed command return codes=[1]; cumulative Runner time=3.224s; bounded result bytes=216; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "failed: last executed command returned code 1."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:53.281203+00:00",
+  "prompt_sha256": "00f8d332af10257834c2d96ad6ca17711f05420df1a8ebde21fde16015dc2654",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_peer_identity.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_worker.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "89895bac619d6f9549dd035a883de2f3842d5d2d",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/89895bac619d6f9549dd035a883de2f3842d5d2d",
+  "started_at_utc": "2026-10-14T16:09:17.343802+00:00",
+  "status": "completed",
+  "task_id": "runner-peer-socket-race",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

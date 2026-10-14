@@ -1,0 +1,69 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-04",
+  "candidate_changed_paths": [],
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T15:54:18.552789+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "6c6670922f0dc8fe3d4631e48f1292120a4b3031",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/ipc-json-depth-bounds/attempt-04/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T15:54:18.552632+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T15:54:18.468611+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": 0,
+  "model": "api",
+  "notes": [
+    "Prompt and Launcher logs are staged under /tmp because Launch Services could not redirect from the Desktop workspace path.",
+    "Formal task attempt: the model proposed a read-only cat of nonexistent ipc_.py and test_ipc_.py, received return code 1, then requested exact paths. No extra guidance was added; no candidate files changed. Hidden grader suite passed on the unchanged baseline, so task completion is not credited."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:51:22.465104+00:00",
+  "prompt_sha256": "bf9647a9ff677a0a41eab6ef1635bf33204ae10acaa2cbb4757557fcb01d00a8",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_ipc.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "3c112b5f8ccb2a630fcfdc2d997e37cc4492cf3f",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/3c112b5f8ccb2a630fcfdc2d997e37cc4492cf3f",
+  "started_at_utc": "2026-10-14T15:51:22.496705+00:00",
+  "status": "completed",
+  "task_completed_by_model": false,
+  "task_id": "ipc-json-depth-bounds",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

@@ -1,0 +1,762 @@
+diff --git a/docs/KERNEL_ABI.md b/docs/KERNEL_ABI.md
+index 151fed7..0bbf4ec 100644
+--- a/docs/KERNEL_ABI.md
++++ b/docs/KERNEL_ABI.md
+@@ -1,7 +1,7 @@
+-# Kernel Runner ABI v7
++# Kernel Runner ABI v8
+ 
+ This document records the current development ABI between the one-shot Kernel
+-worker and its isolated Runner. Runner ABI v7 executes one untrusted Python
++worker and its isolated Runner. Runner ABI v8 executes one untrusted Python
+ `run()` entrypoint and adds bounded Plugin input, opaque logical-Plugin state,
+ and bounded Plugin output to the existing Runner path. The separate native
+ Workspace XPC operation ABI v11 provides a minimal, fixed-slot Candidate
+@@ -62,21 +62,29 @@ tests exercise peer-identity rejection.
+ Each request has exactly these fields:
+ 
+ ```json
+-{"version":7,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
++{"version":8,"request_id":"32 lowercase hex characters","operation":"...","payload":{}}
+ ```
+ 
+ Each response is either:
+ 
+ ```json
+-{"version":7,"request_id":"...","ok":true,"result":{}}
++{"version":8,"request_id":"...","ok":true,"result":{}}
+ ```
+ 
+ or:
+ 
+ ```json
+-{"version":7,"request_id":"...","ok":false,"error":{"code":"..."}}
++{"version":8,"request_id":"...","ok":false,"error":{"code":"..."}}
+ ```
+ 
++An internal Worker error with code `runner_failed` may include a bounded
++`diagnostic` object containing only `stage`, `category`, nullable child exit
++status, and elapsed milliseconds. The stage and category are closed enums;
++elapsed time is capped at 300,000 ms. The Launcher validates this object and
++keeps it on the local `KernelLaunchError`; the native Workspace XPC bridge
++returns only the original public error code. It contains no Runner stderr,
++workspace bytes, Plugin state, command output, or exception text.
++
+ Frames are limited to 64 KiB and eight structural JSON nesting levels. Plugin
+ input is limited to 8 KiB and six structural nesting levels. State blobs are
+ limited to 32 KiB; Plugin output is limited to 8 KiB. The depth check ignores
+@@ -449,7 +457,7 @@ before retrying or cleaning them.
+ The Runner cannot open the snapshot directly. `fs.read` and `fs.list` are
+ explicit Kernel-mediated data flows; their results are still untrusted workspace
+ data. They do not classify secrets and do not authorize sending content to a
+-remote model. Runner ABI v7 retains a trusted logical Plugin ID only in the
++remote model. Runner ABI v8 retains a trusted logical Plugin ID only in the
+ Kernel Broker; it is not sent to the Runner as an identity or namespace field.
+ The development `workspace.run` path still enables `process.exec` for one
+ trusted workspace request. The product `plugin.run` wrapper resolves source and
+diff --git "a/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md" "b/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"
+index 7236cca..c127876 100644
+--- "a/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"	
++++ "b/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"	
+@@ -1111,7 +1111,7 @@ structured error
+ Plugin Runner 必须与 Host、Kernel 分进程运行。Runner 崩溃只能使该 Plugin
+ 失败，不能使 Kernel 或其他 Plugin 取得它的文件描述符、secret 或状态。
+ 
+-当前 Runner ABI v7 与原生 Workspace XPC operation ABI v11 的精确请求顺序、字段、
++当前 Runner ABI v8 与原生 Workspace XPC operation ABI v11 的精确请求顺序、字段、
+ 错误码和字节上限记录在 `docs/KERNEL_ABI.md`。开发 `workspace.run` 路径仍不代表
+ Plugin capability grant；产品 `plugin.run` 另外绑定已激活 Candidate 的 Plugin ID、
+ 内容摘要、Manifest scope 与 generation。开发 launcher 可为 Kernel 的 `fs.read` / `fs.list` 设置默认 deny-all 的相对路径
+diff --git a/khaos/ipc.py b/khaos/ipc.py
+index ff5956c..3151b0f 100644
+--- a/khaos/ipc.py
++++ b/khaos/ipc.py
+@@ -15,7 +15,7 @@ from collections.abc import Mapping
+ from typing import Any
+ 
+ 
+-PROTOCOL_VERSION = 7
++PROTOCOL_VERSION = 8
+ MAX_FRAME_BYTES = 64 * 1024
+ MAX_JSON_NESTING = 8
+ MAX_PLUGIN_INPUT_NESTING = MAX_JSON_NESTING - 2
+@@ -37,6 +37,35 @@ class IPCProtocolError(RuntimeError):
+     """The local peer sent an invalid, oversized, or late message."""
+ 
+ 
++_RUNNER_DIAGNOSTIC_STAGES = frozenset(
++    {
++        "spawn",
++        "peer_identity",
++        "pipe_handshake",
++        "plugin_start",
++        "execution_ipc",
++        "completion",
++        "cleanup",
++    }
++)
++_RUNNER_DIAGNOSTIC_CATEGORIES = frozenset(
++    {
++        "ipc_eof",
++        "ipc_io_error",
++        "ipc_protocol",
++        "ipc_timeout",
++        "os_error",
++        "other",
++        "peer_identity_error",
++        "peer_mismatch",
++        "peer_timeout",
++        "subprocess_error",
++        "subprocess_timeout",
++    }
++)
++_MAX_RUNNER_DIAGNOSTIC_ELAPSED_MS = 300_000
++
++
+ class FrameReader:
+     """Incrementally decode bounded frames from one anonymous pipe."""
+ 
+@@ -100,20 +129,49 @@ def send_error_frame(
+     request_id: str,
+     code: str,
+     timeout_seconds: float = 5.0,
++    *,
++    diagnostic: dict[str, Any] | None = None,
+ ) -> None:
+     """Send the shared bounded error envelope for one IPC request."""
++    error: dict[str, Any] = {"code": code}
++    if diagnostic is not None:
++        error["diagnostic"] = validate_runner_diagnostic(diagnostic)
+     send_frame(
+         write_fd,
+         {
+             "version": PROTOCOL_VERSION,
+             "request_id": request_id,
+             "ok": False,
+-            "error": {"code": code},
++            "error": error,
+         },
+         timeout_seconds=timeout_seconds,
+     )
+ 
+ 
++def validate_runner_diagnostic(value: object) -> dict[str, Any]:
++    """Validate the small internal diagnostic attached to runner_failed."""
++    if (
++        type(value) is not dict
++        or set(value)
++        != {"stage", "category", "child_exit_status", "elapsed_ms"}
++        or type(value.get("stage")) is not str
++        or value["stage"] not in _RUNNER_DIAGNOSTIC_STAGES
++        or type(value.get("category")) is not str
++        or value["category"] not in _RUNNER_DIAGNOSTIC_CATEGORIES
++        or (
++            value.get("child_exit_status") is not None
++            and (
++                type(value["child_exit_status"]) is not int
++                or not -255 <= value["child_exit_status"] <= 255
++            )
++        )
++        or type(value.get("elapsed_ms")) is not int
++        or not 0 <= value["elapsed_ms"] <= _MAX_RUNNER_DIAGNOSTIC_ELAPSED_MS
++    ):
++        raise IPCProtocolError("Runner diagnostic is invalid")
++    return dict(value)
++
++
+ def receive_frame(
+     read_fd: int,
+     *,
+diff --git a/khaos/kernel/broker.py b/khaos/kernel/broker.py
+index 5585cf5..2039f1d 100644
+--- a/khaos/kernel/broker.py
++++ b/khaos/kernel/broker.py
+@@ -465,6 +465,7 @@ def serve_runner_execution(
+     plugin_state_root: str | os.PathLike[str] | None = None,
+     plugin_output_expected: bool = False,
+     allow_process_exec: bool = True,
++    on_runner_request: Callable[[], None] | None = None,
+ ) -> SandboxedProcessResult | PluginOutput:
+     """Serve bounded Plugin state/output and scoped workspace operations."""
+     read_scope = WorkspaceReadScope.from_paths(
+@@ -483,6 +484,8 @@ def serve_runner_execution(
+         request_id, operation, payload = _receive_request(
+             request_read_fd, response_write_fd, timeout_seconds
+         )
++        if on_runner_request is not None:
++            on_runner_request()
+         if operation in {_READ_OPERATION, _LIST_OPERATION, _WRITE_OPERATION}:
+             if filesystem_requests >= MAX_WORKSPACE_FILESYSTEM_OPERATIONS:
+                 _send_error(
+diff --git a/khaos/kernel/worker.py b/khaos/kernel/worker.py
+index 86b06c8..96e5d45 100644
+--- a/khaos/kernel/worker.py
++++ b/khaos/kernel/worker.py
+@@ -13,6 +13,7 @@ import stat
+ import subprocess
+ import sys
+ import tempfile
++import time
+ import traceback
+ 
+ from ..ipc import (
+@@ -242,6 +243,7 @@ def main() -> int:
+             return 0
+ 
+         cancellation = _WorkspaceCancellation(request_id)
++        runner_diagnostic = _RunnerDiagnosticState()
+         process_started_fd = os.dup(1)
+         try:
+             def report_process_finished(process_group_id: int) -> None:
+@@ -266,6 +268,7 @@ def main() -> int:
+                         plugin_state_root=plugin_state_root,
+                         plugin_input=request["payload"].get("plugin_input"),
+                         process_exec_allowed=request["payload"]["process_exec_allowed"],
++                        runner_diagnostic=runner_diagnostic,
+                     )
+                 finally:
+                     os.close(workspace_root_fd)
+@@ -299,14 +302,19 @@ def main() -> int:
+         except WorkspaceSnapshotError:
+             _send_error(request_id, "workspace_rejected_snapshot")
+         except OSError as exc:
+-            _send_error(request_id, _workspace_io_error_code(exc))
++            diagnostic = runner_diagnostic.failed(exc)
++            if diagnostic is None:
++                _send_error(request_id, _workspace_io_error_code(exc))
++            else:
++                _send_error(request_id, "runner_failed", diagnostic=diagnostic)
+         except (ValueError, TypeError):
+             _send_error(request_id, "workspace_rejected_input")
+-        except (IPCProtocolError, subprocess.SubprocessError):
+-            _send_error(
+-                request_id,
+-                "process_cancelled" if cancellation.requested else "runner_failed",
++        except (IPCProtocolError, subprocess.SubprocessError) as exc:
++            code = "process_cancelled" if cancellation.requested else "runner_failed"
++            diagnostic = (
++                None if code == "process_cancelled" else runner_diagnostic.failed(exc)
+             )
++            _send_error(request_id, code, diagnostic=diagnostic)
+         else:
+             send_frame(
+                 1,
+@@ -359,7 +367,10 @@ def _run_workspace_command(
+     plugin_state_root: str | None = None,
+     plugin_input: dict[str, object] | None = None,
+     process_exec_allowed: bool = True,
++    runner_diagnostic: _RunnerDiagnosticState | None = None,
+ ):
++    if runner_diagnostic is None:
++        runner_diagnostic = _RunnerDiagnosticState()
+     package_root = Path(__file__).resolve().parents[2]
+     timeout = validate_command_timeout(timeout_seconds)
+     source = validate_runner_source(runner_source)
+@@ -457,7 +468,9 @@ def _run_workspace_command(
+             )
+             process: subprocess.Popen[bytes] | None = None
+             try:
++                runner_diagnostic.set_stage("peer_identity")
+                 with local_peer_pid_listener(scratch) as (listener, peer_socket_path):
++                    runner_diagnostic.set_stage("spawn")
+                     # Keep the IPC Runner in scratch; only the Broker handles the snapshot.
+                     profile = _snapshot_profile(
+                         scratch,
+@@ -468,33 +481,40 @@ def _run_workspace_command(
+                         additional_unix_socket_paths=(peer_socket_path,),
+                         readable_paths=readable_paths,
+                     )
+-                    process = subprocess.Popen(
+-                        (
+-                            str(SANDBOX_EXECUTABLE),
+-                            "-p",
+-                            profile,
+-                            str(executable),
+-                            "-I",
+-                            "-S",
+-                            "-B",
+-                            "-c",
+-                            bootstrap,
+-                            peer_socket_path.name,
+-                        ),
+-                        cwd=scratch,
+-                        env={
+-                            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+-                            "HOME": str(scratch),
+-                            "TMPDIR": str(scratch),
+-                            "LC_ALL": "C",
+-                            "PYTHONDONTWRITEBYTECODE": "1",
+-                        },
+-                        stdin=subprocess.PIPE,
+-                        stdout=subprocess.PIPE,
+-                        stderr=subprocess.DEVNULL,
+-                        close_fds=True,
+-                    )
++                    try:
++                        process = subprocess.Popen(
++                            (
++                                str(SANDBOX_EXECUTABLE),
++                                "-p",
++                                profile,
++                                str(executable),
++                                "-I",
++                                "-S",
++                                "-B",
++                                "-c",
++                                bootstrap,
++                                peer_socket_path.name,
++                            ),
++                            cwd=scratch,
++                            env={
++                                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
++                                "HOME": str(scratch),
++                                "TMPDIR": str(scratch),
++                                "LC_ALL": "C",
++                                "PYTHONDONTWRITEBYTECODE": "1",
++                            },
++                            stdin=subprocess.PIPE,
++                            stdout=subprocess.PIPE,
++                            stderr=subprocess.DEVNULL,
++                            close_fds=True,
++                        )
++                    except (OSError, subprocess.SubprocessError) as exc:
++                        raise IPCProtocolError("Runner process spawn failed") from exc
++                    runner_diagnostic.process = process
++                    runner_diagnostic.set_stage("peer_identity")
+                     accept_local_peer_pid(listener, process.pid)
++                    runner_diagnostic.set_stage("cleanup")
++                runner_diagnostic.set_stage("pipe_handshake")
+                 if process.stdin is None or process.stdout is None:
+                     raise IPCProtocolError("Runner IPC pipes are unavailable")
+                 ping_peer(
+@@ -507,6 +527,7 @@ def _run_workspace_command(
+                     if plugin_input is not None
+                     else {"source": source}
+                 )
++                runner_diagnostic.set_stage("plugin_start")
+                 send_frame(
+                     process.stdin.fileno(),
+                     {
+@@ -528,6 +549,9 @@ def _run_workspace_command(
+                     plugin_state_root=plugin_state_root,
+                     plugin_output_expected=plugin_input is not None,
+                     allow_process_exec=process_exec_allowed,
++                    on_runner_request=lambda: runner_diagnostic.set_stage(
++                        "execution_ipc"
++                    ),
+                     timeout_seconds=5,
+                     cancel_requested=cancel_requested,
+                     process_started_fd=process_started_fd,
+@@ -535,6 +559,7 @@ def _run_workspace_command(
+                     process_finished=process_finished,
+                 )
+                 if isinstance(result, PluginOutput):
++                    runner_diagnostic.set_stage("completion")
+                     if plugin_input is None:
+                         raise IPCProtocolError("unexpected Plugin output")
+                     from .macos_seatbelt import SandboxedProcessResult
+@@ -546,6 +571,7 @@ def _run_workspace_command(
+                     )
+                     changes = WorkspaceCommitSummary(0, 0, 0)
+                 else:
++                    runner_diagnostic.set_stage("completion")
+                     changes = serve_workspace_commit(
+                         process.stdout.fileno(),
+                         process.stdin.fileno(),
+@@ -561,11 +587,19 @@ def _run_workspace_command(
+                 except subprocess.TimeoutExpired:
+                     # The validated commit result is authoritative; Runner code
+                     # after its final IPC request cannot revoke it.
++                    runner_diagnostic.set_stage("cleanup")
+                     _kill_runner(process)
++                    runner_diagnostic.set_stage("completion")
+                 return result, changes
+             except BaseException:
+                 if process is not None:
+-                    _kill_runner(process)
++                    failed_stage = runner_diagnostic.stage
++                    runner_diagnostic.set_stage("cleanup")
++                    try:
++                        _kill_runner(process)
++                    except BaseException:
++                        raise
++                    runner_diagnostic.stage = failed_stage
+                 raise
+ 
+ 
+@@ -641,12 +675,87 @@ class _WorkspaceAncestryIOError(RuntimeError):
+         super().__init__(stage)
+ 
+ 
+-def _send_error(request_id: str, code: str) -> None:
++class _RunnerDiagnosticState:
++    """Bounded, non-content metadata for one Runner launch attempt."""
++
++    def __init__(self) -> None:
++        self.stage: str | None = None
++        self.started_ns: int | None = None
++        self.process: subprocess.Popen[bytes] | None = None
++
++    def set_stage(self, stage: str) -> None:
++        if self.started_ns is None:
++            self.started_ns = time.monotonic_ns()
++        self.stage = stage
++
++    def failed(self, error: BaseException) -> dict[str, object] | None:
++        if self.stage is None or self.started_ns is None:
++            return None
++        try:
++            process_status = self.process.poll() if self.process is not None else None
++        except (OSError, subprocess.SubprocessError):
++            process_status = None
++        if type(process_status) is not int or not -255 <= process_status <= 255:
++            process_status = None
++        elapsed_ms = min(
++            300_000,
++            max(0, (time.monotonic_ns() - self.started_ns) // 1_000_000),
++        )
++        return {
++            "stage": self.stage,
++            "category": _runner_diagnostic_category(self.stage, error),
++            "child_exit_status": process_status,
++            "elapsed_ms": elapsed_ms,
++        }
++
++
++def _runner_diagnostic_category(stage: str, error: BaseException) -> str:
++    if isinstance(error, IPCProtocolError):
++        message = str(error)
++        cause = error.__cause__
++        if isinstance(cause, subprocess.TimeoutExpired):
++            return "subprocess_timeout"
++        if isinstance(cause, subprocess.SubprocessError):
++            return "subprocess_error"
++        if isinstance(cause, OSError) and message == "Runner process spawn failed":
++            return "os_error"
++        if stage == "peer_identity":
++            if message == "OS peer PID connection timed out":
++                return "peer_timeout"
++            if message == "OS peer PID did not match the spawned Runner":
++                return "peer_mismatch"
++            return "peer_identity_error"
++        if message == "IPC deadline expired":
++            return "ipc_timeout"
++        if message in {
++            "IPC peer closed its input pipe",
++            "IPC peer closed an incomplete frame",
++        }:
++            return "ipc_eof"
++        if message in {"IPC pipe read failed", "IPC pipe write failed"}:
++            return "ipc_io_error"
++        return "ipc_protocol"
++    if isinstance(error, subprocess.TimeoutExpired):
++        return "subprocess_timeout"
++    if isinstance(error, subprocess.SubprocessError):
++        return "subprocess_error"
++    if isinstance(error, OSError):
++        return "os_error"
++    return "other"
++
++
++def _send_error(
++    request_id: str,
++    code: str,
++    *,
++    diagnostic: dict[str, object] | None = None,
++) -> None:
+     send_error_frame(
+         1,
+         request_id,
+         code,
+         timeout_seconds=5,
++        diagnostic=diagnostic,
+     )
+ 
+ 
+diff --git a/khaos/launcher.py b/khaos/launcher.py
+index a768944..47c8ef2 100644
+--- a/khaos/launcher.py
++++ b/khaos/launcher.py
+@@ -25,6 +25,7 @@ from .ipc import (
+     _json_nesting_within_limit,
+     answer_ping,
+     send_frame,
++    validate_runner_diagnostic,
+     validate_runner_source,
+ )
+ from .kernel.macos_seatbelt import (
+@@ -45,6 +46,15 @@ from .kernel.workspace_snapshot import (
+ class KernelLaunchError(RuntimeError):
+     """The isolated Kernel could not complete its bounded workspace session."""
+ 
++    def __init__(
++        self,
++        code: str,
++        *,
++        diagnostic: dict[str, object] | None = None,
++    ) -> None:
++        super().__init__(code)
++        self.diagnostic = diagnostic
++
+ 
+ @dataclass(frozen=True, slots=True)
+ class WorkspaceCommandResult:
+@@ -271,11 +281,17 @@ def run_workspace_command(
+             if (
+                 response["ok"] is not False
+                 or type(error) is not dict
+-                or set(error) != {"code"}
++                or set(error) not in ({"code"}, {"code", "diagnostic"})
+                 or type(error.get("code")) is not str
++                or ("diagnostic" in error and error["code"] != "runner_failed")
+             ):
+                 raise IPCProtocolError("Kernel error response is invalid")
+-            raise KernelLaunchError(error["code"])
++            diagnostic = (
++                validate_runner_diagnostic(error["diagnostic"])
++                if "diagnostic" in error
++                else None
++            )
++            raise KernelLaunchError(error["code"], diagnostic=diagnostic)
+         if set(response) != {"version", "request_id", "ok", "result"}:
+             raise IPCProtocolError("Kernel response schema is invalid")
+         result = response["result"]
+diff --git a/tests/test_ipc.py b/tests/test_ipc.py
+index e28c8df..64b885b 100644
+--- a/tests/test_ipc.py
++++ b/tests/test_ipc.py
+@@ -22,6 +22,7 @@ from khaos.ipc import (
+     receive_frame,
+     send_error_frame,
+     send_frame,
++    validate_runner_diagnostic,
+     validate_runner_source,
+ )
+ 
+@@ -40,6 +41,52 @@ class IPCProtocolTests(unittest.TestCase):
+                 },
+             )
+ 
++    def test_runner_failure_error_frame_carries_only_bounded_diagnostics(self) -> None:
++        diagnostic = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        with _pipe() as (receiver, sender):
++            send_error_frame(
++                sender,
++                "a" * 32,
++                "runner_failed",
++                timeout_seconds=2,
++                diagnostic=diagnostic,
++            )
++            self.assertEqual(
++                receive_frame(receiver, timeout_seconds=2),
++                {
++                    "version": PROTOCOL_VERSION,
++                    "request_id": "a" * 32,
++                    "ok": False,
++                    "error": {"code": "runner_failed", "diagnostic": diagnostic},
++                },
++            )
++
++    def test_runner_diagnostic_rejects_unbounded_or_content_fields(self) -> None:
++        valid = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        invalid_diagnostics = (
++            {**valid, "stage": "user-file-content"},
++            {**valid, "category": "secret-token"},
++            {**valid, "child_exit_status": True},
++            {**valid, "elapsed_ms": 300_001},
++            {**valid, "stdout": "untrusted command output"},
++        )
++        self.assertEqual(validate_runner_diagnostic(valid), valid)
++        for diagnostic in invalid_diagnostics:
++            with self.subTest(diagnostic=diagnostic), self.assertRaisesRegex(
++                IPCProtocolError, "diagnostic"
++            ):
++                validate_runner_diagnostic(diagnostic)
++
+     def test_runner_source_is_bounded_utf8_and_nonempty(self) -> None:
+         source = "#" * MAX_RUNNER_SOURCE_BYTES
+         self.assertEqual(validate_runner_source(source), source)
+diff --git a/tests/test_launcher.py b/tests/test_launcher.py
+index d9d98b3..cccc776 100644
+--- a/tests/test_launcher.py
++++ b/tests/test_launcher.py
+@@ -129,6 +129,73 @@ class KernelLauncherTests(unittest.TestCase):
+                 )
+             self.assertEqual(list(workspace.iterdir()), [])
+ 
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_diagnostic_identifies_plugin_start_exit(self) -> None:
++        source = "def run(request):\n    raise SystemExit(47)\n"
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            state_root = Path(value) / "plugin-state"
++            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
++                run_workspace_command(
++                    workspace,
++                    runner_source=source,
++                    process_exec_allowed=False,
++                    plugin_id="runner-diagnostic",
++                    plugin_state_root=state_root,
++                    plugin_input={"operation": "probe"},
++                    timeout_seconds=10,
++                )
++
++            diagnostic = caught.exception.diagnostic
++            self.assertIsNotNone(diagnostic)
++            self.assertEqual(diagnostic["stage"], "plugin_start")
++            self.assertEqual(diagnostic["category"], "ipc_eof")
++            self.assertEqual(diagnostic["child_exit_status"], 47)
++            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
++            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
++            self.assertEqual(list(workspace.iterdir()), [])
++
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_diagnostic_identifies_execution_ipc_exit(self) -> None:
++        source = """\
++import os
++from khaos.runner_sdk import state_read
++
++def run(request):
++    state_read()
++    os._exit(48)
++"""
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            state_root = Path(value) / "plugin-state"
++            with self.assertRaisesRegex(KernelLaunchError, "runner_failed") as caught:
++                run_workspace_command(
++                    workspace,
++                    runner_source=source,
++                    process_exec_allowed=False,
++                    plugin_id="runner-diagnostic",
++                    plugin_state_root=state_root,
++                    plugin_input={"operation": "probe"},
++                    timeout_seconds=10,
++                )
++
++            diagnostic = caught.exception.diagnostic
++            self.assertIsNotNone(diagnostic)
++            self.assertEqual(diagnostic["stage"], "execution_ipc")
++            self.assertEqual(diagnostic["category"], "ipc_eof")
++            self.assertEqual(diagnostic["child_exit_status"], 48)
++            self.assertGreaterEqual(diagnostic["elapsed_ms"], 0)
++            self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
++            self.assertEqual(list(workspace.iterdir()), [])
++
+     @unittest.skipUnless(
+         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+         "requires the real macOS Seatbelt backend",
+diff --git a/tests/test_memory_evolution.py b/tests/test_memory_evolution.py
+index e260078..d221c19 100644
+--- a/tests/test_memory_evolution.py
++++ b/tests/test_memory_evolution.py
+@@ -48,6 +48,15 @@ class MemoryEvolutionTests(unittest.TestCase):
+     def tearDown(self) -> None:
+         self.temporary.cleanup()
+ 
++    def _evaluate_with_runner_diagnostics(self, *args, **kwargs):
++        try:
++            return evaluate_memory_candidates(*args, **kwargs)
++        except KernelLaunchError as exc:
++            diagnostic = json.dumps(exc.diagnostic, sort_keys=True)
++            raise AssertionError(
++                f"Memory evaluation Runner failed: {diagnostic}"
++            ) from exc
++
+     def test_evaluation_binding_rejects_changed_candidate_or_dataset(self) -> None:
+         dataset_bytes, _ = load_dataset(DATASET)
+         record = {
+@@ -183,7 +192,7 @@ class MemoryEvolutionTests(unittest.TestCase):
+         self.assertIsNone(before_previous)
+         self.assertEqual(before_generation, 1)
+ 
+-        result = evaluate_memory_candidates(
++        result = self._evaluate_with_runner_diagnostics(
+             self.candidate_a,
+             self.candidate_b,
+             DATASET,
+@@ -268,7 +277,7 @@ class MemoryEvolutionTests(unittest.TestCase):
+             incompatible_source,
+         )
+ 
+-        evaluation = evaluate_memory_candidates(
++        evaluation = self._evaluate_with_runner_diagnostics(
+             self.candidate_a,
+             incompatible,
+             DATASET,
+@@ -398,7 +407,7 @@ def run(request):
+         candidate_files = self._candidate_store_snapshot()
+ 
+         with patch.dict(os.environ, {"KHAOS_EVALUATION_SECRET": "host sentinel"}):
+-            evaluation = evaluate_memory_candidates(
++            evaluation = self._evaluate_with_runner_diagnostics(
+                 self.candidate_a,
+                 hostile,
+                 DATASET,
+diff --git a/tests/test_workspace_xpc_bridge.py b/tests/test_workspace_xpc_bridge.py
+index 818c176..1b8e71b 100644
+--- a/tests/test_workspace_xpc_bridge.py
++++ b/tests/test_workspace_xpc_bridge.py
+@@ -254,6 +254,44 @@ class WorkspaceXPCBridgeTests(unittest.TestCase):
+         )
+         self.assertNotIn("private path detail", repr(response))
+ 
++    def test_runner_diagnostic_stays_inside_worker_launcher_boundary(self) -> None:
++        source = "def run():\n    return 0\n"
++        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
++        request = self._request(source, digest)
++        diagnostic = {
++            "stage": "execution_ipc",
++            "category": "ipc_eof",
++            "child_exit_status": 47,
++            "elapsed_ms": 321,
++        }
++        with (
++            patch.object(workspace_xpc_bridge.sys, "argv", ["bridge", "", "/workspace", "3", "4"]),
++            patch.object(workspace_xpc_bridge.os, "fstat"),
++            patch.object(workspace_xpc_bridge, "receive_frame", return_value=request),
++            patch.object(workspace_xpc_bridge, "_read_workspace_bookmark", return_value=b"bookmark"),
++            patch.object(workspace_xpc_bridge, "_scoped_workspace_bookmark", return_value=nullcontext()),
++            patch.object(
++                workspace_xpc_bridge,
++                "run_workspace_command",
++                side_effect=workspace_xpc_bridge.KernelLaunchError(
++                    "runner_failed", diagnostic=diagnostic
++                ),
++            ),
++            patch.object(workspace_xpc_bridge, "send_frame") as send_frame,
++            patch.dict(
++                workspace_xpc_bridge.os.environ,
++                {
++                    "KHAOS_SNAPSHOT_MOUNT_PATH": "/private/snapshot",
++                    "KHAOS_SNAPSHOT_STORAGE_BYTES": "2621440000",
++                },
++            ),
++        ):
++            self.assertEqual(workspace_xpc_bridge.main(), 0)
++
++        response = send_frame.call_args.args[1]
++        self.assertEqual(response["error"], {"code": "runner_failed"})
++        self.assertNotIn("diagnostic", repr(response))
++
+     def test_classifies_workspace_root_rejection_without_path(self) -> None:
+         error_code = workspace_xpc_bridge._execution_failure_code(
+             ValueError("workspace is unavailable or changed")

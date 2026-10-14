@@ -1,0 +1,372 @@
+diff --git a/docs/KERNEL_ABI.md b/docs/KERNEL_ABI.md
+index 7c8b136..6840f38 100644
+--- a/docs/KERNEL_ABI.md
++++ b/docs/KERNEL_ABI.md
+@@ -21,6 +21,15 @@ pipes. A separate one-time macOS AF_UNIX handshake checks both OS peer PIDs
+ before framed messages begin. Pipes do not carry descriptor-passing ancillary
+ data. The Runner SDK reads replies from standard input and writes requests to
+ standard output; its public functions do not accept descriptor overrides.
++The accepting parent validates the spawned child's OS PID and retains the
++connected socket until it receives the fixed byte `0x01`. The child queries
++and validates its parent's OS PID before sending that byte, then waits for
++parent EOF. The byte synchronizes socket lifetime and grants no authority.
++The parent's accept and completion receive share the existing ten-second
++deadline; the child's socket waits retain their finite timeout. Missing
++or invalid completion, identity mismatch, and timeout fail closed. This avoids
++Darwin `LOCAL_PEERPID` returning `ENOTCONN` if the parent closes before the
++child's query. It adds no framed operation or application payload.
+ After the ping, the Kernel sends one `plugin.start` frame containing up to
+ 10 KiB of UTF-8 source and, for a product Plugin invocation, one optional
+ bounded JSON object input. The Runner executes it inside its Seatbelt process;
+diff --git "a/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md" "b/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"
+index c127876..8bc7d0b 100644
+--- "a/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"	
++++ "b/docs/Khaos vNext \346\236\266\346\236\204\350\256\276\350\256\241\346\226\207\346\241\243.md"	
+@@ -2745,7 +2745,9 @@ Khaos 攻击测试，因此不是当前 Seed 能力。
+ fork；将该限制降至 2 后，OS 返回 `EAGAIN` 并拒绝后续 fork。这证明当前 Darwin 内核
+ 确实执行该 per-UID 限制，但没有证明 1024 个命令进程的专属上限，也不提供命令树级资源配额。
+ launcher→Kernel 与 Kernel→Runner 均通过一次性 AF_UNIX 凭据握手双向验证 OS peer PID；
+-握手不承载应用数据，有界帧仍走匿名管道。Runner 的 Seatbelt 只为 scratch 内的精确
++握手不承载应用数据；子端完成 OS PID 验证后发送固定 `0x01` 完成字节，父端收到后才关闭
++socket，子端随后等待 EOF。双方接收仍有界，完成字节不授予权限；这避免父端提前关闭后
++Darwin `LOCAL_PEERPID` 返回 `ENOTCONN` 的启动竞态。有界帧仍走匿名管道。Runner 的 Seatbelt 只为 scratch 内的精确
+ socket 路径增加 network-outbound 例外；真实攻击测试确认同一 scratch 下另一个 AF_UNIX
+ listener 仍无法连接，IPv4 loopback 也保持拒绝。两条 IPC 链路仍没有用户 capability grant 或
+ approval 绑定。Kernel 源码安装仍可由同一用户修改；其他同 UID 进程也不受 Kernel 写入
+diff --git a/docs/SEED_THREAT_MODEL.md b/docs/SEED_THREAT_MODEL.md
+index 47c99c2..9291f6a 100644
+--- a/docs/SEED_THREAT_MODEL.md
++++ b/docs/SEED_THREAT_MODEL.md
+@@ -267,6 +267,37 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
+ suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
+ must pass before merge.
+ 
++## 2026-10-14 Runner peer socket lifetime race
++
++The accepting parent previously queried the child's `LOCAL_PEERPID` and closed
++the socket immediately. A child scheduled after that close could not query the
++parent's PID: Darwin returned `ENOTCONN`, Python raised `IPCProtocolError`, and
++the Runner exited 1 before its pipe ping. Apple's
++[XNU implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/uipc_usrreq.c)
++returns `ENOTCONN` for `LOCAL_PEERPID` when the peer connection is absent. This
++was already a known limitation in the native workspace-stream admission path;
++the Python startup handshake had not retained the peer for both queries.
++
++Delaying the child's OS query by 100 ms reproduced exit 1 in 10/10 real macOS
++helper launches. A real Seatbelt Worker regression with a 200 ms delayed query
++failed before the fix with `stage=pipe_handshake`,
++`category=runner_peer_identity_error`, child exit 1, and 346 ms elapsed. The
++parent's exception was pipe EOF, matching the historical failure shape. The
++historical run discarded stderr, so its exact exception cannot be recovered;
++this experiment proves a concrete race in that same startup path rather than
++attributing every historical failure exclusively to it.
++
++The child now validates its parent's OS PID before sending one fixed completion
++byte. The parent validates the child PID and keeps the socket open until that
++byte arrives. Parent accept and completion share the original ten-second
++deadline; no PID check, nonce, sandbox, scope,
++or approval is relaxed. Tests reject missing/invalid completion and wrong
++identities, and the delayed-query Seatbelt regression now completes Plugin
++output successfully. The Worker also closes its startup stderr stream on
++successful completion; the regression verifies all three pipe streams close.
++There is no new process, framed IPC operation, persistent state, dependency,
++or architectural component.
++
+ ## 2026-10-14 Runner startup exception classification
+ 
+ The bounded startup stderr classifier previously treated any traceback text
+diff --git a/khaos/kernel/peer_identity.py b/khaos/kernel/peer_identity.py
+index 736807a..a8675b9 100644
+--- a/khaos/kernel/peer_identity.py
++++ b/khaos/kernel/peer_identity.py
+@@ -9,6 +9,7 @@ from pathlib import Path
+ import socket
+ import struct
+ import sys
++import time
+ 
+ from ..ipc import IPCProtocolError
+ 
+@@ -16,6 +17,7 @@ from ..ipc import IPCProtocolError
+ _SOL_LOCAL = 0
+ _LOCAL_PEERPID = 0x002
+ _PEER_HANDSHAKE_TIMEOUT_SECONDS = 10.0
++_PEER_IDENTITY_VERIFIED = b"\x01"
+ 
+ 
+ @contextmanager
+@@ -66,6 +68,7 @@ def local_peer_pid_listener(
+ def accept_local_peer_pid(listener: socket.socket, expected_pid: int) -> None:
+     """Accept exactly one connection and require the spawned child's PID."""
+     _validate_pid(expected_pid)
++    deadline = time.monotonic() + _PEER_HANDSHAKE_TIMEOUT_SECONDS
+     listener.settimeout(_PEER_HANDSHAKE_TIMEOUT_SECONDS)
+     try:
+         connection, _ = listener.accept()
+@@ -73,8 +76,20 @@ def accept_local_peer_pid(listener: socket.socket, expected_pid: int) -> None:
+         raise IPCProtocolError("OS peer PID connection timed out") from exc
+     with connection:
+         peer_pid = _local_peer_pid(connection)
+-    if peer_pid != expected_pid:
+-        raise IPCProtocolError("OS peer PID did not match the spawned Runner")
++        if peer_pid != expected_pid:
++            raise IPCProtocolError("OS peer PID did not match the spawned Runner")
++        # Darwin LOCAL_PEERPID needs a live peer. Keep our endpoint open
++        # until the child has completed its own OS identity query.
++        try:
++            remaining = deadline - time.monotonic()
++            if remaining <= 0:
++                raise TimeoutError("peer identity completion deadline expired")
++            connection.settimeout(remaining)
++            verified = connection.recv(1)
++        except OSError as exc:
++            raise IPCProtocolError("OS peer PID completion acknowledgement failed") from exc
++        if verified != _PEER_IDENTITY_VERIFIED:
++            raise IPCProtocolError("OS peer PID completion acknowledgement is invalid")
+ 
+ 
+ def verify_local_parent_pid(path: Path, expected_pid: int) -> None:
+@@ -87,14 +102,15 @@ def verify_local_parent_pid(path: Path, expected_pid: int) -> None:
+     try:
+         connection.connect(os.fspath(path))
+         peer_pid = _local_peer_pid(connection)
++        if peer_pid != expected_pid:
++            raise IPCProtocolError("OS peer PID did not match the Kernel parent")
++        connection.sendall(_PEER_IDENTITY_VERIFIED)
+         if connection.recv(1):
+             raise IPCProtocolError("OS peer PID handshake carried unexpected data")
+     except OSError as exc:
+         raise IPCProtocolError("OS parent PID could not be verified") from exc
+     finally:
+         connection.close()
+-    if peer_pid != expected_pid:
+-        raise IPCProtocolError("OS peer PID did not match the Kernel parent")
+ 
+ 
+ def _local_peer_pid(connection: socket.socket) -> int:
+diff --git a/khaos/kernel/worker.py b/khaos/kernel/worker.py
+index 210739a..2bb18d8 100644
+--- a/khaos/kernel/worker.py
++++ b/khaos/kernel/worker.py
+@@ -612,6 +612,8 @@ def _run_workspace_command(
+                     runner_diagnostic.set_stage("cleanup")
+                     _kill_runner(process)
+                     runner_diagnostic.set_stage("completion")
++                if process.stderr is not None and not process.stderr.closed:
++                    process.stderr.close()
+                 return result, changes
+             except BaseException:
+                 if process is not None:
+diff --git a/tests/test_peer_identity.py b/tests/test_peer_identity.py
+index 4ccbedd..a76011f 100644
+--- a/tests/test_peer_identity.py
++++ b/tests/test_peer_identity.py
+@@ -4,11 +4,11 @@ import ctypes
+ import os
+ from pathlib import Path
+ import socket
+-import struct
+ import subprocess
+ import sys
+ import tempfile
+ import unittest
++from unittest.mock import patch
+ 
+ from khaos.ipc import (
+     PROTOCOL_VERSION,
+@@ -34,6 +34,79 @@ _BOOTSTRAP_NOT_PRIVILEGED = 1100  # BOOTSTRAP_NOT_PRIVILEGED from <bootstrap.h>
+ 
+ 
+ class PeerIdentityTests(unittest.TestCase):
++    @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
++    def test_peer_identity_completion_wait_is_bounded(self) -> None:
++        script = (
++            "import socket,sys,time\n"
++            "client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
++            "client.connect(sys.argv[1])\n"
++            "print('connected',flush=True)\n"
++            "time.sleep(0.3)\n"
++            "client.recv(1)\n"
++        )
++        with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
++            with local_peer_pid_listener(Path(value)) as (listener, path):
++                runner = subprocess.Popen(
++                    [sys.executable, "-I", "-S", "-c", script, str(path)],
++                    stdin=subprocess.DEVNULL,
++                    stdout=subprocess.PIPE,
++                    stderr=subprocess.DEVNULL,
++                    close_fds=True,
++                )
++                try:
++                    assert runner.stdout is not None
++                    self.assertEqual(runner.stdout.readline(), b"connected\n")
++                    with patch(
++                        "khaos.kernel.peer_identity._PEER_HANDSHAKE_TIMEOUT_SECONDS",
++                        0.05,
++                    ):
++                        with self.assertRaisesRegex(
++                            IPCProtocolError, "completion acknowledgement failed"
++                        ):
++                            accept_local_peer_pid(listener, runner.pid)
++                    self.assertEqual(runner.wait(timeout=5), 0)
++                finally:
++                    if runner.poll() is None:
++                        runner.kill()
++                        runner.wait()
++                    if runner.stdout is not None:
++                        runner.stdout.close()
++
++    @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
++    def test_peer_identity_rejects_missing_or_invalid_completion(self) -> None:
++        script = (
++            "import socket,sys\n"
++            "client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
++            "client.connect(sys.argv[1])\n"
++            "client.sendall(bytes.fromhex(sys.argv[2]))\n"
++            "client.shutdown(socket.SHUT_WR)\n"
++            "client.recv(1)\n"
++        )
++        for acknowledgement in ("", "02"):
++            with self.subTest(acknowledgement=acknowledgement):
++                with tempfile.TemporaryDirectory(prefix="khaos-peer-") as value:
++                    with local_peer_pid_listener(Path(value)) as (listener, path):
++                        runner = subprocess.Popen(
++                            [
++                                sys.executable, "-I", "-S", "-c", script,
++                                str(path), acknowledgement,
++                            ],
++                            stdin=subprocess.DEVNULL,
++                            stdout=subprocess.DEVNULL,
++                            stderr=subprocess.DEVNULL,
++                            close_fds=True,
++                        )
++                        try:
++                            with self.assertRaisesRegex(
++                                IPCProtocolError, "completion acknowledgement"
++                            ):
++                                accept_local_peer_pid(listener, runner.pid)
++                            self.assertEqual(runner.wait(timeout=5), 0)
++                        finally:
++                            if runner.poll() is None:
++                                runner.kill()
++                                runner.wait()
++
+     @unittest.skipUnless(sys.platform == "darwin", "requires LOCAL_PEERPID")
+     def test_launcher_and_kernel_check_peer_pids_before_pipe_requests(self) -> None:
+         with tempfile.TemporaryDirectory(prefix="khaos-kernel-") as value:
+@@ -250,7 +323,8 @@ class PeerIdentityTests(unittest.TestCase):
+                     close_fds=True,
+                     start_new_session=True,
+                 )
+-                accept_local_peer_pid(listener, runner.pid)
++                with self.assertRaises(IPCProtocolError):
++                    accept_local_peer_pid(listener, runner.pid)
+                 self.assertEqual(runner.wait(timeout=5), 0)
+ 
+     @unittest.skipUnless(
+@@ -417,19 +491,7 @@ print(f"mach-lookup-denied status={{status}}", file=sys.stderr)
+                 start_new_session=True,
+             )
+             try:
+-                try:
+-                    connection, _ = peer_listener.accept()
+-                except TimeoutError:
+-                    _, stderr = runner.communicate(timeout=5)
+-                    self.fail(
+-                        "Runner failed before peer authentication: "
+-                        + stderr.decode(errors="replace")
+-                    )
+-                with connection:
+-                    peer_pid = struct.unpack(
+-                        "=i", connection.getsockopt(0, 2, 4)
+-                    )[0]
+-                self.assertEqual(peer_pid, runner.pid)
++                accept_local_peer_pid(peer_listener, runner.pid)
+                 _, stderr = runner.communicate(timeout=5)
+                 self.assertEqual(runner.returncode, 0, stderr.decode(errors="replace"))
+                 self.assertIn(
+diff --git a/tests/test_worker.py b/tests/test_worker.py
+index b8511d1..3523512 100644
+--- a/tests/test_worker.py
++++ b/tests/test_worker.py
+@@ -2,6 +2,7 @@ from __future__ import annotations
+ 
+ import os
+ from pathlib import Path
++import subprocess
+ import sys
+ import tempfile
+ import unittest
+@@ -38,6 +39,72 @@ _RUNNER_SOURCE = "def run():\n    pass\n"
+ 
+ 
+ class KernelWorkerTests(unittest.TestCase):
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_peer_pid_query_survives_parent_finishing_first(self) -> None:
++        real_popen = subprocess.Popen
++
++        def delay_runner_peer_query(argv, *args, **kwargs):
++            argv = list(argv)
++            for index, argument in enumerate(argv):
++                if (
++                    isinstance(argument, str)
++                    and "from khaos.runner import main\n" in argument
++                ):
++                    argv[index] = argument.replace(
++                        "from khaos.runner import main\n",
++                        "from khaos.runner import main\n"
++                        "import time, khaos.kernel.peer_identity as peer\n"
++                        "original_peer_pid = peer._local_peer_pid\n"
++                        "def delayed_peer_pid(connection):\n"
++                        "    time.sleep(0.2)\n"
++                        "    return original_peer_pid(connection)\n"
++                        "peer._local_peer_pid = delayed_peer_pid\n",
++                    )
++            return real_popen(argv, *args, **kwargs)
++
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value).resolve(strict=True)
++            workspace_fd = os.open(workspace, os.O_RDONLY | os.O_DIRECTORY)
++            diagnostic = _RunnerDiagnosticState()
++            try:
++                with patch(
++                    "khaos.kernel.worker.subprocess.Popen",
++                    side_effect=delay_runner_peer_query,
++                ):
++                    try:
++                        result, changes = _run_workspace_command(
++                            str(workspace),
++                            5,
++                            'def run(value):\n    return {"ok": True}\n',
++                            workspace_root_fd=workspace_fd,
++                            process_exec_allowed=False,
++                            plugin_input={},
++                            runner_diagnostic=diagnostic,
++                        )
++                    except IPCProtocolError as exc:
++                        self.fail(f"Runner startup failed: {diagnostic.failed(exc)}")
++                self.assertEqual(result.returncode, 0)
++                self.assertEqual(
++                    (changes.added, changes.modified, changes.deleted), (0, 0, 0)
++                )
++                self.assertIsNotNone(diagnostic.process)
++                assert diagnostic.process is not None
++                self.assertEqual(diagnostic.process.returncode, 0)
++                for stream in (
++                    diagnostic.process.stdin,
++                    diagnostic.process.stdout,
++                    diagnostic.process.stderr,
++                ):
++                    self.assertIsNotNone(stream)
++                    assert stream is not None
++                    self.assertTrue(stream.closed)
++                self.assertEqual(list(workspace.iterdir()), [])
++            finally:
++                os.close(workspace_fd)
++
+     def test_runner_startup_stderr_is_reduced_to_a_closed_category(self) -> None:
+         stderr = (
+             b"Traceback (most recent call last):\n"

@@ -1,0 +1,35 @@
+{
+  "all_test_commands_passed": true,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "e74589c5cc9afe1ae3512fc84d82c1dc0f0e3058",
+  "graded_at_utc": "2026-10-14T16:23:52.444180+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "25324651aa89bb4952cdec99b0f73691eb60cdaf8da4991df125f4d0c93364d8",
+  "task_id": "trusted-kernel-apfs-trim",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:23:52.444154+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:22:45.786259+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

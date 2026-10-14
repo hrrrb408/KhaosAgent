@@ -1,0 +1,54 @@
+{
+  "all_test_commands_passed": false,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+  "graded_at_utc": "2026-10-14T16:27:26.271933+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "8d2082febbba8bf9c5da7d2b003dcc4a721747b39d744f5b28c960c460543759",
+  "task_id": "runner-startup-classification",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:16.271888+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:26:16.177847+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:27:26.271905+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:26:16.271908+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

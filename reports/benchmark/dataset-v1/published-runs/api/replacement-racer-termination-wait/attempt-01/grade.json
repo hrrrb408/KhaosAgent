@@ -1,0 +1,35 @@
+{
+  "all_test_commands_passed": true,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "1dd4204bb125886119cf95f8c71b629fc5c17688",
+  "graded_at_utc": "2026-10-14T16:29:59.860629+00:00",
+  "grading_note": "Test-only task; score via a delayed child-exit fault injection and bounded process cleanup.",
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "2bb1033043c75c253b58e938b583253affb0801c36c6f4768e263549f1031e3c",
+  "task_id": "replacement-racer-termination-wait",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_changes.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:29:59.860593+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:28:55.654718+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

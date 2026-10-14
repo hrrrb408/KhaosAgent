@@ -1,0 +1,109 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:15:15.452876+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:15:25.643855+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:16:24.044140+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:16:59.616699+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:17:02.661844+00:00"
+    },
+    {
+      "event": "tool=stopped code=commit_rejected",
+      "observed_at_utc": "2026-10-14T16:17:05.931417+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:17:17.952095+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:17:17.952145+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:28:55.443024+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3b36292b723d4430626af438b9ff3a8490742509",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/bounded-lifecycle-acceptance-wait/attempt-01/grade.json",
+  "grading_note": "Test-only task; score via bounded-timeout behavior and process cleanup under a missing-marker fault injection.",
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:28:55.442855+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:28:24.657620+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=1; executed command return codes=[]; cumulative Runner time=3.304s; bounded result bytes=91; stop reason=stopped: Kernel rejected or failed the request: commit_rejected. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "stopped: Kernel rejected or failed the request: commit_rejected."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:53.977219+00:00",
+  "prompt_sha256": "5139d213c9856d3ce0f65b32e8561aa3663c7992e90dc3830ecd0a42e512f0db",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "59ef76f5fb64c8219b023dd5dbcb7a41f37d37f9",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/59ef76f5fb64c8219b023dd5dbcb7a41f37d37f9",
+  "started_at_utc": "2026-10-14T16:15:15.221561+00:00",
+  "status": "completed",
+  "task_id": "bounded-lifecycle-acceptance-wait",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

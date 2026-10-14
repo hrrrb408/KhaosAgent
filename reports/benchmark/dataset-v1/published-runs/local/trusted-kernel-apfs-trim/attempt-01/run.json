@@ -1,0 +1,94 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_text_response_chars": 256,
+  "bounded_text_response_excerpt": "I can help remove the duplicate APFS image backend while preserving the Broker lease checks and fail-closed behavior, but I need the concrete paths to work from. Could you provide:\n\n1. The root directory (or repo path) of the Kernel Python bundle?\n2. The (",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:33:33.012289+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "e74589c5cc9afe1ae3512fc84d82c1dc0f0e3058",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/trusted-kernel-apfs-trim/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:33:33.012098+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:32:26.203799+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_task_status": "unresolved text response; Agent returned to the input prompt without proposing a tool or writing a task record",
+  "model": "local",
+  "model_inference_seconds": 211.76,
+  "model_outcome": "failed_text_response_requesting_repository_paths",
+  "notes": [
+    "The model returned a bounded text response asking the user to identify the Kernel Python bundle paths; it proposed no tool action and made no edits. The Agent returned to the input prompt without recording a terminal task status. The workspace is clean. Baseline and gold both pass this task suite, so no tests were rerun and this attempt is not scoreable as a coding success."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T10:16:44.858322+00:00",
+  "primary_failure_class": "Tool Planning Failure",
+  "prompt_sha256": "a19e806ef5943b12e117fd51cc0147cb1422378d897d7862faffefad95119de4",
+  "proposals": 0,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_broker.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:17:41.777460+00:00",
+    "last_sample_utc": "2026-10-14T10:21:13.534704+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.29,
+    "peak_rss_kib": 34911232,
+    "sample_count": 43,
+    "system_swap_mib_samples": [
+      2397.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "runner_cumulative_seconds": 0.0,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "secondary_failure_classes": [
+    "Model Reasoning Failure"
+  ],
+  "single_result_bytes_limit": 4096,
+  "source_commit": "39cb0f21e1ffd7fc6f49d0e7bf6d599b6615c184",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/39cb0f21e1ffd7fc6f49d0e7bf6d599b6615c184",
+  "started_at_utc": "2026-10-14T10:17:34+00:00",
+  "status": "completed",
+  "task_id": "trusted-kernel-apfs-trim",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "tool_returncodes": [],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

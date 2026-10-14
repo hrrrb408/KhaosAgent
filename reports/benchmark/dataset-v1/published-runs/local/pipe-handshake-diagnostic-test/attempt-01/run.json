@@ -1,0 +1,113 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_result_bytes": 243,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:38:13.290398+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "79acce565016bf304b2e08b77e6676e156b2065c",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/pipe-handshake-diagnostic-test/attempt-01/grade.json",
+  "grading_note": "Test-only task; also review that the new test fails under a deliberately wrong diagnostic category.",
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:38:13.290224+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:38:09.529298+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "inference_intervals_seconds": [
+    144,
+    176,
+    209
+  ],
+  "launcher_exit_code": null,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "launcher_task_status": "stopped: Kernel rejected the proposed argv or scope",
+  "model": "local",
+  "model_inference_seconds": 529,
+  "model_inference_turns_by_llama_pid_seconds": {
+    "14103": 144,
+    "14771": 176,
+    "15242": 209
+  },
+  "model_outcome": "failed_wrong_path_then_kernel_rejected_second_proposal",
+  "notes": [
+    "The first approved read targeted nonexistent workspace-root test_runner_ping.py and returned 1. Launcher recorded two proposals but only one approved/executed command; it stopped because Kernel rejected the second proposed argv or scope before presenting another approval. The exact rejected proposal was not captured in the user-facing task record. No source edits occurred. Baseline and gold both pass this task suite, so tests were not rerun and the attempt is not scoreable as a coding success.",
+    "The Launch Services open invocation exit code was not retained; the Launcher task record above is authoritative for task outcome."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T10:38:43.724348+00:00",
+  "primary_failure_class": "Tool Planning Failure",
+  "prompt_sha256": "1407df963f57db29109e748a724712b2993e851fcb56b0895a8077bf8e8da062",
+  "proposals": 2,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_worker.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:38:52.735400+00:00",
+    "last_sample_utc": "2026-10-14T10:48:27.696549+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.65,
+    "peak_rss_kib": 35283664,
+    "sample_count": 106,
+    "system_swap_mib_samples": [
+      2389.69,
+      2397.69
+    ]
+  },
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 14.133,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "secondary_failure_classes": [
+    "Security Denial",
+    "Action Protocol Failure"
+  ],
+  "single_result_bytes_limit": 4096,
+  "source_commit": "25510f66a554029786747bf963dd86d62c896e6b",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/25510f66a554029786747bf963dd86d62c896e6b",
+  "started_at_utc": "2026-10-14T10:38:49.735400+00:00",
+  "status": "completed",
+  "task_id": "pipe-handshake-diagnostic-test",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "time_to_first_proposal_seconds": 148.05,
+  "tool_returncodes": [
+    1
+  ],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

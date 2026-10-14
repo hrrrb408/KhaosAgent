@@ -1,0 +1,787 @@
+{
+  "completed_at_utc": "2026-10-14T09:17:14.716946+00:00",
+  "dataset_manifest_sha256": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+  "discriminating_task_count": 4,
+  "format": "khaos-benchmark-baseline-discrimination-v1",
+  "started_at_utc": "2026-10-14T09:00:24.447399+00:00",
+  "task_count": 12,
+  "tasks": [
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.075,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:00:24.613068+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/ipc-json-depth-bounds/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/ipc-json-depth-bounds/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.073,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:00:24.845925+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/ipc-json-depth-bounds/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/ipc-json-depth-bounds/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "ipc-json-depth-bounds"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 30.815,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:00:25.094253+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/plugin-package-grant/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/plugin-package-grant/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 28.784,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:00:56.071773+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/plugin-package-grant/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/plugin-package-grant/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "plugin-package-grant"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "empty",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 41.454,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:01:25.007440+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/macos26-agent-generation-api/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/macos26-agent-generation-api/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "empty",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 41.643,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:02:06.548668+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/macos26-agent-generation-api/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/macos26-agent-generation-api/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "macos26-agent-generation-api"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 66.808,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:02:48.361943+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/trusted-kernel-apfs-trim/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/trusted-kernel-apfs-trim/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 77.02,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:03:55.334662+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/trusted-kernel-apfs-trim/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/trusted-kernel-apfs-trim/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "trusted-kernel-apfs-trim"
+    },
+    {
+      "assessment": "scorable_by_tests",
+      "baseline_all_tests_passed": false,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.049,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:05:12.559884+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_launcher.py",
+            "-v"
+          ],
+          "elapsed_seconds": 143.27,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:05:12.608464+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-02.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_xpc_bridge.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.087,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:07:35.879463+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-03.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/baseline/test-03.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": true,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.076,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:07:36.147655+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_launcher.py",
+            "-v"
+          ],
+          "elapsed_seconds": 142.84,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:07:36.224242+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-02.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_xpc_bridge.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.088,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:09:59.065462+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-03.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-failure-diagnostics/gold/test-03.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "runner-failure-diagnostics"
+    },
+    {
+      "assessment": "scorable_by_tests",
+      "baseline_all_tests_passed": false,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.094,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:09:59.343154+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/baseline/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 68.056,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:09:59.437571+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/baseline/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/baseline/test-02.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": true,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 0.099,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:11:07.676081+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/gold/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 67.905,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:11:07.774804+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/gold/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-startup-classification/gold/test-02.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "runner-startup-classification"
+    },
+    {
+      "assessment": "scorable_by_tests",
+      "baseline_all_tests_passed": false,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 3.22,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:12:15.869919+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-exception-classification/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-exception-classification/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": true,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 3.163,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:12:19.271775+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-exception-classification/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-exception-classification/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "runner-exception-classification"
+    },
+    {
+      "assessment": "scorable_by_tests",
+      "baseline_all_tests_passed": false,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_peer_identity.py",
+            "-v"
+          ],
+          "elapsed_seconds": 3.722,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:12:22.621926+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/baseline/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 6.347,
+          "return_code": 1,
+          "started_at_utc": "2026-10-14T09:12:26.343503+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/baseline/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/baseline/test-02.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": true,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_peer_identity.py",
+            "-v"
+          ],
+          "elapsed_seconds": 4.097,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:12:32.877399+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/gold/test-01.stdout",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 6.389,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:12:36.974679+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/gold/test-02.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/runner-peer-socket-race/gold/test-02.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "runner-peer-socket-race"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_seatbelt.py",
+            "-v"
+          ],
+          "elapsed_seconds": 38.215,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:12:43.564632+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/nested-image-cleanup-reconciliation/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/nested-image-cleanup-reconciliation/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_seatbelt.py",
+            "-v"
+          ],
+          "elapsed_seconds": 37.822,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:13:21.960902+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/nested-image-cleanup-reconciliation/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/nested-image-cleanup-reconciliation/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "nested-image-cleanup-reconciliation"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 3.181,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:13:59.975983+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/pipe-handshake-diagnostic-test/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/pipe-handshake-diagnostic-test/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "elapsed_seconds": 3.11,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:14:03.336311+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/pipe-handshake-diagnostic-test/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/pipe-handshake-diagnostic-test/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "pipe-handshake-diagnostic-test"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 30.25,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:14:06.622202+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/bounded-lifecycle-acceptance-wait/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/bounded-lifecycle-acceptance-wait/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "elapsed_seconds": 29.736,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:14:37.039111+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/bounded-lifecycle-acceptance-wait/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/bounded-lifecycle-acceptance-wait/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "bounded-lifecycle-acceptance-wait"
+    },
+    {
+      "assessment": "tests_pass_baseline_and_gold",
+      "baseline_all_tests_passed": true,
+      "baseline_patch_state": "applied",
+      "baseline_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_changes.py",
+            "-v"
+          ],
+          "elapsed_seconds": 63.751,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:15:06.947845+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/replacement-racer-termination-wait/baseline/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/replacement-racer-termination-wait/baseline/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "discriminates_untouched_baseline": false,
+      "gold_all_tests_passed": true,
+      "gold_hidden_patch_state": "already_in_gold_patch",
+      "gold_tests": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_changes.py",
+            "-v"
+          ],
+          "elapsed_seconds": 63.641,
+          "return_code": 0,
+          "started_at_utc": "2026-10-14T09:16:10.860838+00:00",
+          "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/replacement-racer-termination-wait/gold/test-01.stderr",
+          "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/validation/discrimination-logs/replacement-racer-termination-wait/gold/test-01.stdout",
+          "timed_out": false
+        }
+      ],
+      "task_id": "replacement-racer-termination-wait"
+    }
+  ],
+  "timeout_seconds_per_test": 300
+}
