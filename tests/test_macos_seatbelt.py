@@ -25,9 +25,9 @@ from khaos.kernel.macos_disk_image import (
     _DISKUTIL,
     _HDIUTIL,
     _attached_image_info,
+    _reconcile_pending_image_operation,
     _run_tool,
     _validated_entities,
-    _whole_image_device,
     mounted_apfs_volume,
 )
 from khaos.kernel.macos_seatbelt import (
@@ -2757,19 +2757,45 @@ print("aggregate-quota-enforced")
                     ),
                 )
 
-                def detach_probe_image() -> None:
+                transient_inventory_injected = False
+                real_inventory = _attached_image_info
+
+                def transient_probe_inventory(image, *args, **kwargs):
+                    # Exercise cleanup while DiskImages has a record but its
+                    # device inventory is not ready yet.
+                    nonlocal transient_inventory_injected
+                    info = real_inventory(image, *args, **kwargs)
+                    if (
+                        image == snapshot_image
+                        and info is not None
+                        and not transient_inventory_injected
+                    ):
+                        transient_inventory_injected = True
+                        return {**info, "system-entities": []}
+                    return info
+
+                def detach_probe_image(*, operation_may_continue=False) -> None:
                     if resolved_target.is_mount():
                         result, error = _direct_unmount(resolved_target)
                         if result != 0:
                             raise AssertionError(
                                 f"mount probe cleanup failed with errno {error}"
                             )
-                    info = _attached_image_info(snapshot_image)
-                    if info is not None:
-                        device = _whole_image_device(
-                            _validated_entities(info.get("system-entities"))
+                    with patch(
+                        __name__ + "._attached_image_info",
+                        side_effect=transient_probe_inventory,
+                    ), patch(
+                        "khaos.kernel.macos_disk_image._attached_image_info",
+                        side_effect=transient_probe_inventory,
+                    ):
+                        self.assertTrue(
+                            _reconcile_pending_image_operation(
+                                snapshot_image,
+                                resolved_target,
+                                may_still_be_running=operation_may_continue,
+                            ),
+                            "mount probe image cleanup did not settle",
                         )
-                        _run_tool(_HDIUTIL, ("detach", device))
 
                 script = """\
 import subprocess
@@ -2816,6 +2842,7 @@ else:
     print(result.stderr.decode("utf-8", errors="replace"), end="")
 """
 
+                probe_attach_completed = False
                 try:
                     attachment = _run_tool(
                         _DISKUTIL,
@@ -2827,6 +2854,7 @@ else:
                             str(snapshot_image),
                         ),
                     )
+                    probe_attach_completed = True
                     attachment_info = plistlib.loads(attachment.stdout)
                     attachment_entities = _validated_entities(
                         attachment_info.get("system-entities")
@@ -2905,7 +2933,9 @@ else:
                         timeout_seconds=30,
                     )
                 finally:
-                    detach_probe_image()
+                    detach_probe_image(
+                        operation_may_continue=not probe_attach_completed
+                    )
 
                 self.assertEqual(direct_result.returncode, 0, direct_result.stderr)
                 self.assertFalse(resolved_target.is_mount())
@@ -2959,15 +2989,17 @@ else:
                 self.assertIsNone(_attached_image_info(snapshot_image))
 
                 for tool, attach_command in attach_commands:
-                    control = subprocess.run(
-                        attach_command,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        timeout=30,
-                        check=False,
-                    )
+                    probe_attach_completed = False
                     try:
+                        control = subprocess.run(
+                            attach_command,
+                            stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            timeout=30,
+                            check=False,
+                        )
+                        probe_attach_completed = True
                         self.assertEqual(
                             control.returncode,
                             0,
@@ -2985,10 +3017,13 @@ else:
                         }
                         self.assertIn(resolved_target, mounted_targets)
                     finally:
-                        detach_probe_image()
+                        detach_probe_image(
+                            operation_may_continue=not probe_attach_completed
+                        )
                     self.assertFalse(resolved_target.is_mount())
                     self.assertIsNone(_attached_image_info(snapshot_image))
 
+                    probe_attach_completed = False
                     try:
                         result = run_sandboxed_process(
                             snapshot,
@@ -3002,9 +3037,12 @@ else:
                             ],
                             timeout_seconds=30,
                         )
+                        probe_attach_completed = True
                     finally:
                         # Clean up if a future regression lets the request through.
-                        detach_probe_image()
+                        detach_probe_image(
+                            operation_may_continue=not probe_attach_completed
+                        )
 
                     self.assertEqual(result.returncode, 0, result.stderr)
                     attach_status = next(
@@ -3027,6 +3065,8 @@ else:
                         resolved_target.parent.stat().st_dev,
                     )
                     self.assertIsNone(_attached_image_info(snapshot_image))
+
+                self.assertTrue(transient_inventory_injected)
 
     def test_unsupported_platform_fails_closed(self) -> None:
         with patch("khaos.kernel.macos_seatbelt.sys.platform", "linux"):
