@@ -1,0 +1,137 @@
+diff --git a/tests/test_broker.py b/tests/test_broker.py
+index 5e33c0b..fa1fa7a 100644
+--- a/tests/test_broker.py
++++ b/tests/test_broker.py
+@@ -2625,9 +2625,10 @@ raise SystemExit(21)
+                 if matched and name.startswith(".khaos-") and not race["started"]:
+                     race["started"] = True
+                     staging = next(staging_parent.glob("khaos-changes-*"))
+-                    (staging / ".backup-race-ready").write_text(
+-                        name, encoding="utf-8"
+-                    )
++                    ready = staging / ".backup-race-ready"
++                    ready_temporary = staging / ".backup-race-ready.tmp"
++                    ready_temporary.write_text(name, encoding="utf-8")
++                    os.replace(ready_temporary, ready)
+                     deadline = time.monotonic() + 5
+                     done = staging / ".backup-race-done"
+                     while not done.exists() and time.monotonic() < deadline:
+diff --git a/tests/test_launcher.py b/tests/test_launcher.py
+index cccc776..821fc90 100644
+--- a/tests/test_launcher.py
++++ b/tests/test_launcher.py
+@@ -196,6 +196,37 @@ def run(request):
+             self.assertLessEqual(diagnostic["elapsed_ms"], 300_000)
+             self.assertEqual(list(workspace.iterdir()), [])
+ 
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_runner_discards_plugin_stderr_after_startup_handshake(self) -> None:
++        source = """\
++import os
++from khaos.runner_sdk import plugin_output
++
++def run(request):
++    os.write(2, b'x' * 131072)
++    plugin_output({"ok": True})
++"""
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            state_root = Path(value) / "plugin-state"
++            result = run_workspace_command(
++                workspace,
++                runner_source=source,
++                process_exec_allowed=False,
++                plugin_id="stderr-probe",
++                plugin_state_root=state_root,
++                plugin_input={"operation": "probe"},
++                timeout_seconds=10,
++            )
++
++        self.assertEqual(result.returncode, 0)
++        self.assertEqual(json.loads(result.stdout), {"ok": True})
++        self.assertEqual((result.added, result.modified, result.deleted), (0, 0, 0))
++
+     @unittest.skipUnless(
+         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+         "requires the real macOS Seatbelt backend",
+diff --git a/tests/test_worker.py b/tests/test_worker.py
+index 4ad45c3..3e1998a 100644
+--- a/tests/test_worker.py
++++ b/tests/test_worker.py
+@@ -5,7 +5,7 @@ from pathlib import Path
+ import sys
+ import tempfile
+ import unittest
+-from unittest.mock import patch
++from unittest.mock import Mock, patch
+ 
+ from khaos.ipc import (
+     IPCProtocolError,
+@@ -17,7 +17,9 @@ from khaos.kernel.macos_seatbelt import SandboxUnavailable, SandboxedProcessErro
+ from khaos.kernel.worker import (
+     _WorkspaceAncestryIOError,
+     _WorkspaceCancellation,
++    _RunnerDiagnosticState,
+     _run_workspace_command,
++    _runner_startup_stderr_category,
+     _sandbox_unavailable_error_code,
+     _workspace_io_error_code,
+ )
+@@ -31,6 +33,53 @@ _RUNNER_SOURCE = "def run():\n    pass\n"
+ 
+ 
+ class KernelWorkerTests(unittest.TestCase):
++    def test_runner_startup_stderr_is_reduced_to_a_closed_category(self) -> None:
++        stderr = (
++            b"Traceback (most recent call last):\n"
++            b"PermissionError: /private/secret/workspace\n"
++        )
++        self.assertEqual(
++            _runner_startup_stderr_category(stderr),
++            "runner_os_permission_error",
++        )
++
++    def test_runner_startup_stderr_capture_has_a_fixed_byte_limit(self) -> None:
++        stream = Mock()
++        stream.closed = False
++        stream.fileno.return_value = 17
++        process = Mock()
++        process.stderr = stream
++
++        def read_filled_buffer(_fd: int, size: int) -> bytes:
++            marker = b"PermissionError: "
++            return marker[:size] + b"x" * max(0, size - len(marker))
++
++        diagnostic = _RunnerDiagnosticState()
++        with (
++            patch("khaos.kernel.worker.os.set_blocking"),
++            patch("khaos.kernel.worker.os.read", side_effect=read_filled_buffer) as read,
++        ):
++            diagnostic.capture_startup_stderr(process)
++
++        self.assertEqual(
++            sum(call.args[1] for call in read.call_args_list), 4 * 1024
++        )
++        self.assertEqual(
++            diagnostic.startup_error_category,
++            "runner_os_permission_error",
++        )
++        self.assertNotIn("stderr", vars(diagnostic))
++
++    def test_runner_startup_stderr_classifies_peer_connection_failure(self) -> None:
++        stderr = (
++            b"ConnectionRefusedError: [Errno 61] /private/secret/peer.sock\n"
++            b"khaos.ipc.IPCProtocolError: OS parent PID could not be verified\n"
++        )
++        self.assertEqual(
++            _runner_startup_stderr_category(stderr),
++            "runner_peer_connection_refused",
++        )
++
+     def test_sandbox_unavailable_diagnostics_are_bounded_and_path_free(self) -> None:
+         for stage, expected in (
+             ("probe-child", "sandbox_unavailable_probe_child"),

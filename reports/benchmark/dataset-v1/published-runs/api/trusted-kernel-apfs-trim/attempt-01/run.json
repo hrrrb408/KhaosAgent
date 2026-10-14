@@ -1,0 +1,79 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:00:14.298164+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:00:23.873526+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:23:52.444334+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "e74589c5cc9afe1ae3512fc84d82c1dc0f0e3058",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/trusted-kernel-apfs-trim/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:23:52.444154+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:22:45.786259+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": null,
+  "launcher_task_status": [],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:52.319164+00:00",
+  "prompt_sha256": "a19e806ef5943b12e117fd51cc0147cb1422378d897d7862faffefad95119de4",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_broker.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "39cb0f21e1ffd7fc6f49d0e7bf6d599b6615c184",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/39cb0f21e1ffd7fc6f49d0e7bf6d599b6615c184",
+  "started_at_utc": "2026-10-14T16:00:14.067049+00:00",
+  "status": "completed",
+  "task_id": "trusted-kernel-apfs-trim",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

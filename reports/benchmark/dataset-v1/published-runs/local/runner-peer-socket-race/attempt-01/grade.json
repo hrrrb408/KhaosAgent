@@ -1,0 +1,54 @@
+{
+  "all_test_commands_passed": false,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "47943deb5f55302cff7f6b486f6ab1ca95486aca",
+  "graded_at_utc": "2026-10-14T16:37:30.250733+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "3c2e14e1d70ecaa4eb7bcfffd86c8c4f2e43f8a23a112c8199ff085c0b1d0e9b",
+  "task_id": "runner-peer-socket-race",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_peer_identity.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:37:23.406991+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:37:19.661699+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:37:30.250708+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:37:23.407012+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

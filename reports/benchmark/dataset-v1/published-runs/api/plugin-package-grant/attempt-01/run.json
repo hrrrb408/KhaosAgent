@@ -1,0 +1,83 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T15:55:55.281418+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T15:56:07.307208+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:22:03.554676+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3baf48e7d542ef1bab473970d2862275a3357f56",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/plugin-package-grant/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:22:03.554508+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:21:33.032452+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": null,
+  "launcher_task_status": [],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:51.872189+00:00",
+  "prompt_sha256": "e3da62d9b835e6f73ed7a5ee5034b393d790a804aced908012618aab8f31a1a4",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "4d9a805a238404cd6e4e621c30bd9aa9deeba1d5",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/4d9a805a238404cd6e4e621c30bd9aa9deeba1d5",
+  "started_at_utc": "2026-10-14T15:55:55.050026+00:00",
+  "status": "completed",
+  "task_id": "plugin-package-grant",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

@@ -1,0 +1,130 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "approved_operations": [],
+  "attempt": "attempt-01",
+  "attempt_elapsed_seconds": 239.97,
+  "bounded_result_bytes": 0,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:37:15.709971+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "executed_command_return_codes": [],
+  "failure_categories": [
+    "model_chose_text_response_instead_of_shell_proposal",
+    "asked_user_for_repository_paths_before_using_tools"
+  ],
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "published-runs/local/runner-startup-classification/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:36:07.239447+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:36:07.143156+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:37:15.709808+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:36:07.239469+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_open_wait_exit_code": 0,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "model": "local",
+  "model_outcome": "failed_no_shell_proposal",
+  "model_text_response_characters": 256,
+  "model_text_response_excerpt": "I'd like to implement the bounded startup-failure categorization and focused tests, but I need the concrete file paths to work with. Could you point me to:\n\n1. The Runner startup module (where the sandbox probe, process spawn, peer identity check, and pipe",
+  "notes": [
+    "The model asked the user to identify Runner startup module paths instead of proposing scoped repository reads; no tool operation or source edit followed. No tests were rerun for this no-change attempt; the baseline-vs-gold audit separately proves that this task suite discriminates the frozen baseline."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T09:24:55.006334+00:00",
+  "prompt_sha256": "607a795005b162752d8610ea70f5ccc60e63f33287d37d447c62905ee6dded7a",
+  "proposals": 0,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_worker.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_broker.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T09:25:09.367285+00:00",
+    "last_sample_utc": "2026-10-14T09:28:56.382494+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.16,
+    "peak_rss_kib": 34766544,
+    "sample_count": 46,
+    "system_swap_mib_samples": [
+      2413.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 0.0,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "8a23c293a280bd3973fd0cf04bc11b86e0f5ea79",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/8a23c293a280bd3973fd0cf04bc11b86e0f5ea79",
+  "started_at_utc": "2026-10-14T09:24:59.271526+00:00",
+  "status": "completed",
+  "task_id": "runner-startup-classification",
+  "task_success": false,
+  "test_suite_discriminating": true,
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

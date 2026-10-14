@@ -1,0 +1,147 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:03:54.531439+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:04:17.944108+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:04:30.577430+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:05:06.592529+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:05:12.093338+00:00"
+    },
+    {
+      "event": "tool=executed returncode=1",
+      "observed_at_utc": "2026-10-14T16:05:15.356430+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:05:29.204883+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:06:47.220446+00:00"
+    },
+    {
+      "event": "tool=stopped code=runner_failed",
+      "observed_at_utc": "2026-10-14T16:06:50.270090+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:06:57.605553+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:06:57.605609+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:27:26.272111+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "published-runs/api/runner-startup-classification/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:16.271888+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:26:16.177847+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_broker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:27:26.271905+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:26:16.271908+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=2; executed command return codes=[1]; cumulative Runner time=6.384s; bounded result bytes=305; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "stopped: Kernel rejected or failed the request: runner_failed."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:52.803532+00:00",
+  "prompt_sha256": "607a795005b162752d8610ea70f5ccc60e63f33287d37d447c62905ee6dded7a",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_worker.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_broker.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "8a23c293a280bd3973fd0cf04bc11b86e0f5ea79",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/8a23c293a280bd3973fd0cf04bc11b86e0f5ea79",
+  "started_at_utc": "2026-10-14T16:03:54.300795+00:00",
+  "status": "completed",
+  "task_id": "runner-startup-classification",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

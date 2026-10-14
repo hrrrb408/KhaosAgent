@@ -1,0 +1,92 @@
+diff --git a/tests/test_worker.py b/tests/test_worker.py
+index 3e1998a..34083f3 100644
+--- a/tests/test_worker.py
++++ b/tests/test_worker.py
+@@ -11,9 +11,14 @@ from khaos.ipc import (
+     IPCProtocolError,
+     MAX_RUNNER_SOURCE_BYTES,
+     PROTOCOL_VERSION,
++    receive_frame,
+     send_frame,
+ )
+-from khaos.kernel.macos_seatbelt import SandboxUnavailable, SandboxedProcessError
++from khaos.kernel.macos_seatbelt import (
++    SANDBOX_EXECUTABLE,
++    SandboxUnavailable,
++    SandboxedProcessError,
++)
+ from khaos.kernel.worker import (
+     _WorkspaceAncestryIOError,
+     _WorkspaceCancellation,
+@@ -80,6 +85,71 @@ class KernelWorkerTests(unittest.TestCase):
+             "runner_peer_connection_refused",
+         )
+ 
++    @unittest.skipUnless(
++        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
++        "requires the real macOS Seatbelt Runner",
++    )
++    def test_real_pipe_handshake_failure_keeps_only_a_closed_diagnostic(self) -> None:
++        def reject_ping(
++            read_fd: int,
++            write_fd: int,
++            *,
++            timeout_seconds: float,
++        ) -> None:
++            send_frame(
++                write_fd,
++                {
++                    "version": PROTOCOL_VERSION,
++                    "request_id": "a" * 32,
++                    "operation": "not-a-ping",
++                    "payload": {"nonce": "b" * 32},
++                },
++                timeout_seconds=timeout_seconds,
++            )
++            receive_frame(read_fd, timeout_seconds=timeout_seconds)
++
++        with tempfile.TemporaryDirectory() as value:
++            workspace = Path(value) / "workspace"
++            workspace.mkdir()
++            workspace = workspace.resolve(strict=True)
++            workspace_fd = os.open(
++                workspace,
++                os.O_RDONLY
++                | getattr(os, "O_DIRECTORY", 0)
++                | getattr(os, "O_CLOEXEC", 0),
++            )
++            diagnostic = _RunnerDiagnosticState()
++            try:
++                with patch(
++                    "khaos.kernel.worker.ping_peer", side_effect=reject_ping
++                ):
++                    with self.assertRaises(IPCProtocolError) as caught:
++                        _run_workspace_command(
++                            str(workspace),
++                            5,
++                            _RUNNER_SOURCE,
++                            workspace_root_fd=workspace_fd,
++                            process_exec_allowed=False,
++                            runner_diagnostic=diagnostic,
++                        )
++            finally:
++                os.close(workspace_fd)
++
++            failure = diagnostic.failed(caught.exception)
++            self.assertIsNotNone(failure)
++            assert failure is not None
++            self.assertEqual(
++                set(failure),
++                {"stage", "category", "child_exit_status", "elapsed_ms"},
++            )
++            self.assertEqual(failure["stage"], "pipe_handshake")
++            self.assertEqual(failure["category"], "runner_ping_protocol_error")
++            self.assertEqual(failure["child_exit_status"], 1)
++            self.assertGreaterEqual(failure["elapsed_ms"], 0)
++            self.assertLessEqual(failure["elapsed_ms"], 300_000)
++            self.assertNotIn("stderr", vars(diagnostic))
++            self.assertEqual(list(workspace.iterdir()), [])
++
+     def test_sandbox_unavailable_diagnostics_are_bounded_and_path_free(self) -> None:
+         for stage, expected in (
+             ("probe-child", "sandbox_unavailable_probe_child"),

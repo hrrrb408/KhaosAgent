@@ -1,0 +1,165 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T16:01:40.207349+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T16:01:51.001118+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-14T16:02:59.758531+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-14T16:03:31.939057+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-14T16:03:34.587029+00:00"
+    },
+    {
+      "event": "tool=stopped code=runner_failed",
+      "observed_at_utc": "2026-10-14T16:03:37.838957+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T16:03:43.353269+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T16:03:43.353329+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:26:15.951673+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1d9ee36d48e637df25d6367332d5a56c025cc4f6",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "published-runs/api/runner-failure-diagnostics/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:23:52.729155+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:23:52.679394+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_launcher.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:15.863455+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:23:52.729175+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_xpc_bridge.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:15.951503+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:26:15.863478+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=1; executed command return codes=[]; cumulative Runner time=3.151s; bounded result bytes=89; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "stopped: Kernel rejected or failed the request: runner_failed."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:52.562633+00:00",
+  "prompt_sha256": "1cea65d2a9759c7265e7bdcd0e0550ee8eba98711abf8714afd6e1e2820bb762",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_ipc.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_launcher.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_workspace_xpc_bridge.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "1157e60d3f92c515ef5f4790abcf06c7540756b6",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/1157e60d3f92c515ef5f4790abcf06c7540756b6",
+  "started_at_utc": "2026-10-14T16:01:39.977787+00:00",
+  "status": "completed",
+  "task_id": "runner-failure-diagnostics",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

@@ -1,0 +1,119 @@
+diff --git a/docs/SEED_THREAT_MODEL.md b/docs/SEED_THREAT_MODEL.md
+index 6e63ea1..47c99c2 100644
+--- a/docs/SEED_THREAT_MODEL.md
++++ b/docs/SEED_THREAT_MODEL.md
+@@ -267,6 +267,18 @@ real-peer test delays the Runner connection beyond 3 seconds. The full canonical
+ suite passed locally at head `5f40ced` (300 tests, 596.835 seconds); fresh CI
+ must pass before merge.
+ 
++## 2026-10-14 Runner startup exception classification
++
++The bounded startup stderr classifier previously treated any traceback text
++containing `Error:` as an OS error, which conflated exceptions such as
++`ValueError` and `RuntimeError` with `OSError`. The Worker now extracts only
++exception class labels from the bounded pre-Plugin traceback and maps a fixed
++set of OS exception classes to `runner_os_error`; unknown Python exceptions map
++to `runner_startup_exception`. It still discards all raw stderr and emits only
++the existing closed diagnostic categories. Tests cover both mappings. This
++corrects diagnostic classification only; it does not identify the historical
++`pipe_handshake` failure's root cause.
++
+ ## 2026-10-13 PR #9 Runner startup diagnostic
+ 
+ PR #9 head `1157e60d3f92c515ef5f4790abcf06c7540756b6` failed GitHub run
+diff --git a/khaos/kernel/worker.py b/khaos/kernel/worker.py
+index 1daba93..210739a 100644
+--- a/khaos/kernel/worker.py
++++ b/khaos/kernel/worker.py
+@@ -70,6 +70,23 @@ from .workspace_snapshot import (
+ _REQUEST_FIELDS = {"version", "request_id", "operation", "payload"}
+ _RUNNER_STARTUP_TIMEOUT_SECONDS = 10
+ _MAX_RUNNER_STARTUP_STDERR_BYTES = 4 * 1024
++_RUNNER_OS_EXCEPTION_NAMES = frozenset(
++    {
++        b"OSError",
++        b"BlockingIOError",
++        b"BrokenPipeError",
++        b"ChildProcessError",
++        b"ConnectionAbortedError",
++        b"ConnectionError",
++        b"ConnectionResetError",
++        b"FileExistsError",
++        b"InterruptedError",
++        b"IsADirectoryError",
++        b"NotADirectoryError",
++        b"ProcessLookupError",
++        b"TimeoutError",
++    }
++)
+ _PT_DENY_ATTACH = 31  # macOS sys/ptrace.h
+ _WORKER_IO_STAGES = {
+     "_path_is_within": "ancestry",
+@@ -757,21 +774,26 @@ class _RunnerDiagnosticState:
+ 
+ def _runner_startup_stderr_category(stderr: bytes) -> str:
+     """Reduce bounded, untrusted pre-Plugin stderr to a closed category."""
+-    if b"ModuleNotFoundError" in stderr or b"ImportError" in stderr:
++    exception_names = {
++        line.partition(b":")[0].rsplit(b".", 1)[-1]
++        for line in stderr.splitlines()
++        if b":" in line
++    }
++    if exception_names & {b"ModuleNotFoundError", b"ImportError"}:
+         return "runner_import_error"
+-    if b"ConnectionRefusedError" in stderr:
++    if b"ConnectionRefusedError" in exception_names:
+         return "runner_peer_connection_refused"
+-    if b"FileNotFoundError" in stderr:
++    if b"FileNotFoundError" in exception_names:
+         return "runner_os_file_not_found"
+-    if b"PermissionError" in stderr:
++    if b"PermissionError" in exception_names:
+         return "runner_os_permission_error"
+     if b"OS parent PID" in stderr or b"OS peer PID" in stderr:
+         return "runner_peer_identity_error"
+     if b"IPC ping challenge" in stderr:
+         return "runner_ping_protocol_error"
+-    if b"IPCProtocolError" in stderr:
++    if b"IPCProtocolError" in exception_names:
+         return "runner_ipc_protocol_error"
+-    if b"OSError" in stderr or b"Error:" in stderr:
++    if exception_names & _RUNNER_OS_EXCEPTION_NAMES:
+         return "runner_os_error"
+     return "runner_startup_exception"
+ 
+diff --git a/tests/test_worker.py b/tests/test_worker.py
+index 34083f3..b8511d1 100644
+--- a/tests/test_worker.py
++++ b/tests/test_worker.py
+@@ -85,6 +85,30 @@ class KernelWorkerTests(unittest.TestCase):
+             "runner_peer_connection_refused",
+         )
+ 
++    def test_runner_startup_stderr_does_not_misclassify_python_errors_as_os(self) -> None:
++        for exception_name in (b"RuntimeError", b"TypeError", b"ValueError"):
++            with self.subTest(exception_name=exception_name):
++                self.assertEqual(
++                    _runner_startup_stderr_category(
++                        b"Traceback (most recent call last):\n"
++                        + exception_name
++                        + b": /private/secret/workspace\n"
++                    ),
++                    "runner_startup_exception",
++                )
++
++    def test_runner_startup_stderr_classifies_os_exception_types(self) -> None:
++        for exception_name in (b"OSError", b"BrokenPipeError", b"TimeoutError"):
++            with self.subTest(exception_name=exception_name):
++                self.assertEqual(
++                    _runner_startup_stderr_category(
++                        b"Traceback (most recent call last):\n"
++                        + exception_name
++                        + b": /private/secret/peer.sock\n"
++                    ),
++                    "runner_os_error",
++                )
++
+     @unittest.skipUnless(
+         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+         "requires the real macOS Seatbelt Runner",

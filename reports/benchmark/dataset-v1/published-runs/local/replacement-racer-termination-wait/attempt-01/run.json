@@ -1,0 +1,103 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_text_response_chars": 216,
+  "bounded_text_response_excerpt": "I need the exact path to the workspace race test file (and any module it imports) to propose a scoped read. Could you provide the file path, e.g. `tests/test_workspace_race.py` or wherever it lives in your workspace?",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:39:48.058234+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1dd4204bb125886119cf95f8c71b629fc5c17688",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/replacement-racer-termination-wait/attempt-01/grade.json",
+  "grading_note": "Test-only task; score via a delayed child-exit fault injection and bounded process cleanup.",
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_changes.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:39:48.057996+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:38:43.933337+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "launcher_task_status": "text response requested workspace-race source paths; Agent returned to input prompt without proposing a tool or writing a terminal task record",
+  "model": "local",
+  "model_inference_seconds": 277,
+  "model_inference_turns_by_llama_pid_seconds": {
+    "17609": 277
+  },
+  "model_outcome": "failed_text_response_requesting_source_paths",
+  "notes": [
+    "The model returned a bounded text response asking the user for workspace-race test and module paths. It did not propose a tool action or edit files, and returned to the input prompt without a terminal task record. The workspace is clean. Baseline and gold both pass this task suite, so tests were not rerun and the attempt is not scoreable as a coding success."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T10:55:17.115641+00:00",
+  "primary_failure_class": "Tool Planning Failure",
+  "prompt_sha256": "cc3fc71870b15f559f51677277ed33807ae02086eda363cfe06d904a52b1cbb4",
+  "proposals": 0,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_workspace_changes.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:55:26.163237+00:00",
+    "last_sample_utc": "2026-10-14T10:59:59.060896+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 32.76,
+    "peak_rss_kib": 34354224,
+    "sample_count": 55,
+    "system_swap_mib_samples": [
+      2389.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 0.0,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "secondary_failure_classes": [
+    "Model Reasoning Failure"
+  ],
+  "single_result_bytes_limit": 4096,
+  "source_commit": "98f8a72966aa2f74643431b6c9ca2f6d0e095511",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/98f8a72966aa2f74643431b6c9ca2f6d0e095511",
+  "started_at_utc": "2026-10-14T10:55:21.163237+00:00",
+  "status": "completed",
+  "task_id": "replacement-racer-termination-wait",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "time_to_first_proposal_seconds": null,
+  "tool_returncodes": [],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

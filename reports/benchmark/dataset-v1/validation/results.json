@@ -1,0 +1,442 @@
+{
+  "format": "khaos-coding-reliability-gold-validation-v1",
+  "started_at_utc": "2026-10-14T08:14:52.757812+00:00",
+  "finished_at_utc": "2026-10-14T08:23:29.659068+00:00",
+  "status": "passed",
+  "tasks": [
+    {
+      "task_id": "ipc-json-depth-bounds",
+      "gold_patch_sha256": "340ae862f665901e43351037788fa34467ac9c8a3a0850ad05b72fcfe18241c7",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 0.085,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "20e9b8602944615cbeba8eaa06f05a0df9206348082755f755a196c78355ea23",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2402,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "6c6670922f0dc8fe3d4631e48f1292120a4b3031",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "plugin-package-grant",
+      "gold_patch_sha256": "2a497738e8fdec69786cd22741aad0ff52b25806c0a08de7be8a4b7a43f1240c",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 31.234,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "caf93c63bde0c51db16becb705409983d744f5ef70c71cdd9fb057213f0eaaa1",
+          "stdout_bytes": 0,
+          "stderr_bytes": 267,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "3baf48e7d542ef1bab473970d2862275a3357f56",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "macos26-agent-generation-api",
+      "gold_patch_sha256": "352832a3c4e55770497d548b7a2ddbdc5a57fb400495e990ea25a11b0ac0485e",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 42.349,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "35def58d163847c852b30115c61bd6ebd37a6b633ce73e93c6b35c9204b7a2b6",
+          "stdout_bytes": 0,
+          "stderr_bytes": 267,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "3bdba37f4cca683b17151e6c51aeeefec751b755",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "trusted-kernel-apfs-trim",
+      "gold_patch_sha256": "97b6e541c63b9132e4900d7abdfc177baf033bf68a4623105f058dce754094f6",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 67.936,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "89458d9785420bc20908c277bbc8cf6a0aef12f606c245b9b3154c91b8cda932",
+          "stdout_bytes": 0,
+          "stderr_bytes": 6104,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "e74589c5cc9afe1ae3512fc84d82c1dc0f0e3058",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "runner-failure-diagnostics",
+      "gold_patch_sha256": "84d6109c2aa706fab0fe92d653a566ffe9aa4385a8de208c0b0fd74e15747a6a",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_ipc.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 0.074,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "e821240782a19175bad5828240689a6358f58991be34107b6c62459354dbb7a2",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2871,
+          "error": null
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_launcher.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 143.562,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "1607d4b553aece44067c29cd71bfcfe4e357cf428fb449ec0fb3208190c13826",
+          "stdout_bytes": 0,
+          "stderr_bytes": 6331,
+          "error": null
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_xpc_bridge.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 0.086,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "a4dffad22d2f7a9f14136fc0e108819e28b7f34312e63fa4efd5827e21bee99d",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2978,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "1d9ee36d48e637df25d6367332d5a56c025cc4f6",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "runner-startup-classification",
+      "gold_patch_sha256": "dda71fd3f1f31e1c11a47158c9b61c6b6bdeb1563bd5e8325740f97b0f99105f",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 0.101,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "56d934109d18a394f7b20dce33e22870124ee14d845cf97b7bf51a9136bdbc2b",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2484,
+          "error": null
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_broker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 69.525,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "6d95d5dbc4db61e37540b3ebcf7c0f56e693709d012b1b386c5ea271eebff423",
+          "stdout_bytes": 0,
+          "stderr_bytes": 6281,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "runner-exception-classification",
+      "gold_patch_sha256": "be1c5e1b443ec7f265be089ba99b9002014c343b426faefc5c990a06331ca660",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 3.559,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "3f01f71a310d380f6effe92108c1849a10f937366ba9976ccc5965f49f572898",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2979,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "runner-peer-socket-race",
+      "gold_patch_sha256": "188b6e997ffb6f4b42a8980c366aa48585bb4a3dcc3127f89a929833c4506e77",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_peer_identity.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 4.098,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "afb1e415bb7484a2abb79c4e03360f696a868f3f05e940f7cbc7ae18bc4f75c4",
+          "stdout_bytes": 0,
+          "stderr_bytes": 1464,
+          "error": null
+        },
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 8.443,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "3f5a238e3ae6e655aa74542ab058f2b122d058dfcd2bde7d93dce0f03430a9c9",
+          "stdout_bytes": 0,
+          "stderr_bytes": 3136,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "47943deb5f55302cff7f6b486f6ab1ca95486aca",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "nested-image-cleanup-reconciliation",
+      "gold_patch_sha256": "67f29995e07e04ee174eb4cbbba77d062d0d788f6c1f212ca2ced4f818ae9635",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_seatbelt.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 43.705,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "f92b89094d8fbc7f98a972d54428533c958fb12fdd919b95ff775aa30aa5ad2e",
+          "stdout_bytes": 0,
+          "stderr_bytes": 8002,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "1f34a784637c8fe2d9e3899b55e47aa426340b9e",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "pipe-handshake-diagnostic-test",
+      "gold_patch_sha256": "078633abdb2c898c96b74795f776858479736ed495d3648fc23fd6e007a2ebfe",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_worker.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 3.361,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "81e2dbd9c45421baa6c07de117673644f8e0445137c9b22aa3939b05ba5d8969",
+          "stdout_bytes": 0,
+          "stderr_bytes": 2651,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "79acce565016bf304b2e08b77e6676e156b2065c",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "bounded-lifecycle-acceptance-wait",
+      "gold_patch_sha256": "ad3c64049db11e71ae7b554ee914e6620316862dca663b8f38cb80949c58735e",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_macos_xpc_sandbox.py",
+            "-k",
+            "test_seed_app_builds_and_authenticates_its_kernel_service",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 31.352,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "249cd6554d9ae5886dc263e98ab8240939570c913df33cc49517d226dbb23b22",
+          "stdout_bytes": 0,
+          "stderr_bytes": 267,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "3b36292b723d4430626af438b9ff3a8490742509",
+      "working_tree_changed": true
+    },
+    {
+      "task_id": "replacement-racer-termination-wait",
+      "gold_patch_sha256": "2bb1033043c75c253b58e938b583253affb0801c36c6f4768e263549f1031e3c",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_workspace_changes.py",
+            "-v"
+          ],
+          "return_code": 0,
+          "elapsed_seconds": 66.037,
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "be55022bf61379990cdeec926191deeb28fbbf1ce7015f0d6ea56a240b294518",
+          "stdout_bytes": 0,
+          "stderr_bytes": 7048,
+          "error": null
+        }
+      ],
+      "status": "passed",
+      "grader_workspace_commit": "1dd4204bb125886119cf95f8c71b629fc5c17688",
+      "working_tree_changed": true
+    }
+  ]
+}

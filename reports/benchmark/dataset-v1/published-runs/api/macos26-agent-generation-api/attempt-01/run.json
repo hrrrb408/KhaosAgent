@@ -1,0 +1,93 @@
+{
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-14T15:58:18.288973+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-14T15:58:28.268859+00:00"
+    },
+    {
+      "event": "task_status",
+      "observed_at_utc": "2026-10-14T15:59:29.524798+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-14T15:59:29.524847+00:00"
+    }
+  ],
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:22:45.583694+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3bdba37f4cca683b17151e6c51aeeefec751b755",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/api/macos26-agent-generation-api/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:22:45.583532+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:22:03.767204+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launch_service_error": null,
+  "launcher_exit_code": 0,
+  "launcher_log_staging": "system temporary directory; copied into attempt after exit",
+  "launcher_task_record": "proposals=1; executed command return codes=[]; cumulative Runner time=0.000s; bounded result bytes=65; stop reason=stopped: Kernel rejected the proposed argv or scope. Only these command results are verified; broader test coverage is not inferred.",
+  "launcher_task_status": [
+    "stopped: Kernel rejected the proposed argv or scope."
+  ],
+  "model": "api",
+  "model_usage": "unavailable from the coding Agent protocol",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T15:45:52.103009+00:00",
+  "prompt_sha256": "40b462b6527ea532633538a8b14256220ff69d2a82edb6d3c149cead0b90503a",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "9aaaaeb5ffd1313e07604a3732a337b403796387",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/9aaaaeb5ffd1313e07604a3732a337b403796387",
+  "started_at_utc": "2026-10-14T15:58:18.060286+00:00",
+  "status": "completed",
+  "task_id": "macos26-agent-generation-api",
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_at_start": true
+}

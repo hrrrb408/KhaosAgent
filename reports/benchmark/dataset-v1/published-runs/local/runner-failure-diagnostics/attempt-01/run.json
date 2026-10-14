@@ -1,0 +1,163 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "approved_operations": [],
+  "attempt": "attempt-01",
+  "attempt_elapsed_seconds": 258.09,
+  "bounded_result_bytes": 0,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:36:06.910279+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "executed_command_return_codes": [],
+  "failure_categories": [
+    "model_chose_text_response_instead_of_shell_proposal",
+    "response_ended_mid_sentence"
+  ],
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1d9ee36d48e637df25d6367332d5a56c025cc4f6",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "published-runs/local/runner-failure-diagnostics/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:33:33.289862+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:33:33.241178+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_launcher.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:36:06.824062+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:33:33.289885+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_xpc_bridge.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:36:06.910087+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:36:06.824109+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_open_wait_exit_code": 0,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "model": "local",
+  "model_outcome": "failed_no_tool_proposal_text_response",
+  "model_response_complete": false,
+  "model_text_response_characters": 255,
+  "model_text_response_excerpt": "I have no prior tool results, file reads, or repository context to work from. To implement the bounded pre-handshake diagnostic (closed stage/category, child exit status, elapsed time, ≤ 4 KiB stderr reduced to a closed category and discarded, generic pub",
+  "notes": [
+    "The model emitted a plain-text response saying it lacked repository context instead of proposing a scoped read; no tool proposal, approval, Runner execution, or source edit followed. Launcher stdout ended mid-sentence and there was no Launcher task status/record marker. No test commands were run for this attempt; the baseline-vs-gold audit separately proves the frozen baseline fails and gold passes the task suites.",
+    "The Launcher stdout contains a 255-character text response ending at `generic pub`; the Khaos instruction required a shell proposal for this code-fix request. No tool operation was proposed. The open -W return value is not the app process exit code."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T09:17:50.089604+00:00",
+  "prompt_sha256": "1cea65d2a9759c7265e7bdcd0e0550ee8eba98711abf8714afd6e1e2820bb762",
+  "proposals": 0,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_ipc.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_launcher.py",
+      "-v"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_workspace_xpc_bridge.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T09:18:30.197869+00:00",
+    "last_sample_utc": "2026-10-14T09:22:27.671202+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.27,
+    "peak_rss_kib": 34884576,
+    "sample_count": 48,
+    "system_swap_mib_samples": [
+      2413.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 0.0,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "1157e60d3f92c515ef5f4790abcf06c7540756b6",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/1157e60d3f92c515ef5f4790abcf06c7540756b6",
+  "started_at_utc": "2026-10-14T09:18:14.386012+00:00",
+  "status": "completed",
+  "structured_tool_proposal": false,
+  "task_id": "runner-failure-diagnostics",
+  "task_success": false,
+  "test_suite_discriminating": true,
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

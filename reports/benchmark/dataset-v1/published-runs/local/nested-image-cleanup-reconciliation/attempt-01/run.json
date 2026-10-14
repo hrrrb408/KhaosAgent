@@ -1,0 +1,110 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_result_bytes": 349,
+  "bounded_text_response_chars": 593,
+  "bounded_text_response_excerpt": "I attempted to read test_mount_attack.py and conftest.py but both returned 'No such file or directory'. I cannot locate the fixture source in the workspace. Could you provide the exact file path(s) of the mount-attack fixture and any related helper modules\nLauncher task status: failed: last executed command returned code 1.\nLauncher task record: proposals=2; executed command return codes=[1,1]; cumulative Runner time=6.792s; bounded result bytes=349; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:38:09.299269+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "1f34a784637c8fe2d9e3899b55e47aa426340b9e",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/nested-image-cleanup-reconciliation/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_seatbelt.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:38:09.299030+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:37:30.485522+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "inference_intervals_seconds": [
+    272.2,
+    276.11,
+    219.69
+  ],
+  "launcher_exit_code": 0,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "launcher_task_status": "failed: last executed command returned code 1",
+  "model": "local",
+  "model_inference_seconds": 767.99,
+  "model_outcome": "failed_source_discovery_after_two_nonexistent_paths",
+  "notes": [
+    "The model read two nonexistent workspace-root paths, test_mount_attack.py and conftest.py; both Runner calls returned 1. It then asked the user to locate the fixture and helper modules, and Launcher recorded failure. No source edits occurred. The baseline-vs-gold audit found this suite non-discriminating, so tests were not rerun and the attempt is not scoreable as a coding success."
+  ],
+  "parent_test_results": [],
+  "post_tool_to_next_proposal_seconds": 276.11,
+  "post_tool_to_task_record_seconds": 219.69,
+  "prepared_at_utc": "2026-10-14T10:22:54.909358+00:00",
+  "primary_failure_class": "Tool Planning Failure",
+  "prompt_sha256": "9e44b563799e2f4ad0ef41e0d6d790efc20d8a9ee28ba62bf868742e21723433",
+  "proposals": 2,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_seatbelt.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:23:05.554224+00:00",
+    "last_sample_utc": "2026-10-14T10:37:13.153639+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.41,
+    "peak_rss_kib": 35036624,
+    "sample_count": 152,
+    "system_swap_mib_samples": [
+      2397.69
+    ]
+  },
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 6.792,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "secondary_failure_classes": [
+    "Model Reasoning Failure"
+  ],
+  "single_result_bytes_limit": 4096,
+  "source_commit": "abc854bdb7081945661a25842e5dcd5f13de23f6",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/abc854bdb7081945661a25842e5dcd5f13de23f6",
+  "started_at_utc": "2026-10-14T10:23:00+00:00",
+  "status": "completed",
+  "task_id": "nested-image-cleanup-reconciliation",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "time_to_first_proposal_seconds": 272.2,
+  "tool_returncodes": [
+    1,
+    1
+  ],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

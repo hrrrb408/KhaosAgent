@@ -1,0 +1,35 @@
+{
+  "all_test_commands_passed": true,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "1f34a784637c8fe2d9e3899b55e47aa426340b9e",
+  "graded_at_utc": "2026-10-14T16:28:21.077211+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "89e6bb703e4eb8772e155e95f381e9f6c90459dcd3d9c2655a205ffdecd9d5bd",
+  "task_id": "nested-image-cleanup-reconciliation",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_seatbelt.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:28:21.077182+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:27:41.814275+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

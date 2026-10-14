@@ -1,0 +1,15 @@
+diff --git a/khaos/macos/TrustedWorkspaceLauncherMain.swift b/khaos/macos/TrustedWorkspaceLauncherMain.swift
+index 607ae47..d6fab8f 100644
+--- a/khaos/macos/TrustedWorkspaceLauncherMain.swift
++++ b/khaos/macos/TrustedWorkspaceLauncherMain.swift
+@@ -364,6 +364,10 @@ enum TrustedWorkspaceLauncherMain {
+ 
+     private static func selectPluginPackage() throws -> PluginRun {
+         let packageURL = try TrustedWorkspacePicker.selectPluginPackage()
++        // App Sandbox requires the Picker grant while reading the selected package.
++        guard packageURL.startAccessingSecurityScopedResource() else {
++            throw LauncherError.operationRejected("plugin_package_rejected")
++        }
+         var packageScopeReleased = false
+         defer {
+             if !packageScopeReleased {

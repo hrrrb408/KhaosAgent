@@ -1,0 +1,109 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "approved_operations": [
+    {
+      "approved": true,
+      "argv": [
+        "/bin/cat",
+        "ipc.py"
+      ],
+      "read_scope": [
+        "ipc.py"
+      ],
+      "result_bytes": 165,
+      "return_code": 1,
+      "runner_seconds": 3.534,
+      "write_scope": []
+    }
+  ],
+  "attempt": "attempt-06",
+  "attempt_elapsed_seconds": 556.76,
+  "bounded_result_bytes": 165,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T08:58:22.410745+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "reports/benchmark/dataset-v1/runs/local/ipc-json-depth-bounds/attempt-06/events-timestamped.jsonl",
+  "executed_command_return_codes": [
+    1
+  ],
+  "failure_categories": [
+    "incorrect_repository_relative_path",
+    "asked_user_for_path_after_first_tool_failure"
+  ],
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "6c6670922f0dc8fe3d4631e48f1292120a4b3031",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/ipc-json-depth-bounds/attempt-06/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T08:58:22.410568+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T08:58:22.326946+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_open_wait_exit_code": 0,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "model": "local",
+  "model_outcome": "failed_model_tool_planning",
+  "notes": [
+    "Timestamp watcher restarted before any Agent diagnostic marker; the initial empty watcher file is retained without data.",
+    "The Agent ran `/bin/cat ipc.py`, received file-not-found, then asked the user to provide paths instead of discovering the repository layout. The task ended without a source edit. Task timing is derived from recorded start and event timestamps; it includes app/model startup and is not pure generation latency.",
+    "The open -W command returned 0; this does not expose the app process exit status, so launcher_exit_code is unavailable."
+  ],
+  "parent_test_results": [],
+  "post_tool_to_task_record_seconds": 261.37,
+  "prepared_at_utc": "2026-10-14T08:42:49.492558+00:00",
+  "prompt_sha256": "bf9647a9ff677a0a41eab6ef1635bf33204ae10acaa2cbb4757557fcb01d00a8",
+  "proposals": 1,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_ipc.py",
+      "-v"
+    ]
+  ],
+  "resource_metrics_available": false,
+  "resource_metrics_note": "No rows were written: the sampler split the executable command at whitespace, and the signed app path contains spaces. The monitor was stopped after the app exited; per-process and swap metrics are unavailable for this attempt.",
+  "resource_samples_path": "reports/benchmark/dataset-v1/runs/local/ipc-json-depth-bounds/attempt-06/resources.csv",
+  "runner_cumulative_seconds": 3.534,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "3c112b5f8ccb2a630fcfdc2d997e37cc4492cf3f",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/3c112b5f8ccb2a630fcfdc2d997e37cc4492cf3f",
+  "started_at_utc": "2026-10-14T08:46:37.453510+00:00",
+  "status": "completed",
+  "task_id": "ipc-json-depth-bounds",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "time_to_first_approval_seconds": 288.69,
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

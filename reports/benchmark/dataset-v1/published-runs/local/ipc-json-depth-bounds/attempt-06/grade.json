@@ -1,0 +1,35 @@
+{
+  "all_test_commands_passed": true,
+  "attempt": "attempt-06",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "6c6670922f0dc8fe3d4631e48f1292120a4b3031",
+  "graded_at_utc": "2026-10-14T08:58:22.410592+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "343e031147e899138336be5bea0e43423007e67c2b48be253839c64cc1eb0fcd",
+  "task_id": "ipc-json-depth-bounds",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T08:58:22.410568+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T08:58:22.326946+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

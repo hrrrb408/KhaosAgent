@@ -1,0 +1,140 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "approved_operations": [
+    {
+      "approved": true,
+      "argv": [
+        "/bin/cat",
+        "SecurityScopedGrant.swift"
+      ],
+      "read_scope": [
+        "SecurityScopedGrant.swift"
+      ],
+      "result_bytes": 295,
+      "return_code": 1,
+      "runner_seconds": 3.383,
+      "write_scope": []
+    },
+    {
+      "approved": false,
+      "argv": [
+        "/bin/cat",
+        "Launcher.swift"
+      ],
+      "denied_at_utc": "2026-10-14T09:58:05.069482+00:00",
+      "executed": false,
+      "read_scope": [
+        "Launcher.swift"
+      ],
+      "write_scope": []
+    }
+  ],
+  "attempt": "attempt-01",
+  "attempt_elapsed_seconds": 952.31,
+  "bounded_result_bytes": 295,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:31:42.920770+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "executed_command_return_codes": [
+    1
+  ],
+  "failure_categories": [
+    "incorrect_repository_relative_paths",
+    "did_not_recover_after_file_not_found",
+    "repeated_nonexistent_path",
+    "task_terminated_after_approval_denial"
+  ],
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3baf48e7d542ef1bab473970d2862275a3357f56",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/plugin-package-grant/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:31:42.920608+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:31:12.964646+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_open_wait_exit_code": 0,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "model": "local",
+  "model_outcome": "failed_wrong_paths_then_stopped_after_denial",
+  "model_response_complete": false,
+  "model_text_response_characters": 256,
+  "model_text_response_excerpt": "I stopped because the Launcher denied the read request for Launcher.swift and ended the task. I was unable to inspect any source files: SecurityScopedGrant.swift does not exist at the expected path, and the follow-up read was denied. Without being able to ",
+  "notes": [
+    "The first approved read targeted a nonexistent root-level SecurityScopedGrant.swift and returned 1. The second proposal targeted nonexistent Launcher.swift; it was denied after filesystem verification and was not executed. Launcher then ended the task with stop reason user denied. No source edits occurred. Tests were not rerun because the baseline-vs-gold audit found this task suite non-discriminating."
+  ],
+  "parent_test_results": [],
+  "post_denial_to_task_record_seconds": 191.02,
+  "post_tool_to_next_proposal_seconds": 344.67,
+  "prepared_at_utc": "2026-10-14T09:45:23.747567+00:00",
+  "prompt_sha256": "e3da62d9b835e6f73ed7a5ee5034b393d790a804aced908012618aab8f31a1a4",
+  "proposals": 2,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T09:45:34.217175+00:00",
+    "last_sample_utc": "2026-10-14T10:01:13.114950+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.38,
+    "peak_rss_kib": 34998032,
+    "sample_count": 173,
+    "system_swap_mib_samples": [
+      2405.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 3.383,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "4d9a805a238404cd6e4e621c30bd9aa9deeba1d5",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/4d9a805a238404cd6e4e621c30bd9aa9deeba1d5",
+  "started_at_utc": "2026-10-14T09:45:23.774429+00:00",
+  "status": "completed",
+  "task_id": "plugin-package-grant",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "time_to_first_proposal_seconds": 346.71,
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

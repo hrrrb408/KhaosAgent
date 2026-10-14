@@ -1,0 +1,26 @@
+{
+  "coding_workflow": {
+    "command_return_codes": [
+      0
+    ],
+    "launcher_approved_calls": 1,
+    "launcher_reviewed_proposals": 1,
+    "operation_denied": false,
+    "single_user_prompt": true,
+    "workspace_selection_cancelled": false
+  },
+  "current_stage": "single-user-task-coding-workflow",
+  "failure_type": "AssertionError",
+  "finished_at_utc": "2026-10-14T07:22:24.908443+00:00",
+  "format": "khaos-bounded-coding-loop-acceptance-v1",
+  "local_model": {
+    "model_sha256": "c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747",
+    "provider": "local",
+    "runtime_version": "version: 0.5.0-dev (build 1, commit 7fe450e)\nbuilt with AppleClang 21.0.0.21000334 for Darwin arm64"
+  },
+  "model_mode": "local-real-model-product",
+  "provider": "local",
+  "security_checks": {},
+  "started_at_utc": "2026-10-14T07:09:32.314295+00:00",
+  "status": "failed"
+}

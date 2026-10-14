@@ -1,0 +1,104 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_result_bytes": 340,
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:32:25.999329+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3bdba37f4cca683b17151e6c51aeeefec751b755",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/macos26-agent-generation-api/attempt-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:32:25.999178+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:31:43.128259+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "launcher_task_status": "failed: last executed command returned code 1",
+  "model": "local",
+  "model_outcome": "failed_no_source_discovery_after_two_wrong_path_or_scope_errors",
+  "notes": [
+    "The first proposal read the nonexistent workspace-root path AgentHost.swift and returned 1; the source exists under khaos/macos/AgentHost.swift. The second proposal ran /bin/ls -la with no scoped paths and received return code 1 because sandbox directory enumeration was denied. The model then stopped without edits, reporting it could not discover the source path. The workspace is clean. The baseline-vs-gold audit found the test suite non-discriminating, so no tests were rerun and this attempt is not scoreable as a coding success."
+  ],
+  "parent_test_results": [],
+  "post_tool_to_next_proposal_seconds": 163.03,
+  "post_tool_to_task_record_seconds": 268.67,
+  "prepared_at_utc": "2026-10-14T10:02:04.648087+00:00",
+  "prompt_sha256": "40b462b6527ea532633538a8b14256220ff69d2a82edb6d3c149cead0b90503a",
+  "proposals": 2,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:02:15.443891+00:00",
+    "last_sample_utc": "2026-10-14T10:13:56.630761+00:00",
+    "peak_cpu_percent": 399.9,
+    "peak_rss_gib": 33.87,
+    "peak_rss_kib": 35510992,
+    "sample_count": 127,
+    "system_swap_mib_samples": [
+      2397.69,
+      2405.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 6.837,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "9aaaaeb5ffd1313e07604a3732a337b403796387",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/9aaaaeb5ffd1313e07604a3732a337b403796387",
+  "started_at_utc": "2026-10-14T10:02:04.673851+00:00",
+  "status": "completed",
+  "task_id": "macos26-agent-generation-api",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "time_to_first_proposal_seconds": 256.9,
+  "tool_returncodes": [
+    1,
+    1
+  ],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}

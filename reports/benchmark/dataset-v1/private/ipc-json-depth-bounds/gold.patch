@@ -1,0 +1,111 @@
+diff --git a/.github/workflows/seed-ci.yml b/.github/workflows/seed-ci.yml
+index aab2642..3044257 100644
+--- a/.github/workflows/seed-ci.yml
++++ b/.github/workflows/seed-ci.yml
+@@ -10,8 +10,12 @@ permissions:
+ 
+ jobs:
+   security-tests:
+-    runs-on: macos-15
++    runs-on: macos-26
+     timeout-minutes: 20
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - name: Install OpenSSL 3 for temporary test signing
++        run: |
++          brew install openssl@3
++          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+       - run: python3 -m unittest discover -s tests -v
+diff --git a/docs/KERNEL_ABI.md b/docs/KERNEL_ABI.md
+index 1b7115f..d7f114d 100644
+--- a/docs/KERNEL_ABI.md
++++ b/docs/KERNEL_ABI.md
+@@ -48,9 +48,11 @@ or:
+ {"version":6,"request_id":"...","ok":false,"error":{"code":"..."}}
+ ```
+ 
+-Frames are limited to 64 KiB. Calls use bounded receive and send deadlines;
+-`process.exec` is capped at 30 seconds, and a Runner session accepts at most
+-128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
++Frames are limited to 64 KiB and eight structural JSON nesting levels. The
++depth check ignores braces and brackets inside JSON strings and does not rely
++on the Python decoder's recursion behavior. Calls use bounded receive and send
++deadlines; `process.exec` is capped at 30 seconds, and a Runner session accepts
++at most 128 `fs.read`, `fs.list`, and `fs.write` requests before execution.
+ 
+ ## Session order
+ 
+diff --git a/khaos/ipc.py b/khaos/ipc.py
+index 9adecdf..f18dbe4 100644
+--- a/khaos/ipc.py
++++ b/khaos/ipc.py
+@@ -17,6 +17,7 @@ from typing import Any
+ 
+ PROTOCOL_VERSION = 6
+ MAX_FRAME_BYTES = 64 * 1024
++MAX_JSON_NESTING = 8
+ MAX_OPERATION_SECONDS = 60.0
+ MAX_RUNNER_SOURCE_BYTES = 10 * 1024
+ MAX_WORKSPACE_READ_BYTES = 32 * 1024
+@@ -262,6 +263,8 @@ def _receive_frame_until(read_fd: int, deadline: float) -> dict[str, Any]:
+ 
+ def _decode_payload(payload: bytes) -> dict[str, Any]:
+     try:
++        if not _json_nesting_within_limit(payload):
++            raise ValueError("IPC JSON nesting exceeds limit")
+         message = json.loads(
+             payload.decode("utf-8"),
+             object_pairs_hook=_unique_object,
+@@ -280,6 +283,35 @@ def _decode_payload(payload: bytes) -> dict[str, Any]:
+     return message
+ 
+ 
++def _json_nesting_within_limit(payload: bytes) -> bool:
++    depth = 0
++    in_string = False
++    escaped = False
++
++    for byte in payload:
++        if in_string:
++            if escaped:
++                escaped = False
++            elif byte == 0x5C:
++                escaped = True
++            elif byte == 0x22:
++                in_string = False
++            continue
++
++        if byte == 0x22:
++            in_string = True
++        elif byte in (0x7B, 0x5B):
++            depth += 1
++            if depth > MAX_JSON_NESTING:
++                return False
++        elif byte in (0x7D, 0x5D):
++            depth -= 1
++            if depth < 0:
++                return False
++
++    return depth == 0 and not in_string and not escaped
++
++
+ def _read_exact(read_fd: int, size: int, deadline: float) -> bytes:
+     result = bytearray()
+     while len(result) < size:
+diff --git a/tests/test_ipc.py b/tests/test_ipc.py
+index 980a9cc..76b8c04 100644
+--- a/tests/test_ipc.py
++++ b/tests/test_ipc.py
+@@ -198,6 +198,12 @@ class IPCProtocolTests(unittest.TestCase):
+             self.assertFalse(sender_thread.is_alive())
+             self.assertEqual(sender_errors, [])
+ 
++    def test_json_nesting_ignores_brackets_inside_strings(self) -> None:
++        text = "]" * 40 + r'\"' + "{" * 40 + "[" * 40
++        with _pipe() as (receiver, sender):
++            send_frame(sender, {"text": text})
++            self.assertEqual(receive_frame(receiver), {"text": text})
++
+     def test_send_rejects_oversized_and_nonfinite_values(self) -> None:
+         with _pipe() as (_, writer):
+             with self.assertRaisesRegex(IPCProtocolError, "size"):

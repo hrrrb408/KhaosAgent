@@ -1,0 +1,73 @@
+{
+  "all_test_commands_passed": false,
+  "attempt": "attempt-01",
+  "candidate_paths_copied": [],
+  "candidate_test_edits_excluded": [],
+  "format": "khaos-coding-reliability-grade-v1",
+  "frozen_baseline_commit": "1d9ee36d48e637df25d6367332d5a56c025cc4f6",
+  "graded_at_utc": "2026-10-14T16:26:15.951524+00:00",
+  "grading_note": null,
+  "hidden_test_patch_applied": true,
+  "hidden_test_patch_sha256": "377932f8029aededd25ac2790e682bf0cb7d3369c1072721f35694dfb2d3acce",
+  "task_id": "runner-failure-diagnostics",
+  "test_timeout_seconds": 1200,
+  "tests": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_ipc.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:23:52.729155+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:23:52.679394+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_launcher.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:15.863455+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:23:52.729175+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workspace_xpc_bridge.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:26:15.951503+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-14T16:26:15.863478+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ]
+}

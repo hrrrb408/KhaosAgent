@@ -1,0 +1,107 @@
+{
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "attempt-01",
+  "bounded_text_response_chars": 256,
+  "bounded_text_response_excerpt": "I need the exact file path(s) for the signed-product Plugin lifecycle test and any related source it exercises. I can't enumerate directories, so please give me the path(s) (e.g. `tests/test_signed_product_plugin_lifecycle.py` or wherever it lives) and I'm",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-14T16:38:43.718966+00:00",
+  "cumulative_result_bytes_limit": 32768,
+  "event_timestamps_path": "local path redacted",
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "3b36292b723d4430626af438b9ff3a8490742509",
+  "grade_all_test_commands_passed": true,
+  "grade_path": "published-runs/local/bounded-lifecycle-acceptance-wait/attempt-01/grade.json",
+  "grading_note": "Test-only task; score via bounded-timeout behavior and process cleanup under a missing-marker fault injection.",
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_macos_xpc_sandbox.py",
+        "-k",
+        "test_seed_app_builds_and_authenticates_its_kernel_service",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-14T16:38:43.718778+00:00",
+      "return_code": 0,
+      "started_at_utc": "2026-10-14T16:38:13.512260+00:00",
+      "stderr_path": "raw output retained locally; not published",
+      "stdout_path": "raw output retained locally; not published",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": null,
+  "launcher_stderr_path": "local path redacted",
+  "launcher_stdin_path": "local path redacted",
+  "launcher_stdout_path": "local path redacted",
+  "launcher_task_status": "text response requested repository paths; Agent returned to input prompt without proposing a tool or writing a terminal task record",
+  "model": "local",
+  "model_inference_seconds": 282,
+  "model_inference_turns_by_llama_pid_seconds": {
+    "16357": 282
+  },
+  "model_outcome": "failed_text_response_requesting_source_paths",
+  "notes": [
+    "The model returned a bounded text response asking the user for the signed-product Plugin lifecycle test and related source paths. It did not propose a tool action or edit files, and returned to the input prompt without a terminal task record. The workspace is clean. Baseline and gold both pass this task suite, so tests were not rerun and the attempt is not scoreable as a coding success."
+  ],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-14T10:49:46.479718+00:00",
+  "primary_failure_class": "Tool Planning Failure",
+  "prompt_sha256": "5139d213c9856d3ce0f65b32e8561aa3663c7992e90dc3830ecd0a42e512f0db",
+  "proposals": 0,
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_seed_app_builds_and_authenticates_its_kernel_service",
+      "-v"
+    ]
+  ],
+  "resource_metrics": {
+    "first_sample_utc": "2026-10-14T10:49:56.058990+00:00",
+    "last_sample_utc": "2026-10-14T10:54:33.949516+00:00",
+    "peak_cpu_percent": 400.0,
+    "peak_rss_gib": 33.61,
+    "peak_rss_kib": 35245648,
+    "sample_count": 56,
+    "system_swap_mib_samples": [
+      2389.69
+    ]
+  },
+  "resource_metrics_available": true,
+  "resource_samples_path": "local path redacted",
+  "runner_cumulative_seconds": 0.0,
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "secondary_failure_classes": [
+    "Model Reasoning Failure"
+  ],
+  "single_result_bytes_limit": 4096,
+  "source_commit": "59ef76f5fb64c8219b023dd5dbcb7a41f37d37f9",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/59ef76f5fb64c8219b023dd5dbcb7a41f37d37f9",
+  "started_at_utc": "2026-10-14T10:49:51.058990+00:00",
+  "status": "completed",
+  "task_id": "bounded-lifecycle-acceptance-wait",
+  "task_success": false,
+  "test_suite_discriminating": false,
+  "tests_run": false,
+  "time_to_first_proposal_seconds": null,
+  "tool_returncodes": [],
+  "tools_per_task_limit": 8,
+  "workspace": "local workspace omitted from public evidence",
+  "workspace_clean_after": true,
+  "workspace_clean_at_start": true
+}
