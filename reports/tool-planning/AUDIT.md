@@ -98,3 +98,20 @@ deterministic prompt regression guards these rules and absence of evaluation
 answers; it is not model-quality evidence. The same two v3 repositories will be
 run once with this intervention; the formal frozen Runner task follows only
 after version freeze and development evidence review.
+
+The first intervention's two predeclared runs are complete. Nested-layout
+used seven calls, performed the repair, added an empty-input regression, ran
+both discovered tests successfully, and passed hidden checks. The original
+five-call baseline had no model test. However both runs still requested a
+failed `src` root initially, so invalid-path reduction is NOT PROVEN.
+Exact-symbol again stopped at `invalid_agent_action` after one successful list;
+the failed fields remain unknown. These failures are retained, not rerun away.
+
+A second development intervention therefore makes single-root initial
+exploration explicit instead of the earlier advisory wording. Source review
+also found that the existing strict reply decoder rejects control characters
+in argv and duplicate scope paths, while the prompt did not explain those
+constraints. The second version documents that existing printable-single-line
+contract. This is a generic formatting hypothesis, not an attribution of the
+uncaptured exact-symbol actions. It changes no parser or authority. Both v3
+tasks will be run once under version 2; no formal Runner attempt has started.
