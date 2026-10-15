@@ -1,230 +1,188 @@
 # Security Kernel Finalization Report
 
-Date: 2026-10-16. Audit base: `12af8aa1e52b235234648b1f7eb925d648180e54`.
+Date: 2026-10-16. Runtime audit base:
+`12af8aa1e52b235234648b1f7eb925d648180e54`.
+PR #20 merged as `bc0df57203fb136696dc7f08e061d9ea44a05967`;
+this revision follows the owner's subsequent scope amendment.
+
+## A. Current objective and exact TCB
+
+Khaos is an open-source Agent for ordinary macOS users. Default deployment is a
+locally signed user-owned App under `~/Applications`. Root-owned installation,
+repeated administrator authentication and comprehensive external same-UID tamper
+resistance are **not** requirements of this Security Kernel Freeze.
+
+The protected adversaries are Khaos's own untrusted AgentHost, Plugins and
+Runners. They must not bypass Seatbelt, XPC identity, signatures, permission
+approval, capability scope, snapshots or validated changesets; they must not
+expand their authority, self-activate or autonomously alter the active Kernel.
 The product remains `Untrusted AgentHost → Trusted Launcher → Kernel → Seatbelt Runner`.
-This report distinguishes tested paths, writable development assumptions and
-unproven protections. No paid Apple membership, notarization, disabled system
-security, new daemon or privileged service is required or introduced.
 
-## A. TCB files and boundaries
+Owner-authorized source development through Codex, Claude Code and other tools
+is normal. Freeze is a reviewed trusted-change process, not an OS lock on the
+owner's source. Arbitrary unconfined external same-UID processes, administrators,
+root and changes to system trust are outside the supported guarantee.
+Comprehensive protection against those actors is **not implemented**.
 
-Exact file hashes, source modes, roles and regression families are in
-[`security/tcb-manifest.json`](security/tcb-manifest.json): 34 runtime TCB files,
-65 build/governance inputs and one development-only enforcement backend at the
-initial inventory. Counts may increase only through a declared reviewed update.
-The inventory includes Launcher/Picker, shared protocols and peer identity,
-Kernel XPC/Bootstrap/Python, Snapshot Broker/APFS lease handling, lifecycle,
-sandbox, changesets and trusted package imports. AgentHost intelligence files,
-Runner/SDK, Plugins and model runtime remain untrusted. The Python framework and
-system toolchain are external runtime/build dependencies recorded per artifact,
-not misleadingly enumerated as Khaos source TCB. Test-family mapping is not line
-coverage or proof every input is safe.
+`security/tcb-manifest.json` records exact paths, SHA-256, source modes, roles,
+permission boundaries and regression families. It distinguishes 34 runtime TCB
+files, build/governance inputs and one development-only APFS backend. Runtime
+sources remain byte-identical to the audit base. Launcher/Picker, shared protocol
+and peer checks, Kernel XPC/Python, Broker, sandbox, lifecycle, snapshots and
+changesets are trusted. Empty package markers are included because imports
+execute them. AgentHost intelligence, Runner/SDK, Plugins and model runtime remain
+untrusted. System/Python dependencies are recorded per artifact, not disguised as
+Khaos source TCB. Family mapping is not per-line coverage.
 
-Attacker A: Khaos sandbox-confined Agent/Plugin/Runner. B: ordinary unconfined
-same UID, no administrator authorization, with existing group memberships.
-C: administrator/root/system-trust modification; outside guarantees. B can modify
-the source checkout, user installation, data and signing operations permitted by
-Keychain. A cannot use those host freedoms merely because it shares the UID.
+## B. Ordinary user self deployment
 
-The manifest is not its own trust root: use the reviewed commit obtained through
-an independent channel. Build/governance changes can alter future authority even
-though they do not execute in the runtime TCB. Their review is separately guarded.
+The existing `tools/build_macos_seed.py` remains the only builder. It:
 
-## B. Self deployment and signing
+- selects one available non-expired Keychain identity by full name/fingerprint;
+- snapshots source bytes privately, rejects symlinks and optionally requires an
+  independently reviewed exact source SHA-256 map;
+- seals source/dependency hashes, builder digest, versions and certificate in
+  `Contents/Resources/build-inputs.json` before final outer signing;
+- checks actual nested signatures, fixed bundle IDs, externally pinned signer,
+  configured peer requirements, and Host not satisfying Launcher identity;
+- publishes with exclusive rename, refusing existing/raced output paths;
+- reuses that verifier through `--verify-app`, existing no-Picker bootstrap for
+  peer authentication, and canonical real OS tests for Seatbelt/APFS readiness;
+- supports explicit bounded numeric local build versions for upgrade acceptance.
 
-The existing `tools/build_macos_seed.py` is the only builder. Additions:
+No administrator or paid Apple membership is required. The documented persistent
+identity route is Keychain Certificate Assistant; private keys stay in Keychain.
+Canonical tests separately provision a disposable self-signed identity. Their
+private fixture exports are removed, never committed or bundled. The test fixture
+now saves the prior Keychain search list **before** creation, preventing an
+automatically registered test identity from being mistaken for prior user state.
+A deterministic registration regression covers this ordering. Nonexistent
+historical test search entries were removed from user lookup metadata; all real
+Keychains were retained and no private key/system trust setting was changed.
 
-- Select exactly one available identity by full name or certificate fingerprint.
-- Compile/copy from private source snapshots; reject source symlinks and optionally
-  enforce an independently reviewed exact source SHA-256 map.
-- Seal source/dependency hashes, builder digest and environment versions in
-  `Contents/Resources/build-inputs.json` before final outer signing.
-- Verify actual nested code against an externally supplied certificate fingerprint,
-  fixed bundle IDs and configured XPC peer requirements; reject Host as Launcher.
-- Publish through exclusive macOS rename, refusing existing or raced output paths.
-- Reuse the same verifier via `--verify-app`; reuse `--bootstrap-check` for peer
-  readiness and the canonical suite for real Seatbelt/APFS readiness.
+All assembly precedes final signing; failures clean private staging. Nested
+Python code may use ad-hoc signatures, while Launcher/XPC identities stay stable.
+No signed content is patched after final signing. This is local source deployment,
+not Developer ID notarization or byte-reproducible distribution. A trusted source
+review/build host/toolchain remains an assumption. Hashes inside a writable tree
+are not an independent trust root; use the reviewed Git commit and external
+expected inputs. Current builds do not enable Hardened Runtime.
 
-The existing staged assembly/signing still derives stable requirements before
-embedding dependent bundles and final signing. There are no post-final-sign
-bundle writes. Failure removes private staging. Some embedded Python binaries
-use nested ad-hoc signatures; outer Launcher/XPC identities are stable, not
-ad-hoc. The build is local, architecture-specific and not byte-reproducible.
-Hashes record the packaged framework; they do not authenticate a compromised
-compiler, SDK, Python installation or same-UID build host. This limitation remains.
+## C. Persistent state, identity and update boundaries
 
-`docs/SELF_HOSTING.md` describes free Keychain Certificate Assistant provisioning,
-input review, exact-product verification, install/update/rollback/uninstall and
-protected-mode consent. Persistent production private keys stay in Keychain.
-Existing canonical test provisioning creates a disposable self-signed identity,
-exports test-only key material within its temporary fixture, then removes it and
-restores Keychain search state. No key material is committed or bundled.
+Plugin state remains bounded, opaque and Plugin-owned. Candidate admission,
+digest/scope/generation binding, separate approvals, isolated evaluation and
+routing rollback remain unchanged. No new database, business schema, privileged
+state owner, daemon/helper or persistence framework was added.
 
-A fresh controlled App built with the existing local certificate. User-owned
-install/restart/distinct build 1 → 2 → 1 update/rollback/uninstall passed actual
-Launch Services bootstrap and post-run signature checks: `self-host.json`.
-This is app restart, not an OS reboot. Both user and protected deployments
-verified distinct local build versions 1 → 2 → 1; no state schema migration
-is claimed. OS reboot acceptance is not exercised.
+Activation HMAC/key/state consistency does not protect against a process that
+owns and can replace both key and state. That external same-UID threat is outside
+the current model. It is neither called implemented nor used to block closure.
+Within the supported runtime model, scoped IPC and OS isolation still prevent
+Plugin/Runner access to or unilateral modification of trusted lifecycle authority.
+Code signing verifies identity/integrity; it is not universal file write protection.
+Signing operations allowed by Keychain, runtime injection and running mappings
+remain host assumptions/limits. No claim against arbitrary external same-UID or
+administrator attackers is made.
 
-## C. Persistent state, keys and update audit
+## D. Acceptance and historical research
 
-`activation.key` mode 0400, `activation.json` mode 0600, no-follow descriptors,
-nlink/owner/schema/digest checks and HMAC do not establish a different OS owner.
-A same-UID writer can unlink and replace both. Candidate/source/state files in
-the user-owned store are likewise not a B-resistant trust root. Opaque Memory
-business state does not become trusted simply because it persists via Kernel.
-No schema, state migration or extra business database was added.
+`reports/security-kernel-finalization/self-host.json` records actual ordinary-user
+install, app restart, distinct build 1 → 2 upgrade, 2 → 1 rollback and uninstall
+with signature and XPC checks, without administrator authentication. This proves
+that supported flow; it does not claim OS reboot or state-schema migration.
 
-Code signing authenticates/detects changes; it does not deny writes. Current
-products have no Hardened Runtime. Running mappings versus replaced on-disk
-code, DYLD injection, a compromised signing operation and same-signer malicious
-updates remain independent risks. Verification immediately before launch narrows
-an accidental substitution window but is not an atomic launch or general B defense.
-No automatic updater or privileged background authority was added.
+Historical `same-uid.json` records successful external key/state co-replacement
+and owner-readonly bundle replacement. Historical `protected-install.json` records
+six EACCES filesystem denials and an explicitly authorized root-installed
+1 → 2 → 1 experiment. The test parent was removed. These observations remain
+for provenance, **not current deployment requirements or acceptance gates**.
+Repeated administrator experiments stopped and the executable root fixture was
+removed. No privileged installation/service is introduced into the normal path.
+The test requiring a successful B counterexample was removed from canonical CI;
+Freeze must not require preserving an out-of-scope vulnerability.
 
-## D. Real same-UID experiments and protected install
+## E. Executable Freeze governance
 
-All experiments used disposable artifacts, not actual Plugin state or other apps.
-`reports/security-kernel-finalization/same-uid.json` records:
+`docs/SECURITY_FREEZE.md`, manifest/baseline, exact-base change declaration,
+base-tree checker, security template, CODEOWNERS and CI classify trusted changes.
+The checker consults base inventory, protects new authority paths, uses NUL-safe
+Git paths (including the Chinese normative document), and rejects undeclared
+changes or digest drift. Deleting a proposed manifest entry does not remove base
+protection. A declaration alone is not human authorization.
 
-- UID 501 without elevation replaced a 0400 lifecycle key and correctly formed
-  activation envelope; `_read_state` accepted the changed generation (17).
-  This is a valid-state authentication-root counterexample, not a confined
-  Candidate self-activation success claim. Initial malformed state was rejected;
-  an incorrectly sized replacement key was rejected before the corrected attack.
-- Owner-readonly App files/directories were replaced through a writable parent.
-- `/Applications` is root:admin 0775 and writable by this admin-group UID.
-  Root ownership of the bundle alone would not stop replacement there.
+Actual main protection requires PRs and up-to-date `security-tests` plus
+`security-freeze` from GitHub Actions app 15368, includes administrators, forbids
+force push/deletion and requires resolved conversations. Initial freeze was
+bootstrapped only after its first green check existed. No admin bypass was added.
+The owner explicitly accepted single-maintainer mode: required approvals 0,
+Code Owner review disabled; independent Code Owner approval remains **NOT PROVEN**.
+A writable owner can change CI/settings. These controls do not resist a malicious
+owner and must not be advertised as independent review or arbitrary host tamper
+protection. Normal authorized source changes remain possible through this process.
 
-The owner explicitly approved `/Library/Application Support/Khaos` and macOS
-administrator authorization. `protected-install.json` records a root:wheel 0755
-App and parent, non-user-writable ancestors and ACL observations. Six real B
-attacks received EACCES: Launcher write-open, nested Kernel write-open, App
-rename, nested XPC rename, parent rename and symlink creation. Actual install,
-app restart, distinct-version update (1 → 2), rollback (2 → 1) and post-operation signature/peer
-checks passed. Uninstall removed the exact disposable apps and test parent.
-No system security setting was changed; no system service was installed.
+## F. Real OS tests and anomalies
 
-These are tested filesystem denials for protected code. They do not prove all
-same-UID attacks fail. Protected state, runtime injection, hostile signing-key
-use, OS reboot and state-schema migration remain NOT PROVEN. A protected
-state writer would require a new, separately approved OS authority boundary;
-this change does not introduce it.
+Historical final PR #20 tree: local **341/341, 668.472 s**; PR CI
+**341/341, 802.047 s**, plus green Freeze; merge `bc0df572...` has identical tree.
+The current scope/fixture revision requires fresh canonical and exact-SHA CI
+results before delivery. See the attached follow-up PR and Actions results;
+post-merge main CI is independently checked, not replaced by PR success.
 
-## E. Freeze governance
-
-`docs/SECURITY_FREEZE.md`, exact manifest/baseline, change declaration, base-tree
-checker, security PR template, CODEOWNERS and a deterministic CI job establish a
-reviewable freeze process. New trusted paths, tests and workflows are sensitive;
-removing a path from a proposed manifest does not remove the base's protection.
-The initial bootstrap is explicit because the base lacks a checker. A security
-change declaration is not human approval. The checker never executes base/PR
-code in privileged runtime processes.
-
-GitHub was unprotected with no rulesets; only owner hrrrb408 had write access.
-The owner explicitly selected single-maintainer protection with an approval gap.
-The applied API evidence requires PRs, strict/up-to-date `security-tests` and `security-freeze` from
-GitHub Actions app 15368, includes admins, prohibits force push/deletion and
-requires resolved conversations. Approvals 0, Code Owner review disabled. No
-bypass allowance was added. The initial PR emitted a green freeze job before `security-freeze` was added
-as a required context, avoiding an absent-check bootstrap deadlock. Independent approval remains NOT PROVEN; a writable owner can
-change CI/settings or spoof an Actions context by rewriting a workflow. This is
-not a malicious-maintainer-proof immutable kernel. Do not silently weaken gates.
-
-## F. Security acceptance and anomalies
-
-Local full canonical suite: **340 passed, 666.772 seconds** after correcting
-identity preflight; the newly added same-UID case was then included in a fresh
-**5/5 focused freeze run**. The final tree contains 341 tests. The first run
-was 339 tests / one identity-preflight failure in 630.059 seconds. A final fresh
-341-test local run and PR CI validate the completed tree; see
-[PR #20 checks](https://github.com/hrrrb408/KhaosAgent/pull/20/checks) for the
-reviewed head. Delivery requires terminal PR and post-merge main checks matched
-to their full SHAs; these externally produced results cannot self-reference
-inside their own input commit.
-
-| Required attack family | Executable mapping / evidence |
+| Attack family | Executable coverage |
 | --- | --- |
-| Wrong-signer, XPC spoofing, source digest/authority injection | `test_macos_xpc_sandbox.py` signed self-signed product and XPC attacks |
-| Read/write/list denials, direct Kernel/Bundle access | `test_launcher.py` Runner bypass/scope attacks and signed Broker probes |
-| Symlink/hardlink/rename/TOCTOU | Launcher, Broker and real Seatbelt tests, snapshot/changeset fixtures |
-| Out-of-scope complete changeset | Launcher added/modified/deleted/FIFO/socket rejection before live writeback |
-| Candidate self-activation/escalation/stale/rollback | `test_plugin_lifecycle.py`, `test_memory_evolution.py` |
-| Missing backend, malformed policy, snapshot unavailable | Seatbelt and signed Broker fail-closed probes; no Host fallback |
-| Build tamper / wrong identity / output replacement | Signed product resource tamper and wrong certificate; `test_security_freeze.py` exclusive rename |
-| B filesystem / key-state tamper | `same-uid.json`, `protected-install.json` |
-| Install/restart/update/rollback/uninstall | user and protected install reports; verified build 1 → 2 → 1 |
+| Wrong signer/XPC spoof/source and authority injection | real signed-product/XPC tests in `test_macos_xpc_sandbox.py` |
+| Unauthorized read/write/list and direct Kernel/Bundle access | Launcher/Runner scope attacks and signed Broker probes |
+| Symlink/hardlink/rename/TOCTOU | real Launcher, Broker, Seatbelt and changeset tests |
+| Snapshot/complete changeset escape | added/modified/deleted/FIFO/socket rejection before live mutation |
+| Candidate self-activation/escalation/stale approval/rollback | Plugin lifecycle and Memory evolution tests |
+| Backend, malformed policy or snapshot unavailable | fail-closed Seatbelt and signed Broker probes; no Host fallback |
+| Build tamper, wrong identity, publication replacement | signed resource/fingerprint attacks and exclusive-rename tests |
+| Source Freeze and signer fixture hygiene | base inventory, Unicode path, source-map and Keychain ordering regressions |
 
-The first local run exposed a signed-product build regression: `find-identity -v`
-excluded the temporary local self-signed certificate because it was not globally
-trusted. `initial-product-failure.log` retains the failure. The fix queries all
-identities, accepts an explicitly selected non-expired self-signed identity without
-changing global trust, rejects ambiguous selections/expired certificates, and
-still verifies actual signatures and externally pinned fingerprints. Three
-builder unit tests and the real signed product test (46.125 seconds) passed
-including wrong-certificate and signed-resource-tamper rejection.
-A deployment fixture initially reused a stdout file, so Launch Services appended
-two valid bootstrap lines and its exact-output assertion failed. Unique private
-output directories fixed the fixture; the complete distinct-version protected
-flow then passed. An earlier OS authentication timeout occurred before installation.
-Both are recorded in `deployment-fixture-failures.json`; no Kernel retries,
-readiness timeout or authority rules were changed. Do not interpret one green run as
-explaining readiness flakes. The earlier PR #18 same-SHA retry passed after a
-snapshot readiness failure before the intended symlink assertion; root cause
-remains unproven. Real APFS mounting has external OS lifecycle/resource state;
-canonical failures must be classified by stage. Readiness failure is availability
-failure with no execution, not successful enforcement of a later attack. Keep
-that separate from fail-closed safety. No Kernel timeout/retry/fallback changes
-were made here. Production readiness remains conditional on that unresolved risk.
+Retained anomalies: initial identity preflight wrongly used `find-identity -v`
+for local self-signed certificates; fixed without adding system trust. A historical
+root fixture reused stdout and received appended bootstrap lines; private output
+files fixed it before that experiment was retired. One administrator wait timed
+out before installation. The signer fixture saved search state too late; this
+revision fixes it. No Kernel timeout, retry, authority or isolation change occurred.
 
-## G. Remaining risks and future distribution
+Earlier snapshot readiness failure before a symlink assertion remains unexplained
+(despite a later same-SHA pass). Classify it as availability/coverage uncertainty,
+not a successful later attack assertion. Current probes fail closed and never
+fall back to Host. No blind Kernel retries or timeout expansion were added.
 
-Independent review; writable build toolchain; Keychain operation authority;
-user-owned security/business state and replay; missing Hardened Runtime;
-Snapshot Broker allow-default residual policy; launch-time race/running mappings;
-OS-reboot and state-schema migration acceptance; unexplained readiness flake.
-Developer ID distribution would separately require paid identity management,
-notarization/stapling, distribution/update trust and revocation policy; none is
-implied by local self-signed acceptance. See upstream Apple/GitHub references in
-`docs/SELF_HOSTING.md`. Legacy `scripts/install-native-tcb.sh` was inspected at
-`03cf742d6b5fb16dc746ceb6443fc4d23a6f1eff`: it creates Linux service UIDs and
-privileged launchers/capabilities, unsuitable for this fixed macOS Seed and not
-copied. No external library/framework/dependency was introduced.
+## G. Remaining limits
+
+Independent review gap; trusted build host/toolchain; current lack of Hardened
+Runtime and Broker allow-default residual policy; historical readiness flake;
+OS reboot and state-schema migration not exercised. External unconfined same-UID
+or administrator tampering is expressly outside scope, not an acceptance blocker.
+Future Developer ID/notarization, update revocation or broader host resistance
+requires a separate project and threat-model decision. No protected-state broker
+or new OS authority boundary is required or proposed for this Freeze.
+
+Upstream basis and normal install/update/rollback/removal instructions are in
+`docs/SELF_HOSTING.md`. Legacy Linux privileged installers were inspected and
+not copied. No third-party code or dependency was added.
 
 ## H. Closure decision
 
-| Status | Decision |
+| Item | Scoped decision |
 | --- | --- |
-| Self-Hosting Security | PASS for documented trusted-host local build, verify, install, app restart, distinct-version upgrade, rollback and uninstall; no notarization/reproducible-binary/OS-reboot guarantee |
-| Scoped Agent/Runner Tamper Resistance | PASS for mapped real OS attack paths in the current canonical run; final CI remains a delivery gate |
-| Unprivileged Same-UID Tamper Resistance | NOT PROVEN overall; user-owned counterexamples succeed; protected filesystem cases deny |
-| Protected Security State | NOT PROVEN; co-replacement counterexample succeeds |
-| Security Kernel Freeze Governance | NOT PROVEN for independent review; single-maintainer technical protection applied |
-| Security Kernel Final Closure | CONDITIONAL; do not declare comprehensive freeze/tamper completion |
-
-### Protected-state boundary requiring a separate decision
-
-The current ordinary-UID Kernel cannot both mutate activation state and make that
-same state unwritable to every unconfined process of its UID using POSIX modes.
-Root-owned immutable state alone would stop legitimate activation/rollback.
-A possible future design is a separate OS authority owner with a narrow signer-
-authenticated state broker: read verified activation, compare-and-swap generation,
-and approve activation/rollback bound to exact content/scope. It must not accept
-Plugin business schemas, arbitrary paths or arbitrary execution. This would cost
-at least one new trusted process/identity boundary, bounded IPC operations,
-protected key/generation persistence, installation policy and real spoof/replay/
-crash/rollback tests. Exact operations and failure recovery need a separate ADR.
-No daemon/helper, root-running Kernel or new trust root is approved or implemented
-by this report. A Keychain ACL alone is not asserted sufficient while same-UID
-signing operations and runtime injection remain unproven.
+| Ordinary-user Self-Hosting Security | PASS for documented trusted-host local signing/verify/install/app restart/upgrade/rollback/uninstall |
+| Scoped AgentHost/Plugin/Runner authority and Kernel protection | PASS for mapped real OS paths; exact-SHA CI is required for each delivered revision |
+| Arbitrary external same-UID comprehensive tamper resistance | OUT OF SCOPE; not implemented and not required |
+| State protection against arbitrary external same UID | OUT OF SCOPE; not implemented and not required; runtime Plugin isolation remains required |
+| Security Kernel Freeze governance | Technical single-maintainer controls applied; independent Code Owner approval NOT PROVEN as explicitly accepted |
+| Final closure | CONDITIONAL on the disclosed independent-review/readiness limits; not conditioned on root-owned installation or external same-UID protection |
 
 ### TCB growth budget
 
-Production code delta: builder +165/-82 lines (net +83); no runtime edits.
-Trusted code delta: runtime enforcement 0; build helper net +83, development/CI checker +98 lines; documents/fixtures separately inventoried.
-New architecture concepts: 0 runtime; source freeze/deployment governance artifacts.
-New trusted processes: 0. New IPC operations: 0. New persistent runtime state: 0.
-New dependencies: 0. Removed duplication: one canonical artifact verifier replaces
-private final verification and serves both build and explicit verification CLI.
-No planner, manager, new service, authority grant or Plugin business schema.
+Runtime production/trusted code delta: **0** (all 34 source digests unchanged).
+Prior builder delta +165/-82; development/CI checker +98. This revision changes
+scope contracts and test hygiene, removes the root experiment driver and an
+out-of-scope canonical counterexample requirement. No runtime architecture
+concepts, trusted processes, IPC operations, persistent state or dependencies.
+One canonical artifact verifier serves build and explicit verification; no second
+builder, updater, security-state framework or privileged installation path.

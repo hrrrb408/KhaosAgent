@@ -8,6 +8,22 @@ governance inputs, not runtime TCB. The manifest and declaration cannot hash
 themselves; their trust anchor is the reviewed Git commit, obtained independently.
 A digest in the same writable directory is not an independent trust anchor.
 
+## Scope: runtime authority and authorized source development
+
+Freeze protects against Khaos's own AgentHost/Plugin/Runner bypassing runtime
+sandbox, XPC, signing, approval and scope boundaries or modifying the active
+trusted Kernel autonomously. It is a reviewed source-change process, not an
+OS lock on the owner's development tools. Owner-authorized editing through
+Codex, Claude Code or other tools is normal. Trusted source changes use the
+security declaration, tests and updated baseline. Untrusted intelligence-only
+changes leave protected files unchanged.
+
+Comprehensive arbitrary external same-UID tampering is OUT OF SCOPE and not
+implemented. Root-owned installation, administrator experiments and protected
+same-UID state are not acceptance prerequisites. Ordinary locally signed user
+installation is the supported deployment. This scope revision changes no runtime
+enforcement or permission boundary.
+
 Ordinary intelligence changes must leave protected files unchanged. New Kernel
 files, new Swift enforcement files, workflows, tests, contracts and freeze files
 are protected even if absent from the old manifest. AgentHost intelligence and

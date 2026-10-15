@@ -59,18 +59,6 @@ class SecurityFreezeTests(unittest.TestCase):
             with self.assertRaisesRegex(BuildError, 'reviewed SHA-256'):
                 _snapshot_sources(root / 'rejected', expected)
 
-    @unittest.skipUnless(__import__('sys').platform == 'darwin', 'macOS same-UID audit')
-    def test_documented_same_uid_key_and_readonly_bundle_counterexamples(self):
-        root = Path(__file__).resolve().parents[1]
-        result = subprocess.run(
-            [__import__('sys').executable, '-c',
-             "import runpy; runpy.run_path('reports/security-kernel-finalization/same_uid_experiment.py', run_name='__main__')"],
-            cwd=root, capture_output=True, text=True, check=True,
-        )
-        evidence = json.loads(result.stdout)
-        self.assertTrue(evidence['co_replaced_key_state_accepted'])
-        self.assertTrue(evidence['readonly_owned_bundle_replaced'])
-        self.assertTrue(evidence['temporary_artifacts_removed'])
 
     @unittest.skipUnless(__import__('sys').platform == 'darwin', 'macOS exclusive rename')
     def test_publish_never_replaces_existing_output_or_symlink(self):

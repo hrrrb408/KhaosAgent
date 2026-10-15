@@ -1,9 +1,6 @@
 {
-  "base": "12af8aa1e52b235234648b1f7eb925d648180e54",
+  "base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
   "files": [
-    ".github/CODEOWNERS",
-    ".github/PULL_REQUEST_TEMPLATE/security.md",
-    ".github/workflows/security-freeze.yml",
     "AGENTS.md",
     "SECURITY.md",
     "docs/Khaos vNext 架构设计文档.md",
@@ -11,20 +8,17 @@
     "docs/SEED_THREAT_MODEL.md",
     "docs/SELF_HOSTING.md",
     "reports/security-kernel-finalization/protected_install_experiment.py",
-    "reports/security-kernel-finalization/same_uid_experiment.py",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
     "tests/test_macos_seed_builder.py",
     "tests/test_macos_xpc_sandbox.py",
-    "tests/test_security_freeze.py",
-    "tools/build_macos_seed.py",
-    "tools/check_security_freeze.py"
+    "tests/test_security_freeze.py"
   ],
-  "motivation": "Owner-requested Security Kernel finalization and explicitly authorized sole-maintainer protection and disposable protected installation.",
-  "invariants": "Preserve Launcher -> Kernel -> Runner, exact scopes, authenticated peers, fail closed; distinguish A/B/C and freeze intelligence separately from authority.",
-  "authority_delta": "Runtime authority 0; no privileged service. Optional disposable installation authorized at /Library/Application Support/Khaos with OS authentication; removed afterward.",
-  "real_os_tests": "Canonical suite, self-signed product wrong-identity/tamper tests, real same-UID store/bundle counterexamples, authorized protected-install write/rename/symlink attacks and lifecycle; CI and final local results tracked in final report.",
-  "trusted_delta": "Runtime source unchanged; builder +165/-82, base-tree freeze checker +98; no new runtime processes/IPC/state/dependencies.",
-  "baseline_decision": "Initial exact TCB freeze plus build/governance inventory; independent Code Owner approval NOT PROVEN by explicit owner choice. New protected-state OS authority requires separate design/approval."
+  "motivation": "Explicit owner scope revision: ordinary-user self deployment; no root-owned installation requirement; external arbitrary same-UID tampering excluded. Fix signer test cleanup.",
+  "invariants": "All existing Seatbelt, XPC, signatures, approval, capability scope and process isolation retained. Khaos runtime components may not expand authority or alter active Kernel. Owner-authorized source development is normal.",
+  "authority_delta": "0 runtime authority; remove root experiment driver; no further administrator experiments. No new privileged or protected-state boundary.",
+  "real_os_tests": "Fresh canonical suite and exact-SHA PR/main CI; existing signed-product normal-user acceptance and real OS attacks. Regression simulates create-keychain auto-registration and prior search-list preservation.",
+  "trusted_delta": "Runtime TCB delta 0, 34 files unchanged. Contracts and test hygiene only; retire out-of-scope counterexample acceptance and privileged installation driver.",
+  "baseline_decision": "Update source governance baseline for owner-approved scope; independent Code Owner approval remains NOT PROVEN in accepted sole-maintainer mode."
 }
