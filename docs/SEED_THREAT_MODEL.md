@@ -2931,3 +2931,54 @@ regression and the Swift AgentHost protocol probe. `git diff --check` passed.
 The 8-call, 180-second cumulative Runner, 30-second per-call, 4 KiB single
 result, and 32 KiB cumulative result limits are unchanged. No read scope,
 write scope, approval, or Kernel authority was added.
+
+### AgentHost bounded-read guidance correction
+
+The frozen `runner-exception-classification` prompt remains unchanged at
+SHA-256 `7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2`.
+Its parent-only controls still record baseline return code 1 and gold return
+code 0. In signed-product `discovery-04`, the approved directory listing
+returned code 1 with 1,583 bounded bytes and `can_continue=true`. GLM then
+proposed reading the 10,614-byte `tests/test_runner_sdk.py` with `/bin/cat`.
+The operation was denied before execution, so it had no Runner return code and
+the task stopped without a workspace change or grading run.
+
+Review of the untrusted Host system prompt found a conflicting generic example
+that used `/bin/cat` before later instructions to inspect observed file sizes
+and use bounded ranges. The prompt now puts the size rule first: use `/bin/cat`
+only when each observed file and the combined read are at most 1,000 bytes;
+otherwise use the existing scoped `python3 -I -B -c` shell action to inspect a
+line range or symbol and cap emitted UTF-8 output at 900 bytes. The confusing
+whole-file example was replaced with a bounded line-range example. This is
+model-facing guidance, not an enforcement boundary; Launcher approval, exact
+scope validation, and result limits remain authoritative.
+
+The prompt regression test passed, and the documented 30-line example command
+returned 770 bytes on the 10,614-byte test file. That local command check does
+not prove execution under the signed Runner or model compliance. The full
+canonical suite passed 334 tests in 681.208 seconds on 2026-10-15, including
+the signed-product headless build/authentication test.
+
+A post-correction real GLM replay is **NOT RUN**: `KHAOS_BIGMODEL_API_KEY` was
+absent from the current test process environment. The previously denied
+whole-file operation was not retried. No post-correction Candidate, focused
+test, workspace diff, or independent grading result exists. Coding Reliability
+Closure remains unproven until the unchanged frozen task completes a signed
+GLM run and receives independent grading.
+
+Change accounting for this Host prompt correction:
+
+| Item | Delta |
+| --- | --- |
+| Production code | +3 / -2 lines in the untrusted AgentHost prompt |
+| Trusted code | 0 |
+| New architecture concepts | 0 |
+| New trusted processes | 0 |
+| New Kernel IPC operations | 0 |
+| New persistent runtime state | 0 |
+| New dependencies | 0 |
+| Removed duplication / abstractions | Removed the contradictory whole-file `/bin/cat` example; no new abstraction |
+
+The 8-call, 180-second cumulative Runner, 30-second per-call, 4 KiB single
+result, 32 KiB cumulative result, exact scope, and per-operation approval
+limits remain unchanged.
