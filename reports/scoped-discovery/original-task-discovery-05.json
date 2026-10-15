@@ -1,0 +1,139 @@
+{
+  "format": "khaos-original-task-replay-summary-v1",
+  "date": "2026-10-15",
+  "task_id": "runner-exception-classification",
+  "attempt": "discovery-05",
+  "product_source_commit": "3aa4e6255c5f63254cf96ca24a028378d6bd8973",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "model": "glm-5.3-flash",
+  "provider": "bigmodel-coding-plan",
+  "credential_source": "existing Hermes GLM credential, child-process environment only; value omitted",
+  "remote_data_approval": "approved once for this disposable task",
+  "steps": [
+    {
+      "proposal": "list",
+      "read_scope": [
+        "src",
+        "tests"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 1,
+      "bounded_result_bytes": 1583,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "bounded line read",
+      "read_scope": [
+        "tests/test_runner_sdk.py"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 0,
+      "bounded_result_bytes": 1063,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "bounded symbol search",
+      "read_scope": [
+        "tests/test_runner_sdk.py"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 0,
+      "bounded_result_bytes": 332,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "bounded symbol search",
+      "read_scope": [
+        "src/khaos/runner_sdk.py"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 1,
+      "bounded_result_bytes": 1542,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "list",
+      "read_scope": [
+        "src"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 1,
+      "bounded_result_bytes": 170,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "list",
+      "read_scope": [
+        "khaos"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 0,
+      "bounded_result_bytes": 548,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "bounded symbol search",
+      "read_scope": [
+        "khaos/runner.py"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 0,
+      "bounded_result_bytes": 190,
+      "host_response": "accepted",
+      "can_continue": true
+    },
+    {
+      "proposal": "bounded symbol search",
+      "read_scope": [
+        "khaos/runner_sdk.py"
+      ],
+      "write_scope": [],
+      "approval": "approved separately",
+      "returncode": 0,
+      "bounded_result_bytes": 1060,
+      "host_response": "accepted",
+      "can_continue": false
+    }
+  ],
+  "task_record": "proposals=8; executed command return codes=[1,0,0,1,1,0,0,0]; cumulative Runner time=36.571s; bounded result bytes=6488; stop reason=stopped: tool-call budget exhausted. Only these command results are verified; broader test coverage is not inferred.",
+  "workspace_diff": "",
+  "workspace_clean_after": true,
+  "model_test_runs": 0,
+  "hidden_grader_returncodes": [
+    1
+  ],
+  "hidden_grader_passed": false,
+  "result": "FAIL",
+  "primary_blocker": "Tool planning: missing-path guesses, repeated missing-directory discovery, and broad symbol filters exhausted the fixed budget before locating the classifier.",
+  "observed_errors": {
+    "output_limit": false,
+    "cleanup_eperm": false,
+    "agent_host_invalid_response": false
+  },
+  "evidence_limits": [
+    "No edit or focused model test was proposed.",
+    "Successful bounded read and continuation do not establish Coding Reliability Closure.",
+    "Earlier baseline-fail/gold-pass controls remain separate parent-only evidence."
+  ],
+  "new_production_code": 0,
+  "new_trusted_code": 0,
+  "new_architecture_concepts": 0,
+  "new_trusted_processes": 0,
+  "new_ipc_operations": 0,
+  "new_persistent_runtime_state": 0,
+  "new_dependencies": 0
+}

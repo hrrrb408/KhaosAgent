@@ -2959,7 +2959,8 @@ not prove execution under the signed Runner or model compliance. The full
 canonical suite passed 334 tests in 681.208 seconds on 2026-10-15, including
 the signed-product headless build/authentication test.
 
-A post-correction real GLM replay is **NOT RUN**: `KHAOS_BIGMODEL_API_KEY` was
+At the time of the prompt correction, a post-correction real GLM replay was
+**NOT RUN**: `KHAOS_BIGMODEL_API_KEY` was
 absent from the current test process environment. The previously denied
 whole-file operation was not retried. No post-correction Candidate, focused
 test, workspace diff, or independent grading result exists. Coding Reliability
@@ -2982,3 +2983,55 @@ Change accounting for this Host prompt correction:
 The 8-call, 180-second cumulative Runner, 30-second per-call, 4 KiB single
 result, 32 KiB cumulative result, exact scope, and per-operation approval
 limits remain unchanged.
+
+### Post-correction frozen-task replay: discovery-05
+
+On 2026-10-15, the user authorized reuse of the existing Hermes GLM credential.
+Its configured model and endpoint matched GLM-5.3-Flash and BigModel Coding
+Plan. The key was passed only in the launch subprocess environment; it was not
+written into arguments, reports, or the workspace. A newly built signed product
+from main `3aa4e6255c5f63254cf96ca24a028378d6bd8973` passed
+`codesign --verify --deep --strict`. The separate BigModel data prompt and each
+of eight tool requests were reviewed and approved through the real Launcher.
+The frozen task prompt, baseline, and hidden grader remained unchanged.
+
+The compact replay record is
+[`original-task-discovery-05.json`](../reports/scoped-discovery/original-task-discovery-05.json).
+The full local attempt, event timestamps, and parent-only grader copy remain
+under `reports/benchmark/dataset-v1/runs/api/runner-exception-classification/discovery-05/`.
+
+| Step | Approved read scope | Return code | Bounded result bytes | Host response | Continue |
+| --- | --- | --- | --- | --- | --- |
+| Directory list | `src`, `tests` | 1 | 1,583 | accepted | true |
+| Bounded first-40-lines read, emitted UTF-8 capped at 900 bytes | `tests/test_runner_sdk.py` | 0 | 1,063 | accepted | true |
+| Bounded symbol search, emitted UTF-8 capped at 900 bytes | `tests/test_runner_sdk.py` | 0 | 332 | accepted | true |
+| Bounded symbol search of missing path | `src/khaos/runner_sdk.py` | 1 | 1,542 | accepted | true |
+| Directory list of missing path | `src` | 1 | 170 | accepted | true |
+| Directory list | `khaos` | 0 | 548 | accepted | true |
+| Bounded symbol search | `khaos/runner.py` | 0 | 190 | accepted | true |
+| Bounded symbol search | `khaos/runner_sdk.py` | 0 | 1,060 | accepted | false |
+
+Result-byte counts include the tool-result envelope, not just emitted command
+stdout. Every write scope was empty. Runner time totaled 36.571 seconds and
+bounded results totaled 6,488 bytes. The eighth result correctly set
+`can_continue=false` at the existing call limit. The model stopped and accurately
+reported that no fix or test had been completed. The workspace remained clean;
+the parent-only hidden grader ran the frozen focused test command and returned
+1. No candidate test edit or source edit was copied into grading.
+
+This replay proves signed-product bounded reads of a 10,614-byte file and safe
+continuation after nonzero results on the current prompt. None of
+`output_limit`, cleanup EPERM, or `agent_host_invalid_response` occurred in this
+attempt. It does not prove the complete list/read/edit/test sequence or original
+task success. The principal remaining blocker is tool planning: missing-path
+guesses, a repeated missing-directory request, and broad symbol filters consumed
+the eight calls before the classifier was located. Coding Reliability Closure
+remains **NOT PROVEN**. A general improvement to evidence-based path selection
+and targeted symbol search is the next investigation; this run does not justify
+new authority, tools, or larger budgets.
+
+This follow-up changes documentation and a sanitized evidence summary only.
+Production code delta: 0; trusted code delta: 0; new architecture concepts: 0;
+new trusted processes: 0; new IPC operations: 0; new persistent runtime state: 0;
+new dependencies: 0; removed duplication/abstractions: 0. The previously recorded
+334-test canonical security pass applies to the unchanged production source.
