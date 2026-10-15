@@ -18,7 +18,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 from khaos.ipc import PROTOCOL_VERSION, receive_frame, send_frame
 from khaos.kernel.macos_disk_image import (
@@ -44,6 +44,8 @@ from khaos.kernel.macos_seatbelt import (
     _python_runtime_exclusions,
     _python_runtime_paths,
     _process_started_notification,
+    _kill_process_group,
+    _signal_process_group,
     _snapshot_profile,
     _sandbox_probe_io_stage,
     _seatbelt_probe_directory,
@@ -76,6 +78,58 @@ def _direct_unmount(mount_point: Path) -> tuple[int, int]:
 
 
 class MacOSSeatbeltTests(unittest.TestCase):
+    def test_kill_process_group_retries_after_direct_leader_kill(self) -> None:
+        process = subprocess.Popen(
+            ["/bin/sleep", "30"], start_new_session=True
+        )
+        try:
+            with patch(
+                "khaos.kernel.macos_seatbelt._signal_process_group",
+                side_effect=[PermissionError(errno.EPERM, "denied"), None],
+            ) as signal_process_group:
+                _kill_process_group(process)
+
+            self.assertIsNotNone(process.returncode)
+            self.assertEqual(
+                signal_process_group.call_args_list,
+                [
+                    call(process.pid, leader_exited=False),
+                    call(process.pid, leader_exited=True),
+                ],
+            )
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+    def test_signal_process_group_rechecks_leader_after_eperm(self) -> None:
+        with (
+            patch(
+                "khaos.kernel.macos_seatbelt.os.killpg",
+                side_effect=PermissionError(errno.EPERM, "denied"),
+            ),
+            patch(
+                "khaos.kernel.macos_seatbelt._child_exit_info",
+                return_value=Mock(si_pid=123),
+            ) as child_exit_info,
+        ):
+            _signal_process_group(123)
+
+        child_exit_info.assert_called_once_with(123)
+
+        with (
+            patch(
+                "khaos.kernel.macos_seatbelt.os.killpg",
+                side_effect=PermissionError(errno.EPERM, "denied"),
+            ),
+            patch(
+                "khaos.kernel.macos_seatbelt._child_exit_info",
+                return_value=None,
+            ),
+        ):
+            with self.assertRaises(PermissionError):
+                _signal_process_group(123)
+
     def test_loopback_os_permission_denials_are_tolerated_only(self) -> None:
         listener = MagicMock()
         listener.bind.side_effect = PermissionError(errno.EPERM, "denied")
@@ -2419,8 +2473,56 @@ if not (state / "setsid-denied.txt").exists() and not (state / "setsid-allowed.t
         with tempfile.TemporaryDirectory() as value:
             source = Path(value) / "workspace"
             source.mkdir()
+            large_lines = [
+                f"{line:03d}:".encode("ascii") + b"x" * 50 + b"\n"
+                for line in range(500)
+            ]
+            large_lines.append(b"x" * 467)
+            large_file = b"".join(large_lines)
+            self.assertEqual(len(large_file), 27_967)
+            (source / "large.txt").write_bytes(large_file)
+            (source / "state").mkdir()
             with workspace_snapshot(source) as snapshot:
-                with self.assertRaisesRegex(SandboxedProcessError, "output_limit"):
+                with self.assertRaises(SandboxedProcessError) as raised:
+                    run_sandboxed_process(
+                        snapshot,
+                        ["/bin/cat", "large.txt"],
+                        timeout_seconds=5,
+                        workspace_read_scope=WorkspaceReadScope.from_paths(
+                            ("large.txt",)
+                        ),
+                    )
+                self.assertEqual(raised.exception.code, "output_limit")
+
+                selected_lines = b"".join(large_lines[120:125])
+                bounded_read = run_sandboxed_process(
+                    snapshot,
+                    [
+                        "python3",
+                        "-I",
+                        "-B",
+                        "-c",
+                        "from itertools import islice; f=open('large.txt'); print(''.join(islice(f, 120, 125)), end='')",
+                    ],
+                    timeout_seconds=5,
+                    workspace_read_scope=WorkspaceReadScope.from_paths(("large.txt",)),
+                )
+                self.assertEqual(bounded_read.returncode, 0, bounded_read.stderr)
+                self.assertEqual(bounded_read.stdout.encode("utf-8"), selected_lines)
+                self.assertEqual(len(bounded_read.stdout.encode("utf-8")), 275)
+
+                child_marker = snapshot.path / "state" / "child-survived"
+                script = (
+                    "import os,time\n"
+                    "pid=os.fork()\n"
+                    "if pid == 0:\n"
+                    " time.sleep(0.6)\n"
+                    " open('state/child-survived','w').write('x')\n"
+                    " os._exit(0)\n"
+                    "os.write(1,b'x'*30000)\n"
+                    "time.sleep(10)\n"
+                )
+                with self.assertRaises(SandboxedProcessError) as raised:
                     run_sandboxed_process(
                         snapshot,
                         [
@@ -2428,10 +2530,18 @@ if not (state / "setsid-denied.txt").exists() and not (state / "setsid-allowed.t
                             "-I",
                             "-S",
                             "-c",
-                            "print('x' * 9000)",
-                    ],
-                    timeout_seconds=5,
-                )
+                            script,
+                        ],
+                        timeout_seconds=5,
+                        workspace_write_scope=WorkspaceWriteScope.from_paths(
+                            ("state/child-survived",)
+                        ),
+                    )
+                self.assertEqual(raised.exception.code, "output_limit")
+                deadline = time.monotonic() + 1.5
+                while time.monotonic() < deadline and not child_marker.exists():
+                    time.sleep(0.02)
+                self.assertFalse(child_marker.exists())
 
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),

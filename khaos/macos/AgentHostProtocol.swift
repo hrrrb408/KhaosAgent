@@ -896,6 +896,14 @@ enum AgentHostProtocol {
     }
 
     static func encodeReply(_ reply: AgentHostReply) throws -> Data {
+        let data = try encodeReplyUnchecked(reply)
+        guard decodeReply(data) != nil else {
+            throw AgentHostProtocolError.invalidResponse
+        }
+        return data
+    }
+
+    private static func encodeReplyUnchecked(_ reply: AgentHostReply) throws -> Data {
         switch reply {
         case let .text(text):
             guard boundedBytes(text, maximum: maximumTextBytes) else {

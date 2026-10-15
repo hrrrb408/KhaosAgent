@@ -42,6 +42,29 @@ enum AgentHostProtocolProbe {
                 && AgentHostProtocol.maximumToolResultBytesPerTask == 32 * 1_024,
             "coding task budgets changed unexpectedly"
         )
+        require(
+            AgentHostClientError.invalidResponse(.xpcTransportFailure).diagnosticStage
+                == "xpc_transport_failure"
+                && AgentHostClientError.invalidResponse(.hostReturnedNil).diagnosticStage
+                    == "host_returned_nil"
+                && AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure).diagnosticStage
+                    == "launcher_reply_decode_failure"
+                && AgentHostClientError.invalidResponse(.unexpectedReplyType).diagnosticStage
+                    == "unexpected_reply_type"
+                && AgentHostClientError.timedOut.diagnosticStage == nil,
+            "Agent Host response diagnostics did not preserve fixed, sanitized stages"
+        )
+        let invalidActionFrame = try AgentHostProtocol.encodeReply(
+            .failure("invalid_agent_action")
+        )
+        guard case let .failure(invalidActionCode)? =
+                AgentHostProtocol.decodeReply(invalidActionFrame) else {
+            fatalError("invalid model action was not returned as a valid Host failure")
+        }
+        require(
+            invalidActionCode == "invalid_agent_action",
+            "model action rejection changed its valid Host failure code"
+        )
         let activeInput = try AgentHostProtocol.userTurn(
             "publish topic=release message=complete",
             activePlugin: active
@@ -476,6 +499,26 @@ enum AgentHostProtocolProbe {
         let listFrame = try AgentHostProtocol.encodeReply(.list(listing))
         guard case let .list(decodedListing)? = AgentHostProtocol.decodeReply(listFrame) else {
             fatalError("valid directory listing proposal was rejected")
+        }
+        do {
+            _ = try AgentHostProtocol.encodeReply(.list(AgentShellProposal(
+                argv: [],
+                readScope: ["src", "src"],
+                writeScope: []
+            )))
+            fatalError("Host encoded a listing the Launcher decoder would reject")
+        } catch AgentHostProtocolError.invalidResponse {
+            // Host output uses the same strict decoder contract as the Launcher.
+        }
+        do {
+            _ = try AgentHostProtocol.encodeReply(.shell(AgentShellProposal(
+                argv: ["/bin/true\u{0000}"],
+                readScope: [],
+                writeScope: []
+            )))
+            fatalError("Host encoded a command with an unreviewable argument")
+        } catch AgentHostProtocolError.invalidResponse {
+            // Malformed model output is rejected before it reaches the Launcher.
         }
         require(
             decodedListing.argv.isEmpty && decodedListing.writeScope.isEmpty
