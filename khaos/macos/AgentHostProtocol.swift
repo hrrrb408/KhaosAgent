@@ -5,6 +5,7 @@ import Foundation
 enum AgentHostReply {
     case text(String)
     case shell(AgentShellProposal)
+    case list(AgentShellProposal)
     case plugin(AgentPluginBinding)
     case evolution(AgentEvolutionProposal)
     case candidate(AgentCandidateFiles)
@@ -121,7 +122,7 @@ enum AgentModelProvider: String {
 }
 
 enum AgentHostProtocol {
-    static let version = 8
+    static let version = 9
     static let maximumFrameBytes = 64 * 1024
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
@@ -392,6 +393,16 @@ enum AgentHostProtocol {
                 readScope: readScope,
                 writeScope: writeScope
             ))
+        case "list":
+            guard Set(object.keys) == ["version", "type", "read_scope"],
+                  let paths = strings(
+                    object["read_scope"], maximum: maximumScopePaths,
+                    maximumItemBytes: 128
+                  ),
+                  !paths.isEmpty,
+                  Set(paths).count == paths.count,
+                  paths.allSatisfy(reviewable) else { return nil }
+            return .list(AgentShellProposal(argv: [], readScope: paths, writeScope: []))
         case "plugin":
             guard Set(object.keys) == [
                 "version", "type", "plugin_id", "candidate_digest", "generation",
@@ -899,6 +910,13 @@ enum AgentHostProtocol {
                 "read_scope": proposal.readScope,
                 "write_scope": proposal.writeScope,
             ])
+        case let .list(proposal):
+            guard proposal.argv.isEmpty, proposal.writeScope.isEmpty else {
+                throw AgentHostProtocolError.invalidResponse
+            }
+            return try encode([
+                "version": version, "type": "list", "read_scope": proposal.readScope,
+            ])
         case let .plugin(binding):
             guard validPluginID(binding.pluginID),
                   validDigest(binding.candidateDigest),
@@ -1115,7 +1133,7 @@ enum AgentHostProtocol {
         _ type: String,
         canContinue: Bool
     ) -> Bool {
-        type == "text" || (canContinue && type == "shell")
+        type == "text" || (canContinue && (type == "shell" || type == "list"))
     }
 
     static func replyAllowedAfterToolResult(
@@ -1125,7 +1143,7 @@ enum AgentHostProtocol {
         switch reply {
         case .text, .failure:
             return true
-        case .shell:
+        case .shell, .list:
             return canContinue
         default:
             return false

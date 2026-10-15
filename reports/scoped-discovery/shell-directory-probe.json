@@ -1,0 +1,13 @@
+{
+  "status": "measured",
+  "baseline": "dc49d86eff68d97e9f384d80a68275eda4c64120",
+  "mechanism": "real macOS Seatbelt process.exec with read roots src and tests",
+  "src_enumeration": true,
+  "tests_enumeration": true,
+  "approved_source_read": true,
+  "root_enumeration_denied": true,
+  "canary_content_read_denied": true,
+  "out_of_scope_symlink_follow_denied": true,
+  "symlink_target_metadata_visible_to_shell": true,
+  "interpretation": "Use Kernel fs.list for model discovery, since shell directory authority includes readlink metadata."
+}

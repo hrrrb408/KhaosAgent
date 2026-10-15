@@ -933,7 +933,7 @@ AgentLoop 也不能把模型输出当作授权。模型只能提出 Tool request
 
 一个用户任务可在同一 Agent Host session 中包含多次 workspace 操作。Agent Host
 根据最近一次结果建议下一步；只有 Trusted Launcher 写入的严格布尔
-`tool_result.can_continue` 能允许继续。`true` 只允许再提出一个 `shell` 建议或返回最终文本；
+`tool_result.can_continue` 能允许继续。`true` 只允许再提出一个 `list` / `shell` 建议或返回最终文本；
 `plugin` 和 Candidate evolution 不属于 Coding continuation。`false` 要求 Host 只返回文本，
 并终止本任务的操作路径。该位来自 Launcher，模型不能写入或扩大它。
 
@@ -955,6 +955,8 @@ Local provider 仍是默认值。远端 provider 发送任务前，Launcher 单�
 scope 内文件/目录文本、命令退出码、changeset 路径及有界 stdout/stderr；该授权不等于
 shell 执行审批。远端 Candidate evolution 的 Plugin source 继续要求 Development Approval
 后的单独数据确认。
+
+AgentHost 协议 v9 的 `list` 建议仅包含待枚举目录的 read scope，不能包含 argv 或写入权限。Launcher 显示每个目录根并明确说明其授权整个子树读取；固定 Runner 复用既有 Kernel `fs.list`，返回有界名称、类型和大小，不返回 symlink target。合并列表超过本次 stdout 预算时返回固定错误，不发送部分目录数据。目录发现与 shell 共用上述审批、操作次数、时间和结果预算；用户拒绝后终止任务。
 
 这条路径复用现有 `AgentHost → Trusted Launcher → Kernel → Seatbelt Runner`，不新增
 Kernel operation、可信进程、持久状态、依赖或通用 Agent framework。Kernel execution、取消、

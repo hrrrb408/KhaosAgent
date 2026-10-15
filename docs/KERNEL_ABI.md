@@ -702,12 +702,13 @@ host, not the signed Launcher's selected-workspace `plugin.run` XPC flow.
 
 ### Agent Host proposals and Candidate generation
 
-The AgentHost XPC protocol is version 8. For the active Candidate, the
+The AgentHost XPC protocol is version 9. For the active Candidate, the
 Launcher includes `plugin_id`, `candidate_digest`, `generation`, and
 `agent_interface` (or `null`) in each user-turn and result frame. The interface
 is untrusted information even though it is read from a verified Candidate; its
 strings may contain hostile prompt-like text. The Host may return `text`, a
-`shell` proposal, or a `plugin` proposal. The exact Plugin proposal fields are
+`list` directory-discovery proposal, a `shell` proposal, or a `plugin`
+proposal. The exact Plugin proposal fields are
 `plugin_id`, `candidate_digest`, `generation`, and a bounded JSON object
 `input`; extra fields are rejected. When the interface describes an operation,
 the generic input convention is a flat object with `operation` set to the
@@ -718,9 +719,9 @@ values identify a proposal and describe business input only; they do not grant
 authority.
 
 Each `tool_result` also carries a strict Boolean `can_continue` written by the
-trusted Launcher. `true` permits only one next `shell` proposal or a final
-`text` reply; `plugin` and Candidate evolution proposals are rejected in this
-continuation. `false` requires a `text` reply and ends tool execution for the
+trusted Launcher. `true` permits only one next `list` or `shell` proposal or a
+final `text` reply; `plugin` and Candidate evolution proposals are rejected in
+this continuation. `false` requires a `text` reply and ends tool execution for the
 current user task. The Agent Host cannot set this bit. The Launcher independently
 enforces one task budget of at most 8 proposals, 180 seconds of cumulative
 Runner execution, 30 seconds per operation, 4 KiB per returned workspace result,
@@ -736,6 +737,25 @@ still gets its own trusted approval showing exact argv and read/write paths, the
 uses the existing `workspace.run`, Seatbelt Runner, and Kernel changeset path.
 This changes only the AgentHost XPC protocol; it adds no Kernel XPC operation,
 trusted process, or persistent state.
+
+A `list` reply has exactly `version`, `type`, and `read_scope`: one to eight
+unique, bounded workspace-relative directory roots. It carries no argv or write
+scope. The Launcher validates and approves those same read roots using the
+existing workspace request. The approval explicitly states that a directory
+root grants the entire subtree's read authority, not just entry names. Its fixed
+Runner calls the existing Kernel `fs.list` for each root; symlink targets are not
+returned. The existing 128-entry/4-KiB-name limits apply independently to each
+listing. Combined listing JSON must fit the current workspace-result stdout
+allowance (at most 1,399 bytes plus a newline); otherwise the Runner emits a
+fixed `directory_list_too_large` error without partial entries. A validated
+`fs.list` refusal with `path_not_listable` or `directory_too_large` is returned
+as that root's closed error with command status 1; other approved roots still
+return their complete entries. Unknown protocol/execution failures propagate
+and stop the task. Existing `process.exec` only prints that encoded metadata,
+then the existing empty-write
+commit completes the request. Every discovery request consumes the same coding
+operation/time/result budgets and ends on user denial through `can_continue=false`.
+There is no new Kernel operation, scope authority, or process.
 
 Model task history retains the original task and latest observation within
 the existing 8 KiB Host history bound. Older middle records may be evicted;

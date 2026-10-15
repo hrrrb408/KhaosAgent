@@ -95,6 +95,66 @@ def _process_argument_area(process_id: int) -> bytes:
 
 
 class KernelLauncherTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+                         "requires the real macOS Seatbelt Runner")
+    def test_scoped_directory_discovery_hides_canary_and_symlink_targets(self) -> None:
+        runner = '''from khaos.runner_sdk import fs_list, fs_read, process_exec, workspace_commit
+from khaos.ipc import IPCProtocolError
+import json
+
+def run():
+    listings = {path: fs_list(path) for path in ("", "src", "tests")}
+    assert fs_read("src/parser.py") == b"def parse(value): return value\\n"
+    denied = 0
+    for operation, paths in ((fs_read, ("secret-canary.txt", "private/secret.txt", "../outside.txt", "/etc/passwd", "src/alias")), (fs_list, ("private", "src/alias", "../", "/"))):
+        for path in paths:
+            try:
+                operation(path)
+            except IPCProtocolError:
+                denied += 1
+            else:
+                raise AssertionError("unscoped access allowed")
+    for path in ("src/many", "src/wide"):
+        try:
+            fs_list(path)
+        except IPCProtocolError as error:
+            assert "directory_too_large" in str(error)
+        else:
+            raise AssertionError("oversized listing allowed")
+    text = json.dumps({"listings": listings, "denied": denied}, sort_keys=True)
+    process_exec(("python3", "-I", "-B", "-c", "print(" + repr(text) + ")"))
+    workspace_commit()
+    return 0
+'''
+        with tempfile.TemporaryDirectory(prefix="khaos-scoped-discovery-") as value:
+            workspace = Path(value) / "workspace"
+            for path in ("src/many", "src/wide", "tests", "private"):
+                (workspace / path).mkdir(parents=True)
+            (workspace / "src/parser.py").write_text("def parse(value): return value\n")
+            (workspace / "src/utils.py").write_text("")
+            (workspace / "tests/test_parser.py").write_text("")
+            canary = secrets.token_hex(24)
+            (workspace / "secret-canary.txt").write_text(canary)
+            (workspace / "private/secret.txt").write_text(canary)
+            (Path(value) / "outside.txt").write_text(canary)
+            (workspace / "src/alias").symlink_to("../secret-canary.txt")
+            for index in range(129):
+                (workspace / "src/many" / f"entry{index:03}").touch()
+            for index in range(60):
+                (workspace / "src/wide" / (f"{index:03}" + "x" * 80)).touch()
+            result = run_workspace_command(workspace, runner_source=runner,
+                                           workspace_read_scope=("src", "tests"), timeout_seconds=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertEqual(data["denied"], 9)
+            self.assertEqual([entry["name"] for entry in data["listings"][""]], ["src", "tests"])
+            self.assertEqual([entry["name"] for entry in data["listings"]["tests"]], ["test_parser.py"])
+            alias = next(entry for entry in data["listings"]["src"] if entry["name"] == "alias")
+            self.assertEqual(alias, {"name": "alias", "kind": "symlink", "size": None})
+            self.assertNotIn("secret-canary.txt", result.stdout + result.stderr)
+            self.assertNotIn(canary, result.stdout + result.stderr)
+            self.assertEqual((workspace / "secret-canary.txt").read_text(), canary)
+
     @unittest.skipUnless(
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt backend",

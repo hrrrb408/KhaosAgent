@@ -1114,7 +1114,9 @@ enum TrustedWorkspaceLauncherMain {
                     )
                     fflush(stdout)
                     awaitingNextUser = true
-                case let .shell(proposal):
+                case let .shell(proposal), let .list(proposal):
+                    let directoryListing: Bool
+                    if case .list = reply { directoryListing = true } else { directoryListing = false }
                     let outcome: AgentToolOutcome
                     if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
                         outcome = AgentToolOutcome(
@@ -1151,6 +1153,7 @@ enum TrustedWorkspaceLauncherMain {
                         } else {
                             outcome = runAgentTool(
                                 proposal,
+                                directoryListing: directoryListing,
                                 workspace: &workspace,
                                 timeoutSeconds: min(
                                     AgentHostProtocol.maximumToolExecutionSecondsPerCall,
@@ -1900,11 +1903,14 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func runAgentTool(
         _ proposal: AgentShellProposal,
+        directoryListing: Bool = false,
         workspace: inout TrustedWorkspaceSelection?,
         timeoutSeconds: Double,
         maximumResultBytes: Int
     ) -> AgentToolOutcome {
-        guard !proposal.argv.isEmpty,
+        guard (directoryListing
+                ? proposal.argv.isEmpty && proposal.writeScope.isEmpty && !proposal.readScope.isEmpty
+                : !proposal.argv.isEmpty),
               proposal.argv.count <= AgentHostProtocol.maximumArguments,
               proposal.argv.allSatisfy(reviewable),
               proposal.readScope.count + proposal.writeScope.count
@@ -1926,7 +1932,12 @@ enum TrustedWorkspaceLauncherMain {
         }
         let source: String
         do {
-            source = try agentRunnerSource(argv: proposal.argv)
+            source = try directoryListing
+                ? agentDirectoryRunnerSource(
+                    paths: proposal.readScope,
+                    maximumBytes: max(0, agentStreamLimit(maximumBytes: maximumResultBytes) - 1)
+                )
+                : agentRunnerSource(argv: proposal.argv)
         } catch {
             return AgentToolOutcome(
                 ok: false,
@@ -2027,12 +2038,14 @@ enum TrustedWorkspaceLauncherMain {
                 stopReason: "Launcher could not encode the workspace invocation"
             )
         }
-        let command = proposal.argv.map { "  \($0)" }.joined(separator: "\n")
+        let command = directoryListing
+            ? "Kernel fs.list: immediate entries of each requested directory; symlink targets are omitted."
+            : "Proposed argv:\n" + proposal.argv.map { "  \($0)" }.joined(separator: "\n")
         writeAgentDiagnostic("tool=approval-presented")
         guard approveReviewedRequest(
             request,
             title: "Approve this local Agent tool once?",
-            details: "Proposed argv:\n\(command)",
+            details: command,
             workspace: selection.scopeURL,
             digest: KernelWorkspaceXPC.sha256Hex(invocation)
         ) else {
@@ -2100,7 +2113,7 @@ enum TrustedWorkspaceLauncherMain {
               maximumBytes <= AgentHostProtocol.maximumToolResultBytes else {
             throw LauncherError.invalidArguments
         }
-        var streamLimit = min(1_400, (maximumBytes - 512) / 2)
+        var streamLimit = agentStreamLimit(maximumBytes: maximumBytes)
         while true {
             let stdout = boundedUTF8Prefix(result.stdout, maximumBytes: streamLimit)
             let stderr = boundedUTF8Prefix(result.stderr, maximumBytes: streamLimit)
@@ -2148,6 +2161,49 @@ enum TrustedWorkspaceLauncherMain {
                 workspace_commit()
                 return 0
             """
+        return try boundedAgentRunnerSource(source)
+    }
+
+    private static func agentStreamLimit(maximumBytes: Int) -> Int {
+        min(1_400, max(0, (maximumBytes - 512) / 2))
+    }
+
+    private static func agentDirectoryRunnerSource(paths: [String], maximumBytes: Int) throws -> String {
+        let encodedPaths = try JSONSerialization.data(withJSONObject: paths).base64EncodedString()
+        return try boundedAgentRunnerSource("""
+            import base64, json
+            from khaos.runner_sdk import fs_list, process_exec, workspace_commit
+            from khaos.ipc import IPCProtocolError
+
+            PATHS = json.loads(base64.b64decode(\(String(reflecting: encodedPaths))))
+
+            def run():
+                listings = {}
+                status = 0
+                errors = {
+                    "Kernel rejected fs.list: path_not_listable": "path_not_listable",
+                    "Kernel rejected fs.list: directory_too_large": "directory_too_large",
+                }
+                for path in PATHS:
+                    try:
+                        listings[path] = fs_list(path)
+                    except IPCProtocolError as error:
+                        category = errors.get(str(error))
+                        if category is None:
+                            raise
+                        listings[path] = {"error": category}
+                        status = 1
+                text = json.dumps(listings, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+                if len(text.encode("utf-8")) > \(maximumBytes):
+                    text = '{"error":"directory_list_too_large"}'
+                    status = 1
+                process_exec(("python3", "-I", "-B", "-c", "print(" + repr(text) + "); raise SystemExit(" + str(status) + ")"))
+                workspace_commit()
+                return 0
+            """)
+    }
+
+    private static func boundedAgentRunnerSource(_ source: String) throws -> String {
         guard source.utf8.count <= 10_240 else {
             throw LauncherError.invalidArguments
         }
@@ -2246,6 +2302,7 @@ enum TrustedWorkspaceLauncherMain {
         alert.informativeText = "Workspace: \(workspace.path)\n\n"
             + "\(details)\n\n"
             + "Readable paths:\n\(readPaths.isEmpty ? "(none)" : readPaths)\n\n"
+            + "A directory read root authorizes its entire subtree, including descendant file contents. A file read root authorizes that file only.\n\n"
             + "Committable paths:\n\(writePaths.isEmpty ? "(none)" : writePaths)\n\n"
             + "Request SHA-256: \(digest)"
         alert.addButton(withTitle: "Cancel")

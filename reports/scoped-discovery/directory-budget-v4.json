@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-15",
+  "fixture_entry_count": 67,
+  "fixture_name_utf8_bytes": 2463,
+  "combined_listing_metadata_json_bytes": 4876,
+  "signed_product_stdout_allowance_bytes": 1399,
+  "first_list_operation_returncode": 1,
+  "first_bounded_task_result_bytes": 278,
+  "next_proposal": "different directory roots; cancelled in the trusted approval UI",
+  "approval_presentations": 2,
+  "approved_operations": 1,
+  "denied_operations": 1,
+  "changed_paths": [],
+  "canary_unchanged": true,
+  "canary_filename_or_content_in_launcher_output": false,
+  "raw_first_tool_result_preserved": false,
+  "note": "The trusted source emits a fixed directory_list_too_large result without partial listing entries. The signed run preserved the nonzero return code and bounded result size; its exact first tool-result text was not separately captured."
+}

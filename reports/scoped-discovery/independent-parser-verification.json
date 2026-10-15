@@ -1,0 +1,19 @@
+{
+  "verification_path": "independent parent-selected Kernel/Seatbelt Runner",
+  "read_scope": [
+    "src/parser.py",
+    "src/utils.py",
+    "tests/test_parser.py"
+  ],
+  "write_scope": [],
+  "baseline": {
+    "returncode": 1,
+    "stdout": "",
+    "stderr_sha256": "c408a25a17ce93f6d27fbd7d6f17bb2cdb278884ad159bbfc1ab2f6242a6f26f"
+  },
+  "candidate": {
+    "returncode": 0,
+    "stdout": "{\"independent_cases_passed\": 7}\n",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-15",
+  "model_provider": "bigmodel-coding-plan",
+  "model": "GLM-5.3-Flash",
+  "agent_host_protocol_version": 9,
+  "deep_signature_verified": true,
+  "launcher_sha256": "8ffa06352c0e774c14bfba00f2b73757681294c2d4d7ab71914782399f5bfece",
+  "source_sha256": {
+    "khaos/macos/AgentHost.swift": "ecd07239fb03cbda45ee1532d06fd1358d5f702c39e676b28fa7a033d66fd231",
+    "khaos/macos/AgentHostProtocol.swift": "21c27179340956de3fa7258e478e5ca5c68dc207e8af3dc7d07fa60db8938d85",
+    "khaos/macos/TrustedWorkspaceLauncherMain.swift": "0880306064d506021dab8ce21e3d34674ded4882c8518525dddcb4a9b2009799"
+  }
+}
