@@ -61,10 +61,11 @@ exports test-only key material within its temporary fixture, then removes it and
 restores Keychain search state. No key material is committed or bundled.
 
 A fresh controlled App built with the existing local certificate. User-owned
-install/restart/identical-version replacement/rollback/uninstall passed actual
+install/restart/distinct build 1 → 2 → 1 update/rollback/uninstall passed actual
 Launch Services bootstrap and post-run signature checks: `self-host.json`.
-This is app restart, not an OS reboot; this is replacement testing, not a distinct
-release/state migration. Those broader acceptance items remain NOT PROVEN.
+This is app restart, not an OS reboot. Both user and protected deployments
+verified distinct local build versions 1 → 2 → 1; no state schema migration
+is claimed. OS reboot acceptance is not exercised.
 
 ## C. Persistent state, keys and update audit
 
@@ -101,13 +102,13 @@ administrator authorization. `protected-install.json` records a root:wheel 0755
 App and parent, non-user-writable ancestors and ACL observations. Six real B
 attacks received EACCES: Launcher write-open, nested Kernel write-open, App
 rename, nested XPC rename, parent rename and symlink creation. Actual install,
-app restart, same-version update, rollback and post-operation signature/peer
+app restart, distinct-version update (1 → 2), rollback (2 → 1) and post-operation signature/peer
 checks passed. Uninstall removed the exact disposable apps and test parent.
 No system security setting was changed; no system service was installed.
 
 These are tested filesystem denials for protected code. They do not prove all
 same-UID attacks fail. Protected state, runtime injection, hostile signing-key
-use, OS restart and distinct-version migration remain NOT PROVEN. A protected
+use, OS reboot and state-schema migration remain NOT PROVEN. A protected
 state writer would require a new, separately approved OS authority boundary;
 this change does not introduce it.
 
@@ -123,18 +124,25 @@ code in privileged runtime processes.
 
 GitHub was unprotected with no rulesets; only owner hrrrb408 had write access.
 The owner explicitly selected single-maintainer protection with an approval gap.
-The applied API evidence requires PRs, strict/up-to-date `security-tests` from
+The applied API evidence requires PRs, strict/up-to-date `security-tests` and `security-freeze` from
 GitHub Actions app 15368, includes admins, prohibits force push/deletion and
 requires resolved conversations. Approvals 0, Code Owner review disabled. No
-bypass allowance was added. Freeze context will be required after its initial
-main deployment. Independent approval remains NOT PROVEN; a writable owner can
+bypass allowance was added. The initial PR emitted a green freeze job before `security-freeze` was added
+as a required context, avoiding an absent-check bootstrap deadlock. Independent approval remains NOT PROVEN; a writable owner can
 change CI/settings or spoof an Actions context by rewriting a workflow. This is
 not a malicious-maintainer-proof immutable kernel. Do not silently weaken gates.
 
 ## F. Security acceptance and anomalies
 
-Canonical result: pending completion. PR-head and merged-main CI must be terminal
-and matched to the actual SHAs before delivery closure.
+Local full canonical suite: **340 passed, 666.772 seconds** after correcting
+identity preflight; the newly added same-UID case was then included in a fresh
+**5/5 focused freeze run**. The final tree contains 341 tests. The first run
+was 339 tests / one identity-preflight failure in 630.059 seconds. A final fresh
+341-test local run and PR CI validate the completed tree; see
+[PR #20 checks](https://github.com/hrrrb408/KhaosAgent/pull/20/checks) for the
+reviewed head. Delivery requires terminal PR and post-merge main checks matched
+to their full SHAs; these externally produced results cannot self-reference
+inside their own input commit.
 
 | Required attack family | Executable mapping / evidence |
 | --- | --- |
@@ -146,7 +154,7 @@ and matched to the actual SHAs before delivery closure.
 | Missing backend, malformed policy, snapshot unavailable | Seatbelt and signed Broker fail-closed probes; no Host fallback |
 | Build tamper / wrong identity / output replacement | Signed product resource tamper and wrong certificate; `test_security_freeze.py` exclusive rename |
 | B filesystem / key-state tamper | `same-uid.json`, `protected-install.json` |
-| Install/restart/update/rollback/uninstall | user and protected install reports; same-version replacement only |
+| Install/restart/update/rollback/uninstall | user and protected install reports; verified build 1 → 2 → 1 |
 
 The first local run exposed a signed-product build regression: `find-identity -v`
 excluded the temporary local self-signed certificate because it was not globally
@@ -155,7 +163,13 @@ identities, accepts an explicitly selected non-expired self-signed identity with
 changing global trust, rejects ambiguous selections/expired certificates, and
 still verifies actual signatures and externally pinned fingerprints. Three
 builder unit tests and the real signed product test (46.125 seconds) passed
-including wrong-certificate and signed-resource-tamper rejection. Do not interpret one green run as
+including wrong-certificate and signed-resource-tamper rejection.
+A deployment fixture initially reused a stdout file, so Launch Services appended
+two valid bootstrap lines and its exact-output assertion failed. Unique private
+output directories fixed the fixture; the complete distinct-version protected
+flow then passed. An earlier OS authentication timeout occurred before installation.
+Both are recorded in `deployment-fixture-failures.json`; no Kernel retries,
+readiness timeout or authority rules were changed. Do not interpret one green run as
 explaining readiness flakes. The earlier PR #18 same-SHA retry passed after a
 snapshot readiness failure before the intended symlink assertion; root cause
 remains unproven. Real APFS mounting has external OS lifecycle/resource state;
@@ -169,7 +183,7 @@ were made here. Production readiness remains conditional on that unresolved risk
 Independent review; writable build toolchain; Keychain operation authority;
 user-owned security/business state and replay; missing Hardened Runtime;
 Snapshot Broker allow-default residual policy; launch-time race/running mappings;
-OS-reboot and distinct-version migration acceptance; unexplained readiness flake.
+OS-reboot and state-schema migration acceptance; unexplained readiness flake.
 Developer ID distribution would separately require paid identity management,
 notarization/stapling, distribution/update trust and revocation policy; none is
 implied by local self-signed acceptance. See upstream Apple/GitHub references in
@@ -182,8 +196,8 @@ copied. No external library/framework/dependency was introduced.
 
 | Status | Decision |
 | --- | --- |
-| Self-Hosting Security | NOT PROVEN for full requested acceptance; bounded deployment exercised, distinct-version/OS reboot and toolchain provenance gaps remain |
-| Scoped Agent/Runner Tamper Resistance | NOT PROVEN pending current canonical and CI evidence |
+| Self-Hosting Security | PASS for documented trusted-host local build, verify, install, app restart, distinct-version upgrade, rollback and uninstall; no notarization/reproducible-binary/OS-reboot guarantee |
+| Scoped Agent/Runner Tamper Resistance | PASS for mapped real OS attack paths in the current canonical run; final CI remains a delivery gate |
 | Unprivileged Same-UID Tamper Resistance | NOT PROVEN overall; user-owned counterexamples succeed; protected filesystem cases deny |
 | Protected Security State | NOT PROVEN; co-replacement counterexample succeeds |
 | Security Kernel Freeze Governance | NOT PROVEN for independent review; single-maintainer technical protection applied |

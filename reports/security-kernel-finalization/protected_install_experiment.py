@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import tempfile
 from tools.build_macos_seed import verify_app
 
 SOURCE=Path('/Users/huangruibang/Applications/Khaos-Finalization-Disposable.app')
@@ -33,11 +34,13 @@ def verify_shell(app):
 
 def launch(phase):
     verify_app(APP,CERT)
-    out=Path('/tmp/khaos-protected-'+phase+'.stdout');err=out.with_suffix('.stderr')
+    output_directory = tempfile.TemporaryDirectory(prefix='khaos-protected-' + phase + '-')
+    out=Path(output_directory.name)/'stdout';err=Path(output_directory.name)/'stderr'
     result=subprocess.run(['/usr/bin/open','-n','-W','-a',str(APP),'--stdout',str(out),'--stderr',str(err),'--args','--bootstrap-check'],capture_output=True,text=True,timeout=60)
     output=out.read_text().strip() if out.exists() else ''
     assert result.returncode==0 and output=='kernel-and-snapshot-broker-peer-authentication=verified',(phase,result.returncode,output)
     verify_app(APP,CERT)
+    output_directory.cleanup()
     record['phases'].append({'phase':phase,'bootstrap':output,'signature':'PASS','build_version':__import__('plistlib').loads((APP/'Contents/Info.plist').read_bytes())['CFBundleVersion']});save()
 
 

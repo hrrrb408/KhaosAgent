@@ -1,0 +1,28 @@
+{
+  "initial_canonical": {
+    "tests": 339,
+    "seconds": 630.059,
+    "failures": 1,
+    "cause": "identity preflight excluded local self-signed certificate"
+  },
+  "fixed_canonical": {
+    "tests": 340,
+    "seconds": 666.772,
+    "failures": 0
+  },
+  "focused_product": {
+    "tests": 1,
+    "seconds": 46.125,
+    "failures": 0
+  },
+  "focused_freeze": {
+    "tests": 5,
+    "failures": 0
+  },
+  "focused_builder": {
+    "tests": 3,
+    "failures": 0
+  },
+  "final_tree_tests": 341,
+  "note": "Final fresh local run and PR/post-merge CI are separate evidence at their exact SHAs."
+}

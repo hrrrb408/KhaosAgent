@@ -4,22 +4,26 @@
     {
       "phase": "install",
       "bootstrap": "kernel-and-snapshot-broker-peer-authentication=verified",
-      "signature": "PASS"
+      "signature": "PASS",
+      "build_version": "1"
     },
     {
       "phase": "restart",
       "bootstrap": "kernel-and-snapshot-broker-peer-authentication=verified",
-      "signature": "PASS"
+      "signature": "PASS",
+      "build_version": "1"
     },
     {
       "phase": "upgrade",
       "bootstrap": "kernel-and-snapshot-broker-peer-authentication=verified",
-      "signature": "PASS"
+      "signature": "PASS",
+      "build_version": "2"
     },
     {
       "phase": "rollback",
       "bootstrap": "kernel-and-snapshot-broker-peer-authentication=verified",
-      "signature": "PASS"
+      "signature": "PASS",
+      "build_version": "1"
     }
   ],
   "permissions": [
@@ -64,7 +68,7 @@
       "symlink": false
     }
   ],
-  "acl_observation": "drwxr-xr-x  22 root  admin  704 Oct 16 01:45 /Library/Application Support\ndrwxr-xr-x   3 root  wheel   96 Oct 16 01:45 /Library/Application Support/Khaos\ndrwxr-xr-x@  3 root  wheel   96 Oct 16 01:41 /Library/Application Support/Khaos/Finalization.app\n",
+  "acl_observation": "drwxr-xr-x  22 root  admin  704 Oct 16 02:02 /Library/Application Support\ndrwxr-xr-x   3 root  wheel   96 Oct 16 02:02 /Library/Application Support/Khaos\ndrwxr-xr-x@  3 root  wheel   96 Oct 16 01:41 /Library/Application Support/Khaos/Finalization.app\n",
   "same_uid_attacks": [
     {
       "operation": "open-write",
@@ -103,6 +107,6 @@
     }
   ],
   "uninstalled": true,
-  "distinct_version_upgrade": "NOT PROVEN (identical-version replacement)",
+  "distinct_version_upgrade": "PASS (build 1 -> 2 -> 1; no state schema migration)",
   "protected_state": "NOT PROVEN"
 }

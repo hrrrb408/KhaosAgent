@@ -97,7 +97,7 @@ replaced through its parent. `chmod 0400` on owner-owned files is also insuffici
 A possible protected parent is `/Library/Application Support/Khaos`, root:wheel
 0755, under currently non-user-writable ancestors. The owner authorized this exact
 location and OS administrator authentication. A disposable installation, restart,
-identical-version update, rollback and uninstall passed; six ordinary-UID write,
+distinct build 1 → 2 update and 2 → 1 rollback, and uninstall passed; six ordinary-UID write,
 rename and symlink attempts received EACCES. The test directory was removed.
 See `reports/security-kernel-finalization/protected-install.json`.
 Before any system write, obtain explicit consent to this location and the OS

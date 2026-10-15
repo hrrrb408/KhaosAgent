@@ -5,6 +5,10 @@
       {
         "context": "security-tests",
         "app_id": 15368
+      },
+      {
+        "context": "security-freeze",
+        "app_id": 15368
       }
     ]
   },

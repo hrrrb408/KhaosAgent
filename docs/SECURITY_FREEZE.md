@@ -28,14 +28,15 @@ to make a failing check green without review. Tests must pass at the proposed SH
 
 On 2026-10-16 the owner explicitly selected single-maintainer protection with
 an acknowledged independent-review gap. GitHub main protection requires a PR and
-up-to-date `security-tests` from GitHub Actions app 15368, includes administrators,
+up-to-date `security-tests` and `security-freeze` from GitHub Actions app 15368, includes administrators,
 forbids force push/deletion, and requires resolved conversations. Approvals: 0;
 Code Owner approval: disabled. The repository has one writable owner, who cannot
 approve their own PR. CODEOWNERS routes review; it does not provide that missing
 reviewer. No administrator bypass was added.
 
-After the freeze workflow is merged and green, require its `security-freeze`
-context too. Do not require a context absent from main before bootstrapping it.
+The initial PR first emitted a green `security-freeze` check, then that observed
+context was added to the required checks. Do not require an unimplemented context
+before its first bootstrap check exists.
 Save and re-read API settings after applying changes. Settings evidence is a
 dated snapshot, not permanent protection. An administrator can change settings.
 A writable maintainer can rewrite Actions to emit the same context; independent

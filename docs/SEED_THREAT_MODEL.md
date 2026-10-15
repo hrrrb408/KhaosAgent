@@ -3106,7 +3106,7 @@ but the write itself succeeds. Code signatures detect this damage, not prevent i
 Plugin business-state blobs and replay have the same user-owned persistence risk.
 Actual `/Applications` is group-writable by this UID. Root ownership of an app
 alone is insufficient when its parent is writable. An explicitly authorized disposable root-owned install under `/Library/Application Support/Khaos`
-blocked six ordinary-UID file/rename/symlink attacks; install, app restart, same-version
-replacement, rollback and removal passed. No protected persistent state was established. Running mappings, injection and malicious
+blocked six ordinary-UID file/rename/symlink attacks; install, app restart, distinct build 1 → 2
+update, 2 → 1 rollback and removal passed. No protected persistent state was established. Running mappings, injection and malicious
 same-signer replacements remain outside proven protection; Hardened Runtime is
 not enabled. See `SECURITY_KERNEL_FINALIZATION_REPORT.md` for dated evidence.

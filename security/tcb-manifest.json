@@ -95,7 +95,7 @@
     {
       "path": "docs/SECURITY_FREEZE.md",
       "role": "build-governance",
-      "sha256": "b36cbfa6a229ba3d8bb7bc9c9f69b27288d70786ab2c57d480ddbf5b40a52f64",
+      "sha256": "5d86533f9e94492eee971927549a663210f745ebc870982602a30461d344b11d",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -106,7 +106,7 @@
     {
       "path": "docs/SEED_THREAT_MODEL.md",
       "role": "build-governance",
-      "sha256": "7519eb4c762d27bcf950ed9a929d0e61a9cd165fdcb767a5d1583e1653c8f397",
+      "sha256": "9af20fbc4469b096e618594dbea2c9b0f5805a75450aa22899d9400e4cabe4ea",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -117,7 +117,7 @@
     {
       "path": "docs/SELF_HOSTING.md",
       "role": "build-governance",
-      "sha256": "4f6f650e2c485df8a3bb95162d8032e8e8a4ebfa145ac091df150cb3e9d136be",
+      "sha256": "4de749ce7a00b3c27388a385dca38c31153dbf929f983bc8db4952e34e4ca521",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -520,7 +520,7 @@
         "tests/test_security_freeze.py",
         "reports/security-kernel-finalization/protected-install.json"
       ],
-      "sha256": "b516756d05a30410b5e85188be4cf965690f00acb9606542a0a66a17d2947462",
+      "sha256": "3234797f0717c9cfd4bdc238ea3d53ca53b505c73f34d70e05af027793a8d045",
       "source_mode": "0o644"
     },
     {
