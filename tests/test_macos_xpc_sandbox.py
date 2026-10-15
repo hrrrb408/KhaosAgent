@@ -4131,6 +4131,17 @@ def run():
 
     @staticmethod
     def _create_signing_identity(directory: Path) -> tuple[str, Path]:
+        # create-keychain can register itself; save the real prior list first.
+        search_list = subprocess.run(
+            ["security", "list-keychains", "-d", "user"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        original_keychains = shlex.split(search_list.stdout)
+        (directory / "original-keychain-search-list.json").write_text(
+            json.dumps(original_keychains), encoding="utf-8"
+        )
         password = secrets.token_urlsafe(24)
         key = directory / "signing-key.pem"
         certificate = directory / "signing-certificate.pem"
@@ -4237,16 +4248,6 @@ def run():
             check=True,
             capture_output=True,
             text=True,
-        )
-        search_list = subprocess.run(
-            ["security", "list-keychains", "-d", "user"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        original_keychains = shlex.split(search_list.stdout)
-        (directory / "original-keychain-search-list.json").write_text(
-            json.dumps(original_keychains), encoding="utf-8"
         )
         subprocess.run(
             [

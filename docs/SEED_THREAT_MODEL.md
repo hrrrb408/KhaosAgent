@@ -831,6 +831,17 @@ as the verification; the popup alone is only a UI observation.
 
 ## Scope and assumptions
 
+**Current owner-approved scope (2026-10-16):** adversaries are Khaos's own
+untrusted AgentHost, Plugins and Runners. Preserve Seatbelt, authenticated XPC,
+signatures, approval, scopes, snapshots and isolation. The default is a locally
+signed user-owned App, with no root-owned installation requirement. Owner-
+authorized development through Codex, Claude Code or other tools is normal.
+Comprehensive arbitrary external unconfined same-UID tampering is OUT OF SCOPE
+and not implemented; administrator/root attackers are outside guarantees too.
+Historical B/protected-install experiments below are observations, not Freeze
+acceptance gates. No further administrator experiments are required.
+
+
 The current Seed path is a macOS-only development prototype. A trusted Launcher
 calls the authenticated `KernelProduction.xpc` service, which delegates to its
 Python Bridge and one-shot Worker. The Worker starts an OS-confined Runner and a
@@ -3083,7 +3094,7 @@ this prompt change does not claim to fix it. See
 audit, upstream references, frozen fixtures, per-step evidence, limitations,
 comparison and the single next investigation: bounded action-rejection feedback.
 
-## 2026-10-16 finalization threat model delta
+## 2026-10-16 initial finalization audit (historical scope)
 
 Attacker A is a Khaos-confined Agent/Plugin/Runner. Attacker B is an unconfined
 ordinary process of the same UID, without administrator authorization (including
@@ -3110,3 +3121,21 @@ blocked six ordinary-UID file/rename/symlink attacks; install, app restart, dist
 update, 2 → 1 rollback and removal passed. No protected persistent state was established. Running mappings, injection and malicious
 same-signer replacements remain outside proven protection; Hardened Runtime is
 not enabled. See `SECURITY_KERNEL_FINALIZATION_REPORT.md` for dated evidence.
+
+## Current finalization scope amendment
+
+The owner explicitly stopped repeated protected-install administrator experiments
+and removed broad external same-UID tamper resistance from acceptance. Normal
+user deployment and Khaos runtime adversary containment are the closure scope.
+The owner may intentionally modify source; trusted changes still follow declared
+review, relevant attacks, CI and baseline updates. No sandbox, XPC, signing,
+approval or isolation mechanism was removed or weakened. The historical root
+fixture script was retired; its already collected JSON and Git history remain.
+The counterexample is not a canonical requirement to preserve a B vulnerability.
+
+The signing test fixture now snapshots the user's Keychain search list before
+`create-keychain`, which may automatically register itself. A deterministic
+regression simulates that registration and ensures cleanup's saved list contains
+only prior entries. Existing nonexistent test-only search paths were reconciled
+without deleting any real Keychain or reading private keys. This is test hygiene,
+not a new security service or a change in signing authority.

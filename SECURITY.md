@@ -11,18 +11,28 @@ authenticated IPC, exact scopes, private snapshots and validated changesets.
 A passed test establishes only its exercised attack path. Missing sandbox or
 snapshot readiness must fail closed; no Host fallback is supported.
 
-The development checkout and user-installed App are user writable. Code signing
-can detect damaged code; it does not prevent same-UID writes, unlink, rename or
-replacement. The owner can also access signing operations allowed by Keychain.
-Current builds do not enable Hardened Runtime. Code-on-disk verification does
-not establish running mapping integrity or exclude injection. The Snapshot
-Broker retains a transitional allow-default policy with targeted denials.
+## Supported threat model
 
-Plugin Store, business state and co-located activation HMAC key are user owned.
-An unconfined same-UID process can replace key and authenticated state together.
-HMAC validates consistency against the key, not an independent owner. Protected
-security state and general same-UID tamper resistance are **NOT PROVEN**.
-No guarantees apply against administrators, root or modified system trust roots.
+The protected adversaries are Khaos's own untrusted AgentHost, Plugins and Runners.
+They must not bypass Launcher approval, authenticated Kernel admission, exact
+capability scopes, sandbox enforcement, or trusted changeset validation; they
+must not alter the active trusted Kernel or activate themselves.
+
+An ordinary macOS user installs a locally signed App under `~/Applications`.
+Root-owned installation and administrator authentication are not prerequisites.
+The owner may intentionally develop and modify source using Codex, Claude Code
+or other tools. That authorized development is outside the runtime adversary
+model; Freeze classifies and reviews authority changes, not blocks the owner.
+
+Comprehensive resistance to an arbitrary unconfined external process of the same
+UID is **OUT OF SCOPE and not implemented**. User-owned installation/source and
+Plugin Store/key/state may be changed by that UID. HMAC does not establish a
+separate OS owner. Code signing verifies identity/integrity; it is not filesystem
+write protection. Administrators/root/system trust modification are outside the
+supported guarantee too. Current builds lack Hardened Runtime; do not claim
+injection or running-mapping integrity. The Snapshot Broker retains a transitional
+allow-default policy with targeted denials. These limits do not permit weakening
+Seatbelt, XPC, signatures, approval or isolation for supported runtime adversaries.
 
 Do not send credentials, user data or exploit payloads through public issues.
 Report a reproducible issue with a disposable fixture and sanitized diagnostics.

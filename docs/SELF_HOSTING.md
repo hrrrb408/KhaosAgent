@@ -89,28 +89,26 @@ state is separate and retained; remove it only through a separately reviewed,
 explicit data-deletion decision. Never recursively delete generic Application
 Support or a guessed path.
 
-## Optional protected installation: controlled acceptance
+## Ordinary user scope and authorized development
 
-Permission audit on this machine found `/Applications` root:admin 0775 and writable
-by this admin-group UID without elevation. A root-owned app there can still be
-replaced through its parent. `chmod 0400` on owner-owned files is also insufficient.
-A possible protected parent is `/Library/Application Support/Khaos`, root:wheel
-0755, under currently non-user-writable ancestors. The owner authorized this exact
-location and OS administrator authentication. A disposable installation, restart,
-distinct build 1 → 2 update and 2 → 1 rollback, and uninstall passed; six ordinary-UID write,
-rename and symlink attempts received EACCES. The test directory was removed.
-See `reports/security-kernel-finalization/protected-install.json`.
-Before any system write, obtain explicit consent to this location and the OS
-administrator prompt. Audit all ancestors, ACLs, aliases and symlinks, stage and
-verify the exact product, then authorize a narrow install/update/rollback/removal.
-Recheck signatures and permissions at the destination and attack replacement as
-the ordinary UID. No default sudo or persistent privileged service is provided.
+The supported default is a locally signed App under `~/Applications`, with no
+root-owned installation, sudo, privileged helper or repeated administrator
+experiment. Protected-install tests were stopped when the owner revised the
+objective. Their existing JSON evidence is historical research, not a deployment
+requirement or Freeze acceptance gate. The root test directory was removed.
 
-Protected code would still leave user-writable Plugin Store/HMAC key and signing
-operations. Current runtime lacks Hardened Runtime. Do not call this comprehensive
-same-UID protection. Protecting state while the ordinary-UID Kernel must write it
-requires a separately designed OS authority boundary and explicit approval;
-no new privileged helper, daemon or service is introduced here.
+Users may intentionally edit Khaos source with Codex, Claude Code or ordinary
+development tools. Keep runtime AgentHost/Plugin/Runner separate from that
+owner-authorized development context. Freeze requires declared review and new
+hashes for trusted changes; it does not lock the owner out of their own source.
+Do not auto-activate generated trusted code or treat model metadata as approval.
+
+Arbitrary unconfined external same-UID tampering with source, installed files,
+Plugin Store, key or business state is outside this version's threat model and
+not implemented as a guarantee. Preserve the read/edit/run scope and actual OS
+isolation for Khaos's own runtime components. The normal-user install, restart,
+build 1 → 2 upgrade, rollback and uninstall acceptance requires no administrator
+prompt. No new protected-state owner/broker is required by this Freeze.
 
 ## Upstream basis
 

@@ -1,9 +1,18 @@
 {
   "schema": 1,
   "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
-  "baseline": "initial security finalization; exact authority is the reviewed Git commit",
+  "baseline": "owner-approved ordinary-user deployment and runtime-only adversary Freeze; signer fixture hygiene update",
   "runtime_authority_delta": "none",
   "independent_code_owner_approval": "NOT PROVEN",
-  "protected_security_state": "NOT PROVEN",
-  "manifest_sha256": "9a1658e80b3f922035bfca181caad59873427ed25f95402da34d9f51bd4df569"
+  "protected_security_state": "runtime isolation required; arbitrary external same-UID resistance out of scope",
+  "manifest_sha256": "fe53dcafa4e1a0262b8ab76972fc09cf2f5e850ec69de91600e3004e4b98ba11",
+  "scope_revision_base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
+  "supported_adversaries": [
+    "Khaos AgentHost",
+    "Plugin",
+    "Runner"
+  ],
+  "external_unconfined_same_uid": "OUT OF SCOPE; not implemented",
+  "root_owned_install_required": false,
+  "owner_authorized_source_development": "supported normal behavior"
 }

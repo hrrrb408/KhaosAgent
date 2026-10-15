@@ -1,6 +1,6 @@
 # Khaos vNext 架构设计文档
 
-**Security freeze / self-hosting contract:** 可信运行时与构建治理输入按 `security/tcb-manifest.json` 分开冻结；可信变更遵循 `docs/SECURITY_FREEZE.md`，自部署遵循 `docs/SELF_HOSTING.md`。可写工作树、用户安装的 App、用户所有 Plugin Store 与其 HMAC key 不构成任意同 UID 防篡改边界。Code signing 是身份及完整性验证，不是文件写保护。受保护安装需事先取得位置及管理员授权同意；不得默认增加特权服务。单维护者 PR/CI 保护不代替独立 Code Owner 审批。
+**Security freeze / self-hosting contract:** 当前保护对象是不可信 Khaos AgentHost、Plugin、Runner 对 Seatbelt、XPC、签名身份、权限审批、scope 和可信内核的绕过、自扩权或自主篡改。默认采用普通用户本地签名并安装到 `~/Applications`；不要求 root-owned 安装、管理员认证或新的特权状态服务。用户经 Codex、Claude Code 等工具主动开发与修改源码属于正常授权行为；Freeze 是可信变更声明、审查、测试及基线更新机制，不是阻止所有者开发的系统锁。任意外部、不受 Khaos 沙箱约束的同 UID 进程的全面防篡改明确在当前威胁模型之外，未实现、不得宣称。以上范围调整不得削弱已有 Seatbelt、XPC、代码签名、权限审批及安全隔离。可信运行时与构建治理输入仍按 `security/tcb-manifest.json` 分开冻结，变更遵循 `docs/SECURITY_FREEZE.md`；自部署遵循 `docs/SELF_HOSTING.md`。单维护者独立审批缺口继续如实保留。
 
 **状态：Draft / Architecture Constitution**  
 **文档性质：规范性设计草案；“必须”描述目标约束，不代表当前已经实现。**  

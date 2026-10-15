@@ -51,7 +51,7 @@
     {
       "path": "AGENTS.md",
       "role": "build-governance",
-      "sha256": "7bd9bcef05af943f1ed084437b187e5a9b9f5ddb22b9c4a4e7cfce767f20eb61",
+      "sha256": "26e7a42b679a226edc2223ec32cb772857a68517455d1a9b71f153fe0b88b01f",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -62,7 +62,7 @@
     {
       "path": "SECURITY.md",
       "role": "build-governance",
-      "sha256": "22f54f5729f58cd13ea060081259e48d1818a6895ce5a824cb4d25ac766b8fe6",
+      "sha256": "f025a0fa840425f112d77ba654ea6f94a8eaffacac3679cd20c54de60fc6ab07",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -89,13 +89,13 @@
         "python3 tools/check_security_freeze.py",
         "tests/test_security_freeze.py"
       ],
-      "sha256": "164edfa24e7d9dd00d158337dbf9810fa7c5eb2df25d3de2603e4ad571ff90c0",
+      "sha256": "2b0648937acddf73bf7f5d8cdec6af1792785154498229fb39cb2128f412d3ad",
       "source_mode": "0o644"
     },
     {
       "path": "docs/SECURITY_FREEZE.md",
       "role": "build-governance",
-      "sha256": "5d86533f9e94492eee971927549a663210f745ebc870982602a30461d344b11d",
+      "sha256": "f66fbbbd574d5a27903db141ab96e717fd7a35007c1fe5449056b463c3ec035a",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -106,7 +106,7 @@
     {
       "path": "docs/SEED_THREAT_MODEL.md",
       "role": "build-governance",
-      "sha256": "9af20fbc4469b096e618594dbea2c9b0f5805a75450aa22899d9400e4cabe4ea",
+      "sha256": "79a4e28da13c6372184d9da2e412fe027ee63dba73d0c63ceefebec3ac1d21e8",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -117,7 +117,7 @@
     {
       "path": "docs/SELF_HOSTING.md",
       "role": "build-governance",
-      "sha256": "4de749ce7a00b3c27388a385dca38c31153dbf929f983bc8db4952e34e4ca521",
+      "sha256": "3b4871748e0bf2f0c57d17849e0140961b0dfc3d92665cf3794a38b6fc9880e1",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -513,20 +513,9 @@
       ]
     },
     {
-      "path": "reports/security-kernel-finalization/protected_install_experiment.py",
-      "role": "build-governance",
-      "boundary": "reviewed deployment experiment; optional administrator authorization, no runtime authority",
-      "tests": [
-        "tests/test_security_freeze.py",
-        "reports/security-kernel-finalization/protected-install.json"
-      ],
-      "sha256": "3234797f0717c9cfd4bdc238ea3d53ca53b505c73f34d70e05af027793a8d045",
-      "source_mode": "0o644"
-    },
-    {
       "path": "reports/security-kernel-finalization/same_uid_experiment.py",
       "role": "build-governance",
-      "boundary": "reviewed deployment experiment; optional administrator authorization, no runtime authority",
+      "boundary": "historical external same-UID counterexample; outside supported runtime adversary model; no deployment or acceptance authority",
       "tests": [
         "tests/test_security_freeze.py",
         "reports/security-kernel-finalization/protected-install.json"
@@ -933,7 +922,7 @@
     {
       "path": "tests/test_macos_seed_builder.py",
       "role": "build-governance",
-      "sha256": "7c1fa6f2dcc13b006fec8ef9787cb85bd9f0e8c84496ccb415c3565cdde5b1e8",
+      "sha256": "aa568cdf6527f4f265da975e8e02a4b573a2b8ef127c390ceb4da1a131844b33",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -944,7 +933,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "4e62578fe6a45bece0a4bf1df6ecdfc81f98808727cfad14e956219aa9685402",
+      "sha256": "700118d53b032c19a16df5a8920af79b2b8e84f13ed87e00980f0fa249d698d1",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -1010,7 +999,7 @@
     {
       "path": "tests/test_security_freeze.py",
       "role": "build-governance",
-      "sha256": "2f1777412b08f961017814966a523f8181d0a0c3774d74e3709739541982535b",
+      "sha256": "963ee55055435a6c0e181514df9972a03e4bfaf056dc2d32eebc0dc6e6e77781",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

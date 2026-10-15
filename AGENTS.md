@@ -348,6 +348,13 @@ services merely to mirror legacy Khaos or another project.
 
 ## Security freeze
 
+The supported runtime adversaries are Khaos AgentHost, Plugins and Runners.
+Ordinary user-owned local signing/installation is the default; root-owned
+installation is not required. Owner-authorized source editing with development
+tools is normal. Comprehensive external unconfined same-UID tampering is out of
+scope and must not be claimed implemented. Preserve all existing OS, XPC,
+signature, approval and capability boundaries.
+
 Trusted changes follow `docs/SECURITY_FREEZE.md` and require a fresh security
 change declaration and reviewed manifest. Run `python3 tools/check_security_freeze.py`.
 Self deployment and verification commands are documented in `docs/SELF_HOSTING.md`.

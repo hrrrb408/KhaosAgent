@@ -657,4 +657,6 @@ research and detailed run history.
 
 See [security status](SECURITY.md), [source self deployment](docs/SELF_HOSTING.md),
 [freeze policy](docs/SECURITY_FREEZE.md), and [finalization report](SECURITY_KERNEL_FINALIZATION_REPORT.md).
-User-owned installs and co-located lifecycle key/state do not resist arbitrary same-UID modification.
+Default deployment is a locally signed user-owned App; no root-owned install is required.
+Freeze constrains runtime authority and reviewed trusted changes; owner-authorized source development is normal.
+Comprehensive arbitrary external same-UID tampering is outside the supported threat model and is not implemented.
