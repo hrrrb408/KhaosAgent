@@ -1,0 +1,28 @@
+name: Security Freeze
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Verify proposed manifest
+        run: python3 tools/check_security_freeze.py
+      - name: Run base checker against proposed files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git cat-file -e "$BASE:tools/check_security_freeze.py"; then
+            git show "$BASE:tools/check_security_freeze.py" > "$RUNNER_TEMP/base-freeze.py"
+            python3 "$RUNNER_TEMP/base-freeze.py" --root "$GITHUB_WORKSPACE" --base "$BASE"
+          else
+            echo 'Initial freeze bootstrap: independent review remains NOT PROVEN.'
+          fi

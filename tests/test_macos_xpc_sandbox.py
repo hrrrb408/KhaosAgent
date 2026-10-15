@@ -950,6 +950,21 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 "the signed app must contain the canonical fixed replay dataset",
             )
 
+            from tools.build_macos_seed import BuildError, verify_app
+            build_record = json.loads((product_app / "Contents/Resources/build-inputs.json").read_text())
+            verify_app(product_app, build_record["certificate_sha1"])
+            self.assertIn("khaos/kernel/plugin_lifecycle.py", build_record["source_sha256"])
+            with self.assertRaises(BuildError):
+                verify_app(product_app, "0" * 40)
+            # A same-UID writer can damage a signed resource; verification must reject it.
+            signed_record = product_app / "Contents/Resources/build-inputs.json"
+            original_record = signed_record.read_bytes()
+            signed_record.write_bytes(original_record + b"tamper")
+            with self.assertRaises(BuildError):
+                verify_app(product_app, build_record["certificate_sha1"])
+            signed_record.write_bytes(original_record)
+            verify_app(product_app, build_record["certificate_sha1"])
+
             launcher_entitlements = self._signed_entitlements(product_app)
             self.assertIs(
                 launcher_entitlements.get("com.apple.security.app-sandbox"),

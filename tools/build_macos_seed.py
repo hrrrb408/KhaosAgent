@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -70,12 +71,15 @@ def _query_model_runtime_version(executable: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True, help="new .app output path")
+    parser.add_argument("--output", type=Path, help="new .app output path")
+    parser.add_argument("--verify-app", type=Path, help="verify an existing app against the supplied certificate SHA-1")
+    parser.add_argument("--expected-inputs", type=Path, help="reviewed source SHA-256 map; require an exact match")
     parser.add_argument(
         "--signing-identity",
         required=True,
         help="stable code-signing identity available in the keychain",
     )
+    parser.add_argument("--build-version", default="1", help="numeric dotted local build version")
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     parser.add_argument(
@@ -89,9 +93,17 @@ def main() -> int:
     parser.add_argument("--model-license", type=Path)
     args = parser.parse_args()
     try:
+        if args.verify_app is not None:
+            verify_app(args.verify_app, args.signing_identity)
+            print("macos-seed-verification=PASS")
+            return 0
+        if args.output is None:
+            raise BuildError("--output is required for a build")
         build_app(
             args.output,
             args.signing_identity,
+            expected_inputs=args.expected_inputs,
+            build_version=args.build_version,
             keychain=args.keychain,
             python_executable=args.python_executable,
             model_provider=args.model_provider,
@@ -99,7 +111,7 @@ def main() -> int:
             model_file=args.model_file,
             model_license=args.model_license,
         )
-    except (BuildError, OSError, subprocess.SubprocessError) as error:
+    except (BuildError, KeyError, OSError, subprocess.SubprocessError) as error:
         print(f"build-macos-seed-error: {error}", file=sys.stderr)
         return 1
     print(f"macos-seed-app={args.output.expanduser().resolve()}")
@@ -111,12 +123,16 @@ def build_app(
     signing_identity: str,
     *,
     keychain: Path | None = None,
+    expected_inputs: Path | None = None,
+    build_version: str = "1",
     python_executable: Path,
     model_provider: str = "local",
     llama_cli: Path | None = None,
     model_file: Path | None = None,
     model_license: Path | None = None,
 ) -> None:
+    if not re.fullmatch(r"[0-9]{1,6}(?:\.[0-9]{1,6}){0,2}", build_version):
+        raise BuildError("build version must contain one to three bounded numeric components")
     if sys.platform != "darwin":
         raise BuildError("the Seed app supports macOS only")
     if not signing_identity.strip():
@@ -134,7 +150,7 @@ def build_app(
     if output.suffix != ".app" or os.path.lexists(output):
         raise BuildError("output must be a new .app path")
     output.parent.mkdir(parents=True, exist_ok=True)
-    _require_signing_identity(signing_identity, keychain)
+    signing_identity = _require_signing_identity(signing_identity, keychain)
     sdk = _run(["xcrun", "--sdk", "macosx", "--show-sdk-path"]).strip()
     swiftc = _run(["xcrun", "--find", "swiftc"]).strip()
     install_name_tool = _run(["xcrun", "--find", "install_name_tool"]).strip()
@@ -146,9 +162,24 @@ def build_app(
     with tempfile.TemporaryDirectory(
         prefix=".khaos-seed-build-", dir=output.parent
     ) as temporary:
+        source_root = Path(temporary) / "inputs"
+        source_hashes = _snapshot_sources(source_root, expected_inputs)
+        record = {
+            "schema": 1, "source_sha256": source_hashes, "build_version": build_version,
+            "builder_sha256": _sha256_file(Path(__file__)),
+            "certificate_sha1": signing_identity,
+            "architecture": architecture,
+            "macos": platform.mac_ver()[0],
+            "swift": _run([swiftc, "--version"]).strip(),
+            "sdk": _run(["xcrun", "--sdk", "macosx", "--show-sdk-version"]).strip(),
+            "python_version": _run([str(python_executable), "-I", "-S", "-c", "import sys; print(sys.version)"]).strip(),
+            "input_policy": "expected-map" if expected_inputs else "recorded-development-inputs",
+        }
         app = Path(temporary) / output.name
         _assemble_app(
             app,
+            source_root=source_root,
+            build_record=record,
             sdk=sdk,
             swiftc=swiftc,
             install_name_tool=install_name_tool,
@@ -161,12 +192,15 @@ def build_app(
             model_file=model_file,
             model_license=model_license,
         )
-        os.replace(app, output)
+        # renamex_np(RENAME_EXCL) never replaces an output created during the build.
+        _publish_app(app, output)
 
 
 def _assemble_app(
     app: Path,
     *,
+    source_root: Path,
+    build_record: dict[str, object],
     sdk: str,
     swiftc: str,
     install_name_tool: str,
@@ -198,15 +232,15 @@ def _assemble_app(
         architecture,
         launcher_binary,
         (
-            ROOT / "khaos/macos/KernelWorkspaceXPC.swift",
-            ROOT / "khaos/macos/XPCPeerIdentity.swift",
-            ROOT / "khaos/macos/KernelWorkspaceClient.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift",
-            ROOT / "khaos/macos/TrustedWorkspacePicker.swift",
-            ROOT / "khaos/macos/AgentHostProtocol.swift",
-            ROOT / "khaos/macos/AgentHostClient.swift",
-            ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift",
+            source_root / "khaos/macos/KernelWorkspaceXPC.swift",
+            source_root / "khaos/macos/XPCPeerIdentity.swift",
+            source_root / "khaos/macos/KernelWorkspaceClient.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift",
+            source_root / "khaos/macos/TrustedWorkspacePicker.swift",
+            source_root / "khaos/macos/AgentHostProtocol.swift",
+            source_root / "khaos/macos/AgentHostClient.swift",
+            source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift",
         ),
     )
     _write_plist(
@@ -218,7 +252,7 @@ def _assemble_app(
             "CFBundlePackageType": "APPL",
             "CFBundleName": "Khaos Seed",
             "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "1",
+            "CFBundleVersion": build_record["build_version"],
             "LSMinimumSystemVersion": "13.0",
             "NSPrincipalClass": "NSApplication",
             "KhaosModelProvider": model_provider,
@@ -227,7 +261,7 @@ def _assemble_app(
     app_resources = contents / "Resources"
     app_resources.mkdir()
     shutil.copy2(
-        ROOT / "examples" / "memory" / "evaluation.json",
+        source_root / "examples" / "memory" / "evaluation.json",
         app_resources / "memory-evaluation.json",
     )
     app_entitlements = app.parent / "app-entitlements.plist"
@@ -262,10 +296,10 @@ def _assemble_app(
         architecture,
         agent_host_binary,
         (
-            ROOT / "khaos/macos/AgentHostProtocol.swift",
-            ROOT / "khaos/macos/AgentHostCandidateSource.swift",
-            ROOT / "khaos/macos/AgentHostActionOutput.swift",
-            ROOT / "khaos/macos/AgentHost.swift",
+            source_root / "khaos/macos/AgentHostProtocol.swift",
+            source_root / "khaos/macos/AgentHostCandidateSource.swift",
+            source_root / "khaos/macos/AgentHostActionOutput.swift",
+            source_root / "khaos/macos/AgentHost.swift",
         ),
         minimum_os_version="26.0",
     )
@@ -278,7 +312,7 @@ def _assemble_app(
             "CFBundlePackageType": "XPC!",
             "CFBundleName": "Khaos Agent Host",
             "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "1",
+            "CFBundleVersion": build_record["build_version"],
             "LSMinimumSystemVersion": "26.0",
             "KhaosLauncherRequirement": launcher_requirement,
             "KhaosModelProvider": model_provider,
@@ -310,18 +344,18 @@ def _assemble_app(
         architecture,
         service_binary,
         (
-            ROOT / "khaos/macos/KernelWorkspaceXPC.swift",
-            ROOT / "khaos/macos/KernelWorkspaceClient.swift",
-            ROOT / "khaos/macos/KernelWorkspaceRoot.swift",
-            ROOT / "khaos/macos/KernelWorkspaceService.swift",
-            ROOT / "khaos/macos/XPCPeerIdentity.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerXPC.swift",
-            ROOT / "khaos/macos/KernelSnapshotStoragePolicy.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerClient.swift",
-            ROOT / "khaos/macos/KernelWorkspaceBootstrap.swift",
-            ROOT / "khaos/macos/KernelCStringArray.swift",
-            ROOT / "khaos/macos/KernelWorkspacePythonExecutor.swift",
-            ROOT / "khaos/macos/KernelWorkspaceServiceMain.swift",
+            source_root / "khaos/macos/KernelWorkspaceXPC.swift",
+            source_root / "khaos/macos/KernelWorkspaceClient.swift",
+            source_root / "khaos/macos/KernelWorkspaceRoot.swift",
+            source_root / "khaos/macos/KernelWorkspaceService.swift",
+            source_root / "khaos/macos/XPCPeerIdentity.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerXPC.swift",
+            source_root / "khaos/macos/KernelSnapshotStoragePolicy.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerClient.swift",
+            source_root / "khaos/macos/KernelWorkspaceBootstrap.swift",
+            source_root / "khaos/macos/KernelCStringArray.swift",
+            source_root / "khaos/macos/KernelWorkspacePythonExecutor.swift",
+            source_root / "khaos/macos/KernelWorkspaceServiceMain.swift",
         ),
     )
     broker_binary = broker_contents / "MacOS" / "KernelSnapshotBroker"
@@ -332,15 +366,15 @@ def _assemble_app(
         architecture,
         broker_binary,
         (
-            ROOT / "khaos/macos/KernelSnapshotBrokerXPC.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
-            ROOT / "khaos/macos/KernelSnapshotStoragePolicy.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerSandbox.swift",
-            ROOT / "khaos/macos/XPCPeerIdentity.swift",
-            ROOT / "khaos/macos/KernelCStringArray.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerToolRunner.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerService.swift",
-            ROOT / "khaos/macos/KernelSnapshotBrokerServiceMain.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerXPC.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
+            source_root / "khaos/macos/KernelSnapshotStoragePolicy.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerSandbox.swift",
+            source_root / "khaos/macos/XPCPeerIdentity.swift",
+            source_root / "khaos/macos/KernelCStringArray.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerToolRunner.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerService.swift",
+            source_root / "khaos/macos/KernelSnapshotBrokerServiceMain.swift",
         ),
     )
     _embed_python(
@@ -352,7 +386,7 @@ def _assemble_app(
     resources = service_contents / "Resources"
     resources.mkdir()
     for relative_path in SEED_PYTHON_SOURCES:
-        source = ROOT / relative_path
+        source = source_root / relative_path
         if not source.is_file() or source.resolve(strict=True) != source:
             raise BuildError(f"Kernel source is unavailable: {relative_path}")
         destination = resources / relative_path
@@ -364,7 +398,7 @@ def _assemble_app(
         "CFBundleExecutable": "KernelProduction",
         "CFBundlePackageType": "XPC!",
         "CFBundleName": "Khaos Seed Kernel",
-        "CFBundleVersion": "1",
+        "CFBundleVersion": build_record["build_version"],
         "KhaosBootstrapRequirement": launcher_requirement,
         "KhaosWorkspaceCallerRequirement": launcher_requirement,
         "KhaosPythonVersion": version,
@@ -387,7 +421,7 @@ def _assemble_app(
             "CFBundleExecutable": "KernelSnapshotBroker",
             "CFBundlePackageType": "XPC!",
             "CFBundleName": "Khaos Snapshot Broker",
-            "CFBundleVersion": "1",
+            "CFBundleVersion": build_record["build_version"],
             "KhaosLauncherCallerRequirement": launcher_requirement,
             "KhaosKernelCallerRequirement": service_requirement,
             "KhaosKernelContainerIdentifier": SERVICE_ID,
@@ -412,19 +446,19 @@ def _assemble_app(
     values["KhaosKernelSnapshotBrokerRequirement"] = broker_requirement
     values["KhaosSnapshotBrokerServiceName"] = SNAPSHOT_BROKER_ID
     _write_plist(app_info, values)
+    # Record the actual embedded runtime, including nested signed dependencies,
+    # before signing the outer bundle. No signed content is changed afterward.
+    build_record["embedded_sha256"] = {
+        str(path.relative_to(app)): _sha256_file(path)
+        for path in sorted(app.rglob("*"))
+        if path.is_file() and not path.is_symlink()
+        and path.relative_to(app).parts[1:2] == ("XPCServices",)
+    }
+    record_path = contents / "Resources" / "build-inputs.json"
+    record_path.parent.mkdir(exist_ok=True)
+    record_path.write_text(json.dumps(build_record, sort_keys=True, indent=2) + "\n")
     _sign(app, signing_identity, app_entitlements, keychain)
-    _verify(
-        app,
-        launcher_binary,
-        agent_host,
-        agent_host_binary,
-        service_binary,
-        broker_binary,
-        launcher_requirement,
-        agent_host_requirement,
-        service_requirement,
-        broker_requirement,
-    )
+    verify_app(app, signing_identity)
 
 
 def _compile(
@@ -738,13 +772,84 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _require_signing_identity(identity: str, keychain: Path | None) -> None:
+def _require_signing_identity(identity: str, keychain: Path | None) -> str:
     command = ["security", "find-identity", "-p", "codesigning"]
     if keychain is not None:
         command.append(str(keychain.expanduser().resolve(strict=True)))
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if result.returncode != 0 or identity.lower() not in result.stdout.lower():
-        raise BuildError("the requested signing identity is unavailable")
+    output = _run(command)
+    identities = re.findall(r'\d+\) ([0-9A-Fa-f]{40}) "([^"\n]+)"([^\n]*)', output)
+    # A local self-signed root need not be globally trusted for explicit DR
+    # matching. Do not reject it via find-identity -v; still reject expired keys.
+    matches = {fingerprint.upper() for fingerprint, name, error in identities
+               if error.strip() in {"", "(CSSMERR_TP_NOT_TRUSTED)"}
+               and (identity.upper() == fingerprint.upper() or identity == name)}
+    if len(matches) != 1:
+        raise BuildError("select exactly one available non-expired signing identity by full name or SHA-1")
+    return matches.pop()
+
+
+def verify_app(app: Path, certificate_sha1: str) -> None:
+    """Verify actual code against an independently supplied signer, not its metadata."""
+    if not re.fullmatch(r"[0-9A-Fa-f]{40}", certificate_sha1):
+        raise BuildError("verification requires the expected certificate SHA-1")
+    app = app.expanduser().resolve(strict=True)
+    bundles = ((app, APP_ID),
+               (app / "Contents/XPCServices/KhaosAgentHost.xpc", AGENT_HOST_ID),
+               (app / "Contents/XPCServices/KernelProduction.xpc", SERVICE_ID),
+               (app / "Contents/XPCServices/KernelSnapshotBroker.xpc", SNAPSHOT_BROKER_ID))
+    for bundle, identifier in bundles:
+        requirement = f'identifier "{identifier}" and certificate leaf = H"{certificate_sha1}"'
+        _run(["codesign", "--verify", "--deep", "--strict", f"-R={requirement}", str(bundle)])
+    info = _read_plist(app / "Contents/Info.plist")
+    kernel = bundles[2][0]
+    broker = bundles[3][0]
+    host = bundles[1][0]
+    kernel_info = _read_plist(kernel / "Contents/Info.plist")
+    broker_info = _read_plist(broker / "Contents/Info.plist")
+    host_info = _read_plist(host / "Contents/Info.plist")
+    links = ((app, host_info["KhaosLauncherRequirement"]),
+             (app, kernel_info["KhaosBootstrapRequirement"]),
+             (app, kernel_info["KhaosWorkspaceCallerRequirement"]),
+             (app, broker_info["KhaosLauncherCallerRequirement"]),
+             (kernel, broker_info["KhaosKernelCallerRequirement"]),
+             (kernel, info["KhaosKernelProductionServiceRequirement"]),
+             (broker, info["KhaosKernelSnapshotBrokerRequirement"]),
+             (broker, kernel_info["KhaosSnapshotBrokerRequirement"]))
+    for code, requirement in links:
+        _run(["codesign", "--verify", f"-R={requirement}", str(code)])
+    if _satisfies_requirement(host, kernel_info["KhaosWorkspaceCallerRequirement"]):
+        raise BuildError("Agent Host satisfies the Launcher requirement")
+
+
+def _snapshot_sources(destination: Path, expected_inputs: Path | None) -> dict[str, str]:
+    paths = set(SEED_PYTHON_SOURCES)
+    paths.update(str(p.relative_to(ROOT)) for p in (ROOT / "khaos/macos").glob("*.swift"))
+    paths.add("examples/memory/evaluation.json")
+    hashes = {}
+    for relative in sorted(paths):
+        source = ROOT / relative
+        descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode) or source.resolve() != source:
+                raise BuildError(f"source must be a regular non-symlink file: {relative}")
+            data = stream.read()
+        hashes[relative] = hashlib.sha256(data).hexdigest()
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    if expected_inputs is not None and json.loads(expected_inputs.read_text()) != hashes:
+        raise BuildError("source inputs differ from the reviewed SHA-256 map")
+    return hashes
+
+
+def _publish_app(source: Path, output: Path) -> None:
+    import ctypes
+    library = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
+    rename = library.renamex_np
+    rename.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
+    rename.restype = ctypes.c_int
+    if rename(os.fsencode(source), os.fsencode(output), 0x4) != 0:  # RENAME_EXCL
+        raise OSError(ctypes.get_errno(), "could not publish new app without replacement")
 
 
 def _sign(
@@ -770,28 +875,6 @@ def _designated_requirement(executable: Path, identifier: str) -> str:
     if f'identifier "{identifier}"' not in requirement or "cdhash H" in requirement:
         raise BuildError("signing identity does not yield a stable bundle requirement")
     return requirement
-
-
-def _verify(
-    app: Path,
-    launcher: Path,
-    agent_host: Path,
-    agent_host_binary: Path,
-    service: Path,
-    broker: Path,
-    launcher_requirement: str,
-    agent_host_requirement: str,
-    service_requirement: str,
-    broker_requirement: str,
-) -> None:
-    _run(["codesign", "--verify", "--deep", "--strict", str(app)])
-    _run(["codesign", "--verify", f"-R={launcher_requirement}", str(launcher)])
-    _run(["codesign", "--verify", "--deep", "--strict", str(agent_host)])
-    _run(["codesign", "--verify", f"-R={agent_host_requirement}", str(agent_host_binary)])
-    if _satisfies_requirement(agent_host_binary, launcher_requirement):
-        raise BuildError("Agent Host unexpectedly satisfies the Launcher XPC identity")
-    _run(["codesign", "--verify", f"-R={service_requirement}", str(service)])
-    _run(["codesign", "--verify", f"-R={broker_requirement}", str(broker)])
 
 
 def _satisfies_requirement(executable: Path, requirement: str) -> bool:

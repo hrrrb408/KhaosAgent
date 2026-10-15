@@ -652,3 +652,9 @@ same-UID writer; this is not global write exclusion.
 See the [Seed threat model](docs/SEED_THREAT_MODEL.md) for tested properties
 and the [backend research log](docs/SEED_BACKEND_RESEARCH.md) for OS primitive
 research and detailed run history.
+
+## Security finalization
+
+See [security status](SECURITY.md), [source self deployment](docs/SELF_HOSTING.md),
+[freeze policy](docs/SECURITY_FREEZE.md), and [finalization report](SECURITY_KERNEL_FINALIZATION_REPORT.md).
+User-owned installs and co-located lifecycle key/state do not resist arbitrary same-UID modification.

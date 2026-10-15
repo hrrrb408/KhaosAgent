@@ -1,0 +1,14 @@
+# Review routing only; independent required approval remains NOT PROVEN.
+/khaos/kernel/ @hrrrb408
+/khaos/macos/ @hrrrb408
+/khaos/__init__.py @hrrrb408
+/khaos/ipc.py @hrrrb408
+/khaos/launcher.py @hrrrb408
+/tools/build_macos_seed.py @hrrrb408
+/tools/check_security_freeze.py @hrrrb408
+/security/ @hrrrb408
+/.github/ @hrrrb408
+/tests/ @hrrrb408
+/docs/ @hrrrb408
+/AGENTS.md @hrrrb408
+/SECURITY.md @hrrrb408
