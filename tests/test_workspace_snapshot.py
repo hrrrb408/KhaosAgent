@@ -40,6 +40,20 @@ from khaos.kernel.workspace_snapshot import (
 
 
 class WorkspaceSnapshotTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "darwin" and Path(_HDIUTIL).is_file(),
+                         "requires a real nested APFS mount")
+    def test_snapshot_rejects_real_nested_apfs_discovery_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="khaos-discovery-mount-") as value:
+            source = Path(value) / "workspace"
+            (source / "src").mkdir(parents=True)
+            with mounted_apfs_volume(
+                source / "src", size_bytes=256_000_000, case_sensitive=False
+            ) as nested:
+                (nested / "mounted-secret.txt").write_text("synthetic mount canary")
+                with self.assertRaisesRegex(WorkspaceSnapshotError, "filesystem|mount"):
+                    with workspace_snapshot(source):
+                        self.fail("nested mounted data was admitted to a read/list snapshot")
+
     @unittest.skipUnless(sys.platform == "darwin", "requires macOS descriptor paths")
     def test_exact_directory_grant_survives_denied_ancestor(self) -> None:
         with tempfile.TemporaryDirectory() as value:

@@ -2784,3 +2784,53 @@ Final serial canonical validation: 314 tests passed on 2026-10-13; the
 complete run exited zero. The previously errored App Sandbox bookmark test
 passed in this run. This does not establish the cause of the interrupted
 concurrent attempt. `git diff --check` also passed.
+
+## 2026-10-15 Scoped Repository Discovery
+
+AgentHost protocol v9 adds one `list` proposal kind for bounded discovery.
+The untrusted Host supplies one to eight relative directory roots and no argv
+or write scope. Trusted Launcher displays those roots, states that an approved
+directory grants its entire subtree, asks for an independent per-operation
+approval, and invokes a fixed Runner using the existing Kernel `fs.list`.
+Kernel scope filtering, descriptor-relative no-follow listing, entry/name
+limits, process-output bounds, and the existing per-task budgets remain in
+force. There is no Kernel code, IPC operation, capability, process, persistent
+state, or dependency change. The details and machine-readable records are in
+[`reports/scoped-discovery/REPORT.md`](../reports/scoped-discovery/REPORT.md).
+
+On this macOS host, the real Seatbelt Runner regression allowed reads under
+approved `src` and `tests`, returned only scoped ancestor entries, omitted
+symlink targets, and rejected nine out-of-scope file/list operations including
+traversal, absolute paths, and symlink traversal. The canary was absent from
+the returned streams and unchanged. A nested APFS source mount was rejected
+before a workspace read/list snapshot was yielded. A shell control also showed
+that `readlink` can reveal target text inside an approved directory subtree;
+the discovery response therefore uses Kernel `fs.list` metadata and does not
+claim that every possible approved shell operation hides link targets.
+
+A locally signed BigModel build passed strict deep signature verification.
+GLM-5.3-Flash received an issue-only synthetic task, proposed `src` and
+`tests`, read the observed files, edited only `src/parser.py`, and ran the
+focused test. The parent baseline returned 1, the candidate returned 0, and a
+separate read-only Kernel/Seatbelt verification passed seven additional cases.
+The canary filename and contents were absent from Launcher output. A separate
+refusal run stopped after one denied list proposal with no Runner execution or
+retry. The 67-entry overflow run returned a nonzero result within the 1,399-byte
+listing allowance; the exact first result text was not retained, and the
+machine record notes that evidence limit.
+
+The original frozen `runner-exception-classification` recheck did not repair
+the task. Parent-only controls established baseline failure (1) and gold pass
+(0). Three real-model attempts had no candidate changes; their independent
+grader commands all returned 1. The observed blockers were first-list failure
+on a missing root, a 27,967-byte source read exceeding the existing 8 KiB
+process-output cap (with an unisolated cleanup `EPERM` context), and a v4
+`agent_host_invalid_response` whose raw response was not retained. These are
+failed recheck results, not benchmark gains. No full benchmark was run.
+
+The canonical `python3 -m unittest discover -s tests -v` suite passed 331 tests
+in 677.262 seconds on 2026-10-15, including the real nested-mount and scoped
+discovery regressions. The suite was headless and opened no workspace Picker.
+The positive model result proves one bounded synthetic coding task on this
+host, not general GLM coding reliability, successful repair of the original
+benchmark task, or distribution signing.

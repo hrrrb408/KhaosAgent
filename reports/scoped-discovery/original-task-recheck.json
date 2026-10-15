@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-15",
+  "task_id": "runner-exception-classification",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "task_prompt_sha256_same_across_attempts": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "parent_only_controls": {
+    "baseline_returncode": 1,
+    "gold_returncode": 0,
+    "hidden_tests_entered_model_workspace": false
+  },
+  "attempts": [
+    {
+      "id": "discovery-01",
+      "signed_product_prompt": "v2",
+      "result": "runner_failed during the first list request on a missing requested root",
+      "candidate_changed_paths": [],
+      "independent_grader_returncode": 1
+    },
+    {
+      "id": "discovery-02",
+      "signed_product_prompt": "v3",
+      "result": "two list requests returned nonzero; subsequent read of three source/test files failed",
+      "combined_requested_file_bytes": 27967,
+      "existing_process_output_limit_bytes": 8192,
+      "reproduction": "full read failed with output_limit and a cleanup EPERM context; a 2841-byte file and a bounded 1001-byte range succeeded",
+      "cleanup_eperm_root_cause": "unknown",
+      "candidate_changed_paths": [],
+      "independent_grader_returncode": 1
+    },
+    {
+      "id": "discovery-03",
+      "signed_product_prompt": "v4",
+      "result": "one list returned nonzero; Host stopped with agent_host_invalid_response",
+      "raw_invalid_response_cause": "unknown; response shape was not retained",
+      "candidate_changed_paths": [],
+      "independent_grader_returncode": 1
+    }
+  ],
+  "successful_original_task_repairs": 0,
+  "non_discriminating_task_passes_counted_as_improvement": 0,
+  "full_benchmark_forced": false
+}

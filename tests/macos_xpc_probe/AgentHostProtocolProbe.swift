@@ -33,7 +33,7 @@ enum AgentHostProtocolProbe {
             generation: 7,
             agentInterface: agentInterface
         )
-        require(AgentHostProtocol.version == 8, "Agent Host protocol version was not advanced")
+        require(AgentHostProtocol.version == 9, "Agent Host protocol version was not advanced")
         require(
             AgentHostProtocol.maximumToolCallsPerTask == 8
                 && AgentHostProtocol.maximumToolExecutionSecondsPerTask == 180
@@ -471,6 +471,34 @@ enum AgentHostProtocolProbe {
         )))
         guard case .shell? = AgentHostProtocol.decodeReply(shellFrame) else {
             fatalError("valid shell proposal was rejected")
+        }
+        let listing = AgentShellProposal(argv: [], readScope: ["src", "tests"], writeScope: [])
+        let listFrame = try AgentHostProtocol.encodeReply(.list(listing))
+        guard case let .list(decodedListing)? = AgentHostProtocol.decodeReply(listFrame) else {
+            fatalError("valid directory listing proposal was rejected")
+        }
+        require(
+            decodedListing.argv.isEmpty && decodedListing.writeScope.isEmpty
+                && decodedListing.readScope == ["src", "tests"]
+                && AgentHostProtocol.actionTypeAllowedAfterToolResult("list", canContinue: true)
+                && !AgentHostProtocol.actionTypeAllowedAfterToolResult("list", canContinue: false)
+                && AgentHostProtocol.replyAllowedAfterToolResult(.list(listing), canContinue: true)
+                && !AgentHostProtocol.replyAllowedAfterToolResult(.list(listing), canContinue: false),
+            "directory listing changed scope or bypassed the continuation decision"
+        )
+        for paths in [[], ["src", "src"], (0..<9).map { "p\($0)" }, [String(repeating: "x", count: 129)]] {
+            require(
+                AgentHostProtocol.decodeReply(frame([
+                    "version": AgentHostProtocol.version, "type": "list", "read_scope": paths,
+                ])) == nil,
+                "invalid listing scope was accepted"
+            )
+        }
+        for injectedField in ["argv", "write_scope", "approved"] {
+            var injected = try JSONSerialization.jsonObject(with: listFrame) as! [String: Any]
+            injected[injectedField] = injectedField == "approved" ? true as Any : ["secret-canary.txt"] as Any
+            require(AgentHostProtocol.decodeReply(frame(injected)) == nil,
+                    "listing accepted injected execution or authority fields")
         }
         do {
             _ = try AgentHostProtocol.toolResult(

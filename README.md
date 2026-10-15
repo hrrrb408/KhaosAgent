@@ -136,6 +136,14 @@ project test suite passed. The Launcher reports a nonzero final command as a
 failed task even if the Agent Host returns successful-sounding text, and prints
 the actual command return-code ledger.
 
+When the Agent does not know exact file names, it can propose a bounded
+directory listing through the existing Kernel `fs.list` path. The Launcher
+shows the requested roots and states that approving a directory grants read
+access to its entire subtree. The fixed listing Runner returns immediate entry
+names, kinds, and sizes without symlink targets; listing and its returned text
+use the same task and result budgets. The listing proposal itself does not run
+model-supplied shell directory-scanning code.
+
 README, AGENTS, test fixtures, and command output are untrusted model input.
 Instructions in those files do not grant authority. In remote mode, the separate
 task data-sharing prompt covers the listed categories for that task only; it
