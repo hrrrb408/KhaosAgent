@@ -3082,3 +3082,31 @@ this prompt change does not claim to fix it. See
 [`reports/tool-planning/REPORT.md`](../reports/tool-planning/REPORT.md) for the
 audit, upstream references, frozen fixtures, per-step evidence, limitations,
 comparison and the single next investigation: bounded action-rejection feedback.
+
+## 2026-10-16 finalization threat model delta
+
+Attacker A is a Khaos-confined Agent/Plugin/Runner. Attacker B is an unconfined
+ordinary process of the same UID, without administrator authorization (including
+this account's existing group access). Attacker C is an administrator/root or
+modified system trust root; no guarantee is made against C.
+
+Runtime TCB source and build/governance inputs are separately enumerated in
+`security/tcb-manifest.json`. Empty trusted Python package markers are frozen
+because imports execute them. AgentHost intelligence and sandboxed Runner remain
+outside runtime TCB. Build/CI policy protects supply-chain decisions, not runtime
+requests. `docs/SELF_HOSTING.md` describes the Keychain and writable build-root
+assumptions. No trusted runtime authority changed in finalization.
+
+Disposable same-UID experiments accepted a co-replaced 0400 HMAC key and valid
+activation envelope with a changed generation, and replaced a readonly owned
+bundle directory through its owned parent. This does not demonstrate Candidate
+self-activation from a confined Runner; it demonstrates the separate B trust-root
+gap. A damaged signed product resource is rejected by explicit signature checks,
+but the write itself succeeds. Code signatures detect this damage, not prevent it.
+Plugin business-state blobs and replay have the same user-owned persistence risk.
+Actual `/Applications` is group-writable by this UID. Root ownership of an app
+alone is insufficient when its parent is writable. An explicitly authorized disposable root-owned install under `/Library/Application Support/Khaos`
+blocked six ordinary-UID file/rename/symlink attacks; install, app restart, distinct build 1 → 2
+update, 2 → 1 rollback and removal passed. No protected persistent state was established. Running mappings, injection and malicious
+same-signer replacements remain outside proven protection; Hardened Runtime is
+not enabled. See `SECURITY_KERNEL_FINALIZATION_REPORT.md` for dated evidence.

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "builder_sha256": "0e4e99199ed8880b0b21a991e662d5c97e8c2206f3797e6c6ab94acbe419034e",
+  "certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+  "architecture": "arm64",
+  "macos": "27.0.1",
+  "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+  "sdk": "27.0",
+  "python_version": "3.13",
+  "input_policy": "recorded-development-inputs",
+  "build_record_sha256": "16472b5d8a1034ce5cce68f7aaa6ad38618295ee47aa32f59fc641234d303535",
+  "source_file_count": 40,
+  "embedded_file_count": 3086,
+  "scope": "controlled protected-install fixture built during audit; canonical signed product test rebuilds current builder; no production runtime source changed"
+}

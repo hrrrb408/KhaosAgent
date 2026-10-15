@@ -1,0 +1,31 @@
+{
+  "scope": "user-owned disposable installation; no protected state",
+  "launches": [
+    {
+      "phase": "install",
+      "returncode": 0,
+      "output": "kernel-and-snapshot-broker-peer-authentication=verified",
+      "build_version": "1"
+    },
+    {
+      "phase": "restart",
+      "returncode": 0,
+      "output": "kernel-and-snapshot-broker-peer-authentication=verified",
+      "build_version": "1"
+    },
+    {
+      "phase": "upgrade",
+      "returncode": 0,
+      "output": "kernel-and-snapshot-broker-peer-authentication=verified",
+      "build_version": "2"
+    },
+    {
+      "phase": "rollback",
+      "returncode": 0,
+      "output": "kernel-and-snapshot-broker-peer-authentication=verified",
+      "build_version": "1"
+    }
+  ],
+  "uninstall_removed_bundle": true,
+  "upgrade_semantics": "distinct signed build 1 -> 2 -> 1; no state schema migration"
+}

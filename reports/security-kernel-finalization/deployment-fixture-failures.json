@@ -1,0 +1,16 @@
+{
+  "v2_first_attempt": {
+    "stage": "OS administrator authentication",
+    "outcome": "timeout before installation; protected parent absent"
+  },
+  "v2_second_attempt": {
+    "stage": "test output assertion after successful install/bootstrap",
+    "open_returncode": 0,
+    "stdout_lines": [
+      "kernel-and-snapshot-broker-peer-authentication=verified",
+      "kernel-and-snapshot-broker-peer-authentication=verified"
+    ],
+    "cause": "fixed stdout file from first experiment retained; Launch Services appends output",
+    "fix": "private unique temporary stdout/stderr directory per phase; no Kernel or retry/timeout change"
+  }
+}

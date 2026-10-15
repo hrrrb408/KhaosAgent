@@ -1,5 +1,7 @@
 # Khaos vNext 架构设计文档
 
+**Security freeze / self-hosting contract:** 可信运行时与构建治理输入按 `security/tcb-manifest.json` 分开冻结；可信变更遵循 `docs/SECURITY_FREEZE.md`，自部署遵循 `docs/SELF_HOSTING.md`。可写工作树、用户安装的 App、用户所有 Plugin Store 与其 HMAC key 不构成任意同 UID 防篡改边界。Code signing 是身份及完整性验证，不是文件写保护。受保护安装需事先取得位置及管理员授权同意；不得默认增加特权服务。单维护者 PR/CI 保护不代替独立 Code Owner 审批。
+
 **状态：Draft / Architecture Constitution**  
 **文档性质：规范性设计草案；“必须”描述目标约束，不代表当前已经实现。**  
 **当前实现状态：** Seed 已有 macOS Seatbelt 能力探针、独立 Kernel Worker 与 Runner、受限 workspace snapshot、Kernel-mediated `fs.read` / `fs.list` / `fs.write`、`process.exec` 和经校验的 `workspace.commit` 路径。Runner 的 `process.exec` 请求只携带有界 `argv`；Kernel 校验参数，并固定 timeout、cwd、环境、workspace/read scope、资源限制与 OS sandbox。命令只修改 private snapshot，Kernel 将其整体 diff 视为不可信输入后再验证写回。Seatbelt 在 snapshot 写入规则之后拒绝移动未授权 baseline 项，并保护 read-scope 目录祖先不被移出；空 read scope 也拒绝 snapshot 项移动。Kernel 使用同一 trusted `workspace_write_scope` 限制 Runner SDK `fs.write` 与提交的全部新增、修改、删除路径；命令仍可在 private snapshot 内写入任意路径，但只要完整 changeset 含 scope 外路径，Kernel 就在任何 live mutation 前拒绝整次 commit。

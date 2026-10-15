@@ -1,0 +1,58 @@
+{
+  "uid": 501,
+  "administrator_authorization": false,
+  "scope": "disposable files only",
+  "ancestors": [
+    {
+      "path": "/",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "writable": false,
+      "symlink": false
+    },
+    {
+      "path": "/Applications",
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o775",
+      "writable": true,
+      "symlink": false
+    },
+    {
+      "path": "/Library",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "writable": false,
+      "symlink": false
+    },
+    {
+      "path": "/Library/Application Support",
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o755",
+      "writable": false,
+      "symlink": false
+    },
+    {
+      "path": "/Users/huangruibang",
+      "uid": 501,
+      "gid": 20,
+      "mode": "0o750",
+      "writable": true,
+      "symlink": false
+    },
+    {
+      "path": "/Users/huangruibang/Applications",
+      "uid": 501,
+      "gid": 20,
+      "mode": "0o755",
+      "writable": true,
+      "symlink": false
+    }
+  ],
+  "co_replaced_key_state_accepted": true,
+  "readonly_owned_bundle_replaced": true,
+  "temporary_artifacts_removed": true
+}

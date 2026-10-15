@@ -1,0 +1,1110 @@
+{
+  "schema": 1,
+  "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
+  "trust_anchor": "reviewed Git commit obtained independently; manifest/declaration/baseline are governed by Git review, not self-hashed",
+  "test_mapping_note": "test files identify regression families, not per-line coverage; see final report for exercised cases",
+  "files": [
+    {
+      "path": ".github/CODEOWNERS",
+      "role": "build-governance",
+      "sha256": "6208af84c3fdce5e649868e6de841b21589ef7e650d5c2fc8f468835ffea8e6f",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE/security.md",
+      "role": "build-governance",
+      "sha256": "85c90267978e873a0b98c67a9189982dc917bc592fba57244ea1dd8fc9f6f352",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": ".github/workflows/security-freeze.yml",
+      "role": "build-governance",
+      "sha256": "1036f119d4856a7f248e2f68bf7ff7ce91cd67bac27e1c5b01dd802833d116e3",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": ".github/workflows/seed-ci.yml",
+      "role": "build-governance",
+      "sha256": "1332e309d37f6edc211e639e195e8eb9fc2f4a28a6a2572e4566680f10861981",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "role": "build-governance",
+      "sha256": "7bd9bcef05af943f1ed084437b187e5a9b9f5ddb22b9c4a4e7cfce767f20eb61",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "SECURITY.md",
+      "role": "build-governance",
+      "sha256": "22f54f5729f58cd13ea060081259e48d1818a6895ce5a824cb4d25ac766b8fe6",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "docs/KERNEL_ABI.md",
+      "role": "build-governance",
+      "sha256": "02deec4ed285b65832c4f0bdfd30df0042e48c4026d3035ec561518c26569f2c",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
+      "role": "build-governance",
+      "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
+      "tests": [
+        "python3 tools/check_security_freeze.py",
+        "tests/test_security_freeze.py"
+      ],
+      "sha256": "164edfa24e7d9dd00d158337dbf9810fa7c5eb2df25d3de2603e4ad571ff90c0",
+      "source_mode": "0o644"
+    },
+    {
+      "path": "docs/SECURITY_FREEZE.md",
+      "role": "build-governance",
+      "sha256": "5d86533f9e94492eee971927549a663210f745ebc870982602a30461d344b11d",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "docs/SEED_THREAT_MODEL.md",
+      "role": "build-governance",
+      "sha256": "9af20fbc4469b096e618594dbea2c9b0f5805a75450aa22899d9400e4cabe4ea",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "docs/SELF_HOSTING.md",
+      "role": "build-governance",
+      "sha256": "4de749ce7a00b3c27388a385dca38c31153dbf929f983bc8db4952e34e4ca521",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "khaos/__init__.py",
+      "role": "runtime-tcb",
+      "sha256": "cffd07b64e0c9e56896d3795a8c27a31f781f7c38992ac3bf2dd1b7d36395158",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/ipc.py",
+      "role": "runtime-tcb",
+      "sha256": "d437d21080670b7af17a002cf561345c56efaed7a4e079fd99a2f2de77f4eb3d",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/__init__.py",
+      "role": "runtime-tcb",
+      "sha256": "7787db635687c804abed444dbe14bd78ef2385de5955ab549a78ea9ce09747ff",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/broker.py",
+      "role": "runtime-tcb",
+      "sha256": "4e4165738bf2270ab53caf52f6d6c245102cfac6b1b4ce0c514b72cdf1f08d35",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/macos_disk_image.py",
+      "role": "development-enforcement",
+      "sha256": "683609c583d17b8ec8e1ca64f823fa9440a5a22097cdb7e8b59107951da6d3b7",
+      "source_mode": "0o644",
+      "boundary": "development-only APFS test backend; not shipped",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/macos_seatbelt.py",
+      "role": "runtime-tcb",
+      "sha256": "752075113a0b7097fd6f1989c02add757c7b1c08effc7bc4c7c3f4dddd249842",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/peer_identity.py",
+      "role": "runtime-tcb",
+      "sha256": "da931f8d60e66ae649cb44c4258502ceaf22cf18ddd0021d7342a0bda5edfad6",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/plugin_lifecycle.py",
+      "role": "runtime-tcb",
+      "sha256": "f2d041ab67b7b468beec185dbf8f7f3159b78d0d8d9dd77c35615cf59ccc0b9c",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/worker.py",
+      "role": "runtime-tcb",
+      "sha256": "dc43e35d6c8ba3a5bbc12b623da19f69e79cc11b9fb44f2be8b398f38daa8e5e",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/workspace_changes.py",
+      "role": "runtime-tcb",
+      "sha256": "5b0fe4ca820c29cf4f8400941690a525f75fd7ef0d6d782a1ea1bb14537f0493",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/workspace_snapshot.py",
+      "role": "runtime-tcb",
+      "sha256": "5034f69fcb1dbe76815ec30e339089ee1fdc6eb2093dd70d5d5f9f5d8f96ded1",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/kernel/workspace_xpc_bridge.py",
+      "role": "runtime-tcb",
+      "sha256": "ca66923e46819002b7112707af41c00d4ea51f574497a09eb6ff9a74a2ac4d68",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/launcher.py",
+      "role": "runtime-tcb",
+      "sha256": "9eb6ec7dd9c46c3b338303bc223483e118e04b8d3fa74ed0d76795e8a1c2e305",
+      "source_mode": "0o644",
+      "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_launcher.py",
+        "tests/test_broker.py",
+        "tests/test_plugin_lifecycle.py",
+        "tests/test_macos_seatbelt.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/AgentHostClient.swift",
+      "role": "runtime-tcb",
+      "sha256": "c262a5bac6c876089a37c5d0d67380d09530680ea99aeb809796faba113d7e09",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/AgentHostProtocol.swift",
+      "role": "runtime-tcb",
+      "sha256": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary + agent_host_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelCStringArray.swift",
+      "role": "runtime-tcb",
+      "sha256": "30f86ee659b1d9ba45cd207dc24fe3c91b0732637d7ac465af450d5bee9f10bb",
+      "source_mode": "0o644",
+      "boundary": "service_binary + broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift",
+      "role": "runtime-tcb",
+      "sha256": "b032eace6ffc779a426f2c191cf1ab854341c967514ef6144a8e7da370ca405b",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
+      "role": "runtime-tcb",
+      "sha256": "ac00f9214c56ee26459209475f07f233f6d436d19319859285c51f2932d7f5a9",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary + broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerClient.swift",
+      "role": "runtime-tcb",
+      "sha256": "1315bda8ed6be7273c2abf4370af83056773ce79917ff363f6e687a821676ef4",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerSandbox.swift",
+      "role": "runtime-tcb",
+      "sha256": "4f5d6c659becacda4f9a763459eaacb00b736ead9cd428912d9ad5e0e5c1900e",
+      "source_mode": "0o644",
+      "boundary": "broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerService.swift",
+      "role": "runtime-tcb",
+      "sha256": "7ea1e8efa19d412dd3bb2dac743f7b892a04ca72d576256262355831e28e2032",
+      "source_mode": "0o644",
+      "boundary": "broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerServiceMain.swift",
+      "role": "runtime-tcb",
+      "sha256": "22e4a582f54dc14f4051b3ca79a0e13b0ca1db20440e3c1d89f204d341774e0b",
+      "source_mode": "0o644",
+      "boundary": "broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerToolRunner.swift",
+      "role": "runtime-tcb",
+      "sha256": "5dfebdcbf0cbc5538d0b481732a100b022835c641e0e45272441eda41b320331",
+      "source_mode": "0o644",
+      "boundary": "broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerXPC.swift",
+      "role": "runtime-tcb",
+      "sha256": "735c26b37a4723b502e0761f4f43d02db74809228c3f6d308f811ebf224c4cff",
+      "source_mode": "0o644",
+      "boundary": "service_binary + broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotStoragePolicy.swift",
+      "role": "runtime-tcb",
+      "sha256": "8e696225f1fdb22166723c2e0df71fb17415f1521b2656c2e010eb70b1b6bf40",
+      "source_mode": "0o644",
+      "boundary": "service_binary + broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceBootstrap.swift",
+      "role": "runtime-tcb",
+      "sha256": "665197e4bf839ebe99075ee7595dd1d7443bb5178456db8ca49e4a336f908645",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceClient.swift",
+      "role": "runtime-tcb",
+      "sha256": "871f08c0ed8fe87f4175a5bbc294fd81a9054daa5c31383fd758fb5ee8379d0b",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspacePythonExecutor.swift",
+      "role": "runtime-tcb",
+      "sha256": "05f083b98e2fbd4d3cc2f160c95c8f1920d46bd00e3d984e6690a1ee2b6e37d3",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceRoot.swift",
+      "role": "runtime-tcb",
+      "sha256": "52217a7efe696850b402c07b8f78a4c16b7396fabac08c1b35cdfdf99f91cc16",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceService.swift",
+      "role": "runtime-tcb",
+      "sha256": "586f862c2703c27684cd34b29aa0afaa080ba1e5ddaed41abff13192204e7634",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceServiceMain.swift",
+      "role": "runtime-tcb",
+      "sha256": "3c4e59c4cd07e052e535fa9838bcc739233cd466e67daccb1f54eb48303efd31",
+      "source_mode": "0o644",
+      "boundary": "service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceXPC.swift",
+      "role": "runtime-tcb",
+      "sha256": "919f507ec1c87e719c73820b5fbb651f468ea694953bc2b8bdc70308f0ddf86a",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/TrustedWorkspaceLauncherMain.swift",
+      "role": "runtime-tcb",
+      "sha256": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/TrustedWorkspacePicker.swift",
+      "role": "runtime-tcb",
+      "sha256": "6fac2c1304ac6fd29fb29b3905b8a6ee695862bb62bd42700af3bcfae77ef42f",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/XPCPeerIdentity.swift",
+      "role": "runtime-tcb",
+      "sha256": "d3b4bf8522823155b0aa19be03fb02e57208fc712bb4d625c31c52fe6e4c296d",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary + service_binary + broker_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "reports/security-kernel-finalization/protected_install_experiment.py",
+      "role": "build-governance",
+      "boundary": "reviewed deployment experiment; optional administrator authorization, no runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "reports/security-kernel-finalization/protected-install.json"
+      ],
+      "sha256": "3234797f0717c9cfd4bdc238ea3d53ca53b505c73f34d70e05af027793a8d045",
+      "source_mode": "0o644"
+    },
+    {
+      "path": "reports/security-kernel-finalization/same_uid_experiment.py",
+      "role": "build-governance",
+      "boundary": "reviewed deployment experiment; optional administrator authorization, no runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "reports/security-kernel-finalization/protected-install.json"
+      ],
+      "sha256": "af3e33df2d0b9065f47437e84087dff1c7ecfde8413570f8223c64470391255f",
+      "source_mode": "0o644"
+    },
+    {
+      "path": "tests/fixtures/real_model_memory_evolution_cases.json",
+      "role": "build-governance",
+      "sha256": "a13f9663fd6c3092ac33cae17151b20fdbc434d932af9aeaf1755e2d86fa9bea",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
+      "role": "build-governance",
+      "sha256": "fac935324b542d19cad7bb19f033043b5546f0a1d3376fb7b1aaf276f8f5d825",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/AgentHostCandidateSourceProbe.swift",
+      "role": "build-governance",
+      "sha256": "2bcd02a4f617756d5974e247fb83fe97c1e85c23af0f9d8b146aff75be0c9e8c",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/AgentHostProtocolProbe.swift",
+      "role": "build-governance",
+      "sha256": "43a10a2ab30ac375c3163907c01d5944e3b246f824ba203f1868d977490cdb93",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
+      "role": "build-governance",
+      "sha256": "5a9264c3a05a02a3882d2adc59a7b00b70aff35665cfe847467a3c85023a218d",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/AppSandboxDiskImageProbe.swift",
+      "role": "build-governance",
+      "sha256": "2d16fa9b074c36a5fe4d8ac487cfd90b54e9ac1f069e841f3f33e97d3a32030a",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/Host.swift",
+      "role": "build-governance",
+      "sha256": "f375e94112a0be4975e9dfc5a5e272200e74a0b6d08e270fde3ae7b479ff2ec9",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/Kernel.swift",
+      "role": "build-governance",
+      "sha256": "2ba86b82306daf480db06b5842f6042d45e60f0a1105c03cfffde699163c7af1",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/KernelBootstrapPeerProbe.swift",
+      "role": "build-governance",
+      "sha256": "ad1364233775c14cc0fd4c0997a93197caba95daca35907b3614e844e35bc700",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/KernelContainerCanaryProbe.swift",
+      "role": "build-governance",
+      "sha256": "fb5dc711bfd7a276f28eb3add17e45b2f1da732aa359ddd88eba0500687a33e0",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/KernelSnapshotBrokerToolRunnerProbe.swift",
+      "role": "build-governance",
+      "sha256": "ac327729270c53b3817756f0e691e6ea8e604cffcd9b91c115b0ef53309a2cc5",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/KernelWorkspaceReplyVersionProbe.swift",
+      "role": "build-governance",
+      "sha256": "9858a255c2af211f8e14beefd30ae3528d54d6ba3cde2adfba6f16ae6f8904ba",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/KernelXPCClientAttack.swift",
+      "role": "build-governance",
+      "sha256": "1238870b7cd9123d65a0e1105a98c8c214d6c5d87715be487b29b80c32eb765f",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/Runner.swift",
+      "role": "build-governance",
+      "sha256": "8805b7bdb8b33dbc9c5224169b68dfa8b34b35052e47581ea3cef43734a8beca",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/ScopeBookmark.swift",
+      "role": "build-governance",
+      "sha256": "5a5c5d0c0e2e9e91ade571f1b4868bb782248914cc9117ff48e23e23550321fa",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerPeerProbe.swift",
+      "role": "build-governance",
+      "sha256": "82780cce4b1ec22f99cbc1f570a7cf3e4b2b9722965f4e7a9bd462625791e6ff",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerProbeService.swift",
+      "role": "build-governance",
+      "sha256": "74e6dc280ea07920dc5233f80a4d8d2a3a37d7a440d99c50705fb373fd799b68",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerSandboxProbeClient.swift",
+      "role": "build-governance",
+      "sha256": "19f3c02ac765165a406d2f29fc7f5a16605bd7279f5df134a8ea8bd352758e0f",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerSandboxProbeService.swift",
+      "role": "build-governance",
+      "sha256": "d6f6afb2cec1f6a89dd60a5b3f951f0ba4a65a4f7bdc46f55e69181656b190cd",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerSandboxProbeXPC.swift",
+      "role": "build-governance",
+      "sha256": "16e75f767821d5db582cc349d9f88ca9ce9e55ea217c395b8884303d4819c181",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/SnapshotBrokerXPCClientAttack.swift",
+      "role": "build-governance",
+      "sha256": "75c140e180ae62ad71eca318e8b67c60fd802a33e4d10471df397bd7cd9ef64b",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/Spoof.swift",
+      "role": "build-governance",
+      "sha256": "c8866b40ff6c51813e75a35a30494b176bf252fd107c7ba71612274d2a555a26",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/WorkspaceGrant.swift",
+      "role": "build-governance",
+      "sha256": "377e6087411677b45218d5faac3707046ed57c2b367d52d0c8443acd9e260acc",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/WorkspaceGrantHost.swift",
+      "role": "build-governance",
+      "sha256": "ee4fa39747047190d9b6b1e227ab1e1a4bb1ea3f37aa4e36c32260004a328bc8",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/WorkspaceGrantHostIPC.swift",
+      "role": "build-governance",
+      "sha256": "d63159538f0e0fb40bb52e117a913dd72546d7f61b6a3ac951fc4186b2dcded6",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/WorkspaceProbeRequest.swift",
+      "role": "build-governance",
+      "sha256": "096f88898356f5eaa4dc4a2f9dabd9e9ec1620e54b18a683d3709b0f98665869",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/XPCClientAttack.swift",
+      "role": "build-governance",
+      "sha256": "41fb23b72158953e92871e6f96c444fea46a37b48a0044f81250c651b1fea87a",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/XPCPeerIdentityProbe.swift",
+      "role": "build-governance",
+      "sha256": "774e67fc4c8926996e325976949db9be28c2513986c0218759f7fdfccf5930f0",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/kernel_runner_probe.py",
+      "role": "build-governance",
+      "sha256": "b9a6a805103e1bcbea41a9452b1a999df38e066984486743b1fa105fda3e063d",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/kernel_workspace_descriptor_probe.py",
+      "role": "build-governance",
+      "sha256": "e5f7b5f6a0c81b12e6fff9d136ff40f4f55d9db59a2839fb98e8f2440924b22c",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/macos_xpc_probe/kernel_workspace_probe.py",
+      "role": "build-governance",
+      "sha256": "50fea45d05c97e8e694c01834499ceef4e7adbb99b927f9c993780a5683dece8",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/memory_evaluation.py",
+      "role": "build-governance",
+      "sha256": "9cec8830b96e6ab60a4cf7db9292e14237291aab6b1c43c450f7eb757cd4fbf6",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_broker.py",
+      "role": "build-governance",
+      "sha256": "aaa99fb79a6cd08ed8b95f540969c219f3f661e2603fbad06801ec08ef5d5ccc",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_ipc.py",
+      "role": "build-governance",
+      "sha256": "8730eafdece9959cc1aa8a53e55fe17fddb7fbafeac4a61d8fc6583b6f987d01",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_launcher.py",
+      "role": "build-governance",
+      "sha256": "5e3895e9ed9ac8dceb82202f25c57d00d191c48b2ae84186a51405cf773987ed",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_macos_seatbelt.py",
+      "role": "build-governance",
+      "sha256": "3af2389c752625f1e20112b4cf43185e0ad8b7b337a3f87540fbc6cba75394fb",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_macos_seed_builder.py",
+      "role": "build-governance",
+      "sha256": "7c1fa6f2dcc13b006fec8ef9787cb85bd9f0e8c84496ccb415c3565cdde5b1e8",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_macos_xpc_sandbox.py",
+      "role": "build-governance",
+      "sha256": "4e62578fe6a45bece0a4bf1df6ecdfc81f98808727cfad14e956219aa9685402",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_memory_evolution.py",
+      "role": "build-governance",
+      "sha256": "b95102e804fad016e340d4ad9afb60ca478d2400934101c5c94efb9dd8f4fd19",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_memory_plugin.py",
+      "role": "build-governance",
+      "sha256": "720c74418f055a94d1d2183ebce49e6957ef5e44cf0bab92e98234aedf38df25",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_peer_identity.py",
+      "role": "build-governance",
+      "sha256": "869461cb741763bdfdeeb6f07f947807d7c8749d603c0b2e6fc368604e8d54c3",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_plugin_lifecycle.py",
+      "role": "build-governance",
+      "sha256": "582203159890780976b27d9b26572d8bbbd177d187f6de6d78dc814568ed1d95",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_runner_sdk.py",
+      "role": "build-governance",
+      "sha256": "2ec57ecd52782d3f76c7c1a71c9776a9396bd5f2dd215672214d017a870cfd15",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_security_freeze.py",
+      "role": "build-governance",
+      "sha256": "2f1777412b08f961017814966a523f8181d0a0c3774d74e3709739541982535b",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_snapshot_broker_process.py",
+      "role": "build-governance",
+      "sha256": "aeceb77c48406859d1149da9a230da4c275b86186cf98419422028d2dd8bd0a2",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_worker.py",
+      "role": "build-governance",
+      "sha256": "02678c6f8ae8c6bf38c87c1b91680ca71d6ac7bc3bfadac842b1555fbca0a87a",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_workspace_changes.py",
+      "role": "build-governance",
+      "sha256": "7fbd278af05995a358fd6f0fb61747399b82475f272ba9eaf3e7cc4607b5b312",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_workspace_snapshot.py",
+      "role": "build-governance",
+      "sha256": "0bb8e462a36d9fa240aa95fe7e36346ba0affb68bf043c6ca4a0acdac719151f",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_workspace_xpc_bridge.py",
+      "role": "build-governance",
+      "sha256": "8564de65b8cfd6040d548b9606a09321bbb44a3aadfca62644359fa19a3a5e3d",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/workspace_test_support.py",
+      "role": "build-governance",
+      "sha256": "fb143c612a3705b08733008411ae2356aaf0d5b6daefaead4d1a54c88efe590e",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tools/build_macos_seed.py",
+      "role": "build-governance",
+      "sha256": "59a8c7facf19ec7a998ca70b75b52391230a8d54cce47120ab20c6f4917cf0d2",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tools/check_security_freeze.py",
+      "role": "build-governance",
+      "sha256": "9f9af58a60ad05e784a8a4377badc5cf4426e4565c8f0ea441aa63a876d42297",
+      "source_mode": "0o644",
+      "boundary": "reviewed build, test or governance input; not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    }
+  ]
+}

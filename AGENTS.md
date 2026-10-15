@@ -346,6 +346,13 @@ After editing:
 Do not introduce extra languages, daemons, databases, framework layers, or background
 services merely to mirror legacy Khaos or another project.
 
+## Security freeze
+
+Trusted changes follow `docs/SECURITY_FREEZE.md` and require a fresh security
+change declaration and reviewed manifest. Run `python3 tools/check_security_freeze.py`.
+Self deployment and verification commands are documented in `docs/SELF_HOSTING.md`.
+Independent Code Owner approval remains NOT PROVEN in single-maintainer mode.
+
 ## Build and test
 
 The canonical Seed bootstrap validation command is:

@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
+  "baseline": "initial security finalization; exact authority is the reviewed Git commit",
+  "runtime_authority_delta": "none",
+  "independent_code_owner_approval": "NOT PROVEN",
+  "protected_security_state": "NOT PROVEN",
+  "manifest_sha256": "9a1658e80b3f922035bfca181caad59873427ed25f95402da34d9f51bd4df569"
+}

@@ -1,0 +1,24 @@
+test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service) ... FAIL
+
+======================================================================
+FAIL: test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 942, in test_seed_app_builds_and_authenticates_its_kernel_service
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        build_product.returncode,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+        0,
+        ^^
+        build_product.stdout + build_product.stderr,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: 1 != 0 : build-macos-seed-error: select exactly one valid signing identity by full name or SHA-1
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.696s
+
+FAILED (failures=1)
