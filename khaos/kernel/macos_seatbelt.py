@@ -1665,9 +1665,11 @@ def _signal_process_group(process_id: int, *, leader_exited: bool = False) -> No
     except ProcessLookupError:
         pass
     except PermissionError:
-        # Darwin reports EPERM when the exited leader is the only remaining
-        # group member because a zombie cannot receive a signal. A live
-        # same-UID descendant remains signalable and keeps the group present.
+        # A fast command can exit after the caller's status check but before
+        # killpg. Recheck the leader before treating Darwin's EPERM as a live
+        # process-group failure; live same-UID descendants remain signalable.
+        if not leader_exited:
+            leader_exited = _child_exit_info(process_id) is not None
         if not leader_exited:
             raise
 
@@ -1676,7 +1678,25 @@ def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
     leader_exited = process.returncode is not None
     if not leader_exited:
         leader_exited = _child_exit_info(process.pid) is not None
-    _signal_process_group(process.pid, leader_exited=leader_exited)
+    try:
+        _signal_process_group(process.pid, leader_exited=leader_exited)
+    except PermissionError:
+        if leader_exited:
+            raise
+        # Seatbelt can deny a group signal while the command leader is live.
+        # Kill and reap the known child, then retry the group signal so any
+        # same-group descendants are still terminated before returning.
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        _signal_process_group(process.pid, leader_exited=True)
+        return
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:

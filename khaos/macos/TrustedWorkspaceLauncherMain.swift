@@ -1117,6 +1117,8 @@ enum TrustedWorkspaceLauncherMain {
                 case let .shell(proposal), let .list(proposal):
                     let directoryListing: Bool
                     if case .list = reply { directoryListing = true } else { directoryListing = false }
+                    let proposalKind = directoryListing ? "list" : "shell"
+                    writeAgentDiagnostic("tool-proposal kind=\(proposalKind)")
                     let outcome: AgentToolOutcome
                     if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
                         outcome = AgentToolOutcome(
@@ -1167,7 +1169,8 @@ enum TrustedWorkspaceLauncherMain {
                         }
                     }
                     taskExecutionSeconds += outcome.executionSeconds
-                    taskResultBytes += outcome.text.utf8.count
+                    let resultBytes = outcome.text.utf8.count
+                    taskResultBytes += resultBytes
                     if let returncode = outcome.returncode {
                         commandReturnCodes.append(returncode)
                     }
@@ -1189,6 +1192,10 @@ enum TrustedWorkspaceLauncherMain {
                     } else if let stopReason = outcome.stopReason {
                         taskStopReason = stopReason
                     }
+                    let returnCode = outcome.returncode.map(String.init) ?? "none"
+                    writeAgentDiagnostic(
+                        "tool-result kind=\(proposalKind) returncode=\(returnCode) output_bytes=\(resultBytes) can_continue=\(canContinue)"
+                    )
                     do {
                         let nextReply = try host.sendToolResult(
                             ok: outcome.ok,
@@ -1196,10 +1203,15 @@ enum TrustedWorkspaceLauncherMain {
                             text: outcome.text,
                             activePlugin: currentAgentPluginMetadata()
                         )
-                        if AgentHostProtocol.replyAllowedAfterToolResult(
+                        let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
                             nextReply,
                             canContinue: canContinue
-                        ) {
+                        )
+                        let responseStatus = replyAllowed ? "accepted" : "rejected"
+                        writeAgentDiagnostic(
+                            "tool-response kind=\(proposalKind) status=\(responseStatus) can_continue=\(canContinue)"
+                        )
+                        if replyAllowed {
                             reply = nextReply
                         } else {
                             writeAgentDiagnostic("task=disallowed_post_result_reply_ignored")
@@ -2695,7 +2707,8 @@ enum TrustedWorkspaceLauncherMain {
             return "agent_host_timeout"
         case AgentHostClientError.unavailable:
             return "agent_host_unavailable"
-        case AgentHostClientError.invalidResponse:
+        case let AgentHostClientError.invalidResponse(stage):
+            writeAgentDiagnostic("host-response=invalid stage=\(stage.rawValue)")
             return "agent_host_invalid_response"
         case AgentHostProtocolError.invalidRequest:
             return "agent_host_request_invalid"

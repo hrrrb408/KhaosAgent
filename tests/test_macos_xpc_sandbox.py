@@ -196,6 +196,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     "-target",
                     f"{platform.machine()}-apple-macosx26.0",
                     str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                    str(MACOS_TCB_SOURCES / "AgentHostClient.swift"),
                     str(PROBE_SOURCES / "AgentHostProtocolProbe.swift"),
                     "-o",
                     str(probe),

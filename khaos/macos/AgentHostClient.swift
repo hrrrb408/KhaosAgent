@@ -61,7 +61,7 @@ final class AgentHostClient {
                 AgentHostProtocol.modelRequestTimeoutSeconds
             )
         ) else {
-            throw AgentHostClientError.invalidResponse
+            throw AgentHostClientError.invalidResponse(.unexpectedReplyType)
         }
         return files
     }
@@ -87,7 +87,7 @@ final class AgentHostClient {
             results: results
         )
         guard case let .evaluation(record) = try request(frame) else {
-            throw AgentHostClientError.invalidResponse
+            throw AgentHostClientError.invalidResponse(.unexpectedReplyType)
         }
         return record
     }
@@ -135,9 +135,14 @@ final class AgentHostClient {
         let data = response
         let didFail = failed
         lock.unlock()
-        guard !didFail, let data,
-              let reply = AgentHostProtocol.decodeReply(data) else {
-            throw AgentHostClientError.invalidResponse
+        guard !didFail else {
+            throw AgentHostClientError.invalidResponse(.xpcTransportFailure)
+        }
+        guard let data else {
+            throw AgentHostClientError.invalidResponse(.hostReturnedNil)
+        }
+        guard let reply = AgentHostProtocol.decodeReply(data) else {
+            throw AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure)
         }
         return reply
     }
@@ -146,5 +151,17 @@ final class AgentHostClient {
 enum AgentHostClientError: Error {
     case unavailable
     case timedOut
-    case invalidResponse
+    case invalidResponse(AgentHostResponseStage)
+
+    var diagnosticStage: String? {
+        guard case let .invalidResponse(stage) = self else { return nil }
+        return stage.rawValue
+    }
+}
+
+enum AgentHostResponseStage: String {
+    case xpcTransportFailure = "xpc_transport_failure"
+    case hostReturnedNil = "host_returned_nil"
+    case launcherReplyDecodeFailure = "launcher_reply_decode_failure"
+    case unexpectedReplyType = "unexpected_reply_type"
 }

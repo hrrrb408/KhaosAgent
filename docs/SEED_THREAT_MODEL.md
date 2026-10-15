@@ -2834,3 +2834,100 @@ discovery regressions. The suite was headless and opened no workspace Picker.
 The positive model result proves one bounded synthetic coding task on this
 host, not general GLM coding reliability, successful repair of the original
 benchmark task, or distribution signing.
+
+## 2026-10-15 Coding Source Inspection and Continuation Follow-up
+
+This follow-up preserves the frozen `runner-exception-classification` prompt
+and budgets. It records the output-cleanup and Host-response diagnoses; it
+does not establish a successful repair of the original benchmark task.
+
+### Runner output-limit cleanup
+
+A real Seatbelt reproduction emitted 27,967 bytes through `/bin/cat`. The
+Runner detected `output_limit`, but process-group cleanup could receive Darwin
+`EPERM` while the known `Popen` leader was still live, masking the bounded
+failure as `sandbox_execution_failed`. Cleanup now kills and reaps that known
+child, then retries the original process-group signal so same-group
+descendants are also terminated. The race path also rechecks the leader after
+`EPERM` before classifying the group failure. A real sandbox regression asserts
+that the output-limit error remains intact and a forked descendant cannot
+write its marker after cleanup; focused deterministic tests cover both
+recovery branches.
+
+### AgentHost response attribution
+
+The first signed synthetic continuation recorded a successful list result
+(return code 0, 385 bytes) and bounded source read (return code 0, 589 bytes),
+then the Launcher recorded
+`host-response=invalid stage=launcher_reply_decode_failure`. This identifies
+an XPC data reply that the strict Launcher decoder rejected. Source inspection
+found that the Host encoder could emit list or shell frames that the same
+strict decoder rejected, including duplicate list scopes and unreviewable
+arguments. Host `encodeReply` now runs its encoded frame through that existing
+decoder before returning it. The protocol probe covers those mismatches and
+the valid `invalid_agent_action` failure frame.
+
+Diagnostics now report only fixed response stages
+(`xpc_transport_failure`, `host_returned_nil`,
+`launcher_reply_decode_failure`, or `unexpected_reply_type`) and sanitized
+per-operation kind, return code, output byte count, continuation flag, and
+response status. They retain no argv, workspace paths, command output, model
+response, or secrets. This directly attributes the prior decoder rejection;
+it does not explain later model action-validation failures whose raw responses
+are intentionally not retained.
+
+### Signed-product runs
+
+Synthetic attempts 02 and 03 used the locally signed v2 product after the
+encoder/decoder fix. Each accepted a list result of 385 bytes. In both runs the
+Host then reported `invalid_agent_action` before a bounded read or edit. This
+is evidence of an invalid generated action at the Host validation boundary;
+the precise rejected fields are **NOT_PROVEN** because the raw model output is
+not retained. Neither run changed its workspace.
+
+The original `runner-exception-classification` prompt hash remained
+`7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2`. The
+existing parent-only controls for this exact prompt recorded baseline return
+code 1 and gold return code 0. In signed-product `discovery-04`, the approved
+`src`/`tests` list returned code 1 with 1,583 bounded bytes; the Host accepted
+that result with `can_continue=true` and proposed another operation. It then
+proposed `/bin/cat tests/test_runner_sdk.py`; that file is 10,614 bytes, above
+the existing 4 KiB single-result budget. The proposal was denied, returned no
+Runner return code and `can_continue=false`, and the task stopped without
+executing it. The workspace remained clean. No candidate edit, parent retest,
+or independent grading run resulted from this attempt. This demonstrates
+nonzero-result continuation and fail-closed denial, but it does not prove a
+successful original-task repair or the model's bounded-read compliance.
+
+The repeatable real Seatbelt regression now reads lines 120 through 124 from
+the 27,967-byte fixture using an exact `large.txt` read scope and returns
+exactly 275 bytes. Reading the whole same file still returns `output_limit`,
+and a forked descendant cannot write after cleanup. This is real Runner/OS
+evidence, not a signed-product model run. The earlier signed synthetic bounded
+read preceded the Host frame-contract fix and then failed at Launcher decoding.
+The current follow-up therefore does not claim a complete post-fix
+list-to-bounded-read-to-edit-to-test product run. The remaining principal
+blocker is real-model action validity and adherence to the existing bounded-read
+instruction, not an established need to enlarge scope or output limits.
+
+### Validation and change accounting
+
+The full canonical command `python3 -m unittest discover -s tests -v` passed
+333 tests in 766.067 seconds on 2026-10-15, exit code 0. This includes the
+large-file bounded-range and output-limit/descendant-cleanup Seatbelt
+regression and the Swift AgentHost protocol probe. `git diff --check` passed.
+
+| Item | Delta |
+| --- | --- |
+| Production code | +72 / -14 lines across Seatbelt cleanup, Host client diagnostics, shared AgentHost protocol, and trusted Launcher logging |
+| Trusted code (conservative whole-file count) | +72 / -14 lines; process cleanup and sanitized diagnostics remain within existing Kernel/Launcher boundaries |
+| New architecture concepts | 0 |
+| New trusted processes | 0 |
+| New Kernel IPC operations | 0 |
+| New persistent runtime state | 0 |
+| New dependencies | 0 |
+| Removed duplication / abstractions | Host reply encoding reuses the existing strict decoder as its canonical validation |
+
+The 8-call, 180-second cumulative Runner, 30-second per-call, 4 KiB single
+result, and 32 KiB cumulative result limits are unchanged. No read scope,
+write scope, approval, or Kernel authority was added.
