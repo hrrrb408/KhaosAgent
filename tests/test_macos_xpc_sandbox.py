@@ -100,6 +100,34 @@ class MacOSXPCSandboxTests(unittest.TestCase):
         self.assertIn("itertools.islice(Path('example.py').open(),0,30)", instructions)
         self.assertNotIn('"argv":["/bin/cat","example.py"]', instructions)
 
+    def test_coding_prompt_grounds_planning_in_returned_evidence(self) -> None:
+        source = (MACOS_TCB_SOURCES / "AgentHost.swift").read_text(encoding="utf-8")
+        instructions = source.split("private enum AgentPrompt", 1)[1].split(
+            "static let candidateInstructions", 1
+        )[0]
+        for rule in (
+            "at most 8 reviewed tool calls",
+            "Distinguish observed paths from unverified layout hypotheses",
+            "A partial listing failure does not invalidate successful roots",
+            "path_not_listable does not distinguish absent from inaccessible",
+            "do not repeat that failed root or invent descendants beneath it without new path evidence",
+            "Search exact identifiers or error strings",
+            "without following symlinks",
+            "same 900-byte output cap",
+            "Each tool_result describes the last proposed action",
+            "A successful edit is not a successful test",
+            "stop immediately on denial or can_continue=false",
+        ):
+            with self.subTest(rule=rule):
+                self.assertIn(rule, instructions)
+        # Generic guidance must not reveal this round's evaluation answers.
+        for answer in (
+            "runner-exception-classification", "runner_os_error",
+            "khaos/kernel/worker.py", "package/src/parser.py", "src/wire.py",
+        ):
+            with self.subTest(answer=answer):
+                self.assertNotIn(answer, instructions)
+
     def test_model_history_keeps_task_and_latest_within_existing_budget(self) -> None:
         source = (MACOS_TCB_SOURCES / "AgentHost.swift").read_text(encoding="utf-8")
         helper = source.split("private func boundTaskHistory<Entry>(", 1)[1].split(

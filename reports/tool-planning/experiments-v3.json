@@ -1,0 +1,45 @@
+{
+  "format": "khaos-tool-planning-development-v1",
+  "tasks": [
+    {
+      "id": "nested-layout",
+      "prompt": "Fix split_items so comma-separated items have surrounding whitespace removed and empty items are omitted. Add a focused regression test and verify the correction.",
+      "source": "package/src/parser.py",
+      "symbol": "split_items",
+      "baseline_commit": "447b7fea2dbbe93ce8b23e159c8c6cd322b7e594",
+      "prompt_sha256": "ad139a094d9208624b1daf961fd8d4f54557d13ceb1b218589f62325bf098e55",
+      "hidden_sha256": "35243defe224d72f9d3d706c7541ee387478a3a9dd2f786bab644426d202c0ff",
+      "controls": [
+        {
+          "label": "baseline",
+          "returncode": 1
+        },
+        {
+          "label": "gold",
+          "returncode": 0
+        }
+      ],
+      "frozen": "local-evidence/v3/frozen/nested-layout"
+    },
+    {
+      "id": "exact-symbol",
+      "prompt": "Fix status_for: route_unavailable must return 503, while unknown reasons keep the existing 500 result and valid remains 200. Add a focused regression test and verify the correction.",
+      "source": "src/wire.py",
+      "symbol": "status_for",
+      "baseline_commit": "b9707f07f849442ba4364569af8b36904c28a6cb",
+      "prompt_sha256": "8070a3accf30df102287d8d7bf1671a845f8af911e606cfa977a316471f990f2",
+      "hidden_sha256": "f75055c9751b30412e75703227af4418af2e94d087d0c094c0f1dd541f32b29b",
+      "controls": [
+        {
+          "label": "baseline",
+          "returncode": 1
+        },
+        {
+          "label": "gold",
+          "returncode": 0
+        }
+      ],
+      "frozen": "local-evidence/v3/frozen/exact-symbol"
+    }
+  ]
+}
