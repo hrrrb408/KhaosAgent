@@ -15,11 +15,12 @@ def git(root, *args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--edition', default='v3')
+    parser.add_argument('--restore', action='store_true', help='restore a published fixture bundle without changing its commit')
     args = parser.parse_args()
     destination = ROOT / "local-evidence" / args.edition
-    destination.mkdir(exist_ok=True)
+    destination.mkdir(parents=True, exist_ok=True)
     manifest_path = ROOT / f"experiments-{args.edition}.json"
-    if manifest_path.exists():
+    if manifest_path.exists() and not args.restore:
         raise SystemExit("experiments already frozen; refusing overwrite")
     tasks = [
         {
@@ -43,6 +44,28 @@ def main():
             "symbol": "status_for",
         },
     ]
+    if args.restore:
+        manifest = json.loads(manifest_path.read_text())
+        for task in tasks:
+            record = next(t for t in manifest['tasks'] if t['id'] == task['id'])
+            bundle = ROOT / record['bundle']
+            assert hashlib.sha256(bundle.read_bytes()).hexdigest() == record['bundle_sha256']
+            root = ROOT / record['frozen']
+            if not root.exists():
+                root.parent.mkdir(parents=True, exist_ok=True)
+                subprocess.run(['git', 'clone', '--no-hardlinks', str(bundle), str(root)], check=True, capture_output=True)
+            assert git(root, 'rev-parse', 'HEAD') == record['baseline_commit']
+            private = destination / 'private' / task['id']
+            private.mkdir(parents=True, exist_ok=True)
+            assert hashlib.sha256(task['hidden'].encode()).hexdigest() == record['hidden_sha256']
+            for name, content in [('hidden.txt', task['hidden']), ('gold.py', task['gold'])]:
+                path = private / name
+                if path.exists():
+                    assert path.read_text() == content
+                else:
+                    path.write_text(content)
+        print('Restored frozen fixture commits and parent-only controls')
+        return
     records = []
     for task in tasks:
         root = destination / "frozen" / task["id"]

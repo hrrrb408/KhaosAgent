@@ -19,7 +19,9 @@
           "returncode": 0
         }
       ],
-      "frozen": "local-evidence/v3/frozen/nested-layout"
+      "frozen": "local-evidence/v3/frozen/nested-layout",
+      "bundle": "fixture-v3-nested-layout.bundle",
+      "bundle_sha256": "915ee7e63f8f36ff6d19df09249c3f8c0f92b3cc5e190f6f7475a798fce0185e"
     },
     {
       "id": "exact-symbol",
@@ -39,7 +41,9 @@
           "returncode": 0
         }
       ],
-      "frozen": "local-evidence/v3/frozen/exact-symbol"
+      "frozen": "local-evidence/v3/frozen/exact-symbol",
+      "bundle": "fixture-v3-exact-symbol.bundle",
+      "bundle_sha256": "e0238b95b8176cd78897fa597424e4458d2062ba5a81d88930ef8d1a93b29c9e"
     }
   ]
 }

@@ -14,6 +14,17 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 
 
+def launch_product(app, logs):
+    """Use Launch Services; credentials stay in the child environment only."""
+    environment = os.environ.copy()
+    for line in Path("/Users/huangruibang/.hermes/.env").read_text().splitlines():
+        if line.startswith("GLM_API_KEY="):
+            environment["KHAOS_BIGMODEL_API_KEY"] = shlex.split(line.split("=", 1)[1])[0]
+    assert environment.get("KHAOS_BIGMODEL_API_KEY"), "authorized Hermes credential missing"
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+    return subprocess.Popen(["/usr/bin/open", "-n", "-W", "-a", str(app), "--stdin", str(logs / "stdin"), "--stdout", str(logs / "stdout"), "--stderr", str(logs / "stderr"), "--args", "--agent"], env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=["start", "finish"])
@@ -35,13 +46,7 @@ def main():
         (logs / "stdin").write_text(task["prompt"] + "\n")
         for name in ["stdout", "stderr"]:
             (logs / name).touch()
-        environment = os.environ.copy()
-        for line in Path("/Users/huangruibang/.hermes/.env").read_text().splitlines():
-            if line.startswith("GLM_API_KEY="):
-                environment["KHAOS_BIGMODEL_API_KEY"] = shlex.split(line.split("=", 1)[1])[0]
-        assert environment.get("KHAOS_BIGMODEL_API_KEY"), "authorized Hermes credential missing"
-        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(args.app)], check=True)
-        process = subprocess.Popen(["/usr/bin/open", "-n", "-W", "-a", str(args.app), "--stdin", str(logs / "stdin"), "--stdout", str(logs / "stdout"), "--stderr", str(logs / "stderr"), "--args", "--agent"], env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        process = launch_product(args.app, logs)
         record = {"task": args.task, "version": args.version, "workspace": str(workspace), "logs": str(logs), "open_pid": process.pid, "app": str(args.app), "status": "running", "started": datetime.datetime.now(datetime.timezone.utc).isoformat(), "baseline_commit": task["baseline_commit"], "prompt_sha256": task["prompt_sha256"], "model": "glm-5.3-flash", "provider": "bigmodel-coding-plan", "steps": []}
         record["production_host_sha256"] = hashlib.sha256(Path("khaos/macos/AgentHost.swift").read_bytes()).hexdigest()
         (run / "run.json").write_text(json.dumps(record, indent=2) + "\n")

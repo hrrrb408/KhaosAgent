@@ -14,6 +14,7 @@ Date: 2026-10-15. This audit precedes any production change in this experiment.
 | History | `boundTaskHistory` keeps the first task entry and newest entries within 8 KiB, deleting older middle entries. Both remote and local adapters use it. | Older observations can disappear; exact retained content in the prior API run was not captured. History eviction as that run's cause is NOT PROVEN. No new context subsystem is warranted. |
 | Budget | Launcher and Host independently enforce eight calls. Host has `toolCallsThisTurn`; the model receives only generic remaining-budget wording. | A prompt can state the fixed limit and ask the model to reserve edit/test calls. Exact trusted remaining counters are not required for the first experiment. |
 | Tool results | Result JSON preserves numeric return code, added/modified/deleted counts, bounded stdout/stderr, and truncation flags. Signed step results continued after return codes 1. | Transport/continuation worked in discovery-05; do not attribute path guessing to Kernel failure. |
+| Action / wire validation | AgentHostProtocol remains version 9. The strict reply decoder bounds argv to 32 entries / 4,096 bytes per entry and scopes to 8 paths / 128 bytes per path, rejects duplicate paths and unreviewable strings, and checks exact field shape. Host encode reuses this decoder before returning a Proposal; Launcher/Kernel retain authority checks. | Invalid model actions can fail before an approval. No parser relaxation or new wire field is required for the tested prompt intervention. |
 | Completion | All eight calls in discovery-05 were discovery/read operations; diff empty, no model test, hidden grader 1. | Tool planning and selection of useful context consumed the budget. No task-level improvement has yet been demonstrated. |
 
 ## Upstream ideas considered
@@ -24,7 +25,7 @@ These are design references, not dependencies or copied implementations.
   and its read/grep tools: tool-specific instructions and bounded inspection.
 - [Codex coding prompt](https://github.com/openai/codex/blob/7d33d0d93f9c751281e0f5e8e9e76353eee87ea8/codex-rs/core/gpt-5.2-codex_prompt.md):
   choose focused file/text search rather than indiscriminate reads. Khaos must use its available reviewed Python shell instead of assuming rg exists.
-- [Hermes prompt builder](https://github.com/NousResearch/hermes-agent/blob/main/agent/prompt_builder.py):
+- [Hermes prompt builder](https://github.com/NousResearch/hermes-agent/blob/3569e8461ea721623fa16e6f01fb636157989fe6/agent/prompt_builder.py):
   verify structure and source before modifying; missing retrievable facts should lead to tool use. Local source inspected; no Hermes service or tool registry is imported.
 - [Oh My Pi read contract](https://github.com/can1357/oh-my-pi/blob/7cc912940b107eb2d771b0d106c640a8eddc9edf/docs/tools/read.md):
   make ranges and truncation explicit. Its expanded read surfaces, artifact storage, and runtime are unnecessary here.
