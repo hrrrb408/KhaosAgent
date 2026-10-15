@@ -89,6 +89,17 @@ class MacOSXPCSandboxTests(unittest.TestCase):
         self.assertIn("assert corrected != original; p.write_text(corrected)", instructions)
         self.assertIn("do not copy placeholder expressions or change tests to hide a defect", instructions)
 
+    def test_coding_prompt_uses_observed_sizes_for_bounded_file_reads(self) -> None:
+        source = (MACOS_TCB_SOURCES / "AgentHost.swift").read_text(encoding="utf-8")
+        instructions = source.split("private enum AgentPrompt", 1)[1].split(
+            "static let candidateInstructions", 1
+        )[0]
+        self.assertIn("single tool result limit is 4 KiB", instructions)
+        self.assertIn("observed size is at most 1,000 bytes", instructions)
+        self.assertIn("cap emitted UTF-8 output at 900 bytes", instructions)
+        self.assertIn("itertools.islice(Path('example.py').open(),0,30)", instructions)
+        self.assertNotIn('"argv":["/bin/cat","example.py"]', instructions)
+
     def test_model_history_keeps_task_and_latest_within_existing_budget(self) -> None:
         source = (MACOS_TCB_SOURCES / "AgentHost.swift").read_text(encoding="utf-8")
         helper = source.split("private func boundTaskHistory<Entry>(", 1)[1].split(
