@@ -1,0 +1,148 @@
+{
+  "task_id": "runner-exception-classification",
+  "attempt": "planning-v2-01",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "product_source_commit": "aceced41c2b22c60cae14f31cc8d7e25c2864fd8",
+  "production_host_sha256": "18b21e381188fa70c8eb3ad266195fd27756ecb5311917dc18360db10188fca8",
+  "model_id": "glm-5.3-flash",
+  "model_provider": "bigmodel-coding-plan",
+  "steps": [
+    {
+      "approval": "approved",
+      "argv": [],
+      "basis": "unverified initial directory hypothesis",
+      "kind": "list",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "2dc9ffa02dfe301bd5828f14032024f7ed014eb0e0d51621533832f850bde48c",
+      "write_scope": []
+    }
+  ],
+  "launcher_task_record": "Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=3.374s; bounded result bytes=1541; stop reason=Agent Host or model failed: invalid_agent_action. Only these command results are verified; broader test coverage is not inferred.",
+  "workspace_diff": "",
+  "outcome": "FAIL: invalid_agent_action after one successful directory listing; no source location, edit, or focused test",
+  "failure_classification": [
+    "Action Protocol Failure"
+  ],
+  "evidence_limits": [
+    "The rejected model action was not approved or executed; its exact invalid fields are NOT_PROVEN.",
+    "No XPC transport, Kernel, or Runner error was observed in the approved operation.",
+    "No prompt retuning after this formal result."
+  ],
+  "grade_all_test_commands_passed": false,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-15T15:38:22.472725+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-15T15:38:15.748176+00:00",
+      "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/planning-v2-01/grader-test-01.stderr",
+      "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/planning-v2-01/grader-test-01.stdout",
+      "timed_out": false
+    }
+  ],
+  "candidate_paths_copied_to_grader": [],
+  "diagnostics": [
+    "agent-session=remote-data=approval-presented",
+    "agent-session=remote-data=approved",
+    "agent-session=tool-proposal kind=list",
+    "agent-session=tool=workspace-picker-requested",
+    "agent-session=tool=approval-presented",
+    "agent-session=tool=approved",
+    "agent-session=tool=executed returncode=0",
+    "agent-session=tool-result kind=list returncode=0 output_bytes=1541 can_continue=true",
+    "agent-session=tool-response kind=list status=accepted can_continue=true",
+    "Local Agent error: invalid_agent_action"
+  ],
+  "approval_events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-15T15:36:02.463191+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-15T15:36:18.758630+00:00"
+    },
+    {
+      "event": "tool-proposal kind=list",
+      "observed_at_utc": "2026-10-15T15:36:27.722398+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-15T15:36:27.722574+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-15T15:36:41.153195+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-15T15:36:45.440724+00:00"
+    },
+    {
+      "event": "tool=executed returncode=0",
+      "observed_at_utc": "2026-10-15T15:36:48.691313+00:00"
+    },
+    {
+      "event": "tool-result kind=list returncode=0 output_bytes=1541 can_continue=true",
+      "observed_at_utc": "2026-10-15T15:36:48.691420+00:00"
+    },
+    {
+      "event": "tool-response kind=list status=accepted can_continue=true",
+      "observed_at_utc": "2026-10-15T15:37:22.713537+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-15T15:37:22.713682+00:00"
+    }
+  ],
+  "grade": {
+    "all_test_commands_passed": false,
+    "attempt": "planning-v2-01",
+    "candidate_paths_copied": [],
+    "candidate_test_edits_excluded": [],
+    "format": "khaos-coding-reliability-grade-v1",
+    "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "graded_at_utc": "2026-10-15T15:38:22.472758+00:00",
+    "grading_note": null,
+    "hidden_test_patch_applied": true,
+    "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "task_id": "runner-exception-classification",
+    "test_timeout_seconds": 1200,
+    "tests": [
+      {
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_worker.py",
+          "-v"
+        ],
+        "completed_at_utc": "2026-10-15T15:38:22.472725+00:00",
+        "return_code": 1,
+        "started_at_utc": "2026-10-15T15:38:15.748176+00:00",
+        "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/planning-v2-01/grader-test-01.stderr",
+        "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/planning-v2-01/grader-test-01.stdout",
+        "timed_out": false
+      }
+    ]
+  },
+  "prompt_unchanged": true,
+  "followup_tasks": "NOT_RUN: primary failed before source location; conditional scale-up gate not met"
+}

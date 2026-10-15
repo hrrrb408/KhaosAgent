@@ -3035,3 +3035,50 @@ Production code delta: 0; trusted code delta: 0; new architecture concepts: 0;
 new trusted processes: 0; new IPC operations: 0; new persistent runtime state: 0;
 new dependencies: 0; removed duplication/abstractions: 0. The previously recorded
 334-test canonical security pass applies to the unchanged production source.
+
+### 2026-10-16 evidence-grounded tool planning
+
+The untrusted Host now receives four additional generic prompt lines covering
+observed paths versus hypotheses, single-root initial discovery, bounded exact
+symbol/context selection, real edit/test continuation, and the existing
+reviewable-argv contract. No parser, Kernel scope, trusted process, IPC operation,
+approval mechanism, runtime state or budget changed. Production delta is +4/-0
+prompt lines; trusted delta is zero; dependencies and new architecture concepts
+are zero.
+
+Two fixed development repositories were exercised with real GLM-5.3-Flash,
+signed product apps and separately reviewed Launcher operations. Every attempt,
+including fixture-loader failures, two intervention versions and a refusal
+control, is retained. On the clean nested-layout task, failed path requests
+decreased from 1 to 0; intervention v2 performed source/regression edits, ran
+both tests and passed independent hidden checks within six calls. The separate
+symbol task repaired its source, added assertions and passed focused/hidden
+checks within eight calls, but wasted one call on a speculative edit before
+reading the implementation. These are development observations, not formal
+benchmark scores or statistical reliability evidence.
+
+The refusal control had one denied proposal, zero execution, no diff and no
+replacement proposal. Canaries remained unchanged; absence from Launcher logs
+alone is not proof of absence from all data flows. Existing real-OS denial
+tests remain the enforcement evidence.
+
+The production version was frozen before the original
+`runner-exception-classification` replay. The unchanged prompt/baseline/grader
+were used in a temporary workspace; fresh controls returned baseline 1 and
+gold 0. The formal model attempt successfully listed `tests` (return code 0,
+1,541 bounded bytes, 3.374 Runner seconds), then stopped with
+`invalid_agent_action` before another approval. No source was located, no edit
+or model test occurred, and hidden grading returned 1. Exact rejected fields
+remain **NOT PROVEN**. No prompt was retuned after this formal failure and the
+conditional follow-up task gate was not met. This supports only the limited
+Level 1 development planning proof; Level 2 formal Coding Reliability
+Improvement and Coding Reliability Closure remain **NOT PROVEN**.
+
+The canonical suite passed **335 tests in 685.451 seconds**, exit code 0.
+The new test guards generic prompt guidance and absence of evaluation answers;
+real-model quality is not a canonical CI gate. The prior intermittent
+`sandbox_unavailable_probe_snapshot` remains an unattributed runtime issue;
+this prompt change does not claim to fix it. See
+[`reports/tool-planning/REPORT.md`](../reports/tool-planning/REPORT.md) for the
+audit, upstream references, frozen fixtures, per-step evidence, limitations,
+comparison and the single next investigation: bounded action-rejection feedback.

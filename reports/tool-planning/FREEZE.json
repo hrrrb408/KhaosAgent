@@ -1,0 +1,29 @@
+{
+  "version": "intervention-v2",
+  "frozen_at_utc": "2026-10-15T15:31:57.326648+00:00",
+  "production_commit": "aceced41c2b22c60cae14f31cc8d7e25c2864fd8",
+  "host_sha256": "18b21e381188fa70c8eb3ad266195fd27756ecb5311917dc18360db10188fca8",
+  "model": "glm-5.3-flash",
+  "provider": "bigmodel-coding-plan",
+  "product_app": "/Users/huangruibang/Applications/Khaos Tool Planning GLM-2026-10-15-v2.app",
+  "formal_primary_task": "runner-exception-classification",
+  "formal_followup_tasks_if_primary_progress": [
+    "runner-startup-classification",
+    "runner-peer-socket-race"
+  ],
+  "formal_policy": "one attempt per frozen task/version; preserve failures; no prompt retuning from formal results",
+  "budgets": {
+    "calls": 8,
+    "runner_seconds": 180,
+    "single_runner_seconds": 30,
+    "single_result_bytes": 4096,
+    "total_result_bytes": 32768,
+    "process_output_bytes": 8192
+  },
+  "trusted_code_delta": 0,
+  "new_kernel_authority": 0,
+  "new_ipc": 0,
+  "new_trusted_processes": 0,
+  "new_persistent_runtime_state": 0,
+  "new_dependencies": 0
+}

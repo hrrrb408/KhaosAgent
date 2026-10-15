@@ -1,0 +1,255 @@
+[
+  {
+    "task": "runner-exception-classification",
+    "baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "variants": [
+      {
+        "label": "baseline",
+        "hidden_patch_state": "applied",
+        "passed": false,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:32:49.411319+00:00",
+            "elapsed_seconds": 3.123,
+            "return_code": 1,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-exception-classification/baseline/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-exception-classification/baseline/test-01.stderr"
+          }
+        ]
+      },
+      {
+        "label": "gold",
+        "hidden_patch_state": "already_in_gold_patch",
+        "passed": true,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:32:52.634643+00:00",
+            "elapsed_seconds": 3.14,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-exception-classification/gold/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-exception-classification/gold/test-01.stderr"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "task": "runner-startup-classification",
+    "baseline_commit": "9f9425e574e1ac4352f1efdedd5e81a17e0e871c",
+    "prompt_sha256": "607a795005b162752d8610ea70f5ccc60e63f33287d37d447c62905ee6dded7a",
+    "variants": [
+      {
+        "label": "baseline",
+        "hidden_patch_state": "applied",
+        "passed": false,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:32:55.903627+00:00",
+            "elapsed_seconds": 0.094,
+            "return_code": 1,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/baseline/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/baseline/test-01.stderr"
+          },
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_broker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:32:55.997424+00:00",
+            "elapsed_seconds": 68.433,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/baseline/test-02.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/baseline/test-02.stderr"
+          }
+        ]
+      },
+      {
+        "label": "gold",
+        "hidden_patch_state": "already_in_gold_patch",
+        "passed": true,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:34:04.528487+00:00",
+            "elapsed_seconds": 0.1,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/gold/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/gold/test-01.stderr"
+          },
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_broker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:34:04.628975+00:00",
+            "elapsed_seconds": 70.219,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/gold/test-02.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-startup-classification/gold/test-02.stderr"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "task": "runner-peer-socket-race",
+    "baseline_commit": "47943deb5f55302cff7f6b486f6ab1ca95486aca",
+    "prompt_sha256": "00f8d332af10257834c2d96ad6ca17711f05420df1a8ebde21fde16015dc2654",
+    "variants": [
+      {
+        "label": "baseline",
+        "hidden_patch_state": "applied",
+        "passed": false,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_peer_identity.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:35:14.980817+00:00",
+            "elapsed_seconds": 3.755,
+            "return_code": 1,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/baseline/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/baseline/test-01.stderr"
+          },
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:35:18.736542+00:00",
+            "elapsed_seconds": 6.799,
+            "return_code": 1,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/baseline/test-02.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/baseline/test-02.stderr"
+          }
+        ]
+      },
+      {
+        "label": "gold",
+        "hidden_patch_state": "already_in_gold_patch",
+        "passed": true,
+        "tests": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_peer_identity.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:35:25.644545+00:00",
+            "elapsed_seconds": 4.091,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/gold/test-01.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/gold/test-01.stderr"
+          },
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_worker.py",
+              "-v"
+            ],
+            "started_at_utc": "2026-10-15T15:35:29.736087+00:00",
+            "elapsed_seconds": 6.616,
+            "return_code": 0,
+            "timed_out": false,
+            "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/gold/test-02.stdout",
+            "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/tool-planning/local-evidence/formal-controls/runner-peer-socket-race/gold/test-02.stderr"
+          }
+        ]
+      }
+    ]
+  }
+]
