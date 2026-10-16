@@ -1,0 +1,46 @@
+In the Khaos Seed Picker, press Command-Shift-G and enter this path; press Return, select the folder, and choose Open. Check that the result alert shows acceptance run 6f7a5e6e-a497-4e5c-ac5d-ff4fd7f2eb6b; dismiss it so the test can verify the workspace and signature:
+/Users/huangruibang/Applications/khaos-seed-app-d_kgbl0o/user-selected-writeback-workspace
+Real signed Launcher, KernelProduction.xpc, Plugin lifecycle, Seatbelt Runner and Kernel writeback; parent checks workspace bytes after every run.
+
+Expected plugin-a: candidate=4ce9906e8f77c79acf3184b92e536884b4717b3800ab849a216b0a8008397a9d manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=0
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-d_kgbl0o/plugin-a.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+Expected plugin-a: candidate=4ce9906e8f77c79acf3184b92e536884b4717b3800ab849a216b0a8008397a9d manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Start the signed product's local Agent. Select /Users/huangruibang/Applications/khaos-seed-app-d_kgbl0o/persistent-plugin-workspace when its workspace Picker opens. The model will propose the active Plugin twice: cancel the first approval, then approve the second after the test confirms there was no writeback.
+The first dialog must show the active Candidate and its trusted read/write scope. Click Cancel, then. The test continues automatically when the signed product records this action.
+FAIL
+
+======================================================================
+FAIL: test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 1454, in test_seed_app_builds_and_authenticates_its_kernel_service
+    self._assert_product_plugin_lifecycle_ui(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        product_app=product_app,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        agent_only=run_agent_plugin_ui and not run_plugin_lifecycle_ui,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6525, in _assert_product_plugin_lifecycle_ui
+    run_agent_plugin("A", 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6453, in run_agent_plugin
+    gate(
+    ~~~~^
+        "The first dialog must show the active Candidate and its "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "trusted read/write scope. Click Cancel, then press Return."
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6275, in gate
+    self.assertNotEqual(sys.stdin.readline(), "", "test input closed")
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '' == '' : test input closed
+
+----------------------------------------------------------------------
+Ran 1 test in 114.977s
+
+FAILED (failures=1)

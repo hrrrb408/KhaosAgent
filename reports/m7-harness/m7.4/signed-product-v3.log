@@ -1,0 +1,52 @@
+In the Khaos Seed Picker, press Command-Shift-G and enter this path; press Return, select the folder, and choose Open. Check that the result alert shows acceptance run 77c4418f-5d85-41db-a263-786fef5ceb3c; dismiss it so the test can verify the workspace and signature:
+/Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/user-selected-writeback-workspace
+Real signed Launcher, KernelProduction.xpc, Plugin lifecycle, Seatbelt Runner and Kernel writeback; parent checks workspace bytes after every run.
+
+Expected plugin-a: candidate=05b0e5ce2d978fc736961d30213e162d7acf80a8cf02095ea83af4be40c7d1f7 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=0
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/plugin-a.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+Expected plugin-a: candidate=05b0e5ce2d978fc736961d30213e162d7acf80a8cf02095ea83af4be40c7d1f7 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Start the signed product's local Agent. Select /Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/persistent-plugin-workspace when its workspace Picker opens. The model will propose the active Plugin twice: cancel the first approval, then approve the second after the test confirms there was no writeback.
+The first dialog must show the active Candidate and its trusted read/write scope. Click Cancel, then. The test continues automatically when the signed product records this action.
+
+The second dialog should show plugin-a at generation 1 with the active Manifest scope. Approve it, then press Return.
+After approving the second invocation. The test continues automatically when the signed product records this action.
+
+Expected plugin-a: candidate=05b0e5ce2d978fc736961d30213e162d7acf80a8cf02095ea83af4be40c7d1f7 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Select /Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/persistent-plugin-workspace in the signed product workspace Picker, verify the four approval bindings, approve, and dismiss the result alert for parent-side workspace checks.
+Expected plugin-a: candidate=05b0e5ce2d978fc736961d30213e162d7acf80a8cf02095ea83af4be40c7d1f7 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Start another A run and select /Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/persistent-plugin-workspace; leave its generation-1 approval open. The test waits for the product review marker.
+Confirm the pending approval shows Candidate A at generation 1, leave it open, then press Return to activate B. The test continues automatically when the signed product records this action.
+
+Expected plugin-b: candidate=0730ed749aae4a51af6cd1927710287af5aa36c28413eaffda3b7a97363e25c9 manifest=cf963b49e97277872aeac57bea7327ca8027a0be9e3802832a698c2f96679d77 scope=8eb3318223907039f272c1626e286b1fdff17289e57818524de286fc5cf794d2 generation=1
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-jqqdl9ve/plugin-b.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+FAIL
+
+======================================================================
+FAIL: test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 1454, in test_seed_app_builds_and_authenticates_its_kernel_service
+    self._assert_product_plugin_lifecycle_ui(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        product_app=product_app,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        agent_only=run_agent_plugin_ui and not run_plugin_lifecycle_ui,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6544, in _assert_product_plugin_lifecycle_ui
+    activate("B", 1, "activate-b-racing-a")
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6341, in activate
+    check_active(letter, generation + 1)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6289, in check_active
+    self.assertEqual(actual_generation, generation)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 1 test in 318.430s
+
+FAILED (failures=1)

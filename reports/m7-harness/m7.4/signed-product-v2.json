@@ -1,0 +1,26 @@
+{
+  "source_commit": "c97bb05c9920c3a59e8790c5b843037c120061e9",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_seed_app_builds_and_authenticates_its_kernel_service",
+    "-v"
+  ],
+  "opt_in": [
+    "KHAOS_RUN_PRODUCT_WRITEBACK_UI=1",
+    "KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1"
+  ],
+  "seconds": 165.197,
+  "exit_code": 1,
+  "raw_log": "signed-product-v2.log",
+  "failure_stage": "Stale expected English sentence after actual Agent Plugin invocation; current deterministic probe returns numeric changeset counts",
+  "actual_agent_result": "Plugin result changeset counts: added=2, modified=0, deleted=0.",
+  "data_flow": "local deterministic model, no remote recipient"
+}

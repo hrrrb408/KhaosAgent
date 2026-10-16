@@ -1,0 +1,36 @@
+{
+  "source_commit": "c97bb05c9920c3a59e8790c5b843037c120061e9",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_seed_app_builds_and_authenticates_its_kernel_service",
+    "-v"
+  ],
+  "opt_in": [
+    "KHAOS_RUN_PRODUCT_WRITEBACK_UI=1",
+    "KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1"
+  ],
+  "seconds": 318.563,
+  "exit_code": 1,
+  "raw_log": "signed-product-v3.log",
+  "failure_stage": "CUA could attach only first of concurrent identical app instances; operator Escape cancelled old A approval, then B Picker was explicitly cancelled. Test failed active generation 1 != 2.",
+  "not_proven": [
+    "stale-generation UI rejection",
+    "B activation UI",
+    "rollback UI in this run"
+  ],
+  "passed_before_interruption": [
+    "signed writeback parent checks",
+    "A activation",
+    "Agent Plugin denial/no write",
+    "Agent Plugin independent approval/result",
+    "A invocation and parent scope/hash/signature checks"
+  ]
+}
