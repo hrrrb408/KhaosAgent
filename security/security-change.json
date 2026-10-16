@@ -1,15 +1,15 @@
 {
-  "base": "4e0c39a88c27efb31cfe35bce6497d2de9a7dff9",
+  "base": "d96012dcd18ab79b090cecca67542b9ccd69f31b",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
     "tests/macos_xpc_probe/Host.swift"
   ],
-  "motivation": "M7.3 CI run 38885620597 failed the signed XPC cancellation fixture, but a 600-character prefix hid the Python exception tail. Retain bounded prefix and suffix within that existing character cap. Preserve all cancellation, request/connection binding, no-write and timeout assertions. This diagnoses a failure, not a claimed runtime fix.",
+  "motivation": "M7.3 CI run 38885620597 failed the signed XPC cancellation fixture, but a 600-character prefix hid the Python exception tail. Retain bounded prefix and suffix within that existing character cap. Preserve all cancellation, request/connection binding, no-write and timeout assertions. This diagnoses a failure, not a claimed runtime fix. Final ordered M7 integration: PR #24 targets main at exact base d96012dcd18ab79b090cecca67542b9ccd69f31b; retain reviewed source/fixtures unchanged.",
   "invariants": "Keep Launcher/Kernel/Runner authority, approvals, sandbox, scopes, opaque state and trusted budgets unchanged. No new data access or remote recipient.",
   "authority_delta": "0; no runtime source changes.",
-  "real_os_tests": "Focused signed XPC test and exact-head canonical CI. Preserve failed remote evidence and classify the underlying cause only if diagnostics prove it.",
+  "real_os_tests": "Focused signed XPC test and exact-head canonical CI. Preserve failed remote evidence and classify the underlying cause only if diagnostics prove it. Original signed-product full UI evidence is retained in the final M7 stack. Required canonical real-OS CI is rerun at this integration head before merge.",
   "trusted_delta": "0 runtime lines. One test-only diagnostic plus exact reviewed governance hashes.",
-  "baseline_decision": "Update only the reviewed Host.swift test digest; retain all runtime hashes. Independent Code Owner approval remains NOT PROVEN."
+  "baseline_decision": "Retain all reviewed manifest input hashes and freeze-baseline bytes; refresh exact declaration base/sensitive paths only. No runtime source or authority changes; independent Code Owner approval remains NOT_PROVEN."
 }
