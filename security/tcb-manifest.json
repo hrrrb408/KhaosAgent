@@ -570,7 +570,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
       "role": "build-governance",
-      "sha256": "5a9264c3a05a02a3882d2adc59a7b00b70aff35665cfe847467a3c85023a218d",
+      "sha256": "e16085d62bee9ccd1922d248cb5c28331dfd992fc55ea7e49f6743e63ea660de",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -933,7 +933,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "1931184ba715ebb345320aa2cff3210897efe377df5860f71da796596f547058",
+      "sha256": "d257d469d3fb18e59bbffab4760616171082ba0a57d7f14826b2a08ddfd3eee2",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

@@ -1,0 +1,27 @@
+{
+  "baseline": "f81ad68",
+  "input_kinds": [
+    "goal",
+    "failure",
+    "model",
+    "success",
+    "current"
+  ],
+  "input_lengths": [
+    4,
+    3415,
+    2015,
+    3415,
+    1015
+  ],
+  "old_helper": {
+    "retained_lengths": [
+      4,
+      2015,
+      3415,
+      1015
+    ],
+    "fits": true
+  },
+  "conclusion": "old helper removes the latest failure before a lower-value model proposal; current deterministic production-helper test retains the failure and removes the model proposal"
+}
