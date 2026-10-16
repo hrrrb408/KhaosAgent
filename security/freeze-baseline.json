@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
-  "baseline": "M7.2 bounded observation-retention tests; runtime TCB unchanged",
+  "baseline": "M7.3 bounded XPC cancellation fixture diagnostics; runtime TCB unchanged",
   "runtime_authority_delta": "none",
   "independent_code_owner_approval": "NOT PROVEN",
   "protected_security_state": "runtime isolation required; arbitrary external same-UID resistance out of scope",
-  "manifest_sha256": "0b0d52812c25538a2cc1676a33c78e7417e464155d9f7d8c8c3e0b8aaf537b1c",
+  "manifest_sha256": "de961de47737022a73f8e247a5b889202ff0d06fe947ba9a300dcf10ad5efb75",
   "scope_revision_base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
   "supported_adversaries": [
     "Khaos AgentHost",

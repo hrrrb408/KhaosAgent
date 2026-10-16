@@ -1,0 +1,6 @@
+test_xpc_sandbox_scope_peer_identity_and_service_container_identity (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_xpc_sandbox_scope_peer_identity_and_service_container_identity) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 118.296s
+
+OK

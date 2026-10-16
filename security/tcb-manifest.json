@@ -592,7 +592,7 @@
     {
       "path": "tests/macos_xpc_probe/Host.swift",
       "role": "build-governance",
-      "sha256": "f375e94112a0be4975e9dfc5a5e272200e74a0b6d08e270fde3ae7b479ff2ec9",
+      "sha256": "06222c51dd4fe7687ef80fb2e367ae1911bb9de9ff214609b38339656dfcccf5",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

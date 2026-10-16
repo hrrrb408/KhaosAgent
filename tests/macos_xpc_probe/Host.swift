@@ -1938,8 +1938,11 @@ struct Host {
             let detail = responseData.flatMap {
                 KernelWorkspaceXPC.decode($0, requestID: requestID)
             }
-            let status = detail?.errorCode
-                ?? String((detail?.output ?? "no response").prefix(600))
+            let output = detail?.output ?? "no response"
+            // Fixture diagnostics must retain the exception tail, not just setup markers.
+            let bounded = output.count <= 600 ? output
+                : String(output.prefix(280)) + "\n[...truncated...]\n" + String(output.suffix(280))
+            let status = detail?.errorCode ?? bounded
             throw ProbeError.hostClientFailed(
                 "Kernel XPC cancellation did not stop execution: \(status)"
             )
