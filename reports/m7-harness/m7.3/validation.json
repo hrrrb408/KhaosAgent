@@ -1,0 +1,58 @@
+{
+  "source_commit": "4e0c39a88c27efb31cfe35bce6497d2de9a7dff9",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-v",
+    "-k",
+    "cancel",
+    "-k",
+    "timeout",
+    "-k",
+    "launcher_death",
+    "-k",
+    "command_exit_kills",
+    "-k",
+    "double_fork",
+    "-k",
+    "missing_backend",
+    "-k",
+    "action_output_correction"
+  ],
+  "seconds": 61.503,
+  "exit_code": 0,
+  "targeted_test_count": 27,
+  "targeted_log_sha256": "6c0c8dab1675c564b76e7e5768f583a7012d16326ee771a8abeff7da95b73b1b",
+  "runtime_tcb_delta": 0,
+  "runtime_source_sha256": {
+    "khaos/macos/AgentHost.swift": "23de6ffe5f1bd6ec8d52b0175ed679ab12e62e9a9d50742c7a20d23b086576cc",
+    "khaos/macos/AgentHostActionOutput.swift": "cb7c9d3209e98e8e5b5b8e00b8685b0edea871cae15693cbeef216e1956eb8dd",
+    "khaos/macos/AgentHostClient.swift": "c262a5bac6c876089a37c5d0d67380d09530680ea99aeb809796faba113d7e09",
+    "khaos/macos/KernelWorkspaceService.swift": "586f862c2703c27684cd34b29aa0afaa080ba1e5ddaed41abff13192204e7634"
+  },
+  "signed_xpc": {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_macos_xpc_sandbox.py",
+      "-k",
+      "test_xpc_sandbox_scope_peer_identity_and_service_container_identity",
+      "-v"
+    ],
+    "seconds": 118.8,
+    "exit_code": 0
+  },
+  "logs_sha256": {
+    "signed-xpc-macos.log": "04ba5a76015da0b8380c8b1a26afde6d03bef5fb8556fddc54e6fb51d399a94b",
+    "targeted-macos.log": "6c0c8dab1675c564b76e7e5768f583a7012d16326ee771a8abeff7da95b73b1b"
+  }
+}
