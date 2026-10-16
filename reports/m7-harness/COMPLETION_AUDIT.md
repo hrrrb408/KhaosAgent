@@ -4,8 +4,9 @@ Taskbook: `Khaos_M7_Harness_Foundations.md`, all batches M7.1–M7.5.
 M7 starting source: `33e9193a0b8b066caec60d1d5385cbb9123987f1`.
 This supersedes interpreting delivery as M7.2 alone. Small stacked PRs preserve
 batch boundaries; the prior reports are historical evidence, not current-state
-claims. The owner explicitly deferred only the concurrent stale-approval UI
-on 2026-10-16; it stays NOT_RUN and is not a completion claim.
+claims. The owner resumed the previously deferred concurrent stale-approval UI on
+2026-10-16. The default full signed lifecycle test now passes; earlier partial
+and failed records retain their original verdicts.
 
 ## Requirements and current evidence
 
@@ -24,9 +25,9 @@ on 2026-10-16; it stays NOT_RUN and is not a completion claim.
 | M7.3 results consumed once | Trusted Launcher sends synchronously without retry; Host consumes pending result before continuation; restarted Host rejects unsolicited old result | Existing client/session source, compiled sequencing probe and signed Host-loss result |
 | M7.3 observed remote failure | Preserve one failed cancellation fixture and truncated uncertainty; bounded exception-tail diagnostic only, no timeout/retry/assertion weakening | `m7.3/remote-ci-attempt-1.txt`, `REPORT.md`, exact-head PR #24 checks |
 | M7.4 Seatbelt/scope/direct Kernel access/XPC peers | Existing actual OS denials rechecked, no new Kernel feature | `m7.4/REPORT.md` boundary/test map, canonical 341-test log |
-| M7.4 per-operation/activation approvals and routing rollback | Actual native A activation, Agent denial + new independent approval, A run, separate B activation/run, separate rollback and generation-3 A run; parent hashes and signatures checked | `m7.4/signed-product-v4.json` / log, 253.868 seconds |
+| M7.4 per-operation/activation approvals and routing rollback | Actual native A activation, Agent denial + new independent approval, A run, separate B activation/run, separate rollback and generation-3 A run; parent hashes and signatures checked | `m7.4/signed-product-v5.json` / log, 287.457 seconds |
 | M7.4 stale Candidate/generation, invalid rollback/crash | Canonical headless real Kernel and lifecycle tests remain enabled; their scope is separate from concurrent UI | Canonical product XPC lifecycle, wrong/expired approval and invalid rollback/crash tests |
-| M7.4 concurrent old-A approval during B activation | NOT_RUN / owner-deferred; default full UI branch and assertions remain intact | `m7.4/REPORT.md`, explicit NOT_RUN event and `full_lifecycle_ui_acceptance=false` |
+| M7.4 concurrent old-A approval during B activation | PASS: A generation-1 review stayed open while B activated at generation 2; submitting A returned stale_approval with an unchanged workspace | `m7.4/signed-product-v5.json` / log, default full path; parent snapshot, active B and signature assertions |
 | M7.5 fixed real benchmark | Same original task, baseline, hidden patch, provider profile and budgets; all attempts preserved, one authorized new replay, no post-result prompt tuning | `m7.5/audit.json` (15 checks), comparison, events, inventory; original M7.2 frozen run/grade |
 | M7.5 real vs deterministic vs fixture success | Real replay failed coding and hidden test (1); list 0 and Launcher exit 0 do not score repair | `m7.5/REPORT.md`; Coding Reliability Closure NOT_PROVEN |
 | Every PR delivery / validation | Focused report, delta, invariants, executable validation, failed outcomes, limitations and next batch; exact-head security-tests/security-freeze required | PRs #22 → #23 → #24 → #25 → #26 and their check rollups |
@@ -36,7 +37,7 @@ statement for that earlier SHA. The integrated M7.2 signed six-operation run,
 refusal/cancellation/budget/Host-loss checks and actual frozen replay exercise
 the unchanged M7.1 behavior in the current stack; they are not relabeled as UI
 runs at the old SHA. The M7.4 partial UI result is likewise never called full
-stale-generation UI acceptance.
+stale-generation UI acceptance; the later separate v5 full run supplies that evidence.
 
 ## Eight responsibility ownerships retained
 
@@ -82,6 +83,6 @@ unconfined same-UID tampering and independent Code Owner enforcement remain
 outside / NOT_PROVEN as already documented. Rollback changes future routing,
 not past side effects. Separate model latency/cost and hosted model-weight
 revision are unavailable. No universal reliability or security claim is made
-from a finite regression suite. Concurrent stale-approval UI is the one explicit
-owner-deferred acceptance item; complete development/recording delivery must
-not be presented as full UI sign-off or Coding Reliability Closure.
+from a finite regression suite. The previously deferred concurrent stale-approval UI now has its own full
+passing signed-product run. Taskbook development, regression and recording
+delivery does not establish Coding Reliability Closure.

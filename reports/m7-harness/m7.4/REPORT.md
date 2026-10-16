@@ -116,3 +116,33 @@ and the concurrent stale-approval UI as NOT_RUN; all non-deferred sequential
 checks passed. The test's zero exit is not used to erase that missing UI step.
 Every earlier failed run remains separate. No real-model coding claim is derived
 from these fixed-probe results.
+
+## Resumed full concurrent UI acceptance
+
+On 2026-10-16 the owner resumed the deferred acceptance. Attempt 5 used the
+unmodified default full lifecycle path at source `ae52db099378c374b5fc392e28702b4eb63e7763`,
+with only `KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1`; the deferral flag was absent.
+The signed product test passed in 287.457 seconds (driver wall time 287.596).
+`signed-product-v5.json` records the source/test/log hashes and full acceptance;
+`signed-product-v5.log` retains the raw PTY output.
+
+Codex operated the actual native dialogs through CUA except for the second
+same-bundle B instance, whose package selection and activation the owner
+performed and confirmed. A's generation-1 review remained open throughout B's
+separate activation. The parent verified B at generation 2 before Codex submitted
+the still-open A review. The signed Launcher displayed `stale_approval`; the parent
+verified the complete workspace snapshot was unchanged, B remained active at
+generation 2, and the bundle's deep signature remained valid.
+
+The same full run also passed A activation, first Agent invocation denial with
+zero mutation, a separately approved invocation, normal A run, B run, separate
+rollback to A, and A run at generation 3. Parent checks verified exact Candidate,
+Manifest, scope and generation, each two-file changeset, unchanged input/canary,
+Runner denials for direct activation/Candidate/live-workspace access, final six
+files and deep signatures. No product code, protected test, timeout, assertion,
+approval or scope was changed for this resumed run. No remote model was called.
+
+The earlier failed attempts and the partial attempt 4 remain historical evidence.
+Their NOT_RUN/false fields are retained; this separate full run closes the
+previously deferred UI item without relabeling those records. This finite
+regression result does not change the failed real-model coding benchmark.

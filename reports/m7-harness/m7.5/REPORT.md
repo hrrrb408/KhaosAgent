@@ -93,5 +93,8 @@ Removed duplication / abstractions: 0; reused existing frozen prepare/grade/even
 and the original failed replay instead of creating another benchmark engine.
 
 No normatively new security promise is added. Complete PR-head checks are tracked
-on the stacked PRs; the full taskbook matrix and the one owner-deferred UI item
-are recorded in `../COMPLETION_AUDIT.md`.
+on the stacked PRs; the full taskbook matrix is recorded in
+`../COMPLETION_AUDIT.md`. The previously deferred concurrent stale-approval UI
+was subsequently completed by the default full signed-product acceptance at
+`ae52db0` (287.457 seconds; `../m7.4/signed-product-v5.json`). That report-only
+follow-up changes no runtime or benchmark input and adds no remote model call.
