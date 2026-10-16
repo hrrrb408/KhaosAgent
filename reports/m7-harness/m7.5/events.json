@@ -1,0 +1,46 @@
+{
+  "source_log_sha256": "c031b94a2fa9b90ed0ea696ecda13137cc6fb1a3b0e01c1da09a58c7957150cc",
+  "events": [
+    {
+      "event": "remote-data=approval-presented",
+      "observed_at_utc": "2026-10-16T06:50:30.415094+00:00"
+    },
+    {
+      "event": "remote-data=approved",
+      "observed_at_utc": "2026-10-16T06:52:45.757979+00:00"
+    },
+    {
+      "event": "tool-proposal kind=list",
+      "observed_at_utc": "2026-10-16T06:53:09.181158+00:00"
+    },
+    {
+      "event": "tool=workspace-picker-requested",
+      "observed_at_utc": "2026-10-16T06:53:09.181558+00:00"
+    },
+    {
+      "event": "tool=approval-presented",
+      "observed_at_utc": "2026-10-16T06:53:28.353506+00:00"
+    },
+    {
+      "event": "tool=approved",
+      "observed_at_utc": "2026-10-16T06:53:38.141285+00:00"
+    },
+    {
+      "event": "tool=executed returncode=0",
+      "observed_at_utc": "2026-10-16T06:53:41.401116+00:00"
+    },
+    {
+      "event": "tool-result kind=list returncode=0 output_bytes=1541 can_continue=true",
+      "observed_at_utc": "2026-10-16T06:53:41.401497+00:00"
+    },
+    {
+      "event": "tool-response kind=list status=accepted can_continue=true",
+      "observed_at_utc": "2026-10-16T06:54:06.061212+00:00"
+    },
+    {
+      "event": "task_record",
+      "observed_at_utc": "2026-10-16T06:54:06.061316+00:00"
+    }
+  ],
+  "notes": "Fixed enum/counter observations only; times include polling/UI waits and are not provider latency."
+}

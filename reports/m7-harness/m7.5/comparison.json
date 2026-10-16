@@ -1,0 +1,45 @@
+{
+  "task_id": "runner-exception-classification",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "hidden_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3-flash",
+  "original_planning": {
+    "attempt": "planning-v2-01",
+    "product_source_commit": "aceced41c2b22c60cae14f31cc8d7e25c2864fd8",
+    "proposals": 1,
+    "approved": 1,
+    "executed_returncodes": [
+      0
+    ],
+    "runner_seconds": 3.374,
+    "result_bytes": 1541,
+    "changed_paths": [],
+    "model_tests_executed": 0,
+    "hidden_returncodes": [
+      1
+    ],
+    "stop": "invalid_agent_action",
+    "invalid_fields": "NOT_PROVEN"
+  },
+  "m7": {
+    "attempt": "m7-2-context-01",
+    "product_source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+    "proposals": 1,
+    "approved": 1,
+    "executed_returncodes": [
+      0
+    ],
+    "runner_seconds": 3.196,
+    "result_bytes": 1541,
+    "changed_paths": [],
+    "model_tests_executed": 0,
+    "hidden_returncodes": [
+      1
+    ],
+    "stop": "invalid_agent_action_wire_contract_after_correction",
+    "invalid_fields": "NOT_PROVEN; no rejected payload logged"
+  },
+  "interpretation": "Both failed coding tasks after a successful list; better rejection attribution does not prove better coding quality or history-eviction causality. No aggregate model ranking."
+}

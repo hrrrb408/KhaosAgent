@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "original_task_prompt": true,
+    "original_baseline": true,
+    "original_hidden_patch": true,
+    "final_host_equals_frozen_host": true,
+    "signed_build_record_unchanged": true,
+    "raw_run_preserved": true,
+    "raw_grade_preserved": true,
+    "fixed_provider_model": true,
+    "fixed_budgets": true,
+    "exact_single_approved_list": true,
+    "no_candidate_edit": true,
+    "hidden_failure_retained": true,
+    "no_after_result_prompt_tuning": true,
+    "actual_workspace_still_clean": true,
+    "all_34_runtime_tcb_files_unchanged": true
+  },
+  "all_checks_passed": true,
+  "scope": "Offline integrity and recording audit; no new model calls or grader reruns",
+  "source_base_commit": "d93a52ce495612d18457def35faafefb1894ec08",
+  "observed_os": "27.0.1",
+  "architecture": "arm64",
+  "python": "3.13.4",
+  "model_call_runtime_environment": "Original launch records/build map; current audit environment is separate",
+  "remote_model_weights_revision": "NOT_PROVEN; hosted provider model ID is configured, weights are not pinned",
+  "raw_model_prompts_or_rejected_actions_recorded": false,
+  "tool_runtime_model_time": "NOT_PROVEN separately; Runner duration is explicit",
+  "coding_reliability_closure": "NOT_PROVEN",
+  "runtime_tcb_files": 34,
+  "runtime_tcb_unchanged_from_m7_base": true,
+  "signed_frozen_product_verify_app": "PASS, current offline check; no app launch or model call"
+}
