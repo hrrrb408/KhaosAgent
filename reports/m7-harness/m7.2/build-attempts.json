@@ -1,0 +1,17 @@
+[
+  {
+    "attempt": 1,
+    "output_parent": "/tmp",
+    "status": "failed_closed",
+    "error": "Kernel source is unavailable: khaos/__init__.py",
+    "diagnosis": "staging path contains /tmp -> /private/tmp alias; existing source.resolve()==source guard rejects it",
+    "trusted_code_change": false
+  },
+  {
+    "attempt": 2,
+    "output_parent": "/private/tmp",
+    "status": "built",
+    "change": "use canonical output parent; no source or checks relaxed",
+    "app": "/private/tmp/Khaos M7.2 GLM-2026-10-16.app"
+  }
+]

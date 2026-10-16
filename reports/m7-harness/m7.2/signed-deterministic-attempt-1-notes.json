@@ -1,0 +1,20 @@
+{
+  "status": "failed_fixture_assumption",
+  "report": "signed-deterministic.json",
+  "approved_operations": 6,
+  "actual_returncodes": [
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+  ],
+  "extra_proposal": 7,
+  "extra_proposal_executed": false,
+  "final_launcher_status": "stopped: user denied the proposed operation; it was not executed",
+  "assertion": "only that test command is verified missing from final model text",
+  "root_cause": "deterministic probe counts retained Assistant action entries; M7.2 valid eviction changes count and repeats a fixed step",
+  "remediation": "test-only proposalNumber uses existing explicit Host control sequence; fixed six-step outcomes/scopes remain unchanged",
+  "parent_final_assertions": "NOT_COMPLETED in this failed attempt"
+}

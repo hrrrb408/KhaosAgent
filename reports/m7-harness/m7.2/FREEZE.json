@@ -1,0 +1,24 @@
+{
+  "version": "m7.2-context-v1",
+  "source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+  "frozen_at_utc": "2026-10-16T06:39:30.671906+00:00",
+  "task": "runner-exception-classification",
+  "attempt": "m7-2-context-01",
+  "model": "glm-5.3-flash",
+  "provider": "bigmodel-coding-plan",
+  "app": "/private/tmp/Khaos M7.2 GLM-2026-10-16.app",
+  "host_source_sha256": "23de6ffe5f1bd6ec8d52b0175ed679ab12e62e9a9d50742c7a20d23b086576cc",
+  "build_record_sha256": "072e64c8dae04782b9f83e9b5b9d5e712ec7fa253d1b435179e89f8db440aa4f",
+  "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "policy": "one attempt; no prompt tuning after this formal replay; preserve every failure and hidden conclusion",
+  "environment": "same host and fixed provider/model/profile; launch after local canonical suite exits to avoid intentional concurrent validation load",
+  "budgets": {
+    "cumulative_result_bytes_limit": 32768,
+    "runner_cumulative_seconds_limit": 180,
+    "runner_single_call_seconds_limit": 30,
+    "single_result_bytes_limit": 4096,
+    "tools_per_task_limit": 8
+  },
+  "hidden_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16"
+}

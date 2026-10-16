@@ -1,0 +1,23 @@
+{
+  "coding_workflow": {
+    "command_return_codes": [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "launcher_approved_calls": 6,
+    "single_user_prompt": true
+  },
+  "current_stage": "single-user-task-coding-workflow",
+  "failure_type": "AssertionError",
+  "finished_at_utc": "2026-10-16T06:25:24.556163+00:00",
+  "format": "khaos-bounded-coding-loop-acceptance-v1",
+  "model_mode": "deterministic-model-probe",
+  "provider": null,
+  "security_checks": {},
+  "started_at_utc": "2026-10-16T06:18:22.919966+00:00",
+  "status": "failed"
+}

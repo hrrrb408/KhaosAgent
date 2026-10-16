@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "provider": "bigmodel-coding-plan",
+  "api_key_supplied": false,
+  "logs": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-m72-refusal-f0amb59t",
+  "exit_code": 0,
+  "task_sha256": "12ccfd122908e9e848efe29a1643f4e5934644fc5a8cd579866ec0654c2d4967",
+  "completed_at_utc": "2026-10-16T06:43:15.979748+00:00",
+  "remote_data_denied": true,
+  "workspace_picker_requested": false,
+  "tool_approval_presented": false
+}
