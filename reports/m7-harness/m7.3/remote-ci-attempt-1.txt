@@ -1,0 +1,11 @@
+FAIL: test_xpc_sandbox_scope_peer_identity_and_service_container_identity (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_xpc_sandbox_scope_peer_identity_and_service_container_identity)
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5296240Z ----------------------------------------------------------------------
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5296960Z Traceback (most recent call last):
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5297730Z   File "/Users/runner/work/KhaosAgent/KhaosAgent/tests/test_macos_xpc_sandbox.py", line 3750, in test_xpc_sandbox_scope_peer_identity_and_service_container_identity
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5298430Z     self.assertEqual(result.returncode, 0, result.stderr)
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5298750Z     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5301190Z AssertionError: 2 != 0 : host-error: hostClientFailed("hostClientFailed(\"Kernel XPC cancellation did not stop execution: kernel-workspace-bookmark-stale=true\\nkernel-workspace-bookmark-refreshed=true\\nkernel-workspace-descriptor-exit=0\\nxpc-kernel-inherited-root=read:xpc-input\\nxpc-kernel-parent-escape=allowed:sibling-secret\\nxpc-kernel-symlink-escape=denied:2\\nxpc-kernel-hardlink-alias=denied:2\\nxpc-kernel-source-volume=inspected:False\\nxpc-kernel-apfs-snapshot=mounted\\n\\nkernel-workspace-exit=1\\nTraceback (most recent call last):\\n  File \\\"/private/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/khaos-xpc-sandbox-68fi5ui6/XPCProbe.app/Contents/XPCServices/KernelExecution.xpc/Contents/Resources/kernel_workspace_probe.py\\\", l\")")
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5303700Z 
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5303700Z 
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5303830Z ----------------------------------------------------------------------
+security-tests	Run python3 -m unittest discover -s tests -v	2026-10-16T10:24:07.5304150Z Ran 341 tests in 716.667s

@@ -1,16 +1,15 @@
 {
-  "base": "f81ad68d273b6a3f1f75f6e9ffe80a3cda5d290a",
+  "base": "c97bb05c9920c3a59e8790c5b843037c120061e9",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
-    "tests/test_macos_xpc_sandbox.py"
+    "tests/macos_xpc_probe/Host.swift"
   ],
-  "motivation": "M7.2 deterministic regressions of existing bounded Host history: pinned goal/latest/failure/success observations, byte bounds, untrusted text spoofing and fail-closed oversize. The first retained UI failure exposed a test probe counting evictable model messages; use the existing explicit Host proposal sequence, with a zero-retained-actions regression. Keep the fixed operation sequence and all outcome/scope assertions.",
+  "motivation": "M7.3 CI run 38885620597 failed the signed XPC cancellation fixture, but a 600-character prefix hid the Python exception tail. Retain bounded prefix and suffix within that existing character cap. Preserve all cancellation, request/connection binding, no-write and timeout assertions. This diagnoses a failure, not a claimed runtime fix.",
   "invariants": "Keep Launcher/Kernel/Runner authority, approvals, sandbox, scopes, opaque state and trusted budgets unchanged. No new data access or remote recipient.",
-  "authority_delta": "0; production edit only in untrusted AgentHost.swift.",
-  "real_os_tests": "Fresh canonical suite, existing signed-product UI acceptance operated with explicit owner authorization, and exact-head CI; model quality/frozen results separate.",
-  "trusted_delta": "0 runtime TCB lines. Two existing protected test inputs and exact reviewed hashes only; no trusted protocol/execution changes.",
-  "baseline_decision": "Update only the two reviewed test digests and declaration baseline; retain every runtime TCB hash and the failed first UI evidence. Independent Code Owner approval remains NOT PROVEN."
+  "authority_delta": "0; no runtime source changes.",
+  "real_os_tests": "Focused signed XPC test and exact-head canonical CI. Preserve failed remote evidence and classify the underlying cause only if diagnostics prove it.",
+  "trusted_delta": "0 runtime lines. One test-only diagnostic plus exact reviewed governance hashes.",
+  "baseline_decision": "Update only the reviewed Host.swift test digest; retain all runtime hashes. Independent Code Owner approval remains NOT PROVEN."
 }

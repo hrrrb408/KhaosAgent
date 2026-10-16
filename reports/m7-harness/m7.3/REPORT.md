@@ -2,8 +2,8 @@
 
 Base: `4e0c39a88c27efb31cfe35bce6497d2de9a7dff9` (M7.2, PR #23).
 This batch audits the existing mechanisms before proposing a replacement. No
-reproducible runtime gap was found in the reviewed cases, so production code,
-trusted code, protocol, timeouts, retries and permissions remain unchanged.
+reproducible runtime gap was found in the initial local reviewed cases, so production code,
+trusted runtime code, protocol, timeouts, retries and permissions remain unchanged. A later remote fixture failure and test-only diagnostic follow-up are retained below.
 
 ## State / owner / executable evidence
 
@@ -24,7 +24,8 @@ trusted code, protocol, timeouts, retries and permissions remain unchanged.
 
 `validation.json` records fresh commands, actual exits, durations and log hashes.
 The existing canonical 341-test log and signed acceptance JSON under `../m7.2/`
-remain applicable because all runtime and test inputs are byte-identical; they
+remain applicable to the identical runtime; the later diagnostic-only test change
+does not change their assertions. They
 are reused evidence, not falsely presented as another UI run at this report SHA.
 The signed XPC fixture uses the production shared Workspace service and real OS
 boundaries in a temporary signed probe bundle; it does not replace the distinct
@@ -72,8 +73,8 @@ New dependencies: 0.
 Removed duplication / abstractions: 0; reused existing cancellation, result gates,
 process-group cleanup and prior exact-source UI evidence instead of a new layer.
 
-This report adds no normative security contract and therefore no freeze-protected
-source change or new security declaration. PR CI checks must still pass at its
+The initial report added no normative contract or protected source. The diagnostic
+follow-up below has its own fresh security declaration and reviewed test hash. PR CI checks must still pass at its
 final head. Independent Code Owner approval remains NOT_PROVEN in the accepted
 single-maintainer mode. M7.4 boundary regression and M7.5 fixed benchmark closure
 are the next sequential batches; the full taskbook is not yet declared complete.
@@ -82,3 +83,30 @@ Fresh validation completed: 27 targeted tests passed in 61.382 seconds; the sign
 XPC test passed in 118.8 seconds. Both exited 0. The signed fixture
 asserted request/connection-bound cancellation, disconnect without writeback,
 service recovery, OS peer denial and workspace byte checks.
+
+## Remote failure and bounded diagnostic follow-up
+
+PR #24 CI run 38885620597 ran 341 tests in 716.667 seconds and failed one:
+`test_xpc_sandbox_scope_peer_identity_and_service_container_identity`. The
+shared-service cancellation fixture returned execution output rather than the
+expected `process_cancelled`. Its 600-character prefix retained setup markers
+and the start of a Python traceback but discarded the exception tail.
+`remote-ci-attempt-1.txt` preserves this failure. The earlier local signed test
+pass is not substituted for remote closure. No command rerun, timeout increase
+or assertion relaxation was applied in response. The underlying exception and
+causal stage remain NOT_PROVEN from that truncated record.
+
+The test-only Host.swift diagnostic now retains up to 280 leading and 280 trailing
+characters with a fixed truncation marker when output exceeds 600 characters;
+short output and explicit error codes are unchanged. This fits the existing cap
+and preserves the actual exception tail. It never enters production/model input;
+the fixture child has its existing minimal environment and synthetic workspace.
+Every cancellation/no-write/request/connection assertion is unchanged. This is
+a diagnostic change, not a claimed repair of a runtime cancellation bug. The
+fresh security declaration binds c97bb05 and exactly the diagnostic plus its
+three governance files. Runtime TCB delta stays 0.
+
+The focused signed XPC diagnostic build passed in 118.426 seconds (exit 0).
+This confirms the revised fixture compiles and the local attack assertions pass;
+it does not identify the cause of the earlier remote exception. Exact-head CI
+is required again, with the failed run preserved.

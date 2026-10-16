@@ -1,0 +1,23 @@
+{
+  "base_commit": "c97bb05c9920c3a59e8790c5b843037c120061e9",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_xpc_sandbox_scope_peer_identity_and_service_container_identity",
+    "-v"
+  ],
+  "seconds": 118.426,
+  "exit_code": 0,
+  "probe_sha256": "06222c51dd4fe7687ef80fb2e367ae1911bb9de9ff214609b38339656dfcccf5",
+  "log_sha256": "4a9f5bf70394c01004139a88ebd70990debe2caadfe5e5892557a815ce8c1814",
+  "runtime_tcb_delta": 0,
+  "prior_failed_ci_run": 38885620597,
+  "prior_failure_root_cause": "NOT_PROVEN from truncated prior output"
+}
