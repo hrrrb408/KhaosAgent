@@ -1,5 +1,5 @@
 {
-  "base": "f81ad68d273b6a3f1f75f6e9ffe80a3cda5d290a",
+  "base": "0c1bfc8af10cb26f04267bb86319c8d7cbe598c6",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
@@ -7,10 +7,10 @@
     "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
     "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M7.2 deterministic regressions of existing bounded Host history: pinned goal/latest/failure/success observations, byte bounds, untrusted text spoofing and fail-closed oversize. The first retained UI failure exposed a test probe counting evictable model messages; use the existing explicit Host proposal sequence, with a zero-retained-actions regression. Keep the fixed operation sequence and all outcome/scope assertions.",
+  "motivation": "M7.2 deterministic regressions of existing bounded Host history: pinned goal/latest/failure/success observations, byte bounds, untrusted text spoofing and fail-closed oversize. The first retained UI failure exposed a test probe counting evictable model messages; use the existing explicit Host proposal sequence, with a zero-retained-actions regression. Keep the fixed operation sequence and all outcome/scope assertions. Final ordered M7 integration: PR #23 targets main at exact base 0c1bfc8af10cb26f04267bb86319c8d7cbe598c6; retain reviewed source/fixtures unchanged.",
   "invariants": "Keep Launcher/Kernel/Runner authority, approvals, sandbox, scopes, opaque state and trusted budgets unchanged. No new data access or remote recipient.",
   "authority_delta": "0; production edit only in untrusted AgentHost.swift.",
-  "real_os_tests": "Fresh canonical suite, existing signed-product UI acceptance operated with explicit owner authorization, and exact-head CI; model quality/frozen results separate.",
+  "real_os_tests": "Fresh canonical suite, existing signed-product UI acceptance operated with explicit owner authorization, and exact-head CI; model quality/frozen results separate. Original signed-product full UI evidence is retained in the final M7 stack. Required canonical real-OS CI is rerun at this integration head before merge.",
   "trusted_delta": "0 runtime TCB lines. Two existing protected test inputs and exact reviewed hashes only; no trusted protocol/execution changes.",
-  "baseline_decision": "Update only the two reviewed test digests and declaration baseline; retain every runtime TCB hash and the failed first UI evidence. Independent Code Owner approval remains NOT PROVEN."
+  "baseline_decision": "Retain all reviewed manifest input hashes and freeze-baseline bytes; refresh exact declaration base/sensitive paths only. No runtime source or authority changes; independent Code Owner approval remains NOT_PROVEN."
 }
