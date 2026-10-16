@@ -1,0 +1,27 @@
+{
+  "batch": "M7.1",
+  "source_commit": "fff6b42d07cdbc6ccfaa7be87ae4f2a5f4ba204e",
+  "baseline": "33e9193a0b8b066caec60d1d5385cbb9123987f1",
+  "recorded_at": "2026-10-16T05:18:58.873715+00:00",
+  "canonical": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "tests": 341,
+    "seconds": 699.478,
+    "exit_code": 0,
+    "log": "canonical-macos.log",
+    "sha256": "f3f4e321aa99de3a57f0074ee06b89528df47c80ef4e6d67fffa568c34a93794"
+  },
+  "targeted_probe": "PASS (latest run 1.235 seconds)",
+  "freeze": "PASS; inventory and base checker; 5 protected test/governance changes",
+  "runtime_tcb_files_unchanged": 34,
+  "production_delta": {
+    "added": 272,
+    "removed": 191
+  },
+  "signed_headless_product": "PASS via canonical suite; source digest, malformed/scope frames and identity attacks",
+  "interactive_signed_product": "NOT_RUN: awaiting human native Picker/data/tool decisions",
+  "new_real_model_frozen_replay": "NOT_RUN: awaiting human native Picker/data/tool decisions and provider setup; no new attempts created",
+  "prior_frozen_replay": "planning-v2-01 retained unchanged; hidden return code 1, invalid fields NOT_PROVEN",
+  "coding_reliability_closure": "NOT_PROVEN",
+  "ci": "Use final PR #22 head checks; report commit may follow source commit without runtime edits"
+}

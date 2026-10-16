@@ -1,24 +1,16 @@
 {
-  "base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
+  "base": "33e9193a0b8b066caec60d1d5385cbb9123987f1",
   "files": [
-    "AGENTS.md",
-    "SECURITY.md",
-    "docs/Khaos vNext 架构设计文档.md",
-    "docs/SECURITY_FREEZE.md",
-    "docs/SEED_THREAT_MODEL.md",
-    "docs/SELF_HOSTING.md",
-    "reports/security-kernel-finalization/protected_install_experiment.py",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/test_macos_seed_builder.py",
-    "tests/test_macos_xpc_sandbox.py",
-    "tests/test_security_freeze.py"
+    "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
+    "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "Explicit owner scope revision: ordinary-user self deployment; no root-owned installation requirement; external arbitrary same-UID tampering excluded. Fix signer test cleanup.",
-  "invariants": "All existing Seatbelt, XPC, signatures, approval, capability scope and process isolation retained. Khaos runtime components may not expand authority or alter active Kernel. Owner-authorized source development is normal.",
-  "authority_delta": "0 runtime authority; remove root experiment driver; no further administrator experiments. No new privileged or protected-state boundary.",
-  "real_os_tests": "Fresh canonical suite and exact-SHA PR/main CI; existing signed-product normal-user acceptance and real OS attacks. Regression simulates create-keychain auto-registration and prior search-list preservation.",
-  "trusted_delta": "Runtime TCB delta 0, 34 files unchanged. Contracts and test hygiene only; retire out-of-scope counterexample acceptance and privileged installation driver.",
-  "baseline_decision": "Update source governance baseline for owner-approved scope; independent Code Owner approval remains NOT PROVEN in accepted sole-maintainer mode."
+  "motivation": "M7.1: exercise fixed Host action rejection categories and legal post-tool transitions using the existing production protocol/encoder. Protected edits are tests and governance only.",
+  "invariants": "Preserve Launcher approval, fixed budgets, Kernel scope/Seatbelt/XPC and Candidate binding. Reject invalid actions before submission; no model payload diagnostics.",
+  "authority_delta": "0. No trusted runtime, protocol, execution or permission changes.",
+  "real_os_tests": "Fresh canonical suite includes signed product headless source/identity/scope attacks and real Seatbelt regressions. Expanded Swift action probe uses existing strict production wire validator. UI and real-model replay recorded separately; no quality inference.",
+  "trusted_delta": "0 runtime TCB lines. Review two existing test files and exact manifest hashes; no trusted source additions.",
+  "baseline_decision": "Update only the two inspected test input digests. Preserve runtime hashes and supported threat model; independent Code Owner approval NOT PROVEN."
 }
