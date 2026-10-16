@@ -1,0 +1,112 @@
+[
+  {
+    "attempt": "attempt-01",
+    "run_record_sha256": "201bc953ae4f1cefcec426c68e28702d0f4d00b788068f700c1e8399ccb1ece0",
+    "status": "completed",
+    "product_source_commit": null,
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=1; executed command return codes=[1]; cumulative Runner time=3.275s; bounded result bytes=216; stop reason=failed: last executed command returned code 1. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "8ca8e0008616eb957d160860073fc6cfa1e18bbdb4db1f93caee12346880e0a5"
+  },
+  {
+    "attempt": "discovery-01",
+    "run_record_sha256": "628c57525272c14bb59f1a4e651f3a120e9a8c135c7b269339f1b097fc3952be",
+    "status": "completed",
+    "product_source_commit": null,
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=1; executed command return codes=[]; cumulative Runner time=6.712s; bounded result bytes=89; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "a83b759c859bb2f2fe663cdd1b09865a132568cc65ebf18755ff49877f5e1b61"
+  },
+  {
+    "attempt": "discovery-02",
+    "run_record_sha256": "6ad76af04bd60dbf85c43de835d509a09ae62d463fbcd9f6582d0d153f442b80",
+    "status": "completed",
+    "product_source_commit": null,
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=3; executed command return codes=[1,1]; cumulative Runner time=18.135s; bounded result bytes=2318; stop reason=stopped: Kernel rejected or failed the request: runner_failed. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "84c9e444a273be4fe456ab5ff327e68d332f1331b7be1005bf6db1d4b9a71788"
+  },
+  {
+    "attempt": "discovery-03",
+    "run_record_sha256": "db9c0c135b1a0c0367d58a472044b052f8d912706fb0bb42fbc248fc4f053d9c",
+    "status": "completed",
+    "product_source_commit": null,
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=1; executed command return codes=[1]; cumulative Runner time=3.315s; bounded result bytes=1583; stop reason=Agent Host failed while receiving a tool result. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "baaf395bf2af6af69f05f93aea65a343c2a32263437d37f61deac9b7a6140de8"
+  },
+  {
+    "attempt": "discovery-04",
+    "run_record_sha256": "25dd3168311a65641cee4482ac699fcc4a1725a6829905bdcea41235a5ba74bc",
+    "status": "completed",
+    "product_source_commit": null,
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=2; executed command return codes=[1]; cumulative Runner time=3.333s; bounded result bytes=1694; stop reason=stopped: user denied the proposed operation; it was not executed. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": null,
+    "candidate_paths_copied": null,
+    "grade_record_sha256": null
+  },
+  {
+    "attempt": "discovery-05",
+    "run_record_sha256": "36bacbbc027be494800ed2a057264c5dfeef3b2f12a6c29ea29a8845258ea612",
+    "status": "completed",
+    "product_source_commit": "3aa4e6255c5f63254cf96ca24a028378d6bd8973",
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "proposals=8; executed command return codes=[1,0,0,1,1,0,0,0]; cumulative Runner time=36.571s; bounded result bytes=6488; stop reason=stopped: tool-call budget exhausted. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "28395cbd72e1a0ca1f97d0c01798960290a8ea72060046d493f321abf0df6e6e"
+  },
+  {
+    "attempt": "m7-2-context-01",
+    "run_record_sha256": "a38c541307483f1f56c6244b0326d9ef74bf1aa5aad96bf7f39c8179f26aa73e",
+    "status": "completed",
+    "product_source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=3.196s; bounded result bytes=1541; stop reason=Agent Host or model failed: invalid_agent_action_wire_contract_after_correction. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "43e96aa4d0cf171736fb47e87f790534c94a627dfa861ba3c75650d41746d64f"
+  },
+  {
+    "attempt": "planning-v2-01",
+    "run_record_sha256": "ddaec801600093bd5dfa789412bdedddba898edac7ab9d67844b299a20494507",
+    "status": "completed",
+    "product_source_commit": "aceced41c2b22c60cae14f31cc8d7e25c2864fd8",
+    "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "task_record": "Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=3.374s; bounded result bytes=1541; stop reason=Agent Host or model failed: invalid_agent_action. Only these command results are verified; broader test coverage is not inferred.",
+    "hidden_test_returncodes": [
+      1
+    ],
+    "candidate_paths_copied": [],
+    "grade_record_sha256": "80311112729fb111a34c6d4a625ee83d6db2375161c7e131ca0aa0660846ac60"
+  }
+]

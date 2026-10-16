@@ -1,0 +1,38 @@
+{
+  "source_commit": "ae52db099378c374b5fc392e28702b4eb63e7763",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_seed_app_builds_and_authenticates_its_kernel_service",
+    "-v"
+  ],
+  "opt_in": [
+    "KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1"
+  ],
+  "seconds": 287.596,
+  "exit_code": 0,
+  "raw_log": "signed-product-v5.log",
+  "unittest_seconds": 287.457,
+  "concurrent_stale_approval_ui": "PASS",
+  "full_lifecycle_ui_acceptance": true,
+  "sequential_lifecycle_parent_assertions": "PASS",
+  "defer_flag_set": false,
+  "test_source_sha256": "658204b1df5d26d4e5ead828ef37f3710bc358b47b898f5bce454dab08a8c0fc",
+  "log_sha256": "1e0d79df57cfed16bd28a370bfd766d71d9e938b01e67732388babe9eb763178",
+  "interaction": {
+    "operator": "Codex CUA except owner-operated second same-bundle B instance",
+    "owner_step": "B package selection, exact activation review, success dismissal; confirmed B activated",
+    "old_A_approval": "remained open at generation 1 while B activated at generation 2",
+    "kernel_result": "stale_approval",
+    "parent_checks": "workspace snapshot unchanged after stale approval; B remains active at generation 2; deep signature valid; B run then independent rollback then A run at generation 3 passed"
+  },
+  "runtime_changes": 0,
+  "remote_model_calls": 0
+}

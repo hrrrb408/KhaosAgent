@@ -1,0 +1,9 @@
+test_forked_children_cannot_escape_the_process_group (test_macos_seatbelt.MacOSSeatbeltTests.test_forked_children_cannot_escape_the_process_group) ... ok
+test_kill_process_group_retries_after_direct_leader_kill (test_macos_seatbelt.MacOSSeatbeltTests.test_kill_process_group_retries_after_direct_leader_kill) ... ok
+test_killing_sandbox_process_group_closes_descendant_pipe (test_macos_seatbelt.MacOSSeatbeltTests.test_killing_sandbox_process_group_closes_descendant_pipe) ... ok
+test_signal_process_group_rechecks_leader_after_eperm (test_macos_seatbelt.MacOSSeatbeltTests.test_signal_process_group_rechecks_leader_after_eperm) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.055s
+
+OK

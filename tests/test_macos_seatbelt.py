@@ -130,6 +130,16 @@ class MacOSSeatbeltTests(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 _signal_process_group(123)
 
+        with (
+            patch(
+                "khaos.kernel.macos_seatbelt.os.killpg",
+                side_effect=PermissionError(errno.EPERM, "denied"),
+            ),
+            patch("khaos.kernel.macos_seatbelt._child_exit_info") as child_exit_info,
+        ):
+            _signal_process_group(123, leader_exited=True)
+        child_exit_info.assert_not_called()
+
     def test_loopback_os_permission_denials_are_tolerated_only(self) -> None:
         listener = MagicMock()
         listener.bind.side_effect = PermissionError(errno.EPERM, "denied")
@@ -1259,12 +1269,8 @@ while True:
                     )
                     self.assertEqual(process.stdout.read(), b"")
             finally:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                if process.poll() is None:
-                    process.wait(timeout=5)
+                # Reuse the post-reap EPERM handling without changing the real kill above.
+                _kill_process_group(process)
                 if process.stdout is not None:
                     process.stdout.close()
 
