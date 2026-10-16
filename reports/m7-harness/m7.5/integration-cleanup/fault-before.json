@@ -1,0 +1,10 @@
+{
+  "real_first_group_signal": true,
+  "group_signal_calls": 2,
+  "failures": 0,
+  "errors": 1,
+  "successful": false,
+  "error_stages": [
+    "Traceback (most recent call last):\n  File \"/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_seatbelt.py\", line 1263, in test_killing_sandbox_process_group_closes_descendant_pipe\n    os.killpg(process.pid, signal.SIGKILL)\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/unittest/mock.py\", line 1169, in __call__\n    return self._mock_call(*args, **kwargs)\n           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/unittest/mock.py\", line 1173, in _mock_call\n    return self._execute_mock_call(*args, **kwargs)\n           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/unittest/mock.py\", line 1234, in _execute_mock_call\n    result = effect(*args, **kwargs)\n  File \"/tmp/khaos-m7-cleanup-probe.py\", line 10, in post_reap_eperm\n    if len(calls)==2:raise PermissionError(errno.EPERM,'injected post-reap group cleanup')\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 1] injected post-reap group cleanup\n"
+  ]
+}

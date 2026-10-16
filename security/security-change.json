@@ -1,12 +1,15 @@
 {
   "base": "2fd9c21be22e8c2dde9a92ec605e6971413d5d3c",
   "files": [
-    "security/security-change.json"
+    "security/freeze-baseline.json",
+    "security/security-change.json",
+    "security/tcb-manifest.json",
+    "tests/test_macos_seatbelt.py"
   ],
-  "motivation": "M7.5 final integration records fixed benchmark outcomes, complete taskbook audit, and the separately completed full signed concurrent stale-approval UI acceptance. PR #26 targets the exact main base after PR #25. Its only sensitive edit is this fresh integration declaration; source, fixtures, manifest and baseline hashes are unchanged.",
+  "motivation": "Final M7 integration PR #26 canonical run 38937639884 failed only in the process-group test finalizer: a second killpg after leader wait and pipe EOF returned EPERM. Reuse the already-imported, reviewed _kill_process_group cleanup helper; preserve the first real group kill and all readiness/wait/EOF assertions. Add deterministic coverage of its existing known-reaped-leader branch; no production changes.",
   "invariants": "Preserve Launcher/Kernel/Runner authority, real OS sandbox, exact scopes, independent per-operation and activation approvals, Candidate/generation binding, opaque state and trusted budgets. No new remote model invocation, authority, retry/fallback or runtime TCB modification.",
-  "authority_delta": "0; report/evidence delivery and exact-base declaration refresh only.",
-  "real_os_tests": "Retain signed full lifecycle acceptance at ae52db0: 287.457s, A generation-1 review held during B activation to generation 2, stale_approval with unchanged workspace, B run, separate rollback, then A generation-3 run; parent Candidate/scope/hash/signature checks passed. Preserve earlier failed/partial runs and failed actual-model coding result. Rerun required canonical real-OS CI at this exact integration head before merge; run complete canonical suite and Freeze on final main afterward.",
-  "trusted_delta": "0 runtime TCB lines; only security/security-change.json is sensitive relative to this base. No test, protocol, execution, workflow, manifest or baseline file changes in this PR integration follow-up.",
-  "baseline_decision": "Retain all reviewed manifest input hashes and freeze-baseline bytes; refresh exact declaration base/sensitive paths only. No runtime source or authority changes; independent Code Owner approval remains NOT_PROVEN."
+  "authority_delta": "0; protected test cleanup and exact reviewed test digest only, plus report/evidence and exact-base declaration.",
+  "real_os_tests": "Remote failure retained: 341 tests, one finalizer error, 794.415s. Real Seatbelt fault injection reproduces old second-kill cleanup error and passes after reuse (first signal real); focused real process-group/helper regressions 4/4 pass. Existing live-leader EPERM must still raise. Full signed lifecycle evidence remains 287.457s at ae52db0. Rerun exact-head required canonical CI before merge and full suite/Freeze on main afterward. No timeout, assertion, scope or approval relaxation.",
+  "trusted_delta": "0 runtime TCB lines. One protected test finalizer and existing helper-branch test plus exact governance hashes only.",
+  "baseline_decision": "Review only the shown test diff; update its manifest SHA-256 and baseline manifest digest. Preserve all 34 runtime hashes and every other reviewed input hash. Declaration binds exact main base after PR #25 and all four sensitive paths. Independent Code Owner approval remains NOT_PROVEN."
 }

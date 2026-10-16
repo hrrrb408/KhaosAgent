@@ -86,3 +86,16 @@ revision are unavailable. No universal reliability or security claim is made
 from a finite regression suite. The previously deferred concurrent stale-approval UI now has its own full
 passing signed-product run. Taskbook development, regression and recording
 delivery does not establish Coding Reliability Closure.
+
+## Final integration fixture follow-up
+
+Ordered integration exposed an existing process-group test's duplicated
+post-reap cleanup: PR #26 run `38937639884` failed at the second raw `killpg`
+in `finally`, after the real kill/wait/pipe checks. The minimal test-only fix
+reuses the existing reviewed cleanup helper, keeps every enforcement assertion,
+and adds known-reaped-leader branch coverage. The before/after real-OS fault
+injection, four focused passes and original failed CI are preserved in
+`m7.5/integration-cleanup/REPORT.md`. Only that test's reviewed manifest hash
+and governance binding change; all production/runtime TCB source remains intact.
+Exact-head CI and final-main canonical/Freeze results are recorded in the PR
+integration record; passing a rerun does not erase this failed attempt.

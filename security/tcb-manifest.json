@@ -911,7 +911,7 @@
     {
       "path": "tests/test_macos_seatbelt.py",
       "role": "build-governance",
-      "sha256": "3af2389c752625f1e20112b4cf43185e0ad8b7b337a3f87540fbc6cba75394fb",
+      "sha256": "5caf16409df972b3512dad26460b9021a79a5bcad0d44c8ac1d8cf839370f931",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
