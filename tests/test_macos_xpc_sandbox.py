@@ -443,6 +443,7 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                     sdk,
                     "-target",
                     f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
                     str(MACOS_TCB_SOURCES / "AgentHostActionOutput.swift"),
                     str(PROBE_SOURCES / "AgentHostActionOutputProbe.swift"),
                     "-o",

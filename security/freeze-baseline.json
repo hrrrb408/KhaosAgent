@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
-  "baseline": "owner-approved ordinary-user deployment and runtime-only adversary Freeze; signer fixture hygiene update",
+  "baseline": "M7.1 action attribution deterministic test governance; runtime TCB unchanged",
   "runtime_authority_delta": "none",
   "independent_code_owner_approval": "NOT PROVEN",
   "protected_security_state": "runtime isolation required; arbitrary external same-UID resistance out of scope",
-  "manifest_sha256": "fe53dcafa4e1a0262b8ab76972fc09cf2f5e850ec69de91600e3004e4b98ba11",
+  "manifest_sha256": "9cff879f3d76721808249e01fe7bb13a91665dd592e67b1527e63fdcd672a278",
   "scope_revision_base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
   "supported_adversaries": [
     "Khaos AgentHost",
