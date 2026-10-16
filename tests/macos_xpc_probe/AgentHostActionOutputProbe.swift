@@ -141,6 +141,13 @@ enum AgentHostActionOutputProbe {
     }
 
     private static func postToolTransitions() throws {
+        require(AgentHostActionOutput.toolStatus(ok: true, canContinue: true).contains("exit code zero"),
+                "success observation lost")
+        require(AgentHostActionOutput.toolStatus(ok: false, canContinue: true).contains("nonzero exit code"),
+                "failed execution observation lost")
+        let stopped = AgentHostActionOutput.toolStatus(ok: false, canContinue: false)
+        require(stopped.contains("Do not infer that a command ran") && !stopped.contains("returned a nonzero"),
+                "refusal or cancellation fabricated an executed command")
         // Both success and exit-1 may continue; refusal/cancel/budget stop use false.
         for canContinue in [true, false] {
             for type in ["text", "list", "shell", "plugin", "evolution"] {

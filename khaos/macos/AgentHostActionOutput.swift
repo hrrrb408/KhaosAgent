@@ -82,6 +82,16 @@ enum AgentHostActionOutput {
         "invalid_agent_action_\(rejection.rawValue)\(correctionUsed ? "_after_correction" : "")"
     }
 
+    static func toolStatus(ok: Bool, canContinue: Bool) -> String {
+        if ok {
+            return "The trusted Launcher reports that the Runner returned exit code zero."
+        }
+        if canContinue {
+            return "The trusted Launcher reports that the Runner returned a nonzero exit code. Its exact numeric returncode is in the bounded result JSON below."
+        }
+        return "The trusted Launcher reports an unsuccessful operation or a stopped task. This may be refusal, cancellation, or execution failure. Do not infer that a command ran or invent a returncode; use only an explicit returncode in the bounded result below."
+    }
+
     static func validateContext(
         _ action: AgentAction,
         isToolResult: Bool,

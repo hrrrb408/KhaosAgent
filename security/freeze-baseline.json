@@ -5,7 +5,7 @@
   "runtime_authority_delta": "none",
   "independent_code_owner_approval": "NOT PROVEN",
   "protected_security_state": "runtime isolation required; arbitrary external same-UID resistance out of scope",
-  "manifest_sha256": "9cff879f3d76721808249e01fe7bb13a91665dd592e67b1527e63fdcd672a278",
+  "manifest_sha256": "445d0a89d7460e488515acac7285f3b39d2630bda4056337e01f600c50df39e3",
   "scope_revision_base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
   "supported_adversaries": [
     "Khaos AgentHost",

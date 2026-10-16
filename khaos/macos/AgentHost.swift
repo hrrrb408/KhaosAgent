@@ -941,9 +941,7 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
             if !canContinue {
                 failedShellCommandUntilWrite = nil
             }
-            let status = ok
-                ? "The trusted Launcher reports that the Runner returned exit code zero."
-                : "The trusted Launcher reports that the Runner returned a nonzero exit code. Its exact numeric returncode is in the bounded result JSON below."
+            let status = AgentHostActionOutput.toolStatus(ok: ok, canContinue: canContinue)
             let nextStep = canContinue
                 ? "The Launcher permits another proposal within the remaining task budget."
                 : "The Launcher has ended this task. Return type=text only."

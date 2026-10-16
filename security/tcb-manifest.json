@@ -537,7 +537,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
       "role": "build-governance",
-      "sha256": "0f7c40cd458e46f055ed4769ea802c47291b8403871214aec9cf08ad97af806c",
+      "sha256": "dd4118efbefc375552f582099c18e891977d0bd640669a56c2fb2a1d631b632e",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
