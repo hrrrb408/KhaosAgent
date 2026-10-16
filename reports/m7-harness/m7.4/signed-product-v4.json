@@ -1,0 +1,29 @@
+{
+  "source_commit": "1a348642125776d26119bed1ee1315e0ec0c2d45",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_seed_app_builds_and_authenticates_its_kernel_service",
+    "-v"
+  ],
+  "opt_in": [
+    "KHAOS_RUN_PRODUCT_WRITEBACK_UI=1",
+    "KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1",
+    "KHAOS_DEFER_PRODUCT_STALE_APPROVAL_UI=1"
+  ],
+  "seconds": 254.0,
+  "exit_code": 0,
+  "raw_log": "signed-product-v4.log",
+  "concurrent_stale_approval_ui": "NOT_RUN: explicitly owner-deferred",
+  "full_lifecycle_ui_acceptance": false,
+  "sequential_lifecycle_parent_assertions": "PASS",
+  "test_source_sha256": "658204b1df5d26d4e5ead828ef37f3710bc358b47b898f5bce454dab08a8c0fc",
+  "log_sha256": "a941c53192bfc63242a6457b9eca59115d11b4e64ebfc7a5c291968e3679e88f"
+}

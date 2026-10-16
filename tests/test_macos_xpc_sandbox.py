@@ -6496,7 +6496,7 @@ def run():
                     encoding="utf-8", errors="replace"
                 )
                 self.assertIn(
-                    "Plugin result confirms two approved files were added.",
+                    "Plugin result changeset counts: added=2, modified=0, deleted=0.",
                     output_text,
                 )
                 verify_plugin_result(
@@ -6527,30 +6527,35 @@ def run():
             return
         run_plugin("A", 1, "run-a")
 
-        before_stale = snapshot()
-        show_expected("A", 1)
-        print(
-            f"Start another A run and select {workspace}; leave its generation-1 "
-            "approval open. The test waits for the product review marker.",
-            flush=True,
-        )
-        stale_run = start("run-a-stale", "--plugin-run")
-        wait_for_review(stale_run)
-        gate(
-            "Confirm the pending approval shows Candidate A at generation 1, "
-            "leave it open, then press Return to activate B."
-        )
+        defer_stale_ui = os.environ.get("KHAOS_DEFER_PRODUCT_STALE_APPROVAL_UI") == "1"
+        if defer_stale_ui:
+            print("signed-product-stale-approval-ui=NOT_RUN owner-deferred", flush=True)
+            activate("B", 1, "activate-b-sequential")
+        else:
+            before_stale = snapshot()
+            show_expected("A", 1)
+            print(
+                f"Start another A run and select {workspace}; leave its generation-1 "
+                "approval open. The test waits for the product review marker.",
+                flush=True,
+            )
+            stale_run = start("run-a-stale", "--plugin-run")
+            wait_for_review(stale_run)
+            gate(
+                "Confirm the pending approval shows Candidate A at generation 1, "
+                "leave it open, then press Return to activate B."
+            )
 
-        activate("B", 1, "activate-b-racing-a")
+            activate("B", 1, "activate-b-racing-a")
 
-        gate(
-            "B is active at generation 2. Approve the still-open A run, dismiss "
-            "the stale_approval alert, then press Return."
-        )
-        finish("run-a-stale", stale_run, expected_error="stale_approval")
-        self.assertEqual(snapshot(), before_stale)
-        check_active("B", 2)
-        verify_signature()
+            gate(
+                "B is active at generation 2. Approve the still-open A run, dismiss "
+                "the stale_approval alert, then press Return."
+            )
+            finish("run-a-stale", stale_run, expected_error="stale_approval")
+            self.assertEqual(snapshot(), before_stale)
+            check_active("B", 2)
+            verify_signature()
 
         run_plugin("B", 2, "run-b")
 
@@ -6587,7 +6592,9 @@ def run():
         verify_signature()
         print(
             "signed-product lifecycle passed: activate A → run A → activate B "
-            "→ run B → rollback → run A; stale A run rejected without writes.",
+            "→ run B → rollback → run A; "
+            + ("stale A approval UI NOT_RUN (owner deferred)." if defer_stale_ui
+               else "stale A run rejected without writes."),
             flush=True,
         )
 

@@ -1,0 +1,31 @@
+In the Khaos Seed Picker, press Command-Shift-G and enter this path; press Return, select the folder, and choose Open. Check that the result alert shows acceptance run b417b08a-89f4-4b8e-9310-489bfde6312a; dismiss it so the test can verify the workspace and signature:
+/Users/huangruibang/Applications/khaos-seed-app-6qc24q69/user-selected-writeback-workspace
+Real signed Launcher, KernelProduction.xpc, Plugin lifecycle, Seatbelt Runner and Kernel writeback; parent checks workspace bytes after every run.
+
+Expected plugin-a: candidate=ad19155c7bd99156d8f5755c778e7961339acf8c65b1ddeec7c0746347396b28 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=0
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/plugin-a.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+Expected plugin-a: candidate=ad19155c7bd99156d8f5755c778e7961339acf8c65b1ddeec7c0746347396b28 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Start the signed product's local Agent. Select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/persistent-plugin-workspace when its workspace Picker opens. The model will propose the active Plugin twice: cancel the first approval, then approve the second after the test confirms there was no writeback.
+The first dialog must show the active Candidate and its trusted read/write scope. Click Cancel, then. The test continues automatically when the signed product records this action.
+
+The second dialog should show plugin-a at generation 1 with the active Manifest scope. Approve it, then press Return.
+After approving the second invocation. The test continues automatically when the signed product records this action.
+
+Expected plugin-a: candidate=ad19155c7bd99156d8f5755c778e7961339acf8c65b1ddeec7c0746347396b28 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/persistent-plugin-workspace in the signed product workspace Picker, verify the four approval bindings, approve, and dismiss the result alert for parent-side workspace checks.
+signed-product-stale-approval-ui=NOT_RUN owner-deferred
+Expected plugin-b: candidate=38b287a709dd0af56ec837e8cf8e46b8d74aafb7fb9acc276db3ac6653c95383 manifest=cf963b49e97277872aeac57bea7327ca8027a0be9e3802832a698c2f96679d77 scope=8eb3318223907039f272c1626e286b1fdff17289e57818524de286fc5cf794d2 generation=1
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/plugin-b.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+Expected plugin-b: candidate=38b287a709dd0af56ec837e8cf8e46b8d74aafb7fb9acc276db3ac6653c95383 manifest=cf963b49e97277872aeac57bea7327ca8027a0be9e3802832a698c2f96679d77 scope=8eb3318223907039f272c1626e286b1fdff17289e57818524de286fc5cf794d2 generation=2
+Select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/persistent-plugin-workspace in the signed product workspace Picker, verify the four approval bindings, approve, and dismiss the result alert for parent-side workspace checks.
+Expected plugin-a: candidate=ad19155c7bd99156d8f5755c778e7961339acf8c65b1ddeec7c0746347396b28 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=2
+Approve rollback to Candidate A at expected generation 2, then dismiss success.
+Expected plugin-a: candidate=ad19155c7bd99156d8f5755c778e7961339acf8c65b1ddeec7c0746347396b28 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=3
+Select /Users/huangruibang/Applications/khaos-seed-app-6qc24q69/persistent-plugin-workspace in the signed product workspace Picker, verify the four approval bindings, approve, and dismiss the result alert for parent-side workspace checks.
+signed-product lifecycle passed: activate A → run A → activate B → run B → rollback → run A; stale A approval UI NOT_RUN (owner deferred).
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 253.868s
+
+OK

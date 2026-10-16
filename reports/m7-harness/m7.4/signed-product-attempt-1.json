@@ -1,0 +1,26 @@
+{
+  "source_commit": "c97bb05c9920c3a59e8790c5b843037c120061e9",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_macos_xpc_sandbox.py",
+    "-k",
+    "test_seed_app_builds_and_authenticates_its_kernel_service",
+    "-v"
+  ],
+  "opt_in": [
+    "KHAOS_RUN_PRODUCT_WRITEBACK_UI=1",
+    "KHAOS_RUN_PRODUCT_PLUGIN_LIFECYCLE_UI=1"
+  ],
+  "seconds": 115.076,
+  "exit_code": 1,
+  "raw_log": "signed-product-attempt-1.log",
+  "failure_stage": "Agent Plugin first approval terminal gate: heredoc closed inherited stdin; parent failed and cleaned test fixture",
+  "writeback_alert": "PASS, acceptance run 6f7a5e6e-a497-4e5c-ac5d-ff4fd7f2eb6b",
+  "plugin_invocation_executed": false
+}

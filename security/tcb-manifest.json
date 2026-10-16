@@ -51,7 +51,7 @@
     {
       "path": "AGENTS.md",
       "role": "build-governance",
-      "sha256": "26e7a42b679a226edc2223ec32cb772857a68517455d1a9b71f153fe0b88b01f",
+      "sha256": "665ffaea5218f990b3a5d902900bfc6b2a35ecc874bc7dbcc5d2891ba5c717ee",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -933,7 +933,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "d257d469d3fb18e59bbffab4760616171082ba0a57d7f14826b2a08ddfd3eee2",
+      "sha256": "658204b1df5d26d4e5ead828ef37f3710bc358b47b898f5bce454dab08a8c0fc",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

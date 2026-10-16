@@ -430,6 +430,13 @@ The test verifies the exact workspace changes and deep bundle signature in the p
 It requires manual Picker and approval actions; do not run it while another Khaos Seed Picker
 is waiting for a selection.
 
+Only when the owner explicitly defers the concurrent stale-approval UI check, add
+`KHAOS_DEFER_PRODUCT_STALE_APPROVAL_UI=1` to this lifecycle acceptance command.
+It runs sequential A → B → rollback → A and prints the stale-approval UI as
+`NOT_RUN`; do not report that partial run as complete lifecycle UI acceptance.
+The default full UI path and canonical headless stale-generation attacks remain
+unchanged.
+
 Run the focused opt-in signed-product Agent-to-Plugin acceptance check on macOS with:
 
 ```bash

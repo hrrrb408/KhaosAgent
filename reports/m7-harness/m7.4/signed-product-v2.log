@@ -1,0 +1,47 @@
+In the Khaos Seed Picker, press Command-Shift-G and enter this path; press Return, select the folder, and choose Open. Check that the result alert shows acceptance run ed36120f-9f7f-412c-b44d-219a7af407a8; dismiss it so the test can verify the workspace and signature:
+/Users/huangruibang/Applications/khaos-seed-app-8uuuhvp6/user-selected-writeback-workspace
+Real signed Launcher, KernelProduction.xpc, Plugin lifecycle, Seatbelt Runner and Kernel writeback; parent checks workspace bytes after every run.
+
+Expected plugin-a: candidate=964c59844f4d752d6d9177cee0459c42703d064865729ebcc2a46220caf4a264 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=0
+Use the signed product package Picker to select /Users/huangruibang/Applications/khaos-seed-app-8uuuhvp6/plugin-a.package (Command-Shift-G), then verify all four bindings in the approval dialog, approve, and dismiss success.
+Expected plugin-a: candidate=964c59844f4d752d6d9177cee0459c42703d064865729ebcc2a46220caf4a264 manifest=68e39c9ee0fd20b48df25821e6eabfe0b69739872c85e66b247702b8c3e6a4a6 scope=2a951db48e31e93e9130deeb25110b89ff8b2d2992f46d4386ef32866e218fc2 generation=1
+Start the signed product's local Agent. Select /Users/huangruibang/Applications/khaos-seed-app-8uuuhvp6/persistent-plugin-workspace when its workspace Picker opens. The model will propose the active Plugin twice: cancel the first approval, then approve the second after the test confirms there was no writeback.
+The first dialog must show the active Candidate and its trusted read/write scope. Click Cancel, then. The test continues automatically when the signed product records this action.
+
+The second dialog should show plugin-a at generation 1 with the active Manifest scope. Approve it, then press Return.
+After approving the second invocation. The test continues automatically when the signed product records this action.
+
+FAIL
+
+======================================================================
+FAIL: test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 1454, in test_seed_app_builds_and_authenticates_its_kernel_service
+    self._assert_product_plugin_lifecycle_ui(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        product_app=product_app,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        agent_only=run_agent_plugin_ui and not run_plugin_lifecycle_ui,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6525, in _assert_product_plugin_lifecycle_ui
+    run_agent_plugin("A", 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/tests/test_macos_xpc_sandbox.py", line 6498, in run_agent_plugin
+    self.assertIn(
+    ~~~~~~~~~~~~~^
+        "Plugin result confirms two approved files were added.",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        output_text,
+        ^^^^^^^^^^^^
+    )
+    ^
+AssertionError: 'Plugin result confirms two approved files were added.' not found in "Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.\nYou: Khaos: The Agent received the user's denial; no Plugin result was produced.\nLauncher task status: stopped: Plugin operation ended the task.\nLauncher task record: proposals=1; executed command return codes=[]; cumulative Runner time=0.000s; bounded result bytes=39; stop reason=stopped: Plugin operation ended the task. Only these command results are verified; broader test coverage is not inferred.\nYou: Khaos: Plugin result changeset counts: added=2, modified=0, deleted=0.\nLauncher task status: stopped: Plugin operation ended the task.\nLauncher task record: proposals=1; executed command return codes=[]; cumulative Runner time=0.000s; bounded result bytes=125; stop reason=stopped: Plugin operation ended the task. Only these command results are verified; broader test coverage is not inferred.\nYou: "
+
+----------------------------------------------------------------------
+Ran 1 test in 165.095s
+
+FAILED (failures=1)
