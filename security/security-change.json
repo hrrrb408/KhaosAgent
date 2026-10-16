@@ -1,5 +1,5 @@
 {
-  "base": "c97bb05c9920c3a59e8790c5b843037c120061e9",
+  "base": "4e0c39a88c27efb31cfe35bce6497d2de9a7dff9",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",

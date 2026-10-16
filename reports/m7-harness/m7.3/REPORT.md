@@ -110,3 +110,9 @@ The focused signed XPC diagnostic build passed in 118.426 seconds (exit 0).
 This confirms the revised fixture compiles and the local attack assertions pass;
 it does not identify the cause of the earlier remote exception. Exact-head CI
 is required again, with the failed run preserved.
+
+The first diagnostic follow-up bound its declaration to c97bb05, but the actual
+PR #24 base remains M7.2 `4e0c39a`. Remote freeze run 38888605580 correctly rejected
+that mismatch. The declaration now binds the actual full PR base and the exact
+same four sensitive paths; checker policy and manifest hashes are unchanged.
+This governance correction is separate from the unknown earlier XPC exception.
