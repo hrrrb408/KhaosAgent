@@ -1,16 +1,12 @@
 {
-  "base": "2ec145e084a8a077bcb473288023c4d7874d70c1",
+  "base": "2fd9c21be22e8c2dde9a92ec605e6971413d5d3c",
   "files": [
-    "AGENTS.md",
-    "security/freeze-baseline.json",
-    "security/security-change.json",
-    "security/tcb-manifest.json",
-    "tests/test_macos_xpc_sandbox.py"
+    "security/security-change.json"
   ],
-  "motivation": "M7.4 corrects a proven stale English-result oracle to the existing numeric changeset response. Owner explicitly deferred only concurrent stale-approval UI due to identical-instance CUA limits; opt-in partial UI emits NOT_RUN and retains all separately reviewed A/B/rollback/A and workspace/signature checks. Default full UI and canonical Kernel stale attacks unchanged. Final ordered M7 integration: PR #25 targets main at exact base 2ec145e084a8a077bcb473288023c4d7874d70c1; retain reviewed source/fixtures unchanged.",
+  "motivation": "M7.4 corrects a proven stale English-result oracle to the existing numeric changeset response. Owner explicitly deferred only concurrent stale-approval UI due to identical-instance CUA limits; opt-in partial UI emits NOT_RUN and retains all separately reviewed A/B/rollback/A and workspace/signature checks. Default full UI and canonical Kernel stale attacks unchanged. Final ordered M7 integration: PR #25 targets main at exact base 2ec145e084a8a077bcb473288023c4d7874d70c1; retain reviewed source/fixtures unchanged. Final ordered M7 integration: PR #26 targets main at exact base 2fd9c21be22e8c2dde9a92ec605e6971413d5d3c; retain reviewed source/fixtures unchanged.",
   "invariants": "Preserve Launcher/Kernel/Runner authority, scopes, signatures, independent approval, Candidate binding, opaque state and trusted budgets. No runtime source changes, remote recipient, retry or fallback.",
   "authority_delta": "0; test-only oracle and explicitly labeled owner-deferred partial UI.",
-  "real_os_tests": "Fresh canonical 341 pass (698.347s) before partial-mode addition; signed product non-deferred sequential UI passed (253.868s), governance 4 pass and exact-head canonical CI. Preserve all three failed attempts; concurrent UI NOT_RUN. Original signed-product full UI evidence is retained in the final M7 stack. Required canonical real-OS CI is rerun at this integration head before merge.",
+  "real_os_tests": "Fresh canonical 341 pass (698.347s) before partial-mode addition; signed product non-deferred sequential UI passed (253.868s), governance 4 pass and exact-head canonical CI. Preserve all three failed attempts; concurrent UI NOT_RUN. Original signed-product full UI evidence is retained in the final M7 stack. Required canonical real-OS CI is rerun at this integration head before merge. Original signed-product full UI evidence is retained in the final M7 stack. Required canonical real-OS CI is rerun at this integration head before merge.",
   "trusted_delta": "0 runtime lines. Existing protected test, AGENTS acceptance guidance and exact governance digests only.",
   "baseline_decision": "Retain all reviewed manifest input hashes and freeze-baseline bytes; refresh exact declaration base/sensitive paths only. No runtime source or authority changes; independent Code Owner approval remains NOT_PROVEN."
 }
