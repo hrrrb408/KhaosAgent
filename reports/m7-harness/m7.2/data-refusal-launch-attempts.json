@@ -1,0 +1,21 @@
+{
+  "attempts": [
+    {
+      "id": 1,
+      "stage": "Launch Services spawn",
+      "exit_code": 1,
+      "product_logs_empty": true,
+      "stdio_location": "Desktop report directory"
+    },
+    {
+      "id": 2,
+      "stage": "Launch Services spawn",
+      "exit_code": 1,
+      "launchservices_error": -10810,
+      "product_logs_empty": true,
+      "stdio_location": "Desktop report directory"
+    }
+  ],
+  "diagnosis": "testing canonical temporary stdio paths before attributing cause; no model or tool execution observed; no security policy changed",
+  "system_log_payload": "not retained; subsequent diagnostics restricted to numeric/fixed fields"
+}

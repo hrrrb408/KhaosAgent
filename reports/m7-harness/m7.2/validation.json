@@ -1,0 +1,32 @@
+{
+  "source_commit": "0a2a37a",
+  "canonical": {
+    "tests": 341,
+    "seconds": 690.818,
+    "exit_code": 0,
+    "log_sha256": "13a89c5c11fbe1f43ebf9771421ca898655f531d6fba075cae155e5c7da94a47"
+  },
+  "signed_deterministic_first": "FAILED, retained",
+  "signed_deterministic_v2": "PASS, 545.359 seconds",
+  "actual_bigmodel_data_refusal": "PASS, no key; no workspace or tool request",
+  "formal_frozen_replay": {
+    "attempt": "m7-2-context-01",
+    "operations": 1,
+    "returncodes": [
+      0
+    ],
+    "runner_seconds": 3.196,
+    "result_bytes": 1541,
+    "stop_reason": "invalid_agent_action_wire_contract_after_correction",
+    "workspace_changed": false,
+    "hidden_test_returncode": 1,
+    "coding_success": false
+  },
+  "runtime_tcb_delta": 0,
+  "production_delta": {
+    "added": 65,
+    "removed": 29
+  },
+  "native_foundationmodels_8k_history": "NOT_PROVEN; not covered by custom helper",
+  "coding_reliability_closure": "NOT_PROVEN"
+}

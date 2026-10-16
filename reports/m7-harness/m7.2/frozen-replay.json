@@ -1,0 +1,67 @@
+{
+  "format": "khaos-m7-2-frozen-replay-v1",
+  "source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+  "production_host_sha256": "23de6ffe5f1bd6ec8d52b0175ed679ab12e62e9a9d50742c7a20d23b086576cc",
+  "task_id": "runner-exception-classification",
+  "attempt": "m7-2-context-01",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "model_provider": "bigmodel-coding-plan",
+  "model_id": "glm-5.3-flash",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "explicit_single_attempt_data_authorization": true,
+  "steps": [
+    {
+      "basis": "Original frozen task test discovery; isolated workspace only",
+      "decision": "approved",
+      "kind": "fs.list",
+      "proposal": 1,
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "c85b91d07e6a9991694772118844ac3a537a9d15b58af55dd3ebe0018ad2dd64",
+      "write_scope": []
+    }
+  ],
+  "launcher_task_record": "Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=3.196s; bounded result bytes=1541; stop reason=Agent Host or model failed: invalid_agent_action_wire_contract_after_correction. Only these command results are verified; broader test coverage is not inferred.",
+  "workspace_diff": "",
+  "launcher_exit_code": 0,
+  "grade": {
+    "all_test_commands_passed": false,
+    "attempt": "m7-2-context-01",
+    "candidate_paths_copied": [],
+    "candidate_test_edits_excluded": [],
+    "format": "khaos-coding-reliability-grade-v1",
+    "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "graded_at_utc": "2026-10-16T06:54:26.661708+00:00",
+    "grading_note": null,
+    "hidden_test_patch_applied": true,
+    "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "task_id": "runner-exception-classification",
+    "test_timeout_seconds": 1200,
+    "tests": [
+      {
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_worker.py",
+          "-v"
+        ],
+        "completed_at_utc": "2026-10-16T06:54:26.661686+00:00",
+        "return_code": 1,
+        "started_at_utc": "2026-10-16T06:54:25.515977+00:00",
+        "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m7-2-context-01/grader-test-01.stderr",
+        "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m7-2-context-01/grader-test-01.stdout",
+        "timed_out": false
+      }
+    ]
+  },
+  "raw_run_sha256": "a38c541307483f1f56c6244b0326d9ef74bf1aa5aad96bf7f39c8179f26aa73e",
+  "raw_grade_sha256": "43e96aa4d0cf171736fb47e87f790534c94a627dfa861ba3c75650d41746d64f",
+  "interpretation": "Failed coding task: list succeeded, model wire contract invalid after correction; no edit or test executed; hidden test exit 1. No history-eviction causality or Coding Reliability Closure proven. No retry or source retuning after formal outcome."
+}

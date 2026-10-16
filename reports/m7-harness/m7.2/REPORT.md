@@ -89,7 +89,7 @@ completion special case is removed; the six-step sequence and outcome/scope
 assertions are unchanged. This is test governance, not a production retry,
 permission change, new trusted protocol or model-quality improvement.
 
-Fresh canonical, signed product UI and exact-head CI evidence will be recorded
+Fresh canonical, signed product UI and exact-head CI evidence are recorded
 separately. User explicitly authorized the agent to operate the native acceptance
 Picker/approval UI on 2026-10-16. The existing UI path and exact displayed scopes
 remain, rather than replacing them with automatic permission. Preserve every
@@ -98,7 +98,7 @@ claim is made from deterministic or single-task success.
 
 ## Change budget
 
-Production code delta: pending final count; one untrusted Swift file.
+Production code delta: +65 / -29 lines, net +36; one untrusted Swift file.
 Trusted code delta: 0 runtime lines; two existing protected test inputs plus governance.
 New architecture concepts: 0.
 New trusted processes: 0.
@@ -110,3 +110,65 @@ provider-specific representations; keep one eviction helper, not a context engin
 
 Independent Code Owner approval remains NOT_PROVEN in the accepted sole-maintainer
 mode. M7.3–M7.5 are not implemented as part of this batch.
+
+## Signed product runs (current source)
+
+The second fixed-probe run `signed-deterministic-v2.json` passed in 545.359
+seconds. It uses the actual signed AgentHost and its local adapter with the
+signed deterministic llama model executable, not a replacement authority path.
+Parent assertions confirm six operations with `[1,1,1,0,0,0]`, only `tags.py`
+changed, actual focused retest 0, canary unchanged; refusal has one read execution,
+no write and no next approval; Picker cancellation has no approval/execution;
+exactly eight no-op approvals/executions and no ninth approval; killing the Host
+during an approved exit-1 Runner command preserves its exact scoped write and
+both processes exit. Restarted Host rejects the stale tool result. The failed
+first attempt is retained separately, not hidden by this successful run.
+
+A real BigModel product built with the ordinary user's existing stable signing
+identity passed `--verify-app` and its signed build-input map matches this exact
+Host source. `build-attempts.json` retains the first canonical-path guard failure
+(`/tmp` alias) and the successful `/private/tmp` build; trusted checks are unchanged.
+Two pre-UI Launch Services attempts with Desktop stdio paths returned -10810 and
+empty product logs. A separate attempt using canonical temporary stdio paths and
+a minimal system-only launch environment reached the actual data prompt;
+`data-refusal-v2.json` passed after choosing Do not send without an API key, with
+no workspace request or tool approval. This supports a startup configuration
+issue; paths and environment were changed together, so the exact cause is not
+isolated. No signature, TCC, sandbox or OS security protection was bypassed.
+
+`FREEZE.json` fixes the current source/build/prompt/baseline/provider and original
+hidden-patch digest for exactly one original-task replay after canonical tests
+finished. No rejected raw model response is recorded. API credentials remain only
+in the child launch environment/header, never in evidence; unrelated inherited
+credentials are excluded. The original hidden grader stays parent-only.
+
+Fresh canonical suite passed all 341 tests in 690.818 seconds (exit 0). Full log and digest are in `canonical-macos.log` / `validation.json`. The code commit also passed both required CI checks. Final evidence-only commit CI is tracked on PR #23.
+
+## One authorized frozen real-model replay
+
+`frozen-replay.json` records the sole authorized `m7-2-context-01` replay of
+`runner-exception-classification`, using the unchanged original prompt/baseline
+and BigModel Coding Plan `glm-5.3-flash`. The actual signed data prompt was approved
+under the user's explicit task/data/endpoint authorization; the separate native
+workspace and tool prompts were operated by the agent. Only the displayed `tests`
+read root was approved, with no write scope. The directory operation returned 0,
+1,541 bounded bytes and 3.196 Runner seconds. The next model output failed the
+wire contract after the existing single correction, and the product stopped with
+`invalid_agent_action_wire_contract_after_correction`. No second operation, edit,
+or test executed. The candidate diff is empty.
+
+The unchanged parent-only hidden patch was applied in a separate grader copy;
+its fixed test command returned 1, without timeout. This is a failed coding task,
+not successful repair or reliability closure. The old attempt and this new failed
+attempt remain separate. Bounded diagnostics do not identify individual invalid fields; raw rejected
+model output was not captured; historical or current context eviction as the
+cause remains NOT_PROVEN. No production prompt/source retuning or second actual
+replay followed this result. Launcher exit 0 means orderly termination, not task
+success. API output is not substituted for deterministic protocol evidence.
+
+A broad OS startup diagnostic inadvertently exposed an unrelated inherited
+authentication credential in the tool transcript. Its value was not copied into
+repository reports or PR text; the user was informed and rotation recommended.
+Subsequent launches and the hidden grader used a minimal environment allowlist,
+with only the specifically authorized BigModel credential added to the model
+launch. This incident is not represented as a product sandbox escape.
