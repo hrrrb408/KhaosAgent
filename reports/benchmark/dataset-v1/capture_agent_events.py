@@ -126,9 +126,10 @@ def _sanitize_agent_session_event(line: str) -> str | None:
     if re.fullmatch(r"tool=stopped code=[a-z][a-z0-9_-]{0,63}", line):
         return "tool=stopped"
     if re.fullmatch(
-        r"host-response=invalid stage=(provider_request|provider_response|"
-        r"model_content_size|model_json_syntax|action_shape|action_field_types|"
-        r"host_action_validation|harness_state|context_budget)",
+        r"host-response=invalid stage=(xpc_transport_failure|host_returned_nil|"
+        r"launcher_reply_decode_failure|unexpected_reply_type|provider_request|"
+        r"provider_response|model_content_size|model_json_syntax|action_shape|"
+        r"action_field_types|host_action_validation|harness_state|context_budget)",
         line,
     ):
         return "host-response=invalid"
@@ -190,9 +191,9 @@ def _host_diagnostic_events(text: str) -> tuple[list[dict[str, object]], dict[st
             item["attempt"] = attempt
         stage = fields.get("stage")
         if stage in {
-            "provider_request", "provider_response", "model_content_size",
-            "model_json_syntax", "action_shape", "action_field_types",
-            "host_action_validation", "harness_state", "context_budget",
+            "provider_request", "provider_response", "model_content",
+            "action_json", "action_shape", "action_field_types",
+            "agent_action_validation", "harness_state", "context",
         }:
             item["stage"] = stage
         error = fields.get("error")

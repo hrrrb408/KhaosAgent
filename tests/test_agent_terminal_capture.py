@@ -136,13 +136,84 @@ class AgentTerminalCaptureTests(unittest.TestCase):
         self.assertEqual(summary["host_diagnostic_events"][0]["missing_keys"], ["text"])
         self.assertNotIn("raw response", json.dumps(summary))
 
+    def test_all_production_host_diagnostic_stages_are_preserved(self) -> None:
+        stages = [
+            "provider_request",
+            "provider_response",
+            "model_content",
+            "action_json",
+            "action_shape",
+            "action_field_types",
+            "agent_action_validation",
+            "harness_state",
+            "context",
+        ]
+        diagnostics = "\n".join(
+            "agent-host-model-diagnostic event=initial_response_failed "
+            f"attempt=initial stage={stage} error=invalid_model_output_json "
+            "raw_model_output=MODEL_OUTPUT_SECRET_CANARY unknown_field=DROP_CANARY"
+            for stage in stages
+        )
+        summary = self.summarize(
+            task_record("Agent Host or model failed: invalid_model_output_json"),
+            agenthost_diagnostics=diagnostics,
+        )
+
+        events = summary["host_diagnostic_events"]
+        self.assertEqual([event["event"] for event in events], ["initial_response_failed"] * len(stages))
+        self.assertEqual([event["stage"] for event in events], stages)
+        self.assertEqual([event["error"] for event in events], ["invalid_model_output_json"] * len(stages))
+        self.assertEqual(summary["event_counts"]["model_response_rejected"], len(stages))
+        serialized = json.dumps(summary)
+        self.assertNotIn("MODEL_OUTPUT_SECRET_CANARY", serialized)
+        self.assertNotIn("DROP_CANARY", serialized)
+        self.assertNotIn("raw_model_output", serialized)
+
+    def test_launcher_response_stages_match_the_production_client_contract(self) -> None:
+        stages = [
+            "xpc_transport_failure",
+            "host_returned_nil",
+            "launcher_reply_decode_failure",
+            "unexpected_reply_type",
+        ]
+        for stage in stages:
+            self.assertEqual(
+                capture_agent_events._sanitize_agent_session_event(
+                    f"host-response=invalid stage={stage}"
+                ),
+                "host-response=invalid",
+            )
+
+    def test_unknown_host_diagnostic_stage_is_filtered_and_oversized_event_rejected(self) -> None:
+        diagnostics = "\n".join([
+            "agent-host-model-diagnostic event=initial_response_failed attempt=initial "
+            "stage=unknown_stage error=invalid_model_output_json unknown=DROP_CANARY",
+            "agent-host-model-diagnostic event=initial_response_failed attempt=initial "
+            "stage=action_shape error=invalid_model_output_shape unknown=" + "X" * 513,
+        ])
+        summary = self.summarize(
+            task_record("Agent Host or model failed: invalid_model_output_shape"),
+            agenthost_diagnostics=diagnostics,
+        )
+
+        self.assertEqual(summary["host_diagnostic_events"], [{
+            "event": "initial_response_failed",
+            "attempt": "initial",
+            "error": "invalid_model_output_json",
+        }])
+        self.assertEqual(summary["event_counts"]["model_response_rejected"], 1)
+        serialized = json.dumps(summary)
+        self.assertNotIn("unknown_stage", serialized)
+        self.assertNotIn("DROP_CANARY", serialized)
+        self.assertNotIn("X" * 513, serialized)
+
     def test_invalid_json_and_correction_failure_keep_the_json_stage(self) -> None:
         diagnostics = (
             "agent-host-model-diagnostic event=initial_response_failed attempt=initial "
-            "stage=model_json_syntax error=invalid_model_output_json\n"
+            "stage=action_json error=invalid_model_output_json\n"
             "agent-host-model-diagnostic event=correction_requested cause=model_json\n"
             "agent-host-model-diagnostic event=correction_response_failed attempt=correction "
-            "stage=model_json_syntax error=invalid_model_output_json"
+            "stage=action_json error=invalid_model_output_json"
         )
         summary = self.summarize(
             task_record("Agent Host or model failed: invalid_model_output_json"),
@@ -158,7 +229,7 @@ class AgentTerminalCaptureTests(unittest.TestCase):
             for event in summary["host_diagnostic_events"]
             if "stage" in event
         ]
-        self.assertEqual(stages, ["model_json_syntax", "model_json_syntax"])
+        self.assertEqual(stages, ["action_json", "action_json"])
 
     def test_correction_acceptance_is_separate_from_task_completion(self) -> None:
         diagnostics = (

@@ -537,7 +537,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
       "role": "build-governance",
-      "sha256": "577ead7a668fdd40bda2623813dd88b8c744015aa33db0f3bb4826833347c518",
+      "sha256": "a6ce7cf367c36be77ec278112dc60e9d16025a0cf9ca4fb1634af80d0696db16",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -878,7 +878,7 @@
     {
       "path": "tests/test_agent_terminal_capture.py",
       "role": "build-governance",
-      "sha256": "9f0ca45ef78eebe39cf34b06970ff9f8dfadd8f6e614045265f41566ad149aad",
+      "sha256": "9e9f3a5dc6eea4b6ce2a30632eeab6f8b991126fe46dbd794d822968c9b9eb31",
       "source_mode": "0o644",
       "boundary": "reviewed test input; exercises sanitized terminal evidence capture and is not runtime authority",
       "tests": [
