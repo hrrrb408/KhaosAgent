@@ -1,0 +1,58 @@
+{
+  "attempt": "m8-2-glm53-01",
+  "started_at_utc": "2026-10-17T13:32:36.582651+00:00",
+  "completed_at_utc": "2026-10-17T14:07:27.546546+00:00",
+  "formal_attempt_limit": 1,
+  "formal_attempts_started": 1,
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "user_authorized_single_replay": true,
+  "launcher_remote_data_approval": "approved",
+  "model_request_count_lower_bound": 1,
+  "model_request_count_exact": "NOT_PROVEN; post-cancellation Host exchange has no captured response marker",
+  "task_text_transmitted": true,
+  "workspace_content_transmitted": false,
+  "api_key_value_retained": false,
+  "credential_source_deviation": {
+    "user_requested_hermes_credential_reuse": true,
+    "hermes_env_loaded_for_this_attempt": false,
+    "actual_source": "hidden Terminal input",
+    "credential_value_retained": false,
+    "equality_to_hermes_credential": "NOT_VERIFIED",
+    "endpoint_configuration_in_hermes": "matching endpoint was observed before the attempt; no credential value was read into this report"
+  },
+  "initial_model_response": "Accepted as a valid list proposal; Launcher requested workspace selection.",
+  "launcher_events": [
+    "remote-data=approval-presented",
+    "remote-data=approved",
+    "tool-proposal kind=list",
+    "tool=workspace-picker-requested",
+    "tool=workspace-selection-cancelled",
+    "tool-result kind=list returncode=none output_bytes=74 can_continue=false"
+  ],
+  "workspace_picker": "cancelled",
+  "workspace_content_read": false,
+  "post_cancellation_model_response": "NOT_PROVEN; tool_result exchange was initiated but no tool-response marker was captured",
+  "agenthost_action_diagnostics": {
+    "capture_stream_started": true,
+    "matching_event_count": 0,
+    "synthetic_preflight_event_count": 1,
+    "synthetic_event_is_not_model_evidence": true
+  },
+  "approved_tool_operations": 0,
+  "executed_runner_operations": 0,
+  "runner_seconds": 0,
+  "changed_paths": [],
+  "workspace_clean_after_cancellation": true,
+  "retry_or_fallback": "none",
+  "independent_hidden_grading": {
+    "status": "FAILED_ON_UNMODIFIED_BASELINE",
+    "candidate_paths_copied": [],
+    "candidate_changes": 0,
+    "hidden_patch_applied_to_isolated_grader_copy": true,
+    "test_command_return_code": 1,
+    "raw_grader_output_included": false,
+    "interpretation": "Baseline test failure; not a model coding-quality result."
+  }
+}

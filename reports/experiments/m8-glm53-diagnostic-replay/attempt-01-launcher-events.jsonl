@@ -1,0 +1,6 @@
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 1, "event": "remote-data=approval-presented"}
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 2, "event": "remote-data=approved"}
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 3, "event": "tool-proposal kind=list"}
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 4, "event": "tool=workspace-picker-requested"}
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 5, "event": "tool=workspace-selection-cancelled"}
+{"record_type": "launcher_event", "attempt": "m8-2-glm53-01", "sequence": 6, "event": "tool-result kind=list returncode=none output_bytes=74 can_continue=false"}

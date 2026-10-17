@@ -1,5 +1,5 @@
 {
-  "status": "AWAITING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
+  "status": "ONE AUTHORIZED REMOTE REPLAY STOPPED BEFORE RUNNER EXECUTION",
   "runtime_tcb_delta": 0,
   "changed_untrusted_production_source": [
     "khaos/macos/AgentHost.swift: model selector glm-5.3-flash -> glm-5.3 for this replay",
@@ -16,10 +16,30 @@
   "os_log_retention": "Opt-in sanitized records may be retained under macOS unified logging policy.",
   "new_dependencies": 0,
   "hidden_test_changes": 0,
-  "remote_data_transmissions": 0,
+  "remote_data_transmissions": "Task text sent after signed Launcher approval; workspace content not sent; exact provider request count NOT_PROVEN",
   "khaos_bigmodel_api_key_present": false,
   "launcher_model_label_stale": true,
-  "diagnostic_capture_gate": "PASS: exact Agent Host code from signed experiment product captured one bounded synthetic harness-state event via OS unified logging; no model request.",
+  "diagnostic_capture_gate": "PASS in synthetic preflight; zero real-attempt action-diagnostic events observed on accepted-list/cancel path",
   "local_gates": "PASS: 341-test canonical suite, focused probe, builder/signature verification, Launch Services bootstrap, frozen-input hashes, and both Security Freeze checks.",
-  "independent_code_owner_approval": "NOT_PROVEN"
+  "independent_code_owner_approval": "NOT_PROVEN",
+  "credential_source": {
+    "user_requested_hermes_credential_reuse": true,
+    "hermes_env_loaded_for_this_attempt": false,
+    "actual_source": "hidden Terminal input",
+    "credential_value_retained": false,
+    "equality_to_hermes_credential": "NOT_VERIFIED",
+    "endpoint_configuration_in_hermes": "matching endpoint was observed before the attempt; no credential value was read into this report"
+  },
+  "remote_data_approval": "User authorized one replay; signed Launcher approval approved",
+  "model_attempt": {
+    "formal_attempts_started": 1,
+    "initial_response": "valid list proposal accepted",
+    "workspace_picker": "cancelled",
+    "workspace_access": false,
+    "runner_operations": 0,
+    "changed_paths": [],
+    "post_cancellation_response": "NOT_PROVEN",
+    "no_retry_or_fallback": true
+  },
+  "independent_hidden_grading": "Failed on unchanged frozen baseline copy with no candidate edits; not a model coding-quality result"
 }

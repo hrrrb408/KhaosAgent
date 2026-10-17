@@ -18,16 +18,29 @@
     "sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
     "content_read_or_printed": false,
     "modified": false,
-    "sent_to_model": false
+    "sent_to_model": false,
+    "applied_to_isolated_grader_copy": true
   },
   "formal_benchmark_data_modified": false,
-  "formal_attempt_artifacts_created": false,
+  "formal_attempt_artifacts_created": true,
   "integrity_reverification": {
     "date": "2026-10-17",
     "prompt_hash": "PASS",
     "frozen_workspace_bundle_hash": "PASS",
     "hidden_test_patch_hash_only": "PASS; contents were not displayed or sent",
     "exact_commit_and_main_ref_in_bundle": "PASS",
-    "benchmark_dataset_worktree_clean": true
-  }
+    "benchmark_dataset_worktree_clean": true,
+    "formal_attempt_prompt_hash": "PASS",
+    "workspace_clean_after_cancel": "PASS"
+  },
+  "attempt": {
+    "id": "m8-2-glm53-01",
+    "frozen_prompt_hash_matches": true,
+    "task_text_transmitted_after_approval": true,
+    "workspace_content_transmitted": false,
+    "workspace_clean_after_cancellation": true,
+    "candidate_paths": [],
+    "retry_or_fallback": "none"
+  },
+  "benchmark_dataset_modified": false
 }

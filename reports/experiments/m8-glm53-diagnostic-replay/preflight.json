@@ -1,9 +1,9 @@
 {
-  "status": "READY_PENDING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
-  "model_call": "NOT_RUN",
-  "api_requests": 0,
+  "status": "PREFLIGHT_PASSED; ONE FORMAL REPLAY STARTED AND STOPPED BEFORE RUNNER",
+  "model_call": "ONE FORMAL ATTEMPT STARTED; at least one successful model response observed",
+  "api_requests": "AT_LEAST_ONE; exact request count NOT_PROVEN",
   "khaos_bigmodel_api_key_present": false,
-  "remote_authorization": "NOT_REQUESTED; local/security gates now pass",
+  "remote_authorization": "USER_AUTHORIZED_ONE_REPLAY; signed Launcher remote-data approval was approved",
   "production_product": {
     "path": "/Users/huangruibang/Applications/Khaos-M8.2-GLM53-Diagnostic-Ready.app",
     "provider": "bigmodel-coding-plan",
@@ -64,11 +64,13 @@
     "captured_synthetic_events": 1,
     "formal_model_events": 0,
     "host_response": "invalid_request",
-    "api_requests": 0,
-    "task_data_transmitted": false,
+    "api_requests": "at least one; exact count not proven",
+    "task_data_transmitted": true,
     "diagnostic_events_jsonl": "diagnostic-events.jsonl",
     "canonical_suite": "PASS (341 tests)",
-    "security_freeze": "PASS (base-aware and current inventory checks)"
+    "security_freeze": "PASS (base-aware and current inventory checks)",
+    "workspace_content_transmitted": false,
+    "replay_attempt": "m8-2-glm53-01"
   },
   "local_validation": {
     "focused_diagnostic_test": "PASS (1 test, 1.862 seconds)",
@@ -78,5 +80,22 @@
     "signed_product_builder_and_signature": "PASS",
     "signed_product_launch_services_bootstrap": "PASS",
     "frozen_input_integrity": "PASS"
+  },
+  "credential_source_followup": {
+    "user_requested_hermes_credential_reuse": true,
+    "hermes_env_loaded_for_this_attempt": false,
+    "actual_source": "hidden Terminal input",
+    "credential_value_retained": false,
+    "equality_to_hermes_credential": "NOT_VERIFIED",
+    "endpoint_configuration_in_hermes": "matching endpoint was observed before the attempt; no credential value was read into this report"
+  },
+  "replay_outcome": {
+    "attempt": "m8-2-glm53-01",
+    "status": "STOPPED_BEFORE_RUNNER_EXECUTION",
+    "initial_response": "Accepted as a valid list proposal; Launcher requested workspace selection.",
+    "workspace_picker": "cancelled",
+    "workspace_content_transmitted": false,
+    "post_cancellation_response": "NOT_PROVEN; tool_result exchange was initiated but no tool-response marker was captured",
+    "retry_or_fallback": "none"
   }
 }

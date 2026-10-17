@@ -29,8 +29,8 @@
     "launch_services_bootstrap": "PASS",
     "kernel_and_snapshot_broker_authentication": "PASS",
     "diagnostic_flag_in_experiment_product_xpc_environment": "PASS",
-    "api_key_used": false,
-    "model_request": "NOT_RUN"
+    "api_key_used": "Credential supplied by hidden Terminal input; Hermes .env was not loaded for this attempt; equality not verified.",
+    "model_request": "ONE FORMAL ATTEMPT STARTED; initial model response accepted as a list proposal"
   },
   "signed_host_diagnostic_capture": {
     "status": "PASS",
@@ -57,6 +57,30 @@
     "security_tests": "PASS"
   },
   "git_diff_check": "PASS",
-  "remote_model_request": "NOT_RUN_PENDING_FRESH_USER_AUTHORIZATION",
-  "hidden_grader": "NOT_RUN"
+  "remote_model_request": "ONE FORMAL ATTEMPT STARTED; at least one response accepted; exact post-cancellation request/response count NOT_PROVEN",
+  "hidden_grader": "FAILED on unchanged frozen baseline copy; zero candidate paths; not a coding-quality result",
+  "signed_product_replay": {
+    "attempt": "m8-2-glm53-01",
+    "status": "STOPPED_BEFORE_RUNNER_EXECUTION",
+    "remote_data_approval": "approved in signed Launcher",
+    "task_text_transmitted": true,
+    "workspace_content_transmitted": false,
+    "initial_response": "valid list proposal accepted",
+    "workspace_picker": "cancelled",
+    "post_cancellation_response": "NOT_PROVEN",
+    "host_action_diagnostic_events": 0,
+    "approved_tool_operations": 0,
+    "runner_operations": 0,
+    "changed_paths": [],
+    "retry_or_fallback": "none"
+  },
+  "report_artifact_checks": {
+    "git_diff_check_after_report_update": "PASS",
+    "json_jsonl_parse": "PASS",
+    "security_freeze_base_aware_after_report_update": "PASS",
+    "security_freeze_current_inventory_after_report_update": "PASS",
+    "production_source_changed_in_evidence_update": false,
+    "canonical_suite_rerun_after_evidence_update": "NOT_RUN; evidence-only changes, no production source changed"
+  },
+  "hosted_final_head_checks": "PENDING final report commit"
 }

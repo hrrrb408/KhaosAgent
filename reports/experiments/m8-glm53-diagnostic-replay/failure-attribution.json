@@ -33,22 +33,46 @@
       "limits": "No raw response or bounded M8.0 field-level diagnostics are available."
     },
     {
-      "claim": "M8.2 reproduced or did not reproduce the Action Shape failure.",
-      "status": "NOT_RUN",
-      "evidence": "No M8.2 model request, tool operation, diagnostic event, or grading run occurred.",
-      "limits": "NOT_REPRODUCED is deliberately not assigned: no M8.2 model response was observed."
-    },
-    {
-      "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
-      "status": "NOT_PROVEN",
-      "evidence": "The local diagnostic capture gate passed, but no M8.2 model request has been authorized or made.",
-      "limits": "No M8.2 model behavior is available. Wait for fresh remote-data authorization before drawing a coding-failure conclusion."
-    },
-    {
       "claim": "Coding Reliability Closure.",
       "status": "NOT_PROVEN",
       "evidence": "M7 and M8.0 historical runs failed; M8.2 was not run.",
       "limits": "Single-attempt historical observations cannot establish general reliability."
+    },
+    {
+      "claim": "The first M8.2 model response was accepted as a valid list proposal.",
+      "status": "PROVEN",
+      "evidence": "Sanitized Launcher event sequence for attempt m8-2-glm53-01 records an accepted list proposal followed by a workspace-picker request.",
+      "limits": "This proves only the initial response path; no workspace content was read and the full coding task did not proceed."
+    },
+    {
+      "claim": "The M8.2 attempt completed without reproducing the historical action-shape failure.",
+      "status": "NOT_PROVEN",
+      "evidence": "The initial response was valid, but workspace selection was cancelled before Runner execution.",
+      "limits": "The post-cancellation Host exchange has no captured response marker; do not label the full attempt NOT_REPRODUCED."
+    },
+    {
+      "claim": "The M8.2 hidden-grader result is a candidate coding-quality result.",
+      "status": "NOT_PROVEN",
+      "evidence": "The grader ran the hidden patch against an unchanged frozen baseline copy; no candidate paths were produced.",
+      "limits": "There was no candidate patch; the grader evaluated only the unchanged baseline copy."
+    },
+    {
+      "claim": "Hermes credentials were reused for the M8.2 request.",
+      "status": "NOT_VERIFIED; EXECUTION DEVIATION",
+      "evidence": "The run used a hidden Terminal input; Hermes .env was not loaded by the temporary replay launcher.",
+      "limits": "The supplied secret was not retained, so equivalence to the Hermes credential cannot be checked. No retry is authorized or performed."
+    },
+    {
+      "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
+      "status": "NOT_PROVEN",
+      "evidence": "The initial list response was accepted, but the task stopped before Runner execution and the post-cancellation exchange is unresolved.",
+      "limits": "The run does not provide a complete-task outcome or identify the cause of the M8.0 failure."
+    },
+    {
+      "claim": "Coding Reliability Closure.",
+      "status": "NOT_PROVEN",
+      "evidence": "M7 and M8.0 historical runs failed; the single M8.2 attempt stopped before Runner execution.",
+      "limits": "These observations do not establish general reliability."
     }
   ]
 }

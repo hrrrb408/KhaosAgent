@@ -1,6 +1,6 @@
 {
   "format": "khaos-m8.2-experiment-config-v1",
-  "status": "AWAITING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
+  "status": "ONE_FORMAL_ATTEMPT_STOPPED_BEFORE_RUNNER_EXECUTION",
   "branch": "experiment/m8-2-glm53-diagnostic-replay",
   "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
   "task_id": "runner-exception-classification",
@@ -37,9 +37,9 @@
     "aggregate_result_bytes": 32768
   },
   "formal_attempt_limit": 1,
-  "formal_attempts_started": 0,
+  "formal_attempts_started": 1,
   "retry_or_fallback": "none",
-  "authorization": "NOT_REQUESTED; local and security gates now pass, fresh user authorization is required before any remote transmission",
+  "authorization": "User authorized one M8.2 replay; signed Launcher remote-data prompt approved.",
   "launcher_display_label": "BigModel GLM-5.3-Flash Coding Plan (stale relative to the selected model)",
   "planned_data_categories": [
     "task text",
@@ -64,5 +64,25 @@
     "per_service_opt_in": "KHAOS_AGENT_ACTION_DIAGNOSTICS=1",
     "per_event_limit_bytes": 512,
     "signed_host_synthetic_validation": "PASS; one event captured, no API request"
+  },
+  "credential_source": {
+    "user_requested_hermes_credential_reuse": true,
+    "hermes_env_loaded_for_this_attempt": false,
+    "actual_source": "hidden Terminal input",
+    "credential_value_retained": false,
+    "equality_to_hermes_credential": "NOT_VERIFIED",
+    "endpoint_configuration_in_hermes": "matching endpoint was observed before the attempt; no credential value was read into this report"
+  },
+  "attempt_result": {
+    "attempt": "m8-2-glm53-01",
+    "initial_response": "valid list proposal accepted",
+    "workspace_selection": "cancelled",
+    "workspace_content_sent": false,
+    "post_cancellation_response": "NOT_PROVEN",
+    "approved_tool_operations": 0,
+    "executed_runner_operations": 0,
+    "changed_paths": [],
+    "hidden_grader": "failed against unchanged baseline copy; not a model coding result",
+    "retry_or_fallback": "none"
   }
 }

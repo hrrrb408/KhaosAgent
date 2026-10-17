@@ -1,5 +1,5 @@
 {
-  "comparison_kind": "historical, unpaired comparison; M8.2 formal replay was not run",
+  "comparison_kind": "historical unpaired comparison; M8.2 received one initial valid response but stopped before Runner execution",
   "frozen_controls": {
     "task_id": "runner-exception-classification",
     "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
@@ -55,22 +55,31 @@
     "branch": "experiment/m8-2-glm53-diagnostic-replay",
     "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
     "selected_model": "glm-5.3",
-    "status": "AWAITING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
-    "formal_model_attempts": 0,
-    "model_requests": 0,
+    "status": "INCOMPLETE_STOPPED_BEFORE_RUNNER_EXECUTION",
+    "formal_model_attempts": 1,
     "tool_operations": 0,
     "diagnostic_events": 0,
-    "hidden_grader": "NOT_RUN",
-    "coding_outcome": "NOT_RUN",
-    "reason": "All local/security gates pass and the signed product Host diagnostic path was proven with a synthetic request. The user has not yet authorized transmission of the frozen task data to the Coding Plan endpoint.",
-    "synthetic_preflight_diagnostic_events": 1
+    "hidden_grader": "FAILED on unchanged baseline copy; not a coding-quality result",
+    "coding_outcome": "INCOMPLETE",
+    "synthetic_preflight_diagnostic_events": 1,
+    "model_requests_minimum": 1,
+    "model_requests_exact": "NOT_PROVEN after workspace cancellation",
+    "initial_response": "valid list proposal accepted",
+    "workspace_selection": "cancelled",
+    "task_text_transmitted": true,
+    "workspace_content_transmitted": false,
+    "runner_operations": 0,
+    "retry_or_fallback": "none",
+    "credential_source": "hidden Terminal input; Hermes .env not loaded; key equivalence NOT_VERIFIED",
+    "changed_paths": []
   },
   "comparability_limits": [
-    "M7 used GLM-5.3-Flash; M8.0 and the unexecuted M8.2 configuration select GLM-5.3.",
-    "Prompt, frozen baseline, hidden-test patch, provider endpoint, request parameters, and stated budgets match for the historical M7 and M8.0 attempts.",
+    "M7 used GLM-5.3-Flash; M8.0 and M8.2 select GLM-5.3.",
+    "Prompt, frozen baseline, hidden-test patch, provider endpoint, request parameters, and stated budgets match for historical M7 and M8.0; the M8.2 initial task input used the same frozen prompt and baseline.",
     "Harness/product source commits and diagnostic code differ; hosted model weights and provider state are not pinned, and sampling is stochastic.",
-    "Observed Launcher wait intervals are not pure model latency. No causal claim or general reliability claim follows from these single historical attempts.",
-    "M8.2 has no model output or grading result, so it cannot establish either recurrence or non-recurrence of an Action Shape failure."
+    "Observed Launcher wait intervals are not pure model latency. No causal claim or general reliability claim follows from these single attempts.",
+    "M8.2 accepted its initial list response but stopped before workspace access and Runner execution. The post-cancellation exchange is not proven, so full-task non-recurrence is not established.",
+    "The M8.2 grader tested an unchanged baseline copy and is not a model coding-quality result."
   ],
-  "interpretation": "M7 and M8.0 both failed the frozen coding task after successful approved operations, but at different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. No M8.2 model behavior was observed; one separate synthetic Host diagnostic event proved the capture path and is not model evidence."
+  "interpretation": "M7 and M8.0 failed the frozen coding task after successful approved operations, with different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. In M8.2, the initial model response was accepted as a valid list proposal, so that response did not reproduce the prior shape rejection. The workspace selection was then cancelled before any workspace content read or Runner operation. The post-cancellation Host exchange is NOT_PROVEN, so M8.2 neither establishes full-task non-recurrence nor resolves the historical root cause. The independent grader failed against the unchanged baseline copy and is not a coding-quality result."
 }
