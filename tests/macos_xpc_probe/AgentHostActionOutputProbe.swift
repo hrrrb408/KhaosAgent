@@ -10,6 +10,7 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) {
 @main
 enum AgentHostActionOutputProbe {
     static func main() throws {
+        try modelOutputDecoding()
         for error in [
             "invalid_model_output_json",
             "invalid_model_output_shape",
@@ -71,6 +72,165 @@ enum AgentHostActionOutputProbe {
             )
         }
         print("agent-host-action-output=passed")
+    }
+
+    private static func modelOutputDecoding() throws {
+        let expectedKeys = [
+            "type", "text", "argv", "readScope", "writeScope", "pluginID",
+            "candidateDigest", "generation", "pluginInput", "evolutionGoal",
+        ]
+        let keys = AgentHostActionOutput.actionOutputKeys
+        require(keys == expectedKeys, "the ten-field Action Contract changed")
+        let value: [String: Any] = [
+            "type": "text", "text": "ok", "argv": [], "readScope": [],
+            "writeScope": [], "pluginID": "", "candidateDigest": "",
+            "generation": 0, "pluginInput": "", "evolutionGoal": "",
+        ]
+        let valid = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        let action = try AgentHostActionOutput.decodeModelOutput(
+            valid, as: AgentAction.self, expectedKeys: keys
+        )
+        require(action.type == "text", "valid ten-field action was rejected")
+        try AgentHostActionOutput.validateModelContentSize(
+            Data(repeating: 0, count: AgentHostActionOutput.maximumModelOutputBytes)
+        )
+        let oversized = inspectionError(
+            Data(repeating: 0, count: AgentHostActionOutput.maximumModelOutputBytes + 1),
+            expectedKeys: keys
+        )
+        guard case .contentTooLarge = oversized else {
+            fatalError("oversized model content was not rejected before parsing")
+        }
+
+        let malformed = inspectionError(Data("{".utf8), expectedKeys: keys)
+        guard case .invalidJSON = malformed else {
+            fatalError("malformed response JSON was classified as shape")
+        }
+        let scalar = inspectionError(Data("null".utf8), expectedKeys: keys)
+        guard case let .invalidShape(nonObject) = scalar else {
+            fatalError("valid non-object JSON was classified as a parse failure")
+        }
+        require(
+            !nonObject.rootIsObject && nonObject.expectedKeyCount == 10
+                && nonObject.actualKeyCount == 0,
+            "non-object shape summary is inaccurate"
+        )
+
+        var missingValue = value
+        missingValue.removeValue(forKey: "evolutionGoal")
+        let missingData = try JSONSerialization.data(withJSONObject: missingValue)
+        let missingError = inspectionError(missingData, expectedKeys: keys)
+        guard case let .invalidShape(missing) = missingError else {
+            fatalError("missing field was not rejected as a shape failure")
+        }
+        require(
+            missing.rootIsObject && missing.expectedKeyCount == 10
+                && missing.actualKeyCount == 9
+                && missing.missingKeys == ["evolutionGoal"]
+                && missing.unexpectedKeyCount == 0,
+            "missing field summary is inaccurate"
+        )
+
+        var extraValue = value
+        extraValue["private_extra_canary"] = "PRIVATE_OUTPUT_CANARY"
+        let extraData = try JSONSerialization.data(withJSONObject: extraValue)
+        let extraError = inspectionError(extraData, expectedKeys: keys)
+        guard case let .invalidShape(extra) = extraError else {
+            fatalError("extra field was not rejected as a shape failure")
+        }
+        require(
+            extra.actualKeyCount == 11 && extra.missingKeys.isEmpty
+                && extra.unexpectedKeyCount == 1,
+            "extra field summary is inaccurate"
+        )
+
+        var wrongTypeValue = value
+        wrongTypeValue["argv"] = "not-an-array"
+        let wrongTypeData = try JSONSerialization.data(withJSONObject: wrongTypeValue)
+        let typeError = inspectionError(wrongTypeData, expectedKeys: keys)
+        guard case .invalidFieldTypes = typeError else {
+            fatalError("type mismatch was not classified as a field-type failure")
+        }
+
+        require(
+            !AgentHostActionOutput.modelDiagnosticsEnabled(environment: [:])
+                && AgentHostActionOutput.modelDiagnosticsEnabled(
+                    environment: ["KHAOS_AGENT_ACTION_DIAGNOSTICS": "1"]
+                ),
+            "structured diagnostics are not explicitly opt-in"
+        )
+        require(
+            AgentHostActionOutput.modelFailureDiagnostic(
+                attempt: .initial, stage: .actionShape,
+                errorCode: "invalid_model_output_shape", shape: extra, enabled: false
+            ) == nil,
+            "disabled diagnostics produced an event"
+        )
+        let extraLine = AgentHostActionOutput.modelFailureDiagnostic(
+            attempt: .initial, stage: .actionShape,
+            errorCode: "invalid_model_output_shape", shape: extra, enabled: true
+        )!
+        require(
+            extraLine.contains("event=initial_response_failed")
+                && extraLine.contains("expected_key_count=10")
+                && extraLine.contains("actual_key_count=11")
+                && extraLine.contains("unexpected_key_count=1")
+                && !extraLine.contains("private_extra_canary")
+                && !extraLine.contains("PRIVATE_OUTPUT_CANARY")
+                && extraLine.utf8.count <= 512,
+            "shape diagnostics exposed output data or exceeded their bound"
+        )
+        let correctionLine = AgentHostActionOutput.modelFailureDiagnostic(
+            attempt: .correction, stage: .actionFieldTypes,
+            errorCode: "invalid_model_output_field_types", enabled: true
+        )!
+        require(
+            correctionLine.contains("event=correction_response_failed")
+                && correctionLine.contains("attempt=correction")
+                && !correctionLine.contains("PRIVATE_OUTPUT_CANARY"),
+            "correction type failure was not attributed safely"
+        )
+        require(
+            AgentHostActionOutput.correctionRequestedDiagnostic(
+                cause: .modelShape, enabled: true
+            )?.contains("event=correction_requested cause=model_shape") == true
+                && AgentHostActionOutput.correctionAcceptedDiagnostic(enabled: true)?
+                    .contains("event=correction_response_accepted attempt=correction") == true,
+            "correction lifecycle diagnostics are incomplete"
+        )
+        let harnessLine = AgentHostActionOutput.harnessStateFailureDiagnostic(
+            errorCode: "tool_result_without_pending_proposal", enabled: true
+        )
+        require(
+            harnessLine?.contains("event=harness_state_rejected attempt=none stage=harness_state") == true
+                && (harnessLine?.utf8.count ?? 513) <= 512
+                && AgentHostActionOutput.harnessStateFailureDiagnostic(
+                    errorCode: "private value with spaces", enabled: true
+                ) == nil,
+            "harness-state diagnostics were not classified or bounded"
+        )
+        AgentHostActionOutput.diagnoseModelFailure(
+            attempt: .initial,
+            stage: .actionShape,
+            errorCode: "invalid_model_output_shape",
+            shape: extra
+        )
+    }
+
+    private static func inspectionError(
+        _ data: Data,
+        expectedKeys: [String]
+    ) -> AgentHostJSONInspectionError {
+        do {
+            _ = try AgentHostActionOutput.decodeModelOutput(
+                data, as: AgentAction.self, expectedKeys: expectedKeys
+            )
+            fatalError("invalid model output was accepted")
+        } catch let error as AgentHostJSONInspectionError {
+            return error
+        } catch {
+            fatalError("unexpected model output failure: \(error)")
+        }
     }
 
     private static func action(

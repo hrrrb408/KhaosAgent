@@ -550,6 +550,28 @@ private enum BigModelError: Error {
     case modelOutputTooLarge
     case contextBudgetExceeded
 
+    var diagnosticStage: AgentHostModelDiagnosticStage {
+        switch self {
+        case .credentialsUnavailable, .requestFailed, .authenticationFailed,
+             .rateLimited, .timedOut, .providerRejected:
+            return .providerRequest
+        case .invalidResponse, .incompleteResponse:
+            return .providerResponse
+        case .invalidModelOutput:
+            return .modelContent
+        case .invalidModelOutputJSON:
+            return .actionJSON
+        case .invalidModelOutputShape:
+            return .actionShape
+        case .invalidModelOutputFieldTypes:
+            return .actionFieldTypes
+        case .modelOutputTooLarge:
+            return .modelContent
+        case .contextBudgetExceeded:
+            return .context
+        }
+    }
+
     var code: String {
         switch self {
         case .credentialsUnavailable: return "model_credentials_unavailable"
@@ -634,6 +656,7 @@ private final class BigModelSession {
             deadlineUptime: nil,
             maximumTokens: AgentHostProtocol.maximumAgentResponseTokens,
             reasoningEffort: "max",
+            attempt: .initial,
             resultOK: resultOK
         )
     }
@@ -648,7 +671,8 @@ private final class BigModelSession {
             apiKey: apiKey,
             deadlineUptime: deadlineUptime,
             maximumTokens: 1_024,
-            reasoningEffort: "low"
+            reasoningEffort: "low",
+            attempt: .correction
         )
     }
 
@@ -658,6 +682,7 @@ private final class BigModelSession {
         deadlineUptime: TimeInterval?,
         maximumTokens: Int,
         reasoningEffort: String,
+        attempt: AgentHostModelAttempt,
         resultOK: Bool? = nil
     ) async throws -> AgentAction {
         history.append(AgentHistoryEntry(role: "user", content: input, resultOK: resultOK))
@@ -670,10 +695,12 @@ private final class BigModelSession {
             reasoningEffort: reasoningEffort,
             deadlineUptime: deadlineUptime
         )
-        let action = try decode(content, as: AgentAction.self, exactKeys: [
-            "type", "text", "argv", "readScope", "writeScope", "pluginID",
-            "candidateDigest", "generation", "pluginInput", "evolutionGoal",
-        ])
+        let action = try decode(
+            content,
+            as: AgentAction.self,
+            exactKeys: AgentHostActionOutput.actionOutputKeys,
+            attempt: attempt
+        )
         history.append(AgentHistoryEntry(role: "assistant", content: String(decoding: content, as: UTF8.self)))
         try trimHistory()
         return action
@@ -784,9 +811,6 @@ private final class BigModelSession {
         guard !content.isEmpty else {
             throw BigModelError.invalidModelOutput
         }
-        guard content.count <= 48 * 1024 else {
-            throw BigModelError.modelOutputTooLarge
-        }
         let elapsed = Int(
             (ProcessInfo.processInfo.systemUptime - startedAt) * 1_000
         )
@@ -804,18 +828,58 @@ private final class BigModelSession {
     private func decode<Value: Decodable>(
         _ data: Data,
         as type: Value.Type,
-        exactKeys: Set<String>
+        exactKeys: [String],
+        attempt: AgentHostModelAttempt? = nil
     ) throws -> Value {
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw BigModelError.invalidModelOutputJSON
-        }
-        guard Set(object.keys) == exactKeys else {
-            throw BigModelError.invalidModelOutputShape
-        }
-        guard let value = try? JSONDecoder().decode(type, from: data) else {
+        do {
+            return try AgentHostActionOutput.decodeModelOutput(
+                data,
+                as: type,
+                expectedKeys: exactKeys
+            )
+        } catch let error as AgentHostJSONInspectionError {
+            switch error {
+            case .invalidJSON:
+                if let attempt {
+                    AgentHostActionOutput.diagnoseModelFailure(
+                        attempt: attempt,
+                        stage: .actionJSON,
+                        errorCode: BigModelError.invalidModelOutputJSON.code
+                    )
+                }
+                throw BigModelError.invalidModelOutputJSON
+            case .invalidShape(let shape):
+                if let attempt {
+                    AgentHostActionOutput.diagnoseModelFailure(
+                        attempt: attempt,
+                        stage: .actionShape,
+                        errorCode: BigModelError.invalidModelOutputShape.code,
+                        shape: shape
+                    )
+                }
+                throw BigModelError.invalidModelOutputShape
+            case .invalidFieldTypes:
+                if let attempt {
+                    AgentHostActionOutput.diagnoseModelFailure(
+                        attempt: attempt,
+                        stage: .actionFieldTypes,
+                        errorCode: BigModelError.invalidModelOutputFieldTypes.code
+                    )
+                }
+                throw BigModelError.invalidModelOutputFieldTypes
+            case .contentTooLarge:
+                if let attempt {
+                    AgentHostActionOutput.diagnoseModelFailure(
+                        attempt: attempt,
+                        stage: .modelContent,
+                        errorCode: BigModelError.modelOutputTooLarge.code
+                    )
+                }
+                throw BigModelError.modelOutputTooLarge
+            }
+        } catch {
             throw BigModelError.invalidModelOutputFieldTypes
         }
-        return value
     }
 
     private func trimHistory() throws {
@@ -839,6 +903,7 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
     private let lock = NSLock()
     private var handlingRequest = false
     private var taskProgress = AgentHostTaskProgress()
+    private var didDiagnoseHarnessStateFailure = false
     private var userTurns = 0
     private var pendingShellProposal: AgentShellProposal?
     private var failedShellCommandUntilWrite: [String]?
@@ -932,9 +997,15 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
         var failedCommandForCorrection: [String]?
         var explicitPluginOperation: AgentPluginOperation?
         if operation == "user" {
-            guard userTurns < 8,
-                  let text = frame["text"] as? String,
-                  taskProgress.beginTask() else {
+            guard userTurns < 8 else {
+                diagnoseHarnessStateFailure("user_turn_limit")
+                return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
+            }
+            guard let text = frame["text"] as? String else {
+                return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
+            }
+            guard taskProgress.beginTask() else {
+                diagnoseHarnessStateFailure("user_task_while_result_pending")
                 return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
             }
             explicitPluginOperation = Self.explicitPluginOperation(
@@ -951,12 +1022,20 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                 activePlugin
             ) + "\nUser request (untrusted data):\n" + text
         } else {
-            guard operation == "tool_result",
-                  taskProgress.awaitingToolResult,
-                  let ok = frame["ok"] as? Bool,
+            guard operation == "tool_result" else {
+                return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
+            }
+            guard taskProgress.awaitingToolResult else {
+                diagnoseHarnessStateFailure("tool_result_without_pending_proposal")
+                return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
+            }
+            guard let ok = frame["ok"] as? Bool,
                   let canContinue = frame["can_continue"] as? Bool,
-                  let result = frame["text"] as? String,
-                  taskProgress.consumeToolResult() else {
+                  let result = frame["text"] as? String else {
+                return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
+            }
+            guard taskProgress.consumeToolResult() else {
+                diagnoseHarnessStateFailure("tool_result_transition_rejected")
                 return try? AgentHostProtocol.encodeReply(.failure("invalid_request"))
             }
             if let previousProposal = pendingShellProposal {
@@ -1028,6 +1107,7 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                     }
                     if let rejection = AgentActionRejection.modelOutput(error.code) {
                         AgentHostActionOutput.diagnose(rejection, correctionUsed: false, terminal: false)
+                        AgentHostActionOutput.diagnoseCorrectionRequested(cause: rejection)
                     }
                     correctionUsed = true
                     generated = try await bigModelSession.correctAction(
@@ -1053,12 +1133,22 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                     hasExplicitPluginOperation: explicitPluginOperation != nil,
                     failedCommand: failedCommandForCorrection
                 )
-                return try actionReply(generated, activePlugin: activePlugin)
+                return try validatedActionReply(
+                    generated,
+                    activePlugin: activePlugin,
+                    correctionUsed: correctionUsed
+                )
             } catch let rejection as AgentActionRejection {
                 guard !correctionUsed, llamaSession != nil || bigModelSession != nil else {
                     throw rejection
                 }
                 AgentHostActionOutput.diagnose(rejection, correctionUsed: false, terminal: false)
+                AgentHostActionOutput.diagnoseModelFailure(
+                    attempt: .initial,
+                    stage: .actionValidation,
+                    errorCode: AgentHostActionOutput.failureCode(rejection, correctionUsed: false)
+                )
+                AgentHostActionOutput.diagnoseCorrectionRequested(cause: rejection)
                 correctionUsed = true
                 let correction = "Host rejection category: \(rejection.rawValue).\n" + actionCorrection(
                     for: generated,
@@ -1092,17 +1182,35 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                     hasExplicitPluginOperation: explicitPluginOperation != nil,
                     failedCommand: failedCommandForCorrection
                 )
-                return try actionReply(corrected, activePlugin: activePlugin)
+                return try validatedActionReply(
+                    corrected,
+                    activePlugin: activePlugin,
+                    correctionUsed: true
+                )
             }
         } catch let error as BigModelError {
             if let rejection = AgentActionRejection.modelOutput(error.code) {
                 AgentHostActionOutput.diagnose(rejection, correctionUsed: correctionUsed)
+            } else {
+                AgentHostActionOutput.diagnoseModelFailure(
+                    attempt: correctionUsed ? .correction : .initial,
+                    stage: error.diagnosticStage,
+                    errorCode: error.code
+                )
             }
             return try? AgentHostProtocol.encodeReply(.failure(error.code))
         } catch let error as LocalLlamaError {
             return try? AgentHostProtocol.encodeReply(.failure(error.code))
         } catch let rejection as AgentActionRejection {
             AgentHostActionOutput.diagnose(rejection, correctionUsed: correctionUsed)
+            AgentHostActionOutput.diagnoseModelFailure(
+                attempt: correctionUsed ? .correction : .initial,
+                stage: .actionValidation,
+                errorCode: AgentHostActionOutput.failureCode(
+                    rejection,
+                    correctionUsed: correctionUsed
+                )
+            )
             return try? AgentHostProtocol.encodeReply(.failure(AgentHostActionOutput.failureCode(rejection, correctionUsed: correctionUsed)))
         } catch {
             return try? AgentHostProtocol.encodeReply(.failure("model_request_failed"))
@@ -1217,6 +1325,30 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                 intentText.localizedCaseInsensitiveContains($0)
             }
         }
+    }
+
+    private func validatedActionReply(
+        _ generated: AgentAction,
+        activePlugin: AgentHostPluginMetadata?,
+        correctionUsed: Bool
+    ) throws -> Data {
+        let reply = try actionReply(generated, activePlugin: activePlugin)
+        if case let .failure(code)? = AgentHostProtocol.decodeReply(reply) {
+            AgentHostActionOutput.diagnoseModelFailure(
+                attempt: correctionUsed ? .correction : .initial,
+                stage: code == "tool_call_limit" ? .harnessState : .actionValidation,
+                errorCode: code
+            )
+        } else if correctionUsed {
+            AgentHostActionOutput.diagnoseCorrectionAccepted()
+        }
+        return reply
+    }
+
+    private func diagnoseHarnessStateFailure(_ errorCode: String) {
+        guard !didDiagnoseHarnessStateFailure else { return }
+        didDiagnoseHarnessStateFailure = true
+        AgentHostActionOutput.diagnoseHarnessStateFailure(errorCode: errorCode)
     }
 
     private func actionReply(

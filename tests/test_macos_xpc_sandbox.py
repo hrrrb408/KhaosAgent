@@ -490,15 +490,46 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 timeout=60,
             )
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            disabled_environment = os.environ.copy()
+            disabled_environment.pop("KHAOS_AGENT_ACTION_DIAGNOSTICS", None)
             result = subprocess.run(
                 [str(probe)],
                 check=False,
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=disabled_environment,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("agent-host-action-output=passed", result.stdout)
+            self.assertNotIn("agent-host-model-diagnostic", result.stderr)
+
+            enabled_environment = disabled_environment.copy()
+            enabled_environment["KHAOS_AGENT_ACTION_DIAGNOSTICS"] = "1"
+            diagnostic_result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=enabled_environment,
+            )
+            self.assertEqual(
+                diagnostic_result.returncode,
+                0,
+                diagnostic_result.stdout + diagnostic_result.stderr,
+            )
+            diagnostic_lines = [
+                line for line in diagnostic_result.stderr.splitlines()
+                if line.startswith("agent-host-model-diagnostic ")
+            ]
+            self.assertEqual(len(diagnostic_lines), 1, diagnostic_result.stderr)
+            self.assertIn("event=initial_response_failed", diagnostic_lines[0])
+            self.assertIn("stage=action_shape", diagnostic_lines[0])
+            self.assertIn("unexpected_key_count=1", diagnostic_lines[0])
+            self.assertNotIn("private_extra_canary", diagnostic_lines[0])
+            self.assertNotIn("PRIVATE_OUTPUT_CANARY", diagnostic_lines[0])
+            self.assertLessEqual(len(diagnostic_lines[0].encode("utf-8")), 512)
 
     def _assert_product_writeback_evidence(
         self,

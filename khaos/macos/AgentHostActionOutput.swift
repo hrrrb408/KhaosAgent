@@ -39,6 +39,45 @@ enum AgentActionRejection: String, Error, CaseIterable {
     }
 }
 
+enum AgentHostModelAttempt: String {
+    case initial
+    case correction
+
+    var failureEvent: String {
+        switch self {
+        case .initial: return "initial_response_failed"
+        case .correction: return "correction_response_failed"
+        }
+    }
+}
+
+enum AgentHostModelDiagnosticStage: String {
+    case providerRequest = "provider_request"
+    case providerResponse = "provider_response"
+    case modelContent = "model_content"
+    case actionJSON = "action_json"
+    case actionShape = "action_shape"
+    case actionFieldTypes = "action_field_types"
+    case actionValidation = "agent_action_validation"
+    case harnessState = "harness_state"
+    case context
+}
+
+struct AgentHostJSONShapeDiagnostic: Equatable {
+    let rootIsObject: Bool
+    let expectedKeyCount: Int
+    let actualKeyCount: Int
+    let missingKeys: [String]
+    let unexpectedKeyCount: Int
+}
+
+enum AgentHostJSONInspectionError: Error {
+    case invalidJSON
+    case invalidShape(AgentHostJSONShapeDiagnostic)
+    case invalidFieldTypes
+    case contentTooLarge
+}
+
 // Host sequencing only; the Launcher independently owns authority and budgets.
 struct AgentHostTaskProgress {
     private(set) var awaitingToolResult = false
@@ -66,10 +105,151 @@ struct AgentHostTaskProgress {
 }
 
 enum AgentHostActionOutput {
+    static let actionOutputKeys = [
+        "type", "text", "argv", "readScope", "writeScope", "pluginID",
+        "candidateDigest", "generation", "pluginInput", "evolutionGoal",
+    ]
+    static let maximumModelOutputBytes = 48 * 1024
+    private static let modelDiagnosticsEnvironmentKey = "KHAOS_AGENT_ACTION_DIAGNOSTICS"
+    private static let maximumModelDiagnosticBytes = 512
+
     static func diagnose(
         _ rejection: AgentActionRejection, correctionUsed: Bool, terminal: Bool = true
     ) {
         fputs(diagnostic(rejection, correctionUsed: correctionUsed, terminal: terminal) + "\n", stderr)
+    }
+
+    static func inspectJSONObject(
+        _ data: Data,
+        expectedKeys: [String]
+    ) throws -> [String: Any] {
+        let value: Any
+        do {
+            value = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        } catch {
+            throw AgentHostJSONInspectionError.invalidJSON
+        }
+        guard let object = value as? [String: Any] else {
+            throw AgentHostJSONInspectionError.invalidShape(AgentHostJSONShapeDiagnostic(
+                rootIsObject: false,
+                expectedKeyCount: expectedKeys.count,
+                actualKeyCount: 0,
+                missingKeys: [],
+                unexpectedKeyCount: 0
+            ))
+        }
+        let expected = Set(expectedKeys)
+        let actual = Set(object.keys)
+        guard expected == actual else {
+            throw AgentHostJSONInspectionError.invalidShape(AgentHostJSONShapeDiagnostic(
+                rootIsObject: true,
+                expectedKeyCount: expectedKeys.count,
+                actualKeyCount: object.count,
+                missingKeys: expectedKeys.filter { !actual.contains($0) },
+                unexpectedKeyCount: actual.subtracting(expected).count
+            ))
+        }
+        return object
+    }
+
+    static func validateModelContentSize(_ data: Data) throws {
+        guard data.count <= maximumModelOutputBytes else {
+            throw AgentHostJSONInspectionError.contentTooLarge
+        }
+    }
+
+    static func decodeModelOutput<Value: Decodable>(
+        _ data: Data,
+        as type: Value.Type,
+        expectedKeys: [String]
+    ) throws -> Value {
+        try validateModelContentSize(data)
+        _ = try inspectJSONObject(data, expectedKeys: expectedKeys)
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            throw AgentHostJSONInspectionError.invalidFieldTypes
+        }
+    }
+
+    static func modelDiagnosticsEnabled(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment[modelDiagnosticsEnvironmentKey] == "1"
+    }
+
+    static func modelFailureDiagnostic(
+        attempt: AgentHostModelAttempt,
+        stage: AgentHostModelDiagnosticStage,
+        errorCode: String,
+        shape: AgentHostJSONShapeDiagnostic? = nil,
+        enabled: Bool
+    ) -> String? {
+        guard enabled,
+              safeDiagnosticCode(errorCode),
+              shape?.missingKeys.allSatisfy({ actionOutputKeys.contains($0) }) ?? true else {
+            return nil
+        }
+        var line = "agent-host-model-diagnostic event=\(attempt.failureEvent) attempt=\(attempt.rawValue) stage=\(stage.rawValue) error=\(errorCode)"
+        if let shape {
+            let missing = shape.missingKeys.isEmpty ? "none" : shape.missingKeys.joined(separator: ",")
+            line += " root_is_object=\(shape.rootIsObject) expected_key_count=\(shape.expectedKeyCount) actual_key_count=\(shape.actualKeyCount) missing_keys=\(missing) unexpected_key_count=\(shape.unexpectedKeyCount)"
+        }
+        guard line.utf8.count <= maximumModelDiagnosticBytes else { return nil }
+        return line
+    }
+
+    static func correctionRequestedDiagnostic(
+        cause: AgentActionRejection,
+        enabled: Bool
+    ) -> String? {
+        guard enabled else { return nil }
+        return "agent-host-model-diagnostic event=correction_requested cause=\(cause.rawValue)"
+    }
+
+    static func correctionAcceptedDiagnostic(enabled: Bool) -> String? {
+        guard enabled else { return nil }
+        return "agent-host-model-diagnostic event=correction_response_accepted attempt=correction"
+    }
+
+    static func harnessStateFailureDiagnostic(
+        errorCode: String,
+        enabled: Bool
+    ) -> String? {
+        guard enabled, safeDiagnosticCode(errorCode) else { return nil }
+        let line = "agent-host-model-diagnostic event=harness_state_rejected attempt=none stage=harness_state error=\(errorCode)"
+        return line.utf8.count <= maximumModelDiagnosticBytes ? line : nil
+    }
+
+    static func diagnoseModelFailure(
+        attempt: AgentHostModelAttempt,
+        stage: AgentHostModelDiagnosticStage,
+        errorCode: String,
+        shape: AgentHostJSONShapeDiagnostic? = nil
+    ) {
+        guard modelDiagnosticsEnabled() else { return }
+        emitModelDiagnostic(modelFailureDiagnostic(
+            attempt: attempt,
+            stage: stage,
+            errorCode: errorCode,
+            shape: shape,
+            enabled: true
+        ))
+    }
+
+    static func diagnoseCorrectionRequested(cause: AgentActionRejection) {
+        guard modelDiagnosticsEnabled() else { return }
+        emitModelDiagnostic(correctionRequestedDiagnostic(cause: cause, enabled: true))
+    }
+
+    static func diagnoseCorrectionAccepted() {
+        guard modelDiagnosticsEnabled() else { return }
+        emitModelDiagnostic(correctionAcceptedDiagnostic(enabled: true))
+    }
+
+    static func diagnoseHarnessStateFailure(errorCode: String) {
+        guard modelDiagnosticsEnabled() else { return }
+        emitModelDiagnostic(harnessStateFailureDiagnostic(errorCode: errorCode, enabled: true))
     }
 
     static func diagnostic(
@@ -230,5 +410,16 @@ enum AgentHostActionOutput {
         return """
             Host validation feedback: The previous model response was not submitted or executed because it was not one valid action JSON object. Re-read the original user request and the latest Trusted Launcher metadata already in context. Return exactly one raw JSON object with exactly these keys and JSON types: {"type":"text","text":"answer or empty string","argv":[],"readScope":[],"writeScope":[],"pluginID":"","candidateDigest":"","generation":0,"pluginInput":"","evolutionGoal":""}. Do not omit, add, rename, or change the type of a field. Leave every unused field at its documented empty value. Do not add Markdown, commentary, source, Manifest, scope, capability, approval, secret, or lifecycle data. Nothing has run; do not claim execution.
             """
+    }
+
+    private static func emitModelDiagnostic(_ line: String?) {
+        guard let line, line.utf8.count <= maximumModelDiagnosticBytes else { return }
+        fputs(line + "\n", stderr)
+    }
+
+    private static func safeDiagnosticCode(_ value: String) -> Bool {
+        value.utf8.count <= 64 && value.utf8.allSatisfy {
+            (97...122).contains($0) || (48...57).contains($0) || $0 == 95 || $0 == 45
+        }
     }
 }
