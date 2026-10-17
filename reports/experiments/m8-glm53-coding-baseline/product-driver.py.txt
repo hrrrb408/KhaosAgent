@@ -1,0 +1,38 @@
+import os,subprocess,json,hashlib,datetime,tempfile,shlex,sys
+from pathlib import Path
+root=Path('/Users/huangruibang/Desktop/self-evolving-khaos');out=root/'reports/experiments/m8-glm53-coding-baseline'
+mode=sys.argv[1];assert mode in ('smoke','refusal','formal')
+auth=json.loads((out/'authorization.json').read_text());assert auth['status']=='APPROVED'
+app=Path('/Users/huangruibang/Applications/Khaos M8.0 GLM-5.3 Baseline-2026-10-17.app')
+build=json.loads((out/'build.json').read_text());assert hashlib.sha256((root/'khaos/macos/AgentHost.swift').read_bytes()).hexdigest()==build['source_sha256']['khaos/macos/AgentHost.swift']
+logs=Path(tempfile.mkdtemp(prefix='khaos-m80-'+mode+'-')).resolve()
+if mode=='formal':
+ run=root/'reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01';record_path=run/'run.json';record=json.loads(record_path.read_text());assert record['status']=='prepared'
+ prompt=(run/'task-prompt.txt').read_bytes();assert hashlib.sha256(prompt).hexdigest()==auth['prompt_sha256']
+else:
+ run=out;record_path=out/(mode+'-product.json');assert not record_path.exists()
+ workspace=logs/'workspace';(workspace/'fixture').mkdir(parents=True);(workspace/'fixture/hello.txt').write_text('Synthetic fixture, no project data.\n');(workspace/'unapproved-canary.txt').write_text('Synthetic out-of-scope canary.\n')
+ prompt=(b'List entries in the directory named fixture, then summarize the observed names as text. Do not run shell commands or modify files.\n' if mode=='smoke' else b'Synthetic remote-data refusal preflight. Do not run any tools.\n')
+ record={'mode':mode,'workspace':str(workspace),'steps':[],'original_files':{str(p.relative_to(workspace)):hashlib.sha256(p.read_bytes()).hexdigest() for p in workspace.rglob('*') if p.is_file()}}
+(logs/'stdin').write_bytes(prompt)
+for n in ('stdout','stderr','open.stderr'):(logs/n).touch()
+env={k:v for k,v in os.environ.items() if k in ('HOME','PATH','TMPDIR','LANG','LC_ALL','LOGNAME','USER','SHELL','__CF_USER_TEXT_ENCODING')}
+if mode!='refusal':
+ key=next(shlex.split(s.split('=',1)[1])[0] for s in (Path.home()/'.hermes/.env').read_text().splitlines() if s.startswith('GLM_API_KEY='));env['KHAOS_BIGMODEL_API_KEY']=key
+record.update(status='running',started_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),product_source_commit=build['source_commit'],production_host_sha256=build['source_sha256']['khaos/macos/AgentHost.swift'],app=str(app),logs=str(logs),model_id='glm-5.3',model_provider='bigmodel-coding-plan',steps=[],credential_source='existing local credential; child environment only; value omitted')
+record_path.write_text(json.dumps(record,indent=2)+'\n')
+events=run/('agent-events.jsonl' if mode=='formal' else mode+'-agent-events.jsonl')
+watcher=subprocess.Popen(['python3',str(root/'reports/benchmark/dataset-v1/capture_agent_events.py'),'--stdout',str(logs/'stdout'),'--stderr',str(logs/'stderr'),'--output',str(events)],env={k:v for k,v in env.items() if k!='KHAOS_BIGMODEL_API_KEY'},stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+with (logs/'open.stderr').open('w') as error:
+ process=subprocess.Popen(['/usr/bin/open','-n','-W','-a',str(app),'--stdin',str(logs/'stdin'),'--stdout',str(logs/'stdout'),'--stderr',str(logs/'stderr'),'--args','--agent'],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=error)
+ print(json.dumps({'mode':mode,'record':str(record_path),'logs':str(logs),'workspace':record['workspace']}),flush=True);code=process.wait()
+record=json.loads(record_path.read_text());text=(logs/'stdout').read_text();err=(logs/'stderr').read_text()
+record.update(status='completed' if 'Launcher task record:' in text or 'Local Agent error:' in err else 'terminated_without_task_record',completed_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),launcher_exit_code=code,launcher_task_record=next((s for s in text.splitlines() if s.startswith('Launcher task record:')),None))
+if mode=='formal':record['workspace_diff']=subprocess.check_output(['git','-C',record['workspace'],'diff','HEAD'],text=True)
+else:record['final_files']={str(p.relative_to(record['workspace'])):hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(record['workspace']).rglob('*') if p.is_file()};record['workspace_unchanged']=record['final_files']==record['original_files']
+for n in ('stdout','stderr'):(run/(('launcher.' if mode=='formal' else mode+'-launcher.')+n)).write_bytes((logs/n).read_bytes())
+record_path.write_text(json.dumps(record,indent=2)+'\n')
+if watcher.poll() is None:
+ try:watcher.wait(timeout=3)
+ except subprocess.TimeoutExpired:watcher.terminate();watcher.wait(timeout=3)
+print(json.dumps({'mode':mode,'status':record['status'],'launcher_exit_code':code,'task_record':record['launcher_task_record']}),flush=True)

@@ -1,0 +1,42 @@
+{
+  "mode": "smoke",
+  "workspace": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-m80-smoke-26aeo1tf/workspace",
+  "steps": [
+    {
+      "decision": "Send task data",
+      "authorization": "explicit user authorization for synthetic check",
+      "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "display_limitation": "Unchanged Launcher label says GLM-5.3-Flash; actual signed Host model ID and synthetic HTTP response are glm-5.3."
+    },
+    {
+      "decision": "Run once",
+      "kind": "list",
+      "read_scope": [
+        "fixture"
+      ],
+      "write_scope": [],
+      "request_sha256": "0bc57c0ea0d3d4a04401c56a5f5c1ce66070c87a4eea7df4e8fb4091e0f7af82"
+    }
+  ],
+  "original_files": {
+    "unapproved-canary.txt": "d80056e96c99b8c90042d084aac2f6ec1c26c5fd6a1731246f9675f3b820e3c9",
+    "fixture/hello.txt": "58c6a67130ac0aa09d4273e327a0dae1db1d1b57e79209246e2525a50c6fc496"
+  },
+  "status": "completed",
+  "started_at_utc": "2026-10-17T05:26:57.840705+00:00",
+  "product_source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+  "production_host_sha256": "cb2db4cff989e2652b633ac384cd57c8dba0109cff4dab87839bae4ac2aed071",
+  "app": "/Users/huangruibang/Applications/Khaos M8.0 GLM-5.3 Baseline-2026-10-17.app",
+  "logs": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-m80-smoke-26aeo1tf",
+  "model_id": "glm-5.3",
+  "model_provider": "bigmodel-coding-plan",
+  "credential_source": "existing local credential; child environment only; value omitted",
+  "completed_at_utc": "2026-10-17T05:29:06.302194+00:00",
+  "launcher_exit_code": 0,
+  "launcher_task_record": "Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=13.865s; bounded result bytes=197; stop reason=finished: Agent Host returned a final response. Only these command results are verified; broader test coverage is not inferred.",
+  "final_files": {
+    "unapproved-canary.txt": "d80056e96c99b8c90042d084aac2f6ec1c26c5fd6a1731246f9675f3b820e3c9",
+    "fixture/hello.txt": "58c6a67130ac0aa09d4273e327a0dae1db1d1b57e79209246e2525a50c6fc496"
+  },
+  "workspace_unchanged": true
+}

@@ -1,0 +1,5 @@
+Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.
+You: Khaos: The directory named fixture contains one observed entry: hello.txt, a file of size 36 bytes. The listing reported no other names.
+Launcher task status: finished: Agent Host returned a final response.
+Launcher task record: proposals=1; executed command return codes=[0]; cumulative Runner time=13.865s; bounded result bytes=197; stop reason=finished: Agent Host returned a final response. Only these command results are verified; broader test coverage is not inferred.
+You: 

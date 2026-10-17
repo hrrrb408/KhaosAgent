@@ -1,0 +1,52 @@
+{
+  "kind": "synthetic API compatibility only; no project or benchmark data",
+  "request": {
+    "model": "glm-5.3",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Respond in JSON only."
+      },
+      {
+        "role": "user",
+        "content": "Return a JSON object with the key ok set to true. Do not use tools."
+      }
+    ],
+    "temperature": 1,
+    "top_p": 0.95,
+    "reasoning_effort": "max",
+    "thinking": {
+      "type": "enabled",
+      "clear_thinking": false
+    },
+    "max_tokens": 32768,
+    "stream": false,
+    "response_format": {
+      "type": "json_object"
+    }
+  },
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "automatic_retries": 0,
+  "key_in_prompt_or_report": false,
+  "http_status": 200,
+  "status": "PASS",
+  "returned_model": "glm-5.3",
+  "finish_reason": "stop",
+  "usage": {
+    "completion_tokens": 43,
+    "completion_tokens_details": {
+      "reasoning_tokens": 36
+    },
+    "prompt_tokens": 35,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 78
+  },
+  "content_json": {
+    "ok": true
+  },
+  "response_sha256": "b906165c6e61b5cd13b8b8dc0c7155939ebf35e49961820404d1da9c7a2e670b",
+  "response_bytes": 594,
+  "elapsed_seconds": 2.018
+}

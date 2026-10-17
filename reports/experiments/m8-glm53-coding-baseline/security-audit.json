@@ -1,0 +1,29 @@
+{
+  "baseline": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "runtime_tcb_files_checked": 34,
+  "changed_runtime_tcb_files": [],
+  "runtime_tcb_delta": 0,
+  "production_code_delta": "+1/-1: untrusted AgentHost model ID only",
+  "new_architecture_concepts": 0,
+  "new_trusted_processes": 0,
+  "new_ipc_operations": 0,
+  "new_runtime_persistent_state": 0,
+  "new_dependencies": 0,
+  "removed_duplication_or_abstractions": 0,
+  "benchmark_grader_changed": false,
+  "security_freeze": "PASS: default, exact baseline, and baseline-commit checker; zero sensitive changes",
+  "canonical_suite": {
+    "status": "PASS",
+    "tests": 341,
+    "seconds": 663.882
+  },
+  "independent_code_owner_approval": "NOT_PROVEN: inherited single-maintainer mode",
+  "declaration": "No sensitive paths changed. Exact-base Freeze check required; no runtime TCB manifest or declaration edit needed.",
+  "credential_evidence_scan": "PASS: existing credential value absent; value not printed",
+  "input_integrity": "PASS: input-integrity.json",
+  "approval_bypassed": false,
+  "workspace_scope_expanded": false,
+  "benchmark_hidden_tests_changed": false,
+  "historical_failure_overwritten": false,
+  "main_modified": false
+}

@@ -1,0 +1,30 @@
+{
+  "status": "APPROVED",
+  "recorded_at_utc": "2026-10-17T05:26:57.807389+00:00",
+  "human_reply": "授权上述兼容性检查及一次冻结实验",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "task_id": "runner-exception-classification",
+  "formal_attempts": 1,
+  "signed_synthetic_compatibility_check": true,
+  "data_scope": [
+    "task text",
+    "bounded active Plugin metadata",
+    "tool proposals",
+    "individually approved scope file/directory text",
+    "actual returncodes",
+    "changed paths",
+    "bounded stdout/stderr"
+  ],
+  "excluded": [
+    "API key as model input",
+    "hidden tests",
+    "gold/reference answers",
+    "other credentials",
+    "unapproved workspace data"
+  ],
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "independent_tool_approval_required": true,
+  "flash_rerun_authorized": false
+}

@@ -1,0 +1,171 @@
+{
+  "app": "/Users/huangruibang/Applications/Khaos M8.0 GLM-5.3 Baseline-2026-10-17.app",
+  "approval_policy": "review each displayed argv and exact scope; approve only task-confined operations",
+  "attempt": "m8-glm53-01",
+  "candidate_paths_copied_to_grader": [],
+  "candidate_test_edits_excluded_from_grader": [],
+  "completed_at_utc": "2026-10-17T05:33:47.821674+00:00",
+  "credential_source": "existing local credential; child environment only; value omitted",
+  "cumulative_result_bytes_limit": 32768,
+  "format": "khaos-coding-reliability-attempt-v1",
+  "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "grade_all_test_commands_passed": false,
+  "grade_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grade.json",
+  "grading_note": null,
+  "hidden_test_results": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ],
+      "completed_at_utc": "2026-10-17T05:33:47.821506+00:00",
+      "return_code": 1,
+      "started_at_utc": "2026-10-17T05:33:42.336169+00:00",
+      "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-test-01.stderr",
+      "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-test-01.stdout",
+      "timed_out": false
+    }
+  ],
+  "launcher_exit_code": 0,
+  "launcher_task_record": "Launcher task record: proposals=6; executed command return codes=[0,0,0,0,0,0]; cumulative Runner time=19.385s; bounded result bytes=5136; stop reason=Agent Host or model failed: invalid_model_output_shape. Only these command results are verified; broader test coverage is not inferred.",
+  "logs": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-m80-formal-_f5bflw5",
+  "model": "api",
+  "model_id": "glm-5.3",
+  "model_provider": "bigmodel-coding-plan",
+  "notes": [],
+  "parent_test_results": [],
+  "prepared_at_utc": "2026-10-17T05:24:53.590962+00:00",
+  "product_source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+  "production_host_sha256": "cb2db4cff989e2652b633ac384cd57c8dba0109cff4dab87839bae4ac2aed071",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "public_test_commands": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_worker.py",
+      "-v"
+    ]
+  ],
+  "runner_cumulative_seconds_limit": 180,
+  "runner_single_call_seconds_limit": 30,
+  "single_result_bytes_limit": 4096,
+  "source_commit": "5ac2e5f9a6b7cdaddb37ea18c28192b7b2e49a99",
+  "source_commit_url": "https://github.com/hrrrb408/KhaosAgent/commit/5ac2e5f9a6b7cdaddb37ea18c28192b7b2e49a99",
+  "started_at_utc": "2026-10-17T05:29:29.634150+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "authorization": "explicit M8 user authorization",
+      "decision": "Send task data",
+      "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
+    },
+    {
+      "decision": "Run once",
+      "kind": "list",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "71d2c83f2088abeb770f3857915eee0d78afa1741bc82504cb0d6ab2f5ee23fb",
+      "scope_note": "Original frozen workspace tests only; hidden grading patch is absent.",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; ls=Path('tests/test_runner_sdk.py').read_text().splitlines(); ex=[(i,l) for i,l in enumerate(ls,1) if 'runner_os_error' in l or 'runner_startup_exception' in l]; im=[(i,l) for i,l in enumerate(ls,1) if l.startswith(('import ','from '))]; print(str(ex[:15])[:600]); print(str(im[:12])[:250])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests/test_runner_sdk.py"
+      ],
+      "request_sha256": "0af1e5789906ecffe5f268802ff766c919e4265e35e1603be7736f34bc04edc6",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; out=[]; [out.append(f'{p}:{i}:{l.strip()[:80]}') for p in sorted(Path('tests').rglob('*.py')) if not p.is_symlink() for i,l in enumerate(p.read_text(errors='replace').splitlines(),1) if 'runner_os_error' in l or 'runner_startup_exception' in l]; print('\\n'.join(out[:20])[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "720874dd5e9987ea0183167c0bdcfd39f8cb0a1065e0fad066a353196dca0361",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; out=[]; [out.append(f'{p}:{i}:{l.strip()[:90]}') for p in sorted(Path('tests').rglob('*.py')) if not p.is_symlink() for i,l in enumerate(p.read_text(errors='replace').splitlines(),1) if 'startup' in l.lower()]; print('\\n'.join(out[:25])[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "2643ca784ec51a4218d460c1ea3c7be07b133b504c50a09b043105873e03ba82",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; ls=Path('tests/test_worker.py').read_text().splitlines(); print('\\n'.join(f'{i}:{l[:100]}' for i,l in enumerate(ls[:50],1))[:900])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests/test_worker.py"
+      ],
+      "request_sha256": "b6038db0ae3242b1f54c85b8ade5702f05f5c785db0a6b0b6687a9f576396f5c",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; p=Path('khaos/kernel/worker.py'); cands=[p] if p.exists() else list(Path('khaos').rglob('worker.py')); p=cands[0]; ls=p.read_text(errors='replace').splitlines(); hits=[i for i,l in enumerate(ls,1) if 'startup_stderr_category' in l or 'runner_os_error' in l or 'runner_startup_exception' in l]; print('file',p,'hits',hits[:12]); a=max(0,hits[0]-3); b=min(len(ls),hits[0]+45); print('\\n'.join(f'{i}:{ls[i-1][:95]}' for i in range(a+1,b+1))[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "khaos"
+      ],
+      "request_sha256": "1a6436faf557c3a20ba3fd3e739459ac93fa8aba41e82f619971af717eb20cc2",
+      "write_scope": []
+    }
+  ],
+  "task_id": "runner-exception-classification",
+  "tools_per_task_limit": 8,
+  "workspace": "/private/tmp/khaos-m80-benchmark/api/runner-exception-classification/m8-glm53-01/workspace",
+  "workspace_clean_at_start": true,
+  "workspace_diff": "",
+  "review_record_note": "Tool approvals transcribed from native AX; newline escapes normalized to displayed Python source. Not a captured model wire payload."
+}

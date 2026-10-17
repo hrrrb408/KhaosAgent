@@ -1,0 +1,1 @@
+The bounded Runner startup classifier sometimes labels Python exceptions as operating-system failures. Classify only known OS exception classes as runner_os_error; RuntimeError, TypeError, and ValueError must remain runner_startup_exception. Keep raw stderr private and discarded, and add focused regression tests.
