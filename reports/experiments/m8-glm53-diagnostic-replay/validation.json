@@ -82,5 +82,18 @@
     "production_source_changed_in_evidence_update": false,
     "canonical_suite_rerun_after_evidence_update": "NOT_RUN; evidence-only changes, no production source changed"
   },
-  "hosted_final_head_checks": "PENDING final report commit"
+  "hosted_final_head_checks": "PENDING final report commit",
+  "hosted_exact_sha_checks": {
+    "commit": "6a93d395c8a4bb70921520a6135ad8bc2e2dbc01",
+    "security_freeze": "PASS",
+    "security_tests": "PASS",
+    "canonical_suite": {
+      "command": "python3 -m unittest discover -s tests -v",
+      "tests_run": 341,
+      "duration_seconds": 801.155,
+      "result": "PASS"
+    },
+    "workflow_run_id": 39039742628
+  },
+  "report_attestation_followup": "Evidence-only follow-up; current-head exact-SHA checks are tracked on PR #29."
 }

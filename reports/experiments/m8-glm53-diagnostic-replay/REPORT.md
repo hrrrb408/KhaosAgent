@@ -96,8 +96,8 @@ After recording this outcome:
 - git diff --check after report update: PASS.
 - JSON and JSONL report artifacts parse: PASS.
 - Security Freeze base-aware and current-inventory checks after report update: PASS.
-- Exact-SHA hosted checks for the final report commit: pending.
-- The canonical suite was not rerun because this update changes only evidence files; no production source changed after the prior 341-test PASS.
+- Exact-SHA hosted CI on commit 6a93d395c8a4bb70921520a6135ad8bc2e2dbc01: security-freeze PASS and security-tests PASS; the canonical suite ran 341 tests in 801.155 seconds.
+- This follow-up records the completed check result and changes only report artifacts; exact-SHA checks for its resulting PR head are tracked on PR #29.
 
 Full statuses are in [validation.json](validation.json).
 
