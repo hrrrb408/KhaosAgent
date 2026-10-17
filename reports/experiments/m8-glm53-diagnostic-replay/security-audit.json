@@ -1,0 +1,70 @@
+{
+  "status": "TWO USER-AUTHORIZED REMOTE REPLAYS; SECOND COMPLETED SEVEN APPROVED TOOLS WITHOUT CANDIDATE EDITS",
+  "runtime_tcb_delta": 0,
+  "changed_untrusted_production_source": [
+    "khaos/macos/AgentHost.swift: model selector glm-5.3-flash -> glm-5.3 for this replay",
+    "khaos/macos/AgentHostActionOutput.swift: opt-in diagnostic sink changed from stderr to OS unified logging"
+  ],
+  "trusted_code_delta": 0,
+  "runtime_authority_delta": 0,
+  "authority_or_approval_changes": 0,
+  "kernel_abi_or_ipc_changes": 0,
+  "sandbox_or_entitlement_changes_in_repository": 0,
+  "new_trusted_processes": 0,
+  "new_ipc_operations": 0,
+  "new_khaos_owned_persistent_state": 0,
+  "os_log_retention": "Opt-in sanitized records may be retained under macOS unified logging policy.",
+  "new_dependencies": 0,
+  "hidden_test_changes": 0,
+  "remote_data_transmissions": "Attempt 01 sent task text only. Attempt 02 sent task text and bounded workspace results after signed Launcher consent; no API key was placed in model input.",
+  "khaos_bigmodel_api_key_present": false,
+  "launcher_model_label_stale": true,
+  "diagnostic_capture_gate": "PASS in synthetic preflight; zero real-attempt action-diagnostic events observed on accepted-list/cancel path",
+  "local_gates": "PASS: 341-test canonical suite, focused probe, builder/signature verification, Launch Services bootstrap, frozen-input hashes, and both Security Freeze checks.",
+  "independent_code_owner_approval": "NOT_PROVEN",
+  "credential_source": {
+    "attempt_01": {
+      "user_requested_hermes_credential_reuse": true,
+      "hermes_env_loaded": false,
+      "actual_source": "hidden Terminal input",
+      "credential_value_retained": false,
+      "equality_to_hermes_credential": "NOT_VERIFIED"
+    },
+    "attempt_02": {
+      "user_requested_hermes_credential_reuse": true,
+      "hermes_env_loaded": true,
+      "source_path": "/Users/huangruibang/.hermes/.env",
+      "base_url_matches_experiment_endpoint": true,
+      "api_key_value_printed_or_retained": false,
+      "key_included_only_in_authorization_header": true
+    }
+  },
+  "remote_data_approval": "User explicitly authorized two formal replays in total; each remote-data prompt was approved in the signed Launcher for the displayed destination and data categories.",
+  "model_attempt": {
+    "formal_attempts_started": 2,
+    "attempt_01": {
+      "status": "STOPPED_BEFORE_RUNNER_EXECUTION",
+      "workspace_access": false,
+      "runner_operations": 0,
+      "changed_paths": []
+    },
+    "attempt_02": {
+      "status": "SEVEN_APPROVED_OPERATIONS; NO_CANDIDATE; FINAL_HOST_MARKER_NOT_CAPTURED",
+      "workspace_access": true,
+      "approved_tool_operations": 7,
+      "operation_kinds": {
+        "list": 2,
+        "shell": 5
+      },
+      "runner_operations": 5,
+      "runner_return_codes": {
+        "0": 7
+      },
+      "changed_paths": [],
+      "action_diagnostic_events": 0,
+      "launch_services_waiter_exit_code": 0
+    },
+    "no_third_attempt": true
+  },
+  "independent_hidden_grading": "Both attempts failed on unchanged frozen baseline copies; zero candidate paths; attempt 02 test command returned 1. This is not a model coding-quality result."
+}

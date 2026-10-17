@@ -1,16 +1,15 @@
 {
-  "base": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "base": "fd21764381546140249d94fcf53f9737bc9d212f",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
     "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M8.1 adds opt-in, payload-free Agent Host diagnostics for provider/model parsing, Action shape and types, Host semantic validation, and bounded harness-state rejection; offline tests verify strict rejection and bounded attribution. No Kernel, Launcher approval, ABI, or execution authority changes.",
-  "invariants": "Preserve exact Action validation, one format-only correction, independent Launcher approval, trusted Kernel scope enforcement, no Host fallback, and explicit remote-data approval. Diagnostics are disabled by default, capped at 512 bytes per line and by the existing Host task/call bounds, and contain no raw response, prompt, argv, path, tool result, API key, or unknown field name/value.",
-  "authority_delta": "0 runtime authority; no new capability, approval path, remote recipient, Kernel permission, or trusted IPC.",
-  "real_os_tests": "Compiled offline AgentHostActionOutput probe passes. Signed product regression and canonical suite are run before PR creation; no remote model is invoked.",
-  "trusted_delta": "0 runtime TCB changes. AgentHost.swift and AgentHostActionOutput.swift remain untrusted Agent Host code. Protected changes are limited to the offline test/probe and their reviewed freeze hashes/declaration.",
-  "baseline_decision": "Review the Host-only diagnostics and offline test diff. Update SHA-256 only for the changed test and probe; recompute the manifest digest. Preserve all runtime TCB hashes and every other manifest entry. Declaration binds the exact origin/main base. Independent Code Owner approval remains NOT_PROVEN."
+  "motivation": "M8.2 changes only the untrusted Agent Host diagnostic sink from inaccessible app-private stderr to a dedicated OS unified-log category. The protected signed-product regression now captures the opt-in sanitized event; runtime TCB entries and Agent action/approval behavior are unchanged.",
+  "invariants": "Preserve the strict ten-field Action contract, one format-only correction, existing Launcher approval, Kernel scope enforcement, no Host fallback, default-off diagnostics, the 512-byte per-event bound, and exclusion of raw model/task/workspace data. Only fixed-format allowlisted diagnostics may enter the OS unified log.",
+  "authority_delta": "0 runtime authority; no new capability, approval path, remote recipient, Kernel permission, trusted IPC, or sandbox exception.",
+  "real_os_tests": "PASS on macOS: focused OS unified-log probe (1 test), canonical suite (341 tests), signed GLM-5.3 Coding Plan product deep signature and builder verification, Launch Services Kernel/Snapshot Broker peer authentication, and one signed Agent Host XPC synthetic diagnostic capture. No model request or task-data transmission occurred.",
+  "trusted_delta": "0 runtime TCB files or lines. AgentHostActionOutput.swift remains untrusted Agent Host code. The changed protected test and its freeze hashes/declaration are build-governance only.",
+  "baseline_decision": "Bind this change to exact M8.1 PR #28 HEAD. Update only the changed test file SHA-256 and manifest digest; preserve every runtime TCB hash and all other manifest entries. The base-aware and current Security Freeze checks pass. Independent Code Owner approval remains NOT PROVEN in single-maintainer mode."
 }

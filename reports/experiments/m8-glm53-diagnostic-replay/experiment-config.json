@@ -1,0 +1,245 @@
+{
+  "format": "khaos-m8.2-experiment-config-v1",
+  "status": "TWO_AUTHORIZED_REPLAYS; ATTEMPT_02_PRODUCED_NO_CANDIDATE",
+  "branch": "experiment/m8-2-glm53-diagnostic-replay",
+  "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
+  "task_id": "runner-exception-classification",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "workspace_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "model_parameters": {
+    "temperature": 1,
+    "top_p": 0.95,
+    "reasoning_effort": "max",
+    "thinking": {
+      "type": "enabled",
+      "clear_thinking": false
+    },
+    "max_tokens": 32768,
+    "correction_max_tokens": 1024,
+    "correction_reasoning_effort": "low",
+    "one_correction": true,
+    "stream": false,
+    "response_format": {
+      "type": "json_object"
+    },
+    "request_timeout_seconds": 600
+  },
+  "budgets": {
+    "history_bytes": 8192,
+    "tool_calls": 8,
+    "runner_cumulative_seconds": 180,
+    "per_operation_seconds": 30,
+    "result_bytes": 4096,
+    "aggregate_result_bytes": 32768
+  },
+  "formal_attempt_limit": 2,
+  "formal_attempts_started": 2,
+  "retry_or_fallback": "none; attempt 02 was a separately authorized formal replay.",
+  "authorization": "User authorized the initial replay and later explicitly authorized exactly one additional replay after attempt 01 stopped before Runner execution. No third attempt is authorized or performed.",
+  "launcher_display_label": "BigModel GLM-5.3-Flash Coding Plan (stale relative to the selected model)",
+  "planned_data_categories": [
+    "task text",
+    "active Plugin metadata",
+    "proposed argv and requested paths",
+    "scoped file and listing text",
+    "command return codes",
+    "changed-path lists",
+    "bounded stdout and stderr"
+  ],
+  "explicitly_excluded_from_model_input": [
+    "API key",
+    "hidden test patch",
+    "gold/reference patch",
+    "raw historical model response"
+  ],
+  "diagnostic_capture": {
+    "status": "PASS",
+    "sink": "macOS unified log",
+    "subsystem": "org.khaos.Seed.AgentHost",
+    "category": "action-diagnostics",
+    "per_service_opt_in": "KHAOS_AGENT_ACTION_DIAGNOSTICS=1",
+    "per_event_limit_bytes": 512,
+    "signed_host_synthetic_validation": "PASS; one event captured, no API request"
+  },
+  "credential_source": {
+    "attempt_01": {
+      "user_requested_hermes_credential_reuse": true,
+      "hermes_env_loaded": false,
+      "actual_source": "hidden Terminal input",
+      "credential_value_retained": false,
+      "equality_to_hermes_credential": "NOT_VERIFIED"
+    },
+    "attempt_02": {
+      "user_requested_hermes_credential_reuse": true,
+      "hermes_env_loaded": true,
+      "source_path": "/Users/huangruibang/.hermes/.env",
+      "base_url_matches_experiment_endpoint": true,
+      "api_key_value_printed_or_retained": false,
+      "key_included_only_in_authorization_header": true
+    }
+  },
+  "authorization_history": [
+    "Initial authorization: one M8.2 replay.",
+    "Additional authorization: exactly one new M8.2 replay, extending the total limit to two."
+  ],
+  "attempt_results": [
+    {
+      "attempt": "m8-2-glm53-01",
+      "initial_response": "valid list proposal accepted",
+      "workspace_selection": "cancelled",
+      "workspace_content_sent": false,
+      "post_cancellation_response": "NOT_PROVEN",
+      "approved_tool_operations": 0,
+      "executed_runner_operations": 0,
+      "changed_paths": [],
+      "hidden_grader": "failed against unchanged baseline copy; not a model coding result",
+      "retry_or_fallback": "none"
+    },
+    {
+      "attempt": "m8-2-glm53-02",
+      "prepared_at_utc": "2026-10-17T15:17:24.253077+00:00",
+      "started_at_utc": "NOT_CAPTURED",
+      "completed_at_utc": "2026-10-17T15:39:18.763997+00:00",
+      "formal_attempt_limit": 2,
+      "formal_attempts_started": 2,
+      "additional_attempt_authorization": "User explicitly authorized exactly one additional M8.2 replay after attempt 01 stopped before Runner execution.",
+      "provider": "bigmodel-coding-plan",
+      "model": "glm-5.3",
+      "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "signed_launcher_remote_data_approval": "approved",
+      "approved_data_categories": [
+        "task text and bounded active Plugin metadata",
+        "proposed argv and requested paths",
+        "text returned from files and workspace listings inside separately approved read scopes",
+        "command return codes, changed-path lists, and bounded stdout/stderr"
+      ],
+      "task_text_transmitted": true,
+      "workspace": {
+        "selection": "prepared disposable workspace selected after user instruction",
+        "attempt_id": "m8-2-glm53-02",
+        "workspace_content_transmitted": true,
+        "workspace_clean_at_start": true,
+        "workspace_clean_after_run": true
+      },
+      "credential_source": {
+        "user_requested_hermes_credential_reuse": true,
+        "hermes_env_loaded": true,
+        "source_path": "/Users/huangruibang/.hermes/.env",
+        "base_url_matches_experiment_endpoint": true,
+        "api_key_value_printed_or_retained": false,
+        "key_included_only_in_authorization_header": true
+      },
+      "model_request_count_lower_bound": 7,
+      "model_request_count_exact": "NOT_PROVEN; seven approved tool proposals were observed, but the exact provider request count and final response marker were not retained.",
+      "approved_tool_operations": {
+        "count": 7,
+        "returned_results": 7,
+        "kinds": {
+          "list": 2,
+          "shell": 5
+        },
+        "return_code_counts": {
+          "0": 7
+        },
+        "bounded_output_bytes_total": 7109,
+        "runner_seconds": "NOT_CAPTURED",
+        "model_test_commands": 0
+      },
+      "agenthost_action_diagnostics": {
+        "capture_stream_started": true,
+        "matching_real_attempt_event_count": 0,
+        "synthetic_preflight_event_count": 1,
+        "synthetic_event_is_not_model_evidence": true
+      },
+      "launch_services_waiter_exit_code": 0,
+      "final_model_or_host_completion_marker": "NOT_CAPTURED; process exit code does not establish task success.",
+      "changed_paths": [],
+      "candidate_changes": 0,
+      "hidden_grading": {
+        "status": "FAILED_ON_UNMODIFIED_BASELINE",
+        "hidden_patch_applied_to_isolated_grader_copy": true,
+        "candidate_paths_copied": 0,
+        "test_command_return_code": 1,
+        "all_test_commands_passed": false,
+        "coding_quality_interpretation": "NOT_APPLICABLE; no candidate code was produced.",
+        "raw_grader_output_committed": false
+      },
+      "retry_or_fallback": "none; attempt 02 was separately authorized and consumed the two-attempt total limit."
+    }
+  ],
+  "attempt_result": {
+    "attempt": "m8-2-glm53-02",
+    "prepared_at_utc": "2026-10-17T15:17:24.253077+00:00",
+    "started_at_utc": "NOT_CAPTURED",
+    "completed_at_utc": "2026-10-17T15:39:18.763997+00:00",
+    "formal_attempt_limit": 2,
+    "formal_attempts_started": 2,
+    "additional_attempt_authorization": "User explicitly authorized exactly one additional M8.2 replay after attempt 01 stopped before Runner execution.",
+    "provider": "bigmodel-coding-plan",
+    "model": "glm-5.3",
+    "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+    "signed_launcher_remote_data_approval": "approved",
+    "approved_data_categories": [
+      "task text and bounded active Plugin metadata",
+      "proposed argv and requested paths",
+      "text returned from files and workspace listings inside separately approved read scopes",
+      "command return codes, changed-path lists, and bounded stdout/stderr"
+    ],
+    "task_text_transmitted": true,
+    "workspace": {
+      "selection": "prepared disposable workspace selected after user instruction",
+      "attempt_id": "m8-2-glm53-02",
+      "workspace_content_transmitted": true,
+      "workspace_clean_at_start": true,
+      "workspace_clean_after_run": true
+    },
+    "credential_source": {
+      "user_requested_hermes_credential_reuse": true,
+      "hermes_env_loaded": true,
+      "source_path": "/Users/huangruibang/.hermes/.env",
+      "base_url_matches_experiment_endpoint": true,
+      "api_key_value_printed_or_retained": false,
+      "key_included_only_in_authorization_header": true
+    },
+    "model_request_count_lower_bound": 7,
+    "model_request_count_exact": "NOT_PROVEN; seven approved tool proposals were observed, but the exact provider request count and final response marker were not retained.",
+    "approved_tool_operations": {
+      "count": 7,
+      "returned_results": 7,
+      "kinds": {
+        "list": 2,
+        "shell": 5
+      },
+      "return_code_counts": {
+        "0": 7
+      },
+      "bounded_output_bytes_total": 7109,
+      "runner_seconds": "NOT_CAPTURED",
+      "model_test_commands": 0
+    },
+    "agenthost_action_diagnostics": {
+      "capture_stream_started": true,
+      "matching_real_attempt_event_count": 0,
+      "synthetic_preflight_event_count": 1,
+      "synthetic_event_is_not_model_evidence": true
+    },
+    "launch_services_waiter_exit_code": 0,
+    "final_model_or_host_completion_marker": "NOT_CAPTURED; process exit code does not establish task success.",
+    "changed_paths": [],
+    "candidate_changes": 0,
+    "hidden_grading": {
+      "status": "FAILED_ON_UNMODIFIED_BASELINE",
+      "hidden_patch_applied_to_isolated_grader_copy": true,
+      "candidate_paths_copied": 0,
+      "test_command_return_code": 1,
+      "all_test_commands_passed": false,
+      "coding_quality_interpretation": "NOT_APPLICABLE; no candidate code was produced.",
+      "raw_grader_output_committed": false
+    },
+    "retry_or_fallback": "none; attempt 02 was separately authorized and consumed the two-attempt total limit."
+  }
+}

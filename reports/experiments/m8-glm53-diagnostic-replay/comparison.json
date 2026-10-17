@@ -1,0 +1,98 @@
+{
+  "comparison_kind": "historical unpaired comparison; M8.2 received one initial valid response but stopped before Runner execution",
+  "frozen_controls": {
+    "task_id": "runner-exception-classification",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "workspace_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "provider_for_m7_and_m8": "bigmodel-coding-plan",
+    "endpoint_for_m7_and_m8": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
+  },
+  "m7_glm_5_3_flash": {
+    "reference": "reports/m7-harness/m7.5/comparison.json; attempt m7-2-context-01",
+    "model": "glm-5.3-flash",
+    "product_source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+    "proposal_count": 1,
+    "approved_count": 1,
+    "execution_count": 1,
+    "executed_return_codes": [
+      0
+    ],
+    "runner_seconds": 3.196,
+    "aggregate_result_bytes": 1541,
+    "terminal_error": "invalid_agent_action_wire_contract_after_correction",
+    "changed_paths": [],
+    "model_test_executions": 0,
+    "hidden_test": "FAILED; return code 1",
+    "coding_outcome": "FAILED",
+    "rejected_output_and_invalid_fields": "NOT_RETAINED / NOT_PROVEN"
+  },
+  "m8_0_glm_5_3": {
+    "reference": "reports/experiments/m8-glm53-coding-baseline/REPORT.md on PR #27",
+    "model": "glm-5.3",
+    "product_source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+    "proposal_count": 6,
+    "approved_count": 6,
+    "execution_count": 6,
+    "executed_return_codes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "runner_seconds": 19.385,
+    "aggregate_result_bytes": 5136,
+    "terminal_error": "invalid_model_output_shape",
+    "changed_paths": [],
+    "model_test_executions": 0,
+    "hidden_test": "FAILED",
+    "coding_outcome": "FAILED",
+    "rejected_output_and_exact_fields": "NOT_RETAINED / NOT_PROVEN"
+  },
+  "m8_2_glm_5_3": {
+    "branch": "experiment/m8-2-glm53-diagnostic-replay",
+    "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
+    "selected_model": "glm-5.3",
+    "status": "TWO_AUTHORIZED_ATTEMPTS; SECOND EXECUTED SEVEN APPROVED TOOLS; NO CANDIDATE",
+    "formal_model_attempts": 2,
+    "tool_operations": 7,
+    "diagnostic_events": 0,
+    "hidden_grader": "FAILED on unchanged baseline copy in both attempts; zero candidate paths; not a model coding-quality result",
+    "coding_outcome": "NO_CANDIDATE_PRODUCED; FINAL TASK OUTCOME NOT_PROVEN",
+    "synthetic_preflight_diagnostic_events": 1,
+    "model_requests_minimum": 7,
+    "model_requests_exact": "NOT_PROVEN",
+    "initial_response": "Attempt 01 initial list response accepted; attempt 02 produced seven accepted tool proposals.",
+    "workspace_selection": "attempt 01 cancelled; attempt 02 selected prepared disposable workspace",
+    "task_text_transmitted": true,
+    "workspace_content_transmitted": true,
+    "runner_operations": 5,
+    "retry_or_fallback": "none; attempt 02 separately authorized",
+    "credential_source": {
+      "attempt_01": "hidden Terminal input; Hermes .env not loaded; key equivalence NOT_VERIFIED",
+      "attempt_02": "Hermes .env loaded; key value not printed or retained"
+    },
+    "changed_paths": [],
+    "attempt_01_status": "workspace selection cancelled before workspace access",
+    "attempt_02_status": "seven approved read-only tool operations returned successfully; no candidate edits; final Host completion marker not captured",
+    "tool_operation_kind_counts": {
+      "list": 2,
+      "shell": 5
+    },
+    "tool_return_code_counts": {
+      "0": 7
+    },
+    "runner_seconds": "NOT_CAPTURED"
+  },
+  "comparability_limits": [
+    "M7 used GLM-5.3-Flash; M8.0 and M8.2 select GLM-5.3.",
+    "Prompt, frozen baseline, hidden-test patch, provider endpoint, request parameters, and stated budgets match for historical M7 and M8.0; the M8.2 initial task input used the same frozen prompt and baseline.",
+    "Harness/product source commits and diagnostic code differ; hosted model weights and provider state are not pinned, and sampling is stochastic.",
+    "Observed Launcher wait intervals are not pure model latency. No causal claim or general reliability claim follows from these single attempts.",
+    "M8.2 accepted its initial list response but stopped before workspace access and Runner execution. The post-cancellation exchange is not proven, so full-task non-recurrence is not established.",
+    "The M8.2 grader tested an unchanged baseline copy and is not a model coding-quality result."
+  ],
+  "interpretation": "M7 and M8.0 failed the frozen coding task after successful approved operations, with different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. M8.2 attempt 01 accepted its initial list response but stopped at workspace selection. The separately authorized attempt 02 selected the prepared workspace and completed seven approved read/list and shell inspections, all with return code 0, but produced no candidate edits. The attempt 02 final Host completion marker was not captured, so the task's terminal cause remains NOT_PROVEN. Both M8.2 hidden grading runs tested unchanged baseline copies and are not coding-quality results. Neither attempt establishes full coding reliability or resolves the historical M8.0 root cause."
+}

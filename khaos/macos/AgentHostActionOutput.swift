@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct AgentAction: Decodable {
     let type: String
@@ -112,6 +113,10 @@ enum AgentHostActionOutput {
     static let maximumModelOutputBytes = 48 * 1024
     private static let modelDiagnosticsEnvironmentKey = "KHAOS_AGENT_ACTION_DIAGNOSTICS"
     private static let maximumModelDiagnosticBytes = 512
+    private static let modelDiagnosticLogger = Logger(
+        subsystem: "org.khaos.Seed.AgentHost",
+        category: "action-diagnostics"
+    )
 
     static func diagnose(
         _ rejection: AgentActionRejection, correctionUsed: Bool, terminal: Bool = true
@@ -414,7 +419,8 @@ enum AgentHostActionOutput {
 
     private static func emitModelDiagnostic(_ line: String?) {
         guard let line, line.utf8.count <= maximumModelDiagnosticBytes else { return }
-        fputs(line + "\n", stderr)
+        // This fixed-format line is already redacted and bounded before public logging.
+        modelDiagnosticLogger.info("\(line, privacy: .public)")
     }
 
     private static func safeDiagnosticCode(_ value: String) -> Bool {

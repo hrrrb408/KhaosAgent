@@ -1,0 +1,73 @@
+{
+  "attempt": "m8-2-glm53-02",
+  "prepared_at_utc": "2026-10-17T15:17:24.253077+00:00",
+  "started_at_utc": "NOT_CAPTURED",
+  "completed_at_utc": "NOT_CAPTURED",
+  "formal_attempt_limit": 2,
+  "formal_attempts_started": 2,
+  "additional_attempt_authorization": "User explicitly authorized exactly one additional M8.2 replay after attempt 01 stopped before Runner execution.",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "signed_launcher_remote_data_approval": "approved",
+  "approved_data_categories": [
+    "task text and bounded active Plugin metadata",
+    "proposed argv and requested paths",
+    "text returned from files and workspace listings inside separately approved read scopes",
+    "command return codes, changed-path lists, and bounded stdout/stderr"
+  ],
+  "task_text_transmitted": true,
+  "workspace": {
+    "selection": "prepared disposable workspace selected after user instruction",
+    "attempt_id": "m8-2-glm53-02",
+    "workspace_content_transmitted": true,
+    "workspace_clean_at_start": true,
+    "workspace_clean_after_run": true
+  },
+  "credential_source": {
+    "user_requested_hermes_credential_reuse": true,
+    "hermes_env_loaded": true,
+    "source_path": "/Users/huangruibang/.hermes/.env",
+    "base_url_matches_experiment_endpoint": true,
+    "api_key_value_printed_or_retained": false,
+    "key_included_only_in_authorization_header": true
+  },
+  "model_request_count_lower_bound": 7,
+  "model_request_count_exact": "NOT_PROVEN; seven approved tool proposals were observed, but the exact provider request count and final response marker were not retained.",
+  "approved_tool_operations": {
+    "count": 7,
+    "returned_results": 7,
+    "kinds": {
+      "list": 2,
+      "shell": 5
+    },
+    "return_code_counts": {
+      "0": 7
+    },
+    "bounded_output_bytes_total": 7109,
+    "runner_seconds": "NOT_CAPTURED",
+    "model_test_commands": 0
+  },
+  "agenthost_action_diagnostics": {
+    "capture_stream_started": true,
+    "matching_real_attempt_event_count": 0,
+    "synthetic_preflight_event_count": 1,
+    "synthetic_event_is_not_model_evidence": true
+  },
+  "launch_services_waiter_exit_code": 0,
+  "final_model_or_host_completion_marker": "NOT_CAPTURED; process exit code does not establish task success.",
+  "changed_paths": [],
+  "candidate_changes": 0,
+  "hidden_grading": {
+    "status": "FAILED_ON_UNMODIFIED_BASELINE",
+    "hidden_patch_applied_to_isolated_grader_copy": true,
+    "candidate_paths_copied": 0,
+    "test_command_return_code": 1,
+    "all_test_commands_passed": false,
+    "coding_quality_interpretation": "NOT_APPLICABLE; no candidate code was produced.",
+    "raw_grader_output_committed": false
+  },
+  "retry_or_fallback": "none; attempt 02 was separately authorized and consumed the two-attempt total limit.",
+  "hidden_grading_completed_at_utc": "2026-10-17T15:39:18.763849+00:00",
+  "launch_services_waiter_exit_timestamp": "NOT_CAPTURED"
+}

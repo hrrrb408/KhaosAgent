@@ -1,0 +1,151 @@
+{
+  "canonical_suite": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "status": "PASS",
+    "tests_run": 341,
+    "duration_seconds": 696.52
+  },
+  "focused_diagnostic_probe": {
+    "command": "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k test_agent_host_action_output_correction_is_single_and_format_only -v",
+    "status": "PASS",
+    "tests_run": 1,
+    "duration_seconds": 1.862,
+    "assertions": "default-off, captured opt-in OS unified-log event, fixed event/stage classification, redaction canaries absent, diagnostic <=512 UTF-8 bytes"
+  },
+  "security_freeze": {
+    "base_command": "python3 tools/check_security_freeze.py --base fd21764381546140249d94fcf53f9737bc9d212f",
+    "base_status": "PASS",
+    "declared_sensitive_changes": 4,
+    "inventory_command": "python3 tools/check_security_freeze.py",
+    "inventory_status": "PASS",
+    "independent_code_owner_approval": "NOT_PROVEN"
+  },
+  "signed_product": {
+    "path": "/Users/huangruibang/Applications/Khaos-M8.2-GLM53-Diagnostic-Ready.app",
+    "model": "glm-5.3",
+    "provider": "bigmodel-coding-plan",
+    "builder_verification": "PASS",
+    "deep_signature": "PASS",
+    "launch_services_bootstrap": "PASS",
+    "kernel_and_snapshot_broker_authentication": "PASS",
+    "diagnostic_flag_in_experiment_product_xpc_environment": "PASS",
+    "api_key_used": "Attempt 01 used hidden Terminal input; attempt 02 loaded the credential from Hermes .env. Neither credential value was retained; attempt 01 equality to Hermes remains NOT_VERIFIED.",
+    "model_request": "Two formal attempts were authorized. Attempt 01 had an accepted initial list proposal. Attempt 02 had seven accepted tool proposals; exact request counts and its final Host marker are NOT_PROVEN."
+  },
+  "signed_host_diagnostic_capture": {
+    "status": "PASS",
+    "synthetic_events_captured": 1,
+    "formal_model_events": 0,
+    "host_response": "invalid_request",
+    "event_bytes": 104,
+    "event_limit_bytes": 512,
+    "canary_text_emitted": false,
+    "api_requests": 0,
+    "workspace_access": false
+  },
+  "frozen_input_integrity": {
+    "status": "PASS",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "workspace_bundle_sha256": "0b2f23199529a610b6bac146700774ab09b3e6b20e550a08cf889eb039e30f5a",
+    "hidden_patch_sha256_only": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "hidden_patch_contents_displayed_or_sent": false,
+    "benchmark_dataset_modified": false
+  },
+  "pr_28_exact_head_checks": {
+    "head": "fd21764381546140249d94fcf53f9737bc9d212f",
+    "security_freeze": "PASS",
+    "security_tests": "PASS"
+  },
+  "git_diff_check": "PASS",
+  "remote_model_request": "Two explicitly authorized formal attempts were started. Attempt 01 stopped at workspace selection. Attempt 02 produced seven approved tool proposals with successful return codes and no candidate edits; exact provider request count and final Host completion marker are NOT_PROVEN.",
+  "hidden_grader": "Attempt 01 and attempt 02 both failed on unchanged frozen baseline copies; attempt 02 copied zero candidate paths and its test command returned 1. Neither is a model coding-quality result.",
+  "signed_product_replay": {
+    "attempt": "m8-2-glm53-02",
+    "status": "SEVEN_APPROVED_READ_ONLY_TOOL_OPERATIONS; NO_CANDIDATE_PRODUCED; FINAL_HOST_MARKER_NOT_CAPTURED",
+    "remote_data_approval": "approved in signed Launcher after user authorization",
+    "credential_source": "Hermes .env loaded; key value was not printed or retained",
+    "task_text_transmitted": true,
+    "workspace_content_transmitted": true,
+    "workspace_selection": "prepared disposable workspace selected",
+    "approved_tool_operations": 7,
+    "operation_kinds": {
+      "list": 2,
+      "shell": 5
+    },
+    "tool_return_codes": {
+      "0": 7
+    },
+    "runner_operations": 5,
+    "changed_paths": [],
+    "workspace_clean_after_run": true,
+    "agenthost_action_diagnostic_events": 0,
+    "final_model_or_host_completion_marker": "NOT_CAPTURED",
+    "launch_services_waiter_exit_code": 0,
+    "retry_or_fallback": "none"
+  },
+  "report_artifact_checks": {
+    "git_diff_check_after_report_update": "PASS",
+    "json_jsonl_parse": "PASS",
+    "security_freeze_base_aware_after_report_update": "PASS",
+    "security_freeze_current_inventory_after_report_update": "PASS",
+    "production_source_changed_in_evidence_update": false,
+    "canonical_suite_rerun_after_evidence_update": "NOT_RUN; only report artifacts changed; exact-SHA PR checks are tracked on PR #29.",
+    "raw_run_directory_staged": false,
+    "hidden_patch_or_raw_grader_output_in_report": false
+  },
+  "hosted_final_head_checks": "Authoritative exact-SHA checks are tracked on PR #29; verify the pushed current head before delivery.",
+  "hosted_exact_sha_checks": {
+    "commit": "6a93d395c8a4bb70921520a6135ad8bc2e2dbc01",
+    "security_freeze": "PASS",
+    "security_tests": "PASS",
+    "canonical_suite": {
+      "command": "python3 -m unittest discover -s tests -v",
+      "tests_run": 341,
+      "duration_seconds": 801.155,
+      "result": "PASS"
+    },
+    "workflow_run_id": 39039742628
+  },
+  "report_attestation_followup": "Evidence-only follow-up; current-head exact-SHA checks remain visible on PR #29.",
+  "signed_product_replays": [
+    {
+      "attempt": "m8-2-glm53-01",
+      "status": "STOPPED_BEFORE_RUNNER_EXECUTION",
+      "remote_data_approval": "approved in signed Launcher",
+      "task_text_transmitted": true,
+      "workspace_content_transmitted": false,
+      "initial_response": "valid list proposal accepted",
+      "workspace_picker": "cancelled",
+      "post_cancellation_response": "NOT_PROVEN",
+      "host_action_diagnostic_events": 0,
+      "approved_tool_operations": 0,
+      "runner_operations": 0,
+      "changed_paths": [],
+      "retry_or_fallback": "none"
+    },
+    {
+      "attempt": "m8-2-glm53-02",
+      "status": "SEVEN_APPROVED_READ_ONLY_TOOL_OPERATIONS; NO_CANDIDATE_PRODUCED; FINAL_HOST_MARKER_NOT_CAPTURED",
+      "remote_data_approval": "approved in signed Launcher after user authorization",
+      "credential_source": "Hermes .env loaded; key value was not printed or retained",
+      "task_text_transmitted": true,
+      "workspace_content_transmitted": true,
+      "workspace_selection": "prepared disposable workspace selected",
+      "approved_tool_operations": 7,
+      "operation_kinds": {
+        "list": 2,
+        "shell": 5
+      },
+      "tool_return_codes": {
+        "0": 7
+      },
+      "runner_operations": 5,
+      "changed_paths": [],
+      "workspace_clean_after_run": true,
+      "agenthost_action_diagnostic_events": 0,
+      "final_model_or_host_completion_marker": "NOT_CAPTURED",
+      "launch_services_waiter_exit_code": 0,
+      "retry_or_fallback": "none"
+    }
+  ]
+}
