@@ -1,18 +1,16 @@
 {
-  "base": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
+  "base": "6c5791264f64f2d171ad23deabf47ae684fc7ac4",
   "files": [
-    "AGENTS.md",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
-    "tests/test_agent_terminal_capture.py",
-    "tests/test_macos_xpc_sandbox.py"
+    "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
+    "tests/test_agent_terminal_capture.py"
   ],
-  "motivation": "M8.2.1 adds bounded attempt-scoped terminal outcome capture and signed-product regression evidence after recovering omitted M8.2 terminal records. Product runtime behavior and trusted enforcement are unchanged.",
-  "invariants": "Keep task outcome distinct from process exit and final text markers; preserve fail-closed unknown outcomes, bounded allowlists, redaction, attempt isolation, and existing approval, scope, sandbox, and Kernel boundaries. Make no remote model calls.",
-  "authority_delta": "0 runtime authority; no new capability, approval path, remote recipient, Kernel permission, trusted IPC, or sandbox exception.",
-  "real_os_tests": "PASS on macOS: signed-product deterministic coding acceptance (1 UI integration test, 614.930s) including malformed local-model output, seven approved no-op operations followed by final response, coding workflow, denial, Picker cancellation, budget boundary, and Host termination; canonical suite (368 tests, 667.614s); current and exact-base Security Freeze checks; PR #30 implementation SHA 3b651d2f6c6b69a4162a8b9ef8ec77a6bbef92a2 GitHub security-tests (13m20s) and security-freeze (4s) both PASS. No remote model call was made.",
-  "trusted_delta": "0 runtime TCB files or lines. Changes are external capture/recheck scripts, reports, signed-product test fixtures, tests, and governance metadata.",
-  "baseline_decision": "Bind to exact PR #29 HEAD 3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b. Update only changed governance/test hashes and the manifest digest; preserve all runtime TCB hashes. Independent Code Owner approval remains NOT PROVEN in single-maintainer mode."
+  "motivation": "M8.3 adds a bounded Host-only compatibility rule for the proven irrelevant text field omission and aligns the external evidence Observer with current production diagnostic stage names.",
+  "invariants": "Only missing text on list/shell may normalize to the existing empty value; final text, scope, argv, Plugin, Candidate, and evolution fields remain strict. Host semantic validation, user approval, Launcher/Kernel scope enforcement, Kernel ABI, and remote-data flow remain unchanged. Observer output stays bounded and redacted.",
+  "authority_delta": "0 runtime authority; no capability, approval path, remote recipient, Kernel permission, trusted IPC operation, sandbox exception, or persistent runtime state.",
+  "real_os_tests": "PASS on macOS: focused Observer tests (30); compiled Swift A/B/C AgentHostActionOutput probe; focused pre-launch traversal rejection test; signed deterministic product acceptance (1 UI integration test, 472.667s, reports/m8-action-reliability/coding-loop-deterministic-accepted-03.json); canonical suite (371 tests, 669.223s). No remote model request was made.",
+  "trusted_delta": "0 runtime TCB files or lines. AgentHostActionOutput is untrusted Host input processing; the protected changes are test fixtures and freeze governance metadata.",
+  "baseline_decision": "Bind the declaration to exact PR #30 head 6c5791264f64f2d171ad23deabf47ae684fc7ac4. Update hashes only for the two changed tests and the manifest digest; preserve all runtime TCB entries. No PR is auto-merged. Independent Code Owner approval remains NOT PROVEN."
 }

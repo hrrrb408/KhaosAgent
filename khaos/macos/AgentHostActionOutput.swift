@@ -127,7 +127,7 @@ enum AgentHostActionOutput {
     static func inspectJSONObject(
         _ data: Data,
         expectedKeys: [String]
-    ) throws -> [String: Any] {
+    ) throws -> (object: [String: Any], normalized: Bool) {
         let value: Any
         do {
             value = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
@@ -145,16 +145,25 @@ enum AgentHostActionOutput {
         }
         let expected = Set(expectedKeys)
         let actual = Set(object.keys)
-        guard expected == actual else {
-            throw AgentHostJSONInspectionError.invalidShape(AgentHostJSONShapeDiagnostic(
-                rootIsObject: true,
-                expectedKeyCount: expectedKeys.count,
-                actualKeyCount: object.count,
-                missingKeys: expectedKeys.filter { !actual.contains($0) },
-                unexpectedKeyCount: actual.subtracting(expected).count
-            ))
+        if expected == actual {
+            return (object, false)
         }
-        return object
+        // Only list/shell ignore text; scopes and every other field stay explicit.
+        if expected == Set(actionOutputKeys),
+           actual == expected.subtracting(["text"]),
+           let type = object["type"] as? String,
+           (type == "list" || type == "shell") {
+            var normalized = object
+            normalized["text"] = ""
+            return (normalized, true)
+        }
+        throw AgentHostJSONInspectionError.invalidShape(AgentHostJSONShapeDiagnostic(
+            rootIsObject: true,
+            expectedKeyCount: expectedKeys.count,
+            actualKeyCount: object.count,
+            missingKeys: expectedKeys.filter { !actual.contains($0) },
+            unexpectedKeyCount: actual.subtracting(expected).count
+        ))
     }
 
     static func validateModelContentSize(_ data: Data) throws {
@@ -169,9 +178,22 @@ enum AgentHostActionOutput {
         expectedKeys: [String]
     ) throws -> Value {
         try validateModelContentSize(data)
-        _ = try inspectJSONObject(data, expectedKeys: expectedKeys)
+        let inspection = try inspectJSONObject(data, expectedKeys: expectedKeys)
+        let decodeData: Data
+        if inspection.normalized {
+            do {
+                decodeData = try JSONSerialization.data(
+                    withJSONObject: inspection.object, options: [.sortedKeys]
+                )
+            } catch {
+                throw AgentHostJSONInspectionError.invalidJSON
+            }
+        } else {
+            decodeData = data
+        }
+        try validateModelContentSize(decodeData)
         do {
-            return try JSONDecoder().decode(type, from: data)
+            return try JSONDecoder().decode(type, from: decodeData)
         } catch {
             throw AgentHostJSONInspectionError.invalidFieldTypes
         }
