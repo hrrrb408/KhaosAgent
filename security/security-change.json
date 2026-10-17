@@ -1,15 +1,16 @@
 {
-  "base": "2fd9c21be22e8c2dde9a92ec605e6971413d5d3c",
+  "base": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/test_macos_seatbelt.py"
+    "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
+    "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "Final M7 integration PR #26 canonical run 38937639884 failed only in the process-group test finalizer: a second killpg after leader wait and pipe EOF returned EPERM. Reuse the already-imported, reviewed _kill_process_group cleanup helper; preserve the first real group kill and all readiness/wait/EOF assertions. Add deterministic coverage of its existing known-reaped-leader branch; no production changes.",
-  "invariants": "Preserve Launcher/Kernel/Runner authority, real OS sandbox, exact scopes, independent per-operation and activation approvals, Candidate/generation binding, opaque state and trusted budgets. No new remote model invocation, authority, retry/fallback or runtime TCB modification.",
-  "authority_delta": "0; protected test cleanup and exact reviewed test digest only, plus report/evidence and exact-base declaration.",
-  "real_os_tests": "Remote failure retained: 341 tests, one finalizer error, 794.415s. Real Seatbelt fault injection reproduces old second-kill cleanup error and passes after reuse (first signal real); focused real process-group/helper regressions 4/4 pass. Existing live-leader EPERM must still raise. Full signed lifecycle evidence remains 287.457s at ae52db0. Rerun exact-head required canonical CI before merge and full suite/Freeze on main afterward. No timeout, assertion, scope or approval relaxation.",
-  "trusted_delta": "0 runtime TCB lines. One protected test finalizer and existing helper-branch test plus exact governance hashes only.",
-  "baseline_decision": "Review only the shown test diff; update its manifest SHA-256 and baseline manifest digest. Preserve all 34 runtime hashes and every other reviewed input hash. Declaration binds exact main base after PR #25 and all four sensitive paths. Independent Code Owner approval remains NOT_PROVEN."
+  "motivation": "M8.1 adds opt-in, payload-free Agent Host diagnostics for provider/model parsing, Action shape and types, Host semantic validation, and bounded harness-state rejection; offline tests verify strict rejection and bounded attribution. No Kernel, Launcher approval, ABI, or execution authority changes.",
+  "invariants": "Preserve exact Action validation, one format-only correction, independent Launcher approval, trusted Kernel scope enforcement, no Host fallback, and explicit remote-data approval. Diagnostics are disabled by default, capped at 512 bytes per line and by the existing Host task/call bounds, and contain no raw response, prompt, argv, path, tool result, API key, or unknown field name/value.",
+  "authority_delta": "0 runtime authority; no new capability, approval path, remote recipient, Kernel permission, or trusted IPC.",
+  "real_os_tests": "Compiled offline AgentHostActionOutput probe passes. Signed product regression and canonical suite are run before PR creation; no remote model is invoked.",
+  "trusted_delta": "0 runtime TCB changes. AgentHost.swift and AgentHostActionOutput.swift remain untrusted Agent Host code. Protected changes are limited to the offline test/probe and their reviewed freeze hashes/declaration.",
+  "baseline_decision": "Review the Host-only diagnostics and offline test diff. Update SHA-256 only for the changed test and probe; recompute the manifest digest. Preserve all runtime TCB hashes and every other manifest entry. Declaration binds the exact origin/main base. Independent Code Owner approval remains NOT_PROVEN."
 }

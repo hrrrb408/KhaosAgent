@@ -82,7 +82,7 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
+      "path": "docs/Khaos vNext 架构设计文档.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
@@ -537,7 +537,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
       "role": "build-governance",
-      "sha256": "dd4118efbefc375552f582099c18e891977d0bd640669a56c2fb2a1d631b632e",
+      "sha256": "577ead7a668fdd40bda2623813dd88b8c744015aa33db0f3bb4826833347c518",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -933,7 +933,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "658204b1df5d26d4e5ead828ef37f3710bc358b47b898f5bce454dab08a8c0fc",
+      "sha256": "8e1ba7e7c69dbc0e5f34e18541923d8493523df9543c47725e8a7618a0771978",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
