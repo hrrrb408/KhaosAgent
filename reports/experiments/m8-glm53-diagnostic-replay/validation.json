@@ -18,7 +18,7 @@
     "model_request": "NOT_RUN"
   },
   "diagnostic_capture_followup": {
-    "launchctl_debug_after_owner_authorization": "BLOCKED: private embedded XPC service had no stable service target",
+    "launchctl_debug_after_owner_authorization": "BLOCKED: stable service target absent; live transient application label also returned error 113 (service not found)",
     "temporary_bootstrapped_service": "REMOVED",
     "signed_host_diagnostic_flag": "PASS",
     "synthetic_invalid_tool_result": "invalid_request",

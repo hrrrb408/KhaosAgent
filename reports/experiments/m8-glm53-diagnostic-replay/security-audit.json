@@ -16,5 +16,5 @@
   "remote_data_transmissions": 0,
   "khaos_bigmodel_api_key_present": false,
   "launcher_model_label_stale": true,
-  "diagnostic_capture_gate": "BLOCKED: after authorized local authentication, launchctl debug could not target the app-private embedded XPC service. A manually bootstrapped copy was removed. StandardErrorPath in a disposable signed product copy captured 0 bytes. No source, TCB, IPC, entitlement, or authority changes were made."
+  "diagnostic_capture_gate": "BLOCKED: after authorized local authentication, launchctl debug could not target the stable app-private XPC name or its live transient application label (error 113). A manually bootstrapped copy was removed. StandardErrorPath in a disposable signed product copy captured 0 bytes. No source, TCB, IPC, entitlement, or authority changes were made."
 }

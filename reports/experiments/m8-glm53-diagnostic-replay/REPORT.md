@@ -45,7 +45,7 @@ grading are all `NOT_RUN` (zero requests and zero operations).
 
 The real GLM-5.3 replay did not start. The opt-in diagnostic flag reaches the signed Agent Host XPC process when supplied in that service's `XPCService.EnvironmentVariables`, but its stderr descriptor is `/dev/null`.
 
-After the owner authorized a one-time stderr redirect, I authenticated and tried `launchctl debug` against the app-embedded XPC service. The private service was not addressable as the stable `gui/501/org.khaos.Seed.AgentHost` target. Bootstrapping a copied XPC bundle made that target addressable, but it created a separate launchd service; the product Launcher's `NSXPCConnection(serviceName:)` continued to start its own bundle-private service. The temporary registration was removed and the stuck privileged `launchctl` client was terminated.
+After the owner authorized a one-time stderr redirect, I authenticated and tried `launchctl debug` against the app-embedded XPC service. The stable `gui/501/org.khaos.Seed.AgentHost` target was absent. While a signed synthetic client kept the actual product XPC alive, `launchctl list` exposed a transient `application.org.khaos.Seed...` label, but `launchctl debug gui/501/<transient-label>` still returned error 113, “Could not find specified service.” Bootstrapping a copied XPC bundle made a stable target addressable, but created a separate launchd service; the product Launcher's `NSXPCConnection(serviceName:)` continued to start its own bundle-private service. The temporary registration was removed and the stuck privileged `launchctl` client was terminated.
 
 I also re-signed a disposable copy of the signed product with `KHAOS_AGENT_ACTION_DIAGNOSTICS=1` and `StandardErrorPath` set both at the XPC bundle's top level and inside `XPCService`. The signed Host observed the opt-in flag and returned the expected synthetic `invalid_request`, but both stderr capture attempts produced a zero-byte file. This does not establish a capture path for the app-private XPC. The diagnostic gate therefore remains blocked; no model call or task-data transmission occurred.
 
@@ -86,9 +86,8 @@ M8.2 produced no new model behavior to attribute. The historical root cause rema
 - `python3 tools/check_security_freeze.py` — **PASS**, sensitive changes 0; independent approval remains external.
 - Signed product deep verification — **PASS**.
 - Signed product Kernel and Snapshot Broker peer authentication — **PASS**.
-- Signed XPC diagnostic flag propagation in the disposable fixture — **PASS**.
 - Signed XPC diagnostic flag propagation — **PASS** in the disposable fixture and signed product copy; synthetic requests returned `invalid_request`.
-- Signed XPC diagnostic stderr capture — **BLOCKED**: the private embedded service was not addressable by the stable `launchctl debug` target, and both disposable `StandardErrorPath` placements captured 0 bytes.
+- Signed XPC diagnostic stderr capture — **BLOCKED**: `launchctl debug` rejected both the stable service name and the live transient application label; both disposable `StandardErrorPath` placements captured 0 bytes.
 - M8.2 model request and hidden grading — **NOT_RUN**.
 
 ## M8.3 direction
