@@ -1,12 +1,31 @@
-# M8.1 — Minimal Action diagnostics
+# M8.1 / M8.2 — Minimal Action diagnostics
+
+## M8.2 transport update
+
+The current opt-in diagnostic transport is macOS unified logging, using
+subsystem `org.khaos.Seed.AgentHost` and category `action-diagnostics`. Query it
+with:
+
+```sh
+/usr/bin/log stream --style compact --color none --level info --predicate 'subsystem == "org.khaos.Seed.AgentHost" AND category == "action-diagnostics"'
+```
+
+The prior M8.1 stderr transport was not collectable from
+the app-private XPC service; it is historical and is no longer the current
+contract. The message remains the same fixed-format, already-redacted line,
+bounded to 512 UTF-8 bytes before it is passed to OSLog as public text. The
+diagnostic environment flag remains opt-in and absent from normal product
+builds. macOS may retain these opt-in informational events according to its
+unified logging policy; Khaos adds no log file or database.
 
 ## Activation and output
 
 New model-failure events are disabled unless the Agent Host process receives
-`KHAOS_AGENT_ACTION_DIAGNOSTICS=1`. They are fixed-format lines on Host stderr;
-there is no upload, new file, trace store, database, or protocol field. Default
-runtime behavior adds no new diagnostic lines. Existing payload-free rejection
-diagnostics remain unchanged.
+`KHAOS_AGENT_ACTION_DIAGNOSTICS=1`. They are fixed-format messages in the Host's
+OS unified-log subsystem/category above; there is no upload, Khaos-owned log
+file, trace store, database, or protocol field. Default runtime behavior adds
+no new diagnostic messages. Existing payload-free rejection diagnostics remain
+unchanged.
 
 Each new line is at most 512 UTF-8 bytes. Event and stage labels are closed
 enums; error codes are restricted to at most 64 lowercase ASCII letters,

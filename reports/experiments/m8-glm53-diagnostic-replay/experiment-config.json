@@ -1,6 +1,6 @@
 {
   "format": "khaos-m8.2-experiment-config-v1",
-  "status": "BLOCKED_DIAGNOSTIC_CAPTURE",
+  "status": "AWAITING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
   "branch": "experiment/m8-2-glm53-diagnostic-replay",
   "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
   "task_id": "runner-exception-classification",
@@ -39,7 +39,7 @@
   "formal_attempt_limit": 1,
   "formal_attempts_started": 0,
   "retry_or_fallback": "none",
-  "authorization": "NOT_REQUESTED because the diagnostics capture gate failed",
+  "authorization": "NOT_REQUESTED; local and security gates now pass, fresh user authorization is required before any remote transmission",
   "launcher_display_label": "BigModel GLM-5.3-Flash Coding Plan (stale relative to the selected model)",
   "planned_data_categories": [
     "task text",
@@ -55,5 +55,14 @@
     "hidden test patch",
     "gold/reference patch",
     "raw historical model response"
-  ]
+  ],
+  "diagnostic_capture": {
+    "status": "PASS",
+    "sink": "macOS unified log",
+    "subsystem": "org.khaos.Seed.AgentHost",
+    "category": "action-diagnostics",
+    "per_service_opt_in": "KHAOS_AGENT_ACTION_DIAGNOSTICS=1",
+    "per_event_limit_bytes": 512,
+    "signed_host_synthetic_validation": "PASS; one event captured, no API request"
+  }
 }

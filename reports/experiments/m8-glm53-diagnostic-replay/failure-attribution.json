@@ -41,8 +41,8 @@
     {
       "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
       "status": "NOT_PROVEN",
-      "evidence": "The M8.2 model experiment was blocked before authorization and remote data transmission.",
-      "limits": "No model behavior is available to attribute. Resolve the bounded signed-Host diagnostic capture gate before drawing an M8.2 coding-failure conclusion."
+      "evidence": "The local diagnostic capture gate passed, but no M8.2 model request has been authorized or made.",
+      "limits": "No M8.2 model behavior is available. Wait for fresh remote-data authorization before drawing a coding-failure conclusion."
     },
     {
       "claim": "Coding Reliability Closure.",

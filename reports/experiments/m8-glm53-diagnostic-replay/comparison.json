@@ -15,7 +15,9 @@
     "proposal_count": 1,
     "approved_count": 1,
     "execution_count": 1,
-    "executed_return_codes": [0],
+    "executed_return_codes": [
+      0
+    ],
     "runner_seconds": 3.196,
     "aggregate_result_bytes": 1541,
     "terminal_error": "invalid_agent_action_wire_contract_after_correction",
@@ -32,7 +34,14 @@
     "proposal_count": 6,
     "approved_count": 6,
     "execution_count": 6,
-    "executed_return_codes": [0, 0, 0, 0, 0, 0],
+    "executed_return_codes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "runner_seconds": 19.385,
     "aggregate_result_bytes": 5136,
     "terminal_error": "invalid_model_output_shape",
@@ -46,14 +55,15 @@
     "branch": "experiment/m8-2-glm53-diagnostic-replay",
     "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
     "selected_model": "glm-5.3",
-    "status": "BLOCKED_DIAGNOSTIC_CAPTURE",
+    "status": "AWAITING_EXPLICIT_REMOTE_DATA_AUTHORIZATION",
     "formal_model_attempts": 0,
     "model_requests": 0,
     "tool_operations": 0,
     "diagnostic_events": 0,
     "hidden_grader": "NOT_RUN",
     "coding_outcome": "NOT_RUN",
-    "reason": "Phase 1 requires bounded diagnostics from the actual signed Agent Host. The service flag was observed only in a disposable signed fixture; the actual product Host was not started and its stderr capture path is unavailable without the root-only launchctl debug override."
+    "reason": "All local/security gates pass and the signed product Host diagnostic path was proven with a synthetic request. The user has not yet authorized transmission of the frozen task data to the Coding Plan endpoint.",
+    "synthetic_preflight_diagnostic_events": 1
   },
   "comparability_limits": [
     "M7 used GLM-5.3-Flash; M8.0 and the unexecuted M8.2 configuration select GLM-5.3.",
@@ -62,5 +72,5 @@
     "Observed Launcher wait intervals are not pure model latency. No causal claim or general reliability claim follows from these single historical attempts.",
     "M8.2 has no model output or grading result, so it cannot establish either recurrence or non-recurrence of an Action Shape failure."
   ],
-  "interpretation": "M7 and M8.0 both failed the frozen coding task after successful approved operations, but at different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. No M8.2 model behavior was observed."
+  "interpretation": "M7 and M8.0 both failed the frozen coding task after successful approved operations, but at different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. No M8.2 model behavior was observed; one separate synthetic Host diagnostic event proved the capture path and is not model evidence."
 }

@@ -1,4 +1,18 @@
-# M8.1 — Security and TCB audit
+# M8.1 / M8.2 — Security and TCB audit
+
+## M8.2 diagnostic transport
+
+The current opt-in Agent Host diagnostic sink is macOS unified logging at
+subsystem `org.khaos.Seed.AgentHost`, category `action-diagnostics`. This
+replaces the historical M8.1 stderr sink because app-private XPC stderr was not
+collectable. The logger receives only the existing fixed-format event after
+redaction and the 512-byte check; `.public` does not expose raw model or task
+content because none is included in that line. Events remain disabled unless
+the Host receives `KHAOS_AGENT_ACTION_DIAGNOSTICS=1`. macOS unified logging may
+retain opt-in records under platform policy; Khaos creates no app-owned log
+file, database, or trace store. Signed XPC validation captured one synthetic
+harness-state rejection from the product's Host executable; it made no model
+request and is not real-model evidence.
 
 ## Runtime boundary
 
@@ -12,14 +26,15 @@ changesets.
 No changes were made to Kernel permissions, Seatbelt, XPC identity, workspace
 scope enforcement, Snapshot Broker, changeset validation, Plugin admission,
 activation approval, or `AgentHostProtocol.swift`. No new process, trusted IPC,
-dependency, or persistent runtime state was added.
+dependency, or Khaos-owned persistent runtime state was added. Opt-in records
+enter OS unified logging and may be retained under macOS logging policy.
 
 ## Diagnostic data limits
 
 Structured diagnostics are disabled by default and require
 `KHAOS_AGENT_ACTION_DIAGNOSTICS=1` in the Agent Host environment. They go only
-to Host stderr. The implementation rejects unsafe event error codes and emits
-fixed stage/event labels, bounded counts, and missing names from the fixed
+to the Host's OS unified-log category. The implementation rejects unsafe event
+error codes and emits fixed stage/event labels, bounded counts, and missing names from the fixed
 Action key list only. Unknown key names and values are never emitted. Each line
 is capped at 512 bytes. Existing task and tool-call limits bound model-attempt
 events to 216/session; one extra harness-state event is permitted, for 217
@@ -47,22 +62,22 @@ are informational and have no branch into acceptance, scope, or approval code.
 
 ## Security Freeze
 
-The fresh declaration binds base
-`27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27` and exactly five sensitive paths:
-the two changed offline test files plus `security/security-change.json`,
-`security/tcb-manifest.json`, and `security/freeze-baseline.json`. Their hashes
-are updated from the reviewed working files. Runtime TCB manifest entries
-remain byte-for-byte unchanged. The base-aware checker reports five declared
-sensitive changes; the no-argument checker verifies the current manifest.
-Independent Code Owner approval remains **NOT_PROVEN** in single-maintainer
-mode, as recorded by the repository policy.
+The historical M8.1 declaration bound its then-current base and five protected
+paths. The M8.2 declaration binds exact PR #28 head
+`fd21764381546140249d94fcf53f9737bc9d212f` and four protected paths: the changed
+test plus `security/security-change.json`, `security/tcb-manifest.json`, and
+`security/freeze-baseline.json`. Only the test hash and manifest digest changed;
+all 34 runtime TCB entries remain identical to the base. Both current M8.2
+Security Freeze checks pass. Independent Code Owner approval remains
+**NOT_PROVEN** in single-maintainer mode.
 
 ## Scope and limits
 
-The canonical suite passed all 341 tests, including the Host helper probe and
-the headless signed-bundle authentication test. The deterministic signed-product
-coding acceptance also passed denial, Picker-cancel, budget, and Host-exit
-writeback checks. This is evidence for a Host-only diagnostic and existing
+The M8.1 and current M8.2 canonical suites passed all 341 tests. M8.2 also
+passed the focused Host helper probe, signed product builder and bootstrap
+verification, and a signed XPC unified-log capture of one synthetic rejection.
+The deterministic signed-product coding acceptance also passed denial,
+Picker-cancel, budget, and Host-exit writeback checks. This is evidence for a Host-only diagnostic and existing
 approval regression, not a claim that all possible output or same-UID attacks
 are prevented. The diagnostic does not reveal the old M8.0 raw response, which
 remains unavailable. No model-quality or Hidden Test success claim follows from

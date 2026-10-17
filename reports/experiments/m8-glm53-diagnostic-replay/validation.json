@@ -3,35 +3,60 @@
     "command": "python3 -m unittest discover -s tests -v",
     "status": "PASS",
     "tests_run": 341,
-    "duration_seconds": 695.275
+    "duration_seconds": 696.52
+  },
+  "focused_diagnostic_probe": {
+    "command": "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k test_agent_host_action_output_correction_is_single_and_format_only -v",
+    "status": "PASS",
+    "tests_run": 1,
+    "duration_seconds": 1.862,
+    "assertions": "default-off, captured opt-in OS unified-log event, fixed event/stage classification, redaction canaries absent, diagnostic <=512 UTF-8 bytes"
   },
   "security_freeze": {
-    "command": "python3 tools/check_security_freeze.py",
-    "status": "PASS",
-    "sensitive_changes": 0,
-    "independent_approval": "EXTERNAL"
+    "base_command": "python3 tools/check_security_freeze.py --base fd21764381546140249d94fcf53f9737bc9d212f",
+    "base_status": "PASS",
+    "declared_sensitive_changes": 4,
+    "inventory_command": "python3 tools/check_security_freeze.py",
+    "inventory_status": "PASS",
+    "independent_code_owner_approval": "NOT_PROVEN"
   },
   "signed_product": {
-    "builder_signature_verification": "PASS",
-    "launcher_kernel_xpc_authentication": "PASS",
-    "snapshot_broker_authentication": "PASS",
+    "path": "/Users/huangruibang/Applications/Khaos-M8.2-GLM53-Diagnostic-Ready.app",
+    "model": "glm-5.3",
+    "provider": "bigmodel-coding-plan",
+    "builder_verification": "PASS",
+    "deep_signature": "PASS",
+    "launch_services_bootstrap": "PASS",
+    "kernel_and_snapshot_broker_authentication": "PASS",
+    "diagnostic_flag_in_experiment_product_xpc_environment": "PASS",
+    "api_key_used": false,
     "model_request": "NOT_RUN"
   },
-  "diagnostic_capture_followup": {
-    "launchctl_debug_after_owner_authorization": "BLOCKED: stable service target absent; live transient application label also returned error 113 (service not found)",
-    "temporary_bootstrapped_service": "REMOVED",
-    "signed_host_diagnostic_flag": "PASS",
-    "synthetic_invalid_tool_result": "invalid_request",
-    "standard_error_path_top_level": "FAIL: 0 bytes captured",
-    "standard_error_path_nested": "FAIL: 0 bytes captured",
-    "remote_request": "NOT_RUN",
-    "task_data_transmitted": false
+  "signed_host_diagnostic_capture": {
+    "status": "PASS",
+    "synthetic_events_captured": 1,
+    "formal_model_events": 0,
+    "host_response": "invalid_request",
+    "event_bytes": 104,
+    "event_limit_bytes": 512,
+    "canary_text_emitted": false,
+    "api_requests": 0,
+    "workspace_access": false
   },
-  "offline_agent_action_diagnostics_tests": "PASS within canonical suite",
-  "git_diff_check": "PASS",
+  "frozen_input_integrity": {
+    "status": "PASS",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "workspace_bundle_sha256": "0b2f23199529a610b6bac146700774ab09b3e6b20e550a08cf889eb039e30f5a",
+    "hidden_patch_sha256_only": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "hidden_patch_contents_displayed_or_sent": false,
+    "benchmark_dataset_modified": false
+  },
   "pr_28_exact_head_checks": {
     "head": "fd21764381546140249d94fcf53f9737bc9d212f",
-    "security-freeze": "PASS",
-    "security-tests": "PASS"
-  }
+    "security_freeze": "PASS",
+    "security_tests": "PASS"
+  },
+  "git_diff_check": "PASS",
+  "remote_model_request": "NOT_RUN_PENDING_FRESH_USER_AUTHORIZATION",
+  "hidden_grader": "NOT_RUN"
 }

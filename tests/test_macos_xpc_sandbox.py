@@ -492,44 +492,95 @@ class MacOSXPCSandboxTests(unittest.TestCase):
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             disabled_environment = os.environ.copy()
             disabled_environment.pop("KHAOS_AGENT_ACTION_DIAGNOSTICS", None)
-            result = subprocess.run(
-                [str(probe)],
-                check=False,
-                capture_output=True,
+            diagnostic_stream = subprocess.Popen(
+                [
+                    "/usr/bin/log", "stream", "--style", "compact", "--color", "none",
+                    "--level", "info", "--predicate",
+                    'subsystem == "org.khaos.Seed.AgentHost" '
+                    'AND category == "action-diagnostics" '
+                    'AND process == "AgentHostActionOutputProbe"',
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                timeout=10,
-                env=disabled_environment,
+                bufsize=1,
             )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("agent-host-action-output=passed", result.stdout)
-            self.assertNotIn("agent-host-model-diagnostic", result.stderr)
+            diagnostic_lines: list[str] = []
+            diagnostic_seen = threading.Event()
 
-            enabled_environment = disabled_environment.copy()
-            enabled_environment["KHAOS_AGENT_ACTION_DIAGNOSTICS"] = "1"
-            diagnostic_result = subprocess.run(
-                [str(probe)],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=10,
-                env=enabled_environment,
-            )
-            self.assertEqual(
-                diagnostic_result.returncode,
-                0,
-                diagnostic_result.stdout + diagnostic_result.stderr,
-            )
-            diagnostic_lines = [
-                line for line in diagnostic_result.stderr.splitlines()
-                if line.startswith("agent-host-model-diagnostic ")
-            ]
-            self.assertEqual(len(diagnostic_lines), 1, diagnostic_result.stderr)
-            self.assertIn("event=initial_response_failed", diagnostic_lines[0])
-            self.assertIn("stage=action_shape", diagnostic_lines[0])
-            self.assertIn("unexpected_key_count=1", diagnostic_lines[0])
-            self.assertNotIn("private_extra_canary", diagnostic_lines[0])
-            self.assertNotIn("PRIVATE_OUTPUT_CANARY", diagnostic_lines[0])
-            self.assertLessEqual(len(diagnostic_lines[0].encode("utf-8")), 512)
+            def capture_diagnostics() -> None:
+                assert diagnostic_stream.stdout is not None
+                for line in diagnostic_stream.stdout:
+                    if "agent-host-model-diagnostic " in line:
+                        diagnostic_lines.append(line.rstrip())
+                        diagnostic_seen.set()
+
+            reader = threading.Thread(target=capture_diagnostics, daemon=True)
+            reader.start()
+            try:
+                time.sleep(0.2)
+                result = subprocess.run(
+                    [str(probe)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env=disabled_environment,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("agent-host-action-output=passed", result.stdout)
+                self.assertNotIn(
+                    "agent-host-model-diagnostic", result.stdout + result.stderr
+                )
+                time.sleep(0.25)
+                self.assertEqual(diagnostic_lines, [], "diagnostics were not default-off")
+
+                enabled_environment = disabled_environment.copy()
+                enabled_environment["KHAOS_AGENT_ACTION_DIAGNOSTICS"] = "1"
+                diagnostic_result = subprocess.run(
+                    [str(probe)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env=enabled_environment,
+                )
+                self.assertEqual(
+                    diagnostic_result.returncode,
+                    0,
+                    diagnostic_result.stdout + diagnostic_result.stderr,
+                )
+                self.assertNotIn(
+                    "agent-host-model-diagnostic",
+                    diagnostic_result.stdout + diagnostic_result.stderr,
+                )
+                self.assertTrue(
+                    diagnostic_seen.wait(5),
+                    "opt-in OS unified-log diagnostic was not captured",
+                )
+                self.assertEqual(len(diagnostic_lines), 1, "unexpected diagnostic event count")
+                diagnostic = diagnostic_lines[0].split(
+                    "agent-host-model-diagnostic ", 1
+                )[1]
+                self.assertIn("event=initial_response_failed", diagnostic)
+                self.assertIn("stage=action_shape", diagnostic)
+                self.assertIn("unexpected_key_count=1", diagnostic)
+                self.assertNotIn("private_extra_canary", diagnostic)
+                self.assertNotIn("PRIVATE_OUTPUT_CANARY", diagnostic)
+                self.assertLessEqual(
+                    len(diagnostic.encode("utf-8")), 512,
+                    "OS unified-log event exceeded the per-event bound",
+                )
+            finally:
+                diagnostic_stream.terminate()
+                try:
+                    diagnostic_stream.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    diagnostic_stream.kill()
+                    diagnostic_stream.wait(timeout=3)
+                if diagnostic_stream.stdout is not None:
+                    diagnostic_stream.stdout.close()
+                reader.join(timeout=1)
 
     def _assert_product_writeback_evidence(
         self,

@@ -933,7 +933,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "8e1ba7e7c69dbc0e5f34e18541923d8493523df9543c47725e8a7618a0771978",
+      "sha256": "02053288be65ff0570520c8cae2fbd8d91fb584bab2150924656991166920568",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
