@@ -1,0 +1,4 @@
+Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.
+You: Launcher task status: stopped: Agent Host or model failed: invalid_model_output_shape.
+Launcher task record: proposals=6; executed command return codes=[0,0,0,0,0,0]; cumulative Runner time=19.385s; bounded result bytes=5136; stop reason=Agent Host or model failed: invalid_model_output_shape. Only these command results are verified; broader test coverage is not inferred.
+You: 

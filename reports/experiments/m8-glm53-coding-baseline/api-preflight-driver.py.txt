@@ -1,0 +1,26 @@
+import urllib.request,urllib.error,json,time,hashlib
+from pathlib import Path
+out=Path('reports/experiments/m8-glm53-coding-baseline')
+lines=(Path.home()/'.hermes/.env').read_text().splitlines()
+values=[s.split('=',1)[1].strip().strip('\"\'') for s in lines if s.startswith('GLM_API_KEY=')]
+assert len(values)==1 and values[0] and len(values[0])<=2048 and values[0].isascii() and '\n' not in values[0]
+body={'model':'glm-5.3','messages':[{'role':'system','content':'Respond in JSON only.'},{'role':'user','content':'Return a JSON object with the key ok set to true. Do not use tools.'}],'temperature':1,'top_p':0.95,'reasoning_effort':'max','thinking':{'type':'enabled','clear_thinking':False},'max_tokens':32768,'stream':False,'response_format':{'type':'json_object'}}
+endpoint='https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self,*args,**kwargs):return None
+r={'kind':'synthetic API compatibility only; no project or benchmark data','request':body,'endpoint':endpoint,'automatic_retries':0,'key_in_prompt_or_report':False}
+start=time.monotonic()
+try:
+ req=urllib.request.Request(endpoint,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+values[0]})
+ with urllib.request.build_opener(NoRedirect()).open(req,timeout=600) as response:
+  raw=response.read(512*1024+1);assert len(raw)<=512*1024
+  r['http_status']=response.status
+ d=json.loads(raw);c=d['choices'][0];content=c['message']['content'];parsed=json.loads(content)
+ r.update(status='PASS' if d.get('model')=='glm-5.3' and parsed=={'ok':True} and c.get('finish_reason')=='stop' else 'FAILED',returned_model=d.get('model'),finish_reason=c.get('finish_reason'),usage=d.get('usage'),content_json=parsed,response_sha256=hashlib.sha256(raw).hexdigest(),response_bytes=len(raw))
+except urllib.error.HTTPError as e:
+ r.update(status='BLOCKED',category='provider_http_error',http_status=e.code)
+except Exception as e:
+ r.update(status='FAILED',category=type(e).__name__)
+r['elapsed_seconds']=round(time.monotonic()-start,3)
+(out/'api-preflight.json').write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in r.items() if k!='request'},ensure_ascii=False,indent=2))

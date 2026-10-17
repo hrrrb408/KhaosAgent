@@ -1,0 +1,226 @@
+{
+  "status": "FAILED",
+  "coding_outcome": "FAILED",
+  "agent_action_contract": "FAILED after six valid proposals: invalid_model_output_shape",
+  "termination_reason": "invalid_model_output_shape",
+  "tool_proposals": 6,
+  "tool_approvals": 6,
+  "tool_executions": 6,
+  "operation_kinds": [
+    "list",
+    "shell",
+    "shell",
+    "shell",
+    "shell",
+    "shell"
+  ],
+  "operation_return_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "operation_result_bytes": [
+    1541,
+    381,
+    127,
+    972,
+    1064,
+    1051
+  ],
+  "aggregate_result_bytes": 5136,
+  "runner_seconds": 19.385,
+  "code_read": true,
+  "code_modified": false,
+  "candidate_changed_paths": [],
+  "model_test_executions": 0,
+  "failure_driven_code_repair": "NOT_RUN",
+  "candidate_diff": "evidence/candidate.diff",
+  "hidden_test_status": "FAILED",
+  "hidden_test_return_code": 1,
+  "hidden_test_timed_out": false,
+  "hidden_test_summary": "18 tests; 3 subtest failures: RuntimeError, TypeError, ValueError are still misclassified; grader environment completed normally.",
+  "grader": {
+    "all_test_commands_passed": false,
+    "attempt": "m8-glm53-01",
+    "candidate_paths_copied": [],
+    "candidate_test_edits_excluded": [],
+    "format": "khaos-coding-reliability-grade-v1",
+    "frozen_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "graded_at_utc": "2026-10-17T05:33:47.821530+00:00",
+    "grading_note": null,
+    "hidden_test_patch_applied": true,
+    "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "task_id": "runner-exception-classification",
+    "test_timeout_seconds": 1200,
+    "tests": [
+      {
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_worker.py",
+          "-v"
+        ],
+        "completed_at_utc": "2026-10-17T05:33:47.821506+00:00",
+        "return_code": 1,
+        "started_at_utc": "2026-10-17T05:33:42.336169+00:00",
+        "stderr_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-test-01.stderr",
+        "stdout_path": "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-test-01.stdout",
+        "timed_out": false
+      }
+    ]
+  },
+  "formal_attempts": 1,
+  "flash_reruns": 0,
+  "prompt_retuning": false,
+  "model_output_raw": "NOT_AVAILABLE: unchanged Host does not persist raw responses; no missing/extra key or first rejected output reconstructed.",
+  "correction": "Existing at-most-once bounded correction per model turn preserved. Launcher evidence does not expose the rejected initial/correction payloads or count provider calls.",
+  "token_usage": {
+    "status": "NOT_PROVEN",
+    "reason": "Unchanged ordinary respond path discards usage; synthetic API usage is separate."
+  },
+  "visible_wait_intervals": [
+    {
+      "from": "remote-data=approved",
+      "to": "tool-proposal kind=list",
+      "seconds": 7.745
+    },
+    {
+      "from": "tool-result kind=list returncode=0 output_bytes=1541 can_continue=true",
+      "to": "tool-response kind=list status=accepted can_continue=true",
+      "seconds": 8.349
+    },
+    {
+      "from": "tool-result kind=shell returncode=0 output_bytes=381 can_continue=true",
+      "to": "tool-response kind=shell status=accepted can_continue=true",
+      "seconds": 5.5
+    },
+    {
+      "from": "tool-result kind=shell returncode=0 output_bytes=127 can_continue=true",
+      "to": "tool-response kind=shell status=accepted can_continue=true",
+      "seconds": 5.097
+    },
+    {
+      "from": "tool-result kind=shell returncode=0 output_bytes=972 can_continue=true",
+      "to": "tool-response kind=shell status=accepted can_continue=true",
+      "seconds": 5.919
+    },
+    {
+      "from": "tool-result kind=shell returncode=0 output_bytes=1064 can_continue=true",
+      "to": "tool-response kind=shell status=accepted can_continue=true",
+      "seconds": 38.707
+    },
+    {
+      "from": "tool-result kind=shell returncode=0 output_bytes=1051 can_continue=true",
+      "to": "tool-response kind=shell status=accepted can_continue=true",
+      "seconds": 70.838
+    }
+  ],
+  "timing_note": "Watcher timestamps are observed Launcher marker intervals, include IPC/polling and possible bounded correction; not pure provider inference latency.",
+  "steps": [
+    {
+      "authorization": "explicit M8 user authorization",
+      "decision": "Send task data",
+      "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
+    },
+    {
+      "decision": "Run once",
+      "kind": "list",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "71d2c83f2088abeb770f3857915eee0d78afa1741bc82504cb0d6ab2f5ee23fb",
+      "scope_note": "Original frozen workspace tests only; hidden grading patch is absent.",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; ls=Path('tests/test_runner_sdk.py').read_text().splitlines(); ex=[(i,l) for i,l in enumerate(ls,1) if 'runner_os_error' in l or 'runner_startup_exception' in l]; im=[(i,l) for i,l in enumerate(ls,1) if l.startswith(('import ','from '))]; print(str(ex[:15])[:600]); print(str(im[:12])[:250])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests/test_runner_sdk.py"
+      ],
+      "request_sha256": "0af1e5789906ecffe5f268802ff766c919e4265e35e1603be7736f34bc04edc6",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; out=[]; [out.append(f'{p}:{i}:{l.strip()[:80]}') for p in sorted(Path('tests').rglob('*.py')) if not p.is_symlink() for i,l in enumerate(p.read_text(errors='replace').splitlines(),1) if 'runner_os_error' in l or 'runner_startup_exception' in l]; print('\\n'.join(out[:20])[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "720874dd5e9987ea0183167c0bdcfd39f8cb0a1065e0fad066a353196dca0361",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; out=[]; [out.append(f'{p}:{i}:{l.strip()[:90]}') for p in sorted(Path('tests').rglob('*.py')) if not p.is_symlink() for i,l in enumerate(p.read_text(errors='replace').splitlines(),1) if 'startup' in l.lower()]; print('\\n'.join(out[:25])[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests"
+      ],
+      "request_sha256": "2643ca784ec51a4218d460c1ea3c7be07b133b504c50a09b043105873e03ba82",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; ls=Path('tests/test_worker.py').read_text().splitlines(); print('\\n'.join(f'{i}:{l[:100]}' for i,l in enumerate(ls[:50],1))[:900])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "tests/test_worker.py"
+      ],
+      "request_sha256": "b6038db0ae3242b1f54c85b8ade5702f05f5c785db0a6b0b6687a9f576396f5c",
+      "write_scope": []
+    },
+    {
+      "argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "from pathlib import Path; p=Path('khaos/kernel/worker.py'); cands=[p] if p.exists() else list(Path('khaos').rglob('worker.py')); p=cands[0]; ls=p.read_text(errors='replace').splitlines(); hits=[i for i,l in enumerate(ls,1) if 'startup_stderr_category' in l or 'runner_os_error' in l or 'runner_startup_exception' in l]; print('file',p,'hits',hits[:12]); a=max(0,hits[0]-3); b=min(len(ls),hits[0]+45); print('\\n'.join(f'{i}:{ls[i-1][:95]}' for i in range(a+1,b+1))[:850])"
+      ],
+      "decision": "Run once",
+      "kind": "shell",
+      "read_scope": [
+        "khaos"
+      ],
+      "request_sha256": "1a6436faf557c3a20ba3fd3e739459ac93fa8aba41e82f619971af717eb20cc2",
+      "write_scope": []
+    }
+  ],
+  "raw_run_sha256": "cb0fda4f2595dba3c71e6d17684aede585640e72a7e1339418f029e84165b442",
+  "raw_grade_sha256": "f77aacbb31260843839bfc4e96fa0b879fdcd67987ee8f2dd2d74678e4d42ab1"
+}

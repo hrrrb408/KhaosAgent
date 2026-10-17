@@ -1,0 +1,83 @@
+test_cancellation_before_preflight_skips_probe_and_snapshot (test_worker.KernelWorkerTests.test_cancellation_before_preflight_skips_probe_and_snapshot) ... ok
+test_real_pipe_handshake_failure_keeps_only_a_closed_diagnostic (test_worker.KernelWorkerTests.test_real_pipe_handshake_failure_keeps_only_a_closed_diagnostic) ... ok
+test_rejects_invalid_kernel_execution_policy_before_probe_or_snapshot (test_worker.KernelWorkerTests.test_rejects_invalid_kernel_execution_policy_before_probe_or_snapshot) ... ok
+test_rejects_oversized_runner_source_before_probe_or_snapshot (test_worker.KernelWorkerTests.test_rejects_oversized_runner_source_before_probe_or_snapshot) ... ok
+test_rejects_workspace_mount_containing_kernel_through_firmlink (test_worker.KernelWorkerTests.test_rejects_workspace_mount_containing_kernel_through_firmlink) ... ok
+test_rejects_workspace_overlapping_kernel_installation (test_worker.KernelWorkerTests.test_rejects_workspace_overlapping_kernel_installation) ... ok
+test_runner_startup_stderr_capture_has_a_fixed_byte_limit (test_worker.KernelWorkerTests.test_runner_startup_stderr_capture_has_a_fixed_byte_limit) ... ok
+test_runner_startup_stderr_classifies_os_exception_types (test_worker.KernelWorkerTests.test_runner_startup_stderr_classifies_os_exception_types) ... ok
+test_runner_startup_stderr_classifies_peer_connection_failure (test_worker.KernelWorkerTests.test_runner_startup_stderr_classifies_peer_connection_failure) ... ok
+test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) ... 
+  test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'RuntimeError') ... FAIL
+  test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'TypeError') ... FAIL
+  test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'ValueError') ... FAIL
+test_runner_startup_stderr_is_reduced_to_a_closed_category (test_worker.KernelWorkerTests.test_runner_startup_stderr_is_reduced_to_a_closed_category) ... ok
+test_sandbox_unavailable_diagnostics_are_bounded_and_path_free (test_worker.KernelWorkerTests.test_sandbox_unavailable_diagnostics_are_bounded_and_path_free) ... ok
+test_seatbelt_probe_uses_the_request_snapshot_broker_lease (test_worker.KernelWorkerTests.test_seatbelt_probe_uses_the_request_snapshot_broker_lease) ... ok
+test_worker_labels_unclassified_readiness_probe_failure (test_worker.KernelWorkerTests.test_worker_labels_unclassified_readiness_probe_failure) ... ok
+test_workspace_ancestry_io_diagnostics_identify_the_checked_direction (test_worker.KernelWorkerTests.test_workspace_ancestry_io_diagnostics_identify_the_checked_direction) ... ok
+test_workspace_cancel_is_bound_to_the_active_request (test_worker.KernelWorkerTests.test_workspace_cancel_is_bound_to_the_active_request) ... ok
+test_workspace_cancel_rejects_a_different_request (test_worker.KernelWorkerTests.test_workspace_cancel_rejects_a_different_request) ... ok
+test_workspace_io_diagnostics_are_stage_only_and_path_free (test_worker.KernelWorkerTests.test_workspace_io_diagnostics_are_stage_only_and_path_free) ... ok
+
+======================================================================
+FAIL: test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'RuntimeError')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-copy/tests/test_worker.py", line 91, in test_runner_startup_stderr_does_not_misclassify_python_errors_as_os
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        _runner_startup_stderr_category(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        "runner_startup_exception",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: 'runner_os_error' != 'runner_startup_exception'
+- runner_os_error
++ runner_startup_exception
+
+
+======================================================================
+FAIL: test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'TypeError')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-copy/tests/test_worker.py", line 91, in test_runner_startup_stderr_does_not_misclassify_python_errors_as_os
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        _runner_startup_stderr_category(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        "runner_startup_exception",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: 'runner_os_error' != 'runner_startup_exception'
+- runner_os_error
++ runner_startup_exception
+
+
+======================================================================
+FAIL: test_runner_startup_stderr_does_not_misclassify_python_errors_as_os (test_worker.KernelWorkerTests.test_runner_startup_stderr_does_not_misclassify_python_errors_as_os) (exception_name=b'ValueError')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/huangruibang/Desktop/self-evolving-khaos/reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m8-glm53-01/grader-copy/tests/test_worker.py", line 91, in test_runner_startup_stderr_does_not_misclassify_python_errors_as_os
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        _runner_startup_stderr_category(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        "runner_startup_exception",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: 'runner_os_error' != 'runner_startup_exception'
+- runner_os_error
++ runner_startup_exception
+
+
+----------------------------------------------------------------------
+Ran 18 tests in 5.372s
+
+FAILED (failures=3)

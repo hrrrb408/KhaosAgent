@@ -1,0 +1,40 @@
+{"event": "remote-data=approval-presented", "observed_at_utc": "2026-10-17T05:29:29.863141+00:00"}
+{"event": "remote-data=approved", "observed_at_utc": "2026-10-17T05:29:36.575701+00:00"}
+{"event": "tool-proposal kind=list", "observed_at_utc": "2026-10-17T05:29:44.321198+00:00"}
+{"event": "tool=workspace-picker-requested", "observed_at_utc": "2026-10-17T05:29:44.321335+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:30:03.048323+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:30:07.521952+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:30:10.780479+00:00"}
+{"event": "tool-result kind=list returncode=0 output_bytes=1541 can_continue=true", "observed_at_utc": "2026-10-17T05:30:10.780589+00:00"}
+{"event": "tool-response kind=list status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:30:19.129608+00:00"}
+{"event": "tool-proposal kind=shell", "observed_at_utc": "2026-10-17T05:30:19.129742+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:30:19.129773+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:30:35.634077+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:30:38.903073+00:00"}
+{"event": "tool-result kind=shell returncode=0 output_bytes=381 can_continue=true", "observed_at_utc": "2026-10-17T05:30:38.903167+00:00"}
+{"event": "tool-response kind=shell status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:30:44.402940+00:00"}
+{"event": "tool-proposal kind=shell", "observed_at_utc": "2026-10-17T05:30:44.403102+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:30:44.403185+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:30:51.513928+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:30:54.773550+00:00"}
+{"event": "tool-result kind=shell returncode=0 output_bytes=127 can_continue=true", "observed_at_utc": "2026-10-17T05:30:54.773694+00:00"}
+{"event": "tool-response kind=shell status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:30:59.870925+00:00"}
+{"event": "tool-proposal kind=shell", "observed_at_utc": "2026-10-17T05:30:59.871040+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:30:59.871096+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:31:08.424163+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:31:11.676466+00:00"}
+{"event": "tool-result kind=shell returncode=0 output_bytes=972 can_continue=true", "observed_at_utc": "2026-10-17T05:31:11.676569+00:00"}
+{"event": "tool-response kind=shell status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:31:17.595903+00:00"}
+{"event": "tool-proposal kind=shell", "observed_at_utc": "2026-10-17T05:31:17.595963+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:31:17.595977+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:31:25.328226+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:31:28.378090+00:00"}
+{"event": "tool-result kind=shell returncode=0 output_bytes=1064 can_continue=true", "observed_at_utc": "2026-10-17T05:31:28.378252+00:00"}
+{"event": "tool-response kind=shell status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:32:07.084962+00:00"}
+{"event": "tool-proposal kind=shell", "observed_at_utc": "2026-10-17T05:32:07.085061+00:00"}
+{"event": "tool=approval-presented", "observed_at_utc": "2026-10-17T05:32:07.085085+00:00"}
+{"event": "tool=approved", "observed_at_utc": "2026-10-17T05:32:22.176256+00:00"}
+{"event": "tool=executed returncode=0", "observed_at_utc": "2026-10-17T05:32:25.433459+00:00"}
+{"event": "tool-result kind=shell returncode=0 output_bytes=1051 can_continue=true", "observed_at_utc": "2026-10-17T05:32:25.433615+00:00"}
+{"event": "tool-response kind=shell status=accepted can_continue=true", "observed_at_utc": "2026-10-17T05:33:36.271151+00:00"}
+{"event": "task_record", "observed_at_utc": "2026-10-17T05:33:36.271245+00:00"}

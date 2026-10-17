@@ -1,0 +1,9 @@
+agent-session=remote-data=approval-presented
+agent-session=remote-data=approved
+agent-session=tool-proposal kind=list
+agent-session=tool=workspace-picker-requested
+agent-session=tool=approval-presented
+agent-session=tool=approved
+agent-session=tool=executed returncode=0
+agent-session=tool-result kind=list returncode=0 output_bytes=197 can_continue=true
+agent-session=tool-response kind=list status=accepted can_continue=true

@@ -1,0 +1,30 @@
+{
+  "api_compatibility": "PASS: HTTP 200, returned glm-5.3; synthetic only",
+  "signed_product_build": "PASS",
+  "codesign": "PASS: builder verify-app after experiment",
+  "kernel_xpc_authentication": "PASS: bootstrap-check before experiment",
+  "synthetic_agent_contract": "PASS: one list, rc0, accepted result, final text",
+  "synthetic_workspace_unchanged": true,
+  "remote_data_refusal": "PASS: no key, denied before Host turn/workspace/tool",
+  "formal_agent_contract": "FAILED: invalid_model_output_shape",
+  "formal_hidden_test": "FAILED: rc1, no timeout, 18 tests and 3 subtest failures",
+  "canonical_suite": {
+    "status": "PASS",
+    "tests": 341,
+    "seconds": 663.882,
+    "return_code": 0,
+    "source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80"
+  },
+  "security_freeze_exact_base": "PASS: sensitive changes=0",
+  "security_freeze_default": "PASS: sensitive changes=0",
+  "runtime_tcb_delta": 0,
+  "extra_signed_tool_cancellation_check": "NOT_RUN: no additional model attempt; canonical cancellation/timeout regression evidence reported separately",
+  "deterministic_results": "Not used as real-model evidence",
+  "raw_model_output": "NOT_AVAILABLE under unchanged Harness",
+  "ui_model_label": "Known unchanged Flash display label; runtime requested model and synthetic returned model verified glm-5.3",
+  "cancellation_regression": "PASS: canonical real-OS caller cancellation reaches Kernel and discards snapshot; cancellation during snapshot copy also passes",
+  "security_freeze_base_commit_checker": "PASS: checker extracted from exact baseline main with explicit --base",
+  "experiment_closure": "COMPLETE",
+  "coding_reliability_closure": "NOT_PROVEN",
+  "github_required_ci": "External delivery-head checks are recorded in the PR; local checks do not substitute."
+}

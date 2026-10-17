@@ -1,0 +1,50 @@
+{
+  "comparison_kind": "historical comparison, not paired causal model experiment",
+  "flash": {
+    "source_commit": "0a2a37aa07475eb2c307f7e5cab13ca071ef2b4b",
+    "model": "glm-5.3-flash",
+    "action_contract": "FAILED: invalid_agent_action_wire_contract_after_correction",
+    "legal_tool_calls": 1,
+    "executions": 1,
+    "code_modifications": 0,
+    "model_test_executions": 0,
+    "hidden_test": "FAILED",
+    "coding_outcome": "FAILED",
+    "runner_seconds": 3.196,
+    "aggregate_result_bytes": 1541,
+    "pure_model_latency": "NOT_AVAILABLE",
+    "token_usage": "NOT_AVAILABLE",
+    "observed_launcher_wait_seconds": [
+      23.423,
+      24.66
+    ],
+    "observed_events_sha256": "c031b94a2fa9b90ed0ea696ecda13137cc6fb1a3b0e01c1da09a58c7957150cc"
+  },
+  "glm53": {
+    "source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+    "model": "glm-5.3",
+    "action_contract": "FAILED: invalid_model_output_shape after six valid proposals",
+    "legal_tool_calls": 6,
+    "executions": 6,
+    "code_modifications": 0,
+    "model_test_executions": 0,
+    "hidden_test": "FAILED",
+    "coding_outcome": "FAILED",
+    "runner_seconds": 19.385,
+    "aggregate_result_bytes": 5136,
+    "pure_model_latency": "NOT_PROVEN; visible intervals in benchmark-result.json",
+    "token_usage": "NOT_PROVEN"
+  },
+  "controls": {
+    "same_task_prompt": true,
+    "same_frozen_baseline": true,
+    "same_hidden_tests": true,
+    "same_parameters_except_model_id": true,
+    "same_harness_source_bytes_after_reversing_model_line": true,
+    "same_signed_build_source_map_except_host_model_line": true,
+    "same_tool_and_execution_budgets": true,
+    "harness_commits_identical": false,
+    "hosted_model_weights_pinned": false
+  },
+  "interpretation": "Observed protocol progress improved from one to six valid operations, but no code edit or model test was produced and original hidden tests still failed. Model replacement did not resolve the original coding failure in this single attempt. Historical provider state, stochastic sampling and build times are uncontrolled; do not generalize reliability or attribute all differences causally to the model."
+}

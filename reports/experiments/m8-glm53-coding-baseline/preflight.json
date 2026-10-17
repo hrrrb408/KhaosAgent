@@ -1,0 +1,19 @@
+{
+  "remote_main": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "current_worktree_untouched_artifacts_preserved": true,
+  "official_api_model_id": "glm-5.3",
+  "coding_plan_support": "official model page confirms; actual synthetic call HTTP 200 and returned model glm-5.3",
+  "request_parameters_changed": false,
+  "clear_thinking_semantics": "preserved unchanged; request accepted, server semantics not independently verified",
+  "normal_coding_model_usage": "Host discards completion usage in respond; benchmark token telemetry unavailable without prohibited instrumentation",
+  "normal_coding_latency": "visible host-request/proposal marker intervals available, not pure model inference time",
+  "immutable_control_hashes": {
+    "khaos/macos/AgentHostActionOutput.swift": "cb7c9d3209e98e8e5b5b8e00b8685b0edea871cae15693cbeef216e1956eb8dd",
+    "khaos/macos/AgentHostProtocol.swift": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+    "khaos/macos/TrustedWorkspaceLauncherMain.swift": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+    "tools/build_macos_seed.py": "59a8c7facf19ec7a998ca70b75b52391230a8d54cce47120ab20c6f4917cf0d2",
+    "reports/benchmark/dataset-v1/manifest.json": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+    "reports/benchmark/dataset-v1/prepare_run.py": "219796f25fe87042126b0a4d9fd325bcc25ee93b36baffa3509eb2cc9acbd900",
+    "reports/benchmark/dataset-v1/grade_attempt.py": "561a6c72dc88fbbb0c747201d99fd249d91a89f176a45c906d0c8116ed7c4c88"
+  }
+}

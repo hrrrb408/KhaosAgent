@@ -1,0 +1,277 @@
+{
+  "baseline": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "controls": {
+    "khaos/macos/AgentHostActionOutput.swift": {
+      "sha256": "cb7c9d3209e98e8e5b5b8e00b8685b0edea871cae15693cbeef216e1956eb8dd",
+      "expected": "cb7c9d3209e98e8e5b5b8e00b8685b0edea871cae15693cbeef216e1956eb8dd",
+      "unchanged": true
+    },
+    "khaos/macos/AgentHostProtocol.swift": {
+      "sha256": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+      "expected": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+      "unchanged": true
+    },
+    "khaos/macos/TrustedWorkspaceLauncherMain.swift": {
+      "sha256": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+      "expected": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+      "unchanged": true
+    },
+    "tools/build_macos_seed.py": {
+      "sha256": "59a8c7facf19ec7a998ca70b75b52391230a8d54cce47120ab20c6f4917cf0d2",
+      "expected": "59a8c7facf19ec7a998ca70b75b52391230a8d54cce47120ab20c6f4917cf0d2",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/manifest.json": {
+      "sha256": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+      "expected": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/prepare_run.py": {
+      "sha256": "219796f25fe87042126b0a4d9fd325bcc25ee93b36baffa3509eb2cc9acbd900",
+      "expected": "219796f25fe87042126b0a4d9fd325bcc25ee93b36baffa3509eb2cc9acbd900",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/grade_attempt.py": {
+      "sha256": "561a6c72dc88fbbb0c747201d99fd249d91a89f176a45c906d0c8116ed7c4c88",
+      "expected": "561a6c72dc88fbbb0c747201d99fd249d91a89f176a45c906d0c8116ed7c4c88",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m7-2-context-01/run.json": {
+      "sha256": "a38c541307483f1f56c6244b0326d9ef74bf1aa5aad96bf7f39c8179f26aa73e",
+      "expected": "a38c541307483f1f56c6244b0326d9ef74bf1aa5aad96bf7f39c8179f26aa73e",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/runs/api/runner-exception-classification/m7-2-context-01/grade.json": {
+      "sha256": "43e96aa4d0cf171736fb47e87f790534c94a627dfa861ba3c75650d41746d64f",
+      "expected": "43e96aa4d0cf171736fb47e87f790534c94a627dfa861ba3c75650d41746d64f",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/private/runner-exception-classification/hidden-tests.patch": {
+      "sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+      "expected": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+      "unchanged": true
+    },
+    "reports/experiments/m8-glm53-coding-baseline/evidence/task-prompt.txt": {
+      "sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+      "expected": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/private/runner-exception-classification/gold.patch": {
+      "sha256": "be1c5e1b443ec7f265be089ba99b9002014c343b426faefc5c990a06331ca660",
+      "expected": "be1c5e1b443ec7f265be089ba99b9002014c343b426faefc5c990a06331ca660",
+      "unchanged": true
+    },
+    "reports/benchmark/dataset-v1/private/runner-exception-classification/source.patch": {
+      "sha256": "8c5014060ca25fa3736b96b607e5cd73b46d959ba4f4c997839d1ee7f89a5f92",
+      "expected": "8c5014060ca25fa3736b96b607e5cd73b46d959ba4f4c997839d1ee7f89a5f92",
+      "unchanged": true
+    }
+  },
+  "runtime_tcb_files": [
+    {
+      "path": "khaos/__init__.py",
+      "sha256": "cffd07b64e0c9e56896d3795a8c27a31f781f7c38992ac3bf2dd1b7d36395158",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/ipc.py",
+      "sha256": "d437d21080670b7af17a002cf561345c56efaed7a4e079fd99a2f2de77f4eb3d",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/__init__.py",
+      "sha256": "7787db635687c804abed444dbe14bd78ef2385de5955ab549a78ea9ce09747ff",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/broker.py",
+      "sha256": "4e4165738bf2270ab53caf52f6d6c245102cfac6b1b4ce0c514b72cdf1f08d35",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/macos_seatbelt.py",
+      "sha256": "752075113a0b7097fd6f1989c02add757c7b1c08effc7bc4c7c3f4dddd249842",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/peer_identity.py",
+      "sha256": "da931f8d60e66ae649cb44c4258502ceaf22cf18ddd0021d7342a0bda5edfad6",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/plugin_lifecycle.py",
+      "sha256": "f2d041ab67b7b468beec185dbf8f7f3159b78d0d8d9dd77c35615cf59ccc0b9c",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/worker.py",
+      "sha256": "dc43e35d6c8ba3a5bbc12b623da19f69e79cc11b9fb44f2be8b398f38daa8e5e",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/workspace_changes.py",
+      "sha256": "5b0fe4ca820c29cf4f8400941690a525f75fd7ef0d6d782a1ea1bb14537f0493",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/workspace_snapshot.py",
+      "sha256": "5034f69fcb1dbe76815ec30e339089ee1fdc6eb2093dd70d5d5f9f5d8f96ded1",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/kernel/workspace_xpc_bridge.py",
+      "sha256": "ca66923e46819002b7112707af41c00d4ea51f574497a09eb6ff9a74a2ac4d68",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/launcher.py",
+      "sha256": "9eb6ec7dd9c46c3b338303bc223483e118e04b8d3fa74ed0d76795e8a1c2e305",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/AgentHostClient.swift",
+      "sha256": "c262a5bac6c876089a37c5d0d67380d09530680ea99aeb809796faba113d7e09",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/AgentHostProtocol.swift",
+      "sha256": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelCStringArray.swift",
+      "sha256": "30f86ee659b1d9ba45cd207dc24fe3c91b0732637d7ac465af450d5bee9f10bb",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift",
+      "sha256": "b032eace6ffc779a426f2c191cf1ab854341c967514ef6144a8e7da370ca405b",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
+      "sha256": "ac00f9214c56ee26459209475f07f233f6d436d19319859285c51f2932d7f5a9",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerClient.swift",
+      "sha256": "1315bda8ed6be7273c2abf4370af83056773ce79917ff363f6e687a821676ef4",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerSandbox.swift",
+      "sha256": "4f5d6c659becacda4f9a763459eaacb00b736ead9cd428912d9ad5e0e5c1900e",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerService.swift",
+      "sha256": "7ea1e8efa19d412dd3bb2dac743f7b892a04ca72d576256262355831e28e2032",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerServiceMain.swift",
+      "sha256": "22e4a582f54dc14f4051b3ca79a0e13b0ca1db20440e3c1d89f204d341774e0b",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerToolRunner.swift",
+      "sha256": "5dfebdcbf0cbc5538d0b481732a100b022835c641e0e45272441eda41b320331",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotBrokerXPC.swift",
+      "sha256": "735c26b37a4723b502e0761f4f43d02db74809228c3f6d308f811ebf224c4cff",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelSnapshotStoragePolicy.swift",
+      "sha256": "8e696225f1fdb22166723c2e0df71fb17415f1521b2656c2e010eb70b1b6bf40",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceBootstrap.swift",
+      "sha256": "665197e4bf839ebe99075ee7595dd1d7443bb5178456db8ca49e4a336f908645",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceClient.swift",
+      "sha256": "871f08c0ed8fe87f4175a5bbc294fd81a9054daa5c31383fd758fb5ee8379d0b",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspacePythonExecutor.swift",
+      "sha256": "05f083b98e2fbd4d3cc2f160c95c8f1920d46bd00e3d984e6690a1ee2b6e37d3",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceRoot.swift",
+      "sha256": "52217a7efe696850b402c07b8f78a4c16b7396fabac08c1b35cdfdf99f91cc16",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceService.swift",
+      "sha256": "586f862c2703c27684cd34b29aa0afaa080ba1e5ddaed41abff13192204e7634",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceServiceMain.swift",
+      "sha256": "3c4e59c4cd07e052e535fa9838bcc739233cd466e67daccb1f54eb48303efd31",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/KernelWorkspaceXPC.swift",
+      "sha256": "919f507ec1c87e719c73820b5fbb651f468ea694953bc2b8bdc70308f0ddf86a",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/TrustedWorkspaceLauncherMain.swift",
+      "sha256": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/TrustedWorkspacePicker.swift",
+      "sha256": "6fac2c1304ac6fd29fb29b3905b8a6ee695862bb62bd42700af3bcfae77ef42f",
+      "source_mode": "0o644",
+      "manifest_match": true
+    },
+    {
+      "path": "khaos/macos/XPCPeerIdentity.swift",
+      "sha256": "d3b4bf8522823155b0aa19be03fb02e57208fc712bb4d625c31c52fe6e4c296d",
+      "source_mode": "0o644",
+      "manifest_match": true
+    }
+  ],
+  "all_verified": true
+}

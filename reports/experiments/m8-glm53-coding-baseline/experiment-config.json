@@ -1,0 +1,67 @@
+{
+  "phase": "complete",
+  "baseline_main": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "requested_m7_main": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "remote_main_changed": false,
+  "branch": "experiment/m8-glm53-coding-baseline",
+  "task_id": "runner-exception-classification",
+  "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "hidden_tests_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "historical_model": "glm-5.3-flash",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "request_parameters": {
+    "temperature": 1,
+    "top_p": 0.95,
+    "reasoning_effort": "max",
+    "correction_reasoning_effort": "low",
+    "thinking": {
+      "type": "enabled",
+      "clear_thinking": false
+    },
+    "max_tokens": 32768,
+    "correction_max_tokens": 1024,
+    "stream": false,
+    "response_format": {
+      "type": "json_object"
+    },
+    "request_timeout_seconds": 600,
+    "one_correction": true
+  },
+  "budgets": {
+    "history_bytes": 8192,
+    "tool_calls": 8,
+    "runner_cumulative_seconds": 180,
+    "per_operation_seconds": 30,
+    "result_bytes": 4096,
+    "aggregate_result_bytes": 32768
+  },
+  "docs_sha256": {
+    "AGENTS.md": "665ffaea5218f990b3a5d902900bfc6b2a35ecc874bc7dbcc5d2891ba5c717ee",
+    "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md": "2b0648937acddf73bf7f5d8cdec6af1792785154498229fb39cb2128f412d3ad",
+    "docs/SECURITY_FREEZE.md": "f66fbbbd574d5a27903db141ab96e717fd7a35007c1fe5449056b463c3ec035a",
+    "docs/SEED_THREAT_MODEL.md": "79a4e28da13c6372184d9da2e412fe027ee63dba73d0c63ceefebec3ac1d21e8",
+    "docs/KERNEL_ABI.md": "02deec4ed285b65832c4f0bdfd30df0042e48c4026d3035ec561518c26569f2c",
+    "reports/m7-harness/COMPLETION_AUDIT.md": "867906197ebbde9345886ff8ce13a9b1fd3b6c6e44de091b1a7bf606d06fab82",
+    "reports/m7-harness/m7.5/REPORT.md": "e3e8c92b5e3094a513f0b24dd51293854e5ee881d4e521f092f07578f808cb1e"
+  },
+  "official_sources": [
+    "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3",
+    "https://docs.bigmodel.cn/api-reference/\u6a21\u578b-api/\u5bf9\u8bdd\u8865\u5168",
+    "https://docs.bigmodel.cn/cn/guide/capabilities/struct-output"
+  ],
+  "benchmark_authorization": "APPROVED: authorization.json; separate signed Launcher data approval and each tool review",
+  "no_flash_rerun": true,
+  "model_switch_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+  "synthetic_api_preflight": "PASS: HTTP 200, response model glm-5.3, valid JSON, 2.018s, 78 total tokens",
+  "signed_app": "/Users/huangruibang/Applications/Khaos M8.0 GLM-5.3 Baseline-2026-10-17.app",
+  "signed_api_smoke_task_limit": 1,
+  "formal_benchmark_attempt_limit": 1,
+  "agent_harness_baseline_commit": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "signed_product_source_commit": "61abe742fbfbabf48cb096031d72eac0d04c3a80",
+  "app_build_sha256": "b387fc6d9980787a2812b92006cda6ae95a5b3d771b477971b64d112371fef2b",
+  "formal_attempt": "m8-glm53-01",
+  "original_task_source_commit": "5ac2e5f9a6b7cdaddb37ea18c28192b7b2e49a99"
+}
