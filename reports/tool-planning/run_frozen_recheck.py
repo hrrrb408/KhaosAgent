@@ -41,19 +41,53 @@ def main():
         process = launch_product(Path(freeze['product_app']), logs)
         record.update(status='running', started_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(), product_source_commit=freeze['production_commit'], production_host_sha256=freeze['host_sha256'], app=freeze['product_app'], model_id=freeze['model'], model_provider=freeze['provider'], logs=str(logs), open_pid=process.pid, steps=[], credential_source='authorized existing Hermes GLM key, environment only; value omitted')
         record_path.write_text(json.dumps(record, indent=2) + '\n')
-        subprocess.Popen(['python3', str(DATASET / 'capture_agent_events.py'), '--stdout', str(logs / 'stdout'), '--stderr', str(logs / 'stderr'), '--output', str(run / 'agent-events.jsonl')], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        capture = subprocess.Popen(
+            [
+                'python3', str(DATASET / 'capture_agent_events.py'),
+                '--stdout', str(logs / 'stdout'), '--stderr', str(logs / 'stderr'),
+                '--attempt-id', args.attempt, '--waiter-pid', str(process.pid),
+                '--output', str(run / 'agent-events.jsonl'),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        record['capture_pid'] = capture.pid
+        record_path.write_text(json.dumps(record, indent=2) + '\n')
         print(json.dumps({'run': str(run), 'workspace': record['workspace'], 'logs': str(logs)}))
         return
     record = json.loads(record_path.read_text())
     logs = Path(record['logs'])
     stdout = (logs / 'stdout').read_text()
-    if 'Launcher task record:' not in stdout:
-        raise SystemExit('No terminal task record; inspect the same live run, do not restart')
     for name in ['stdout', 'stderr']:
         shutil.copyfile(logs / name, run / ('launcher.' + name))
-    record.update(status='completed', completed_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(), launcher_task_record=next(line for line in stdout.splitlines() if line.startswith('Launcher task record:')), workspace_diff=subprocess.check_output(['git', '-C', record['workspace'], 'diff', 'HEAD'], text=True))
+    terminal_path = run / 'terminal-outcome.jsonl'
+    snapshot_command = [
+        'python3', str(DATASET / 'capture_agent_events.py'), '--snapshot',
+        '--attempt-id', args.attempt, '--stdout', str(run / 'launcher.stdout'),
+        '--stderr', str(run / 'launcher.stderr'), '--output', str(terminal_path),
+    ]
+    if record.get('open_pid'):
+        snapshot_command.extend(['--waiter-pid', str(record['open_pid'])])
+    subprocess.run(snapshot_command, check=True, capture_output=True, text=True)
+    terminal = json.loads(terminal_path.read_text(encoding='utf-8'))
+    record.update(
+        status='completed' if terminal['task_record_present'] else 'terminal_outcome_incomplete',
+        completed_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        terminal_outcome=terminal,
+        workspace_diff=subprocess.check_output(
+            ['git', '-C', record['workspace'], 'diff', 'HEAD'], text=True
+        ),
+    )
+    records = [line for line in stdout.splitlines() if line.startswith('Launcher task record:')]
+    if records:
+        record['launcher_task_record'] = records[-1]
     record_path.write_text(json.dumps(record, indent=2) + '\n')
-    subprocess.run(['python3', str(DATASET / 'grade_attempt.py'), '--model', 'api', '--task-id', args.task, '--attempt', args.attempt], check=True)
+    if terminal['task_record_present']:
+        subprocess.run(['python3', str(DATASET / 'grade_attempt.py'), '--model', 'api', '--task-id', args.task, '--attempt', args.attempt], check=True)
+    else:
+        print(json.dumps({'terminal_class': terminal['terminal_class'], 'evidence_complete': terminal['evidence_complete'], 'grade': 'NOT_RUN'}))
 
 
 if __name__ == '__main__':

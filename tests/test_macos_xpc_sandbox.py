@@ -44,6 +44,7 @@ from memory_evaluation import (
 ROOT = Path(__file__).resolve().parents[1]
 PROBE_SOURCES = Path(__file__).with_name("macos_xpc_probe")
 MACOS_TCB_SOURCES = Path(__file__).resolve().parents[1] / "khaos" / "macos"
+_TERMINAL_CAPTURE_SCRIPT = ROOT / "reports" / "benchmark" / "dataset-v1" / "capture_agent_events.py"
 _PRODUCT_WRITEBACK_EVIDENCE = (
     "workspace-kernel-smoke=preselection-read=denied",
     "workspace-kernel-smoke=workspace-selected",
@@ -5420,6 +5421,7 @@ def run():
             ),
             "provider": bigmodel_provider or ("local" if real_model else None),
             "coding_workflow": {},
+            "terminal_outcomes": {},
             "security_checks": {},
         }
         if real_model:
@@ -5558,7 +5560,15 @@ def run():
                 time.sleep(0.1)
             self.fail("Agent did not request another reviewed tool operation")
 
-        def finish_agent(process, stdout_path: Path, stderr_path: Path, timeout: float):
+        def finish_agent(
+            process,
+            stdout_path: Path,
+            stderr_path: Path,
+            timeout: float,
+            *,
+            agent_host_termination_observed: bool = False,
+            expected_terminal_class: str | None = None,
+        ):
             try:
                 process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -5572,6 +5582,37 @@ def run():
                 )
             stdout_text, stderr_text = read_logs(stdout_path, stderr_path)
             self.assertEqual(process.returncode, 0, stderr_text[-4000:])
+            attempt_id = stdout_path.stem.removeprefix("coding-loop-")
+            terminal_path = stdout_path.with_suffix(".terminal.jsonl")
+            command = [
+                sys.executable,
+                str(_TERMINAL_CAPTURE_SCRIPT),
+                "--snapshot",
+                "--attempt-id",
+                attempt_id,
+                "--stdout",
+                str(stdout_path),
+                "--stderr",
+                str(stderr_path),
+                "--waiter-exit-code",
+                str(process.returncode),
+                "--output",
+                str(terminal_path),
+            ]
+            if agent_host_termination_observed:
+                command.append("--agent-host-termination-observed")
+            if not remote and not real_model:
+                command.append("--synthetic")
+            subprocess.run(command, check=True, capture_output=True, text=True, timeout=10)
+            terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
+            report["terminal_outcomes"][attempt_id] = terminal
+            flush_report()
+            if expected_terminal_class is not None:
+                self.assertEqual(
+                    terminal["terminal_class"],
+                    expected_terminal_class,
+                    f"unexpected terminal outcome for {attempt_id}: {terminal}",
+                )
             return stdout_text, stderr_text
 
         def stop_active_agents() -> None:
@@ -5697,6 +5738,7 @@ def run():
                 stdout_path,
                 stderr_path,
                 timeout=900 if remote else 600 if real_model else 120,
+                expected_terminal_class="task_completed",
             )
             self.assertGreater(calls, 0, "Agent proposed no workspace operation")
             if expected_calls is not None:
@@ -5756,6 +5798,77 @@ def run():
                 flush_report()
                 print(f"BigModel data-refusal evidence saved to {report_path}", flush=True)
                 return
+
+            if not remote and not real_model:
+                failure_probes = (
+                    ("invalid-json", "KHAOS_TERMINAL_INVALID_JSON_PROBE"),
+                )
+                for label, marker in failure_probes:
+                    report["current_stage"] = f"terminal-{label}"
+                    flush_report()
+                    process, stdout_path, stderr_path = start_agent(label, marker)
+                    _, stderr_text = finish_agent(
+                        process,
+                        stdout_path,
+                        stderr_path,
+                        timeout=120,
+                        expected_terminal_class="terminal_outcome_not_captured",
+                    )
+                    self.assertIn("Local Agent error: local_model_invalid_output", stderr_text)
+                    terminal_summary = report["terminal_outcomes"][label]
+                    self.assertEqual(
+                        terminal_summary["observed_error_codes"],
+                        ["local_model_invalid_output"],
+                    )
+                    self.assertEqual(terminal_summary["observed_tool_proposals"], 0)
+                    self.assertFalse(terminal_summary["task_record_present"])
+                    self.assertFalse(terminal_summary["terminal_observed"])
+                    self.assertEqual(
+                        terminal_summary["event_counts"]["tool_execution_completed"], 0
+                    )
+                    report["security_checks"][f"terminal_{label}"] = {
+                        "synthetic": True,
+                        "terminal_class": terminal_summary["terminal_class"],
+                        "observed_local_error_code": terminal_summary["observed_error_codes"][0],
+                        "launcher_task_record": False,
+                        "runner_operations": 0,
+                        "waiter_exit_code": process.returncode,
+                    }
+                    flush_report()
+
+                terminal_workspace = scratch / "coding-loop-seven-tool-terminal-workspace"
+                coding_workspace(terminal_workspace, adversarial_fixture=False)
+                report["current_stage"] = "seven-reviewed-tools-then-final-response"
+                flush_report()
+                terminal_calls, terminal_output, _ = run_interactive_coding_task(
+                    "seven-tool-terminal",
+                    "KHAOS_TERMINAL_SEVEN_CALL_PROBE produce seven reviewed no-op commands, then a final response",
+                    workspace_path=terminal_workspace,
+                    expected_calls=7,
+                )
+                terminal_codes = parsed_return_codes(terminal_output)
+                self.assertEqual(terminal_calls, 7)
+                self.assertEqual(terminal_codes, [0] * 7)
+                self.assertIn("Launcher task status: finished:", terminal_output)
+                terminal_summary = report["terminal_outcomes"]["seven-tool-terminal"]
+                self.assertTrue(terminal_summary["synthetic"])
+                self.assertEqual(terminal_summary["terminal_class"], "task_completed")
+                self.assertTrue(terminal_summary["agent_final_response_observed"])
+                self.assertEqual(terminal_summary["observed_tool_proposals"], 7)
+                self.assertEqual(
+                    terminal_summary["event_counts"]["tool_execution_completed"], 7
+                )
+                self.assertEqual(
+                    terminal_summary["event_counts"]["tool_response_accepted"], 7
+                )
+                report["security_checks"]["seven_tool_final_response"] = {
+                    "synthetic": True,
+                    "approved_operations": terminal_calls,
+                    "runner_return_codes": terminal_codes,
+                    "final_response_observed": True,
+                    "terminal_class": terminal_summary["terminal_class"],
+                }
+                flush_report()
 
             workflow = scratch / "coding-loop-workspace"
             coding_workspace(workflow, adversarial_fixture=not real_model)
@@ -5907,7 +6020,8 @@ def run():
                     "approval. Do not approve the write to denied-marker.txt."
                 )
                 stdout_text, stderr_text = finish_agent(
-                    process, stdout_path, stderr_path, timeout=120
+                    process, stdout_path, stderr_path, timeout=120,
+                    expected_terminal_class="task_cancelled",
                 )
                 self.assertEqual(stderr_text.count("agent-session=tool=approval-presented"), 2)
                 self.assertEqual(stderr_text.count("agent-session=tool=executed returncode=0"), 1)
@@ -5944,7 +6058,8 @@ def run():
                 wait_for_marker(process, stdout_path, stderr_path, "tool=workspace-picker-requested")
                 gate("Cancel the workspace Picker. No workspace should be granted.")
                 stdout_text, stderr_text = finish_agent(
-                    process, stdout_path, stderr_path, timeout=120
+                    process, stdout_path, stderr_path, timeout=120,
+                    expected_terminal_class="task_cancelled",
                 )
                 self.assertIn("agent-session=tool=workspace-selection-cancelled", stderr_text)
                 self.assertNotIn("agent-session=tool=approval-presented", stderr_text)
@@ -5988,7 +6103,8 @@ def run():
                         timeout=120,
                     )
                 stdout_text, stderr_text = finish_agent(
-                    process, stdout_path, stderr_path, timeout=120
+                    process, stdout_path, stderr_path, timeout=120,
+                    expected_terminal_class="budget_exhausted",
                 )
                 self.assertEqual(stderr_text.count("agent-session=tool=approval-presented"), 8)
                 self.assertEqual(stderr_text.count("agent-session=tool=executed returncode=0"), 8)
@@ -6034,7 +6150,9 @@ def run():
                     except ProcessLookupError:
                         pass
                 stdout_text, stderr_text = finish_agent(
-                    process, stdout_path, stderr_path, timeout=120
+                    process, stdout_path, stderr_path, timeout=120,
+                    agent_host_termination_observed=True,
+                    expected_terminal_class="agent_host_terminated",
                 )
                 self.assertIn("agent-session=tool=executed returncode=1", stderr_text)
                 if "Agent Host failed while receiving a tool result" in stdout_text:

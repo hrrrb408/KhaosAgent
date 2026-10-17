@@ -27,6 +27,11 @@ func emit(_ action: [String: Any]) -> Never {
     exit(EXIT_SUCCESS)
 }
 
+func emitRaw(_ response: String) -> Never {
+    print("\n> \(response)")
+    exit(EXIT_SUCCESS)
+}
+
 func textAction(_ text: String) -> [String: Any] {
     [
         "type": "text",
@@ -274,8 +279,19 @@ if !sandboxFindings.isEmpty {
 
 let latestUser = latestUserRequest(prompt)
 
+if prompt.contains("KHAOS_TERMINAL_INVALID_JSON_PROBE") {
+    emitRaw("{ invalid-json")
+}
+
 if prompt.contains("KHAOS_TOOL_BUDGET_PROBE") {
     emit(shellAction(["/usr/bin/true"], readScope: [], writeScope: []))
+}
+
+if prompt.contains("KHAOS_TERMINAL_SEVEN_CALL_PROBE") {
+    if proposalNumber(prompt) < 7 {
+        emit(shellAction(["/usr/bin/true"], readScope: [], writeScope: []))
+    }
+    emit(textAction("Seven reviewed commands returned zero; the deterministic task is complete."))
 }
 
 if prompt.contains("KHAOS_DENIAL_PROBE") {

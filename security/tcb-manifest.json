@@ -51,7 +51,7 @@
     {
       "path": "AGENTS.md",
       "role": "build-governance",
-      "sha256": "665ffaea5218f990b3a5d902900bfc6b2a35ecc874bc7dbcc5d2891ba5c717ee",
+      "sha256": "3d8d0e124d9d0074417456ffe5b0182b195ec9f40b49de0ffbdc4f3404136126",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -570,7 +570,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
       "role": "build-governance",
-      "sha256": "e16085d62bee9ccd1922d248cb5c28331dfd992fc55ea7e49f6743e63ea660de",
+      "sha256": "0bdf9904431c3c4e86b2f388ffff3b202bffa0b3cd976f416c4becafe6f2799e",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -876,6 +876,17 @@
       ]
     },
     {
+      "path": "tests/test_agent_terminal_capture.py",
+      "role": "build-governance",
+      "sha256": "9f0ca45ef78eebe39cf34b06970ff9f8dfadd8f6e614045265f41566ad149aad",
+      "source_mode": "0o644",
+      "boundary": "reviewed test input; exercises sanitized terminal evidence capture and is not runtime authority",
+      "tests": [
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
       "path": "tests/test_broker.py",
       "role": "build-governance",
       "sha256": "aaa99fb79a6cd08ed8b95f540969c219f3f661e2603fbad06801ec08ef5d5ccc",
@@ -933,7 +944,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "02053288be65ff0570520c8cae2fbd8d91fb584bab2150924656991166920568",
+      "sha256": "8366522dcbd726ca0745f3ac1b09315320086d93648315229cc3add59f0d56ed",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
