@@ -1,0 +1,54 @@
+{
+  "format": "khaos-m8.2-failure-attribution-v1",
+  "status": "NOT_PROVEN",
+  "classification_guide": {
+    "PROVEN": "Directly supported by retained execution evidence.",
+    "PARTIALLY_PROVEN": "The broad observation is supported, but at least one causal or field-level detail is unresolved.",
+    "NOT_PROVEN": "Available evidence does not establish the claim.",
+    "NOT_REPRODUCED": "A completed replay ran without the prior failure. This label is not applicable when the replay did not run."
+  },
+  "findings": [
+    {
+      "claim": "M7 GLM-5.3-Flash terminated after one successful approved list operation with invalid_agent_action_wire_contract_after_correction and failed the hidden grader.",
+      "status": "PROVEN",
+      "evidence": "reports/m7-harness/m7.5/comparison.json and reports/m7-harness/m7.2/frozen-replay.json",
+      "limits": "The rejected model output and its invalid fields were not retained."
+    },
+    {
+      "claim": "M8.0 GLM-5.3 terminated with invalid_model_output_shape after six successful approved operations, made no edits, ran no tests, and failed the hidden grader.",
+      "status": "PROVEN",
+      "evidence": "PR #27 report and retained M8.0 benchmark evidence",
+      "limits": "The rejected model output, exact field mismatch, and initial-versus-correction attribution were not retained."
+    },
+    {
+      "claim": "Both historical model runs encountered an Agent Host action-contract failure during the frozen task.",
+      "status": "PARTIALLY_PROVEN",
+      "evidence": "The M7 terminal category is invalid_agent_action_wire_contract_after_correction; the M8.0 terminal category is invalid_model_output_shape.",
+      "limits": "Different categories, models, product source commits, and stochastic responses do not prove a shared schema-design defect or a causal model effect."
+    },
+    {
+      "claim": "The exact M8.0 rejected keys or a specific Action Contract rule caused the coding failure.",
+      "status": "NOT_PROVEN",
+      "evidence": "Only the terminal invalid_model_output_shape category was retained.",
+      "limits": "No raw response or bounded M8.0 field-level diagnostics are available."
+    },
+    {
+      "claim": "M8.2 reproduced or did not reproduce the Action Shape failure.",
+      "status": "NOT_RUN",
+      "evidence": "No M8.2 model request, tool operation, diagnostic event, or grading run occurred.",
+      "limits": "NOT_REPRODUCED is deliberately not assigned: no M8.2 model response was observed."
+    },
+    {
+      "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
+      "status": "NOT_PROVEN",
+      "evidence": "The M8.2 model experiment was blocked before authorization and remote data transmission.",
+      "limits": "No model behavior is available to attribute. Resolve the bounded signed-Host diagnostic capture gate before drawing an M8.2 coding-failure conclusion."
+    },
+    {
+      "claim": "Coding Reliability Closure.",
+      "status": "NOT_PROVEN",
+      "evidence": "M7 and M8.0 historical runs failed; M8.2 was not run.",
+      "limits": "Single-attempt historical observations cannot establish general reliability."
+    }
+  ]
+}

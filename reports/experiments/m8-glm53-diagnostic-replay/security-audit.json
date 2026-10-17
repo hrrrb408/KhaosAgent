@@ -1,0 +1,20 @@
+{
+  "status": "BLOCKED_AFTER_LOCAL_SECURITY_PRECHECKS_PASSED",
+  "runtime_tcb_delta": 0,
+  "changed_production_source": [
+    "khaos/macos/AgentHost.swift: model identifier glm-5.3-flash -> glm-5.3"
+  ],
+  "trusted_code_delta": 0,
+  "authority_or_approval_changes": 0,
+  "kernel_abi_or_ipc_changes": 0,
+  "sandbox_or_entitlement_changes_in_repository": 0,
+  "new_trusted_processes": 0,
+  "new_ipc_operations": 0,
+  "new_persistent_state": 0,
+  "new_dependencies": 0,
+  "hidden_test_changes": 0,
+  "remote_data_transmissions": 0,
+  "api_key_present": false,
+  "launcher_model_label_stale": true,
+  "diagnostic_capture_gate": "BLOCKED: actual XPC stderr is /dev/null; per-service stderr redirection via launchctl debug requires root."
+}

@@ -738,7 +738,7 @@ private final class BigModelSession {
         deadlineUptime: TimeInterval? = nil
     ) async throws -> (Data, AgentModelUsage) {
         let requestBody: [String: Any] = [
-            "model": "glm-5.3-flash",
+            "model": "glm-5.3",
             "messages": [["role": "system", "content": systemPrompt]]
                 + messages.map { ["role": $0.role, "content": $0.content] },
             "temperature": 1,

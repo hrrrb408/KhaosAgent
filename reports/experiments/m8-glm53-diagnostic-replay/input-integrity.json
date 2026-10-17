@@ -1,0 +1,25 @@
+{
+  "status": "VERIFIED",
+  "task_id": "runner-exception-classification",
+  "prompt": {
+    "source": "origin/pr/27:reports/experiments/m8-glm53-coding-baseline/evidence/task-prompt.txt",
+    "sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "matches_frozen_value": true
+  },
+  "workspace_baseline": {
+    "commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+    "bundle": "reports/benchmark/dataset-v1/frozen/runner-exception-classification.bundle",
+    "bundle_sha256": "0b2f23199529a610b6bac146700774ab09b3e6b20e550a08cf889eb039e30f5a",
+    "bundle_contains_exact_head_and_main_ref": true,
+    "commit_object_in_current_pr28_checkout": false
+  },
+  "hidden_test_patch": {
+    "path": "reports/benchmark/dataset-v1/private/runner-exception-classification/hidden-tests.patch",
+    "sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "content_read_or_printed": false,
+    "modified": false,
+    "sent_to_model": false
+  },
+  "formal_benchmark_data_modified": false,
+  "formal_attempt_artifacts_created": false
+}

@@ -1,0 +1,9 @@
+{
+  "status": "NOT_RUN",
+  "task_id": "runner-exception-classification",
+  "formal_attempt_count": 0,
+  "model_request_count": 0,
+  "tool_operations": 0,
+  "hidden_grader": "NOT_RUN",
+  "reason": "Stopped before remote authorization because bounded diagnostics could not be collected from the signed Agent Host XPC stderr without a root-only launchctl debug override."
+}

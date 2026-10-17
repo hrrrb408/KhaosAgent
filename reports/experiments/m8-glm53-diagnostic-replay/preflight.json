@@ -1,0 +1,33 @@
+{
+  "status": "BLOCKED_DIAGNOSTIC_CAPTURE",
+  "model_call": "NOT_RUN",
+  "api_requests": 0,
+  "api_key_present": false,
+  "remote_authorization": "NOT_REQUESTED",
+  "production_product": {
+    "path": "/Users/huangruibang/Applications/Khaos-M8.2-Diagnostic-Preflight.app",
+    "provider": "bigmodel-coding-plan",
+    "model": "glm-5.3",
+    "diagnostics_environment_configured": false,
+    "deep_signature_and_builder_verification": "PASS",
+    "kernel_and_snapshot_broker_bootstrap": "PASS",
+    "bootstrap_stdout": "kernel-and-snapshot-broker-peer-authentication=verified",
+    "bootstrap_stderr_bytes": 0
+  },
+  "diagnostic_propagation_probe": {
+    "kind": "synthetic invalid tool_result over NSXPC; no user task and no model request",
+    "host_response": "invalid_request",
+    "opt_in_method": "XPCService.EnvironmentVariables in a disposable signed XPC fixture",
+    "host_environment_flag_observed": "KHAOS_AGENT_ACTION_DIAGNOSTICS=1",
+    "xpc_host_stderr_fd": "/dev/null",
+    "diagnostic_line_captured": false,
+    "production_product_host_started": false,
+    "limitation": "The fixture XPC bundle was re-signed after adding the per-service environment. The production product bundle remains default-off. The flag propagation proof does not prove a collectable stderr channel for the production product."
+  },
+  "capture_gate": {
+    "status": "BLOCKED",
+    "evidence": "launchctl debug ... --stderr returned a root-privilege requirement; the Host XPC stderr descriptor was /dev/null and the unified-log query contained no M8.1 diagnostic event.",
+    "remote_call_permitted_by_this_preflight": false
+  },
+  "temporary_launchd_environment_flag_cleared": true
+}

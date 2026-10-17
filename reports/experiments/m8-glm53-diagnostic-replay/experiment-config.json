@@ -1,0 +1,59 @@
+{
+  "format": "khaos-m8.2-experiment-config-v1",
+  "status": "BLOCKED_DIAGNOSTIC_CAPTURE",
+  "branch": "experiment/m8-2-glm53-diagnostic-replay",
+  "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
+  "task_id": "runner-exception-classification",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "workspace_baseline_commit": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "hidden_test_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+  "provider": "bigmodel-coding-plan",
+  "model": "glm-5.3",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "model_parameters": {
+    "temperature": 1,
+    "top_p": 0.95,
+    "reasoning_effort": "max",
+    "thinking": {
+      "type": "enabled",
+      "clear_thinking": false
+    },
+    "max_tokens": 32768,
+    "correction_max_tokens": 1024,
+    "correction_reasoning_effort": "low",
+    "one_correction": true,
+    "stream": false,
+    "response_format": {
+      "type": "json_object"
+    },
+    "request_timeout_seconds": 600
+  },
+  "budgets": {
+    "history_bytes": 8192,
+    "tool_calls": 8,
+    "runner_cumulative_seconds": 180,
+    "per_operation_seconds": 30,
+    "result_bytes": 4096,
+    "aggregate_result_bytes": 32768
+  },
+  "formal_attempt_limit": 1,
+  "formal_attempts_started": 0,
+  "retry_or_fallback": "none",
+  "authorization": "NOT_REQUESTED because the diagnostics capture gate failed",
+  "launcher_display_label": "BigModel GLM-5.3-Flash Coding Plan (stale relative to the selected model)",
+  "planned_data_categories": [
+    "task text",
+    "active Plugin metadata",
+    "proposed argv and requested paths",
+    "scoped file and listing text",
+    "command return codes",
+    "changed-path lists",
+    "bounded stdout and stderr"
+  ],
+  "explicitly_excluded_from_model_input": [
+    "API key",
+    "hidden test patch",
+    "gold/reference patch",
+    "raw historical model response"
+  ]
+}

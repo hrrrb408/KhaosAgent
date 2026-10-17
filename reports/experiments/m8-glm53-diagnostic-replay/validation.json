@@ -1,0 +1,27 @@
+{
+  "canonical_suite": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "status": "PASS",
+    "tests_run": 341,
+    "duration_seconds": 695.275
+  },
+  "security_freeze": {
+    "command": "python3 tools/check_security_freeze.py",
+    "status": "PASS",
+    "sensitive_changes": 0,
+    "independent_approval": "EXTERNAL"
+  },
+  "signed_product": {
+    "builder_signature_verification": "PASS",
+    "launcher_kernel_xpc_authentication": "PASS",
+    "snapshot_broker_authentication": "PASS",
+    "model_request": "NOT_RUN"
+  },
+  "offline_agent_action_diagnostics_tests": "PASS within canonical suite",
+  "git_diff_check": "PASS",
+  "pr_28_exact_head_checks": {
+    "head": "fd21764381546140249d94fcf53f9737bc9d212f",
+    "security-freeze": "PASS",
+    "security-tests": "PASS"
+  }
+}
