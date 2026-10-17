@@ -10,6 +10,7 @@
 | Canonical repository suite | PASS — 341 tests, 693.825 s | `python3 -m unittest discover -s tests -v`; includes the new compiled probe and real signed-product XPC authentication test |
 | Security Freeze base comparison | PASS | `python3 tools/check_security_freeze.py --base 27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27`; five declared sensitive test/governance paths |
 | Security Freeze inventory | PASS | `python3 tools/check_security_freeze.py`; current protected inventory verified |
+| PR #28 hosted workflows at `b56a730d0abca179151e2082df8aea8ae9c12b60` | PASS | `security-freeze` passed in 6 s; `security-tests` passed in 13m38s |
 | `git diff --check` | PASS | No whitespace errors |
 
 ## Interactive acceptance attempts

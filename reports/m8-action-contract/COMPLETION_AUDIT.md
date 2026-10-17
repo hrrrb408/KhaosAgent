@@ -8,6 +8,7 @@
 | Action Contract Root Cause | PARTIALLY_PROVEN | M8.0 ended with `invalid_model_output_shape`, but its rejected content and initial-versus-correction attribution were not retained |
 | Coding Reliability Closure | NOT_PROVEN | The deterministic product acceptance verifies workflow behavior, not a real model's coding quality or hidden-test completion |
 | Local validation | PASS | 341 canonical tests, the focused compiled probe, headless signed-product regression, interactive signed-product acceptance, Security Freeze checks, and `git diff --check` passed |
+| PR validation | PASS at `b56a730d0abca179151e2082df8aea8ae9c12b60` | PR #28 `security-freeze` and `security-tests` workflows both passed |
 | Independent Code Owner approval | NOT_PROVEN | Single-maintainer mode does not provide independent approval |
 | Remote model calls | 0 | No remote provider was used for this work |
 
@@ -23,9 +24,10 @@ This directory contains all seven requested reports:
 - `SECURITY_AUDIT.md`
 - `COMPLETION_AUDIT.md`
 
-PR #27 remains open at its recorded head and was not modified. The separate
-M8.1 pull request is created from `feature/m8-1-action-contract-diagnostics`;
-its URL and CI state are recorded in the delivery summary after publication.
+The separate M8.1 pull request is [PR #28](https://github.com/hrrrb408/KhaosAgent/pull/28),
+created from `feature/m8-1-action-contract-diagnostics`. Its two required hosted
+workflows passed on the recorded SHA above. PR #28 remains open and unmerged.
+PR #27 also remains open at its recorded head and was not modified.
 
 ## Architecture and TCB delta
 
