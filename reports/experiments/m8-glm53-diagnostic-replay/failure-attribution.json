@@ -33,22 +33,10 @@
       "limits": "No raw response or bounded M8.0 field-level diagnostics are available."
     },
     {
-      "claim": "Coding Reliability Closure.",
-      "status": "NOT_PROVEN",
-      "evidence": "M7 and M8.0 historical runs failed; M8.2 was not run.",
-      "limits": "Single-attempt historical observations cannot establish general reliability."
-    },
-    {
       "claim": "The first M8.2 model response was accepted as a valid list proposal.",
       "status": "PROVEN",
       "evidence": "Sanitized Launcher event sequence for attempt m8-2-glm53-01 records an accepted list proposal followed by a workspace-picker request.",
       "limits": "This proves only the initial response path; no workspace content was read and the full coding task did not proceed."
-    },
-    {
-      "claim": "The M8.2 attempt completed without reproducing the historical action-shape failure.",
-      "status": "NOT_PROVEN",
-      "evidence": "The initial response was valid, but workspace selection was cancelled before Runner execution.",
-      "limits": "The post-cancellation Host exchange has no captured response marker; do not label the full attempt NOT_REPRODUCED."
     },
     {
       "claim": "The M8.2 hidden-grader result is a candidate coding-quality result.",
@@ -57,22 +45,46 @@
       "limits": "There was no candidate patch; the grader evaluated only the unchanged baseline copy."
     },
     {
-      "claim": "Hermes credentials were reused for the M8.2 request.",
-      "status": "NOT_VERIFIED; EXECUTION DEVIATION",
-      "evidence": "The run used a hidden Terminal input; Hermes .env was not loaded by the temporary replay launcher.",
-      "limits": "The supplied secret was not retained, so equivalence to the Hermes credential cannot be checked. No retry is authorized or performed."
+      "claim": "The seven displayed tool proposals in M8.2 attempt 02 were approved and returned successfully.",
+      "status": "PROVEN",
+      "evidence": "Sanitized Launcher evidence records two list operations and five shell operations; all seven returned code 0.",
+      "limits": "No candidate paths changed, and the final Host completion marker was not captured."
     },
     {
-      "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
+      "claim": "M8.2 attempt 02 completed the requested coding task.",
       "status": "NOT_PROVEN",
-      "evidence": "The initial list response was accepted, but the task stopped before Runner execution and the post-cancellation exchange is unresolved.",
-      "limits": "The run does not provide a complete-task outcome or identify the cause of the M8.0 failure."
+      "evidence": "The launch-services waiter exited 0 after seven successful tool results.",
+      "limits": "The workspace remained clean, no candidate was produced, and no final Host completion marker was retained."
+    },
+    {
+      "claim": "M8.2 attempt 02 reproduces an action-shape rejection among the seven observed tool proposals.",
+      "status": "NOT_REPRODUCED",
+      "evidence": "All seven displayed proposals were accepted and returned code 0.",
+      "limits": "This applies only to the observed proposals; the final Host outcome was not captured."
+    },
+    {
+      "claim": "Hermes credentials were reused for M8.2 attempt 02.",
+      "status": "PROVEN",
+      "evidence": "The one-time replay launcher loaded the credential from Hermes .env and verified the configured base URL matched the experiment endpoint.",
+      "limits": "The API key value was neither printed nor retained; this claim applies only to attempt 02. Attempt 01 used hidden Terminal input and remains NOT_VERIFIED against Hermes."
+    },
+    {
+      "claim": "The M8.2 hidden-grader failure is a candidate coding-quality result.",
+      "status": "NOT_PROVEN",
+      "evidence": "Both attempts had zero candidate paths copied; the hidden test patch was applied to unchanged baseline copies and the test command returned 1.",
+      "limits": "No candidate patch was available to grade."
     },
     {
       "claim": "Coding Reliability Closure.",
       "status": "NOT_PROVEN",
-      "evidence": "M7 and M8.0 historical runs failed; the single M8.2 attempt stopped before Runner execution.",
+      "evidence": "M7 and M8.0 failed; M8.2 attempt 01 stopped before workspace access and attempt 02 produced no candidate edits.",
       "limits": "These observations do not establish general reliability."
+    },
+    {
+      "claim": "A particular Action Contract, correction, context, planning, or code-understanding change is justified by M8.2 behavior.",
+      "status": "NOT_PROVEN",
+      "evidence": "Attempt 01's initial list proposal was accepted; attempt 02's seven observed tool proposals were accepted and returned code 0, but no candidate or final Host completion marker was retained.",
+      "limits": "The runs do not identify the historical M8.0 rejected fields or explain why attempt 02 produced no candidate."
     }
   ]
 }

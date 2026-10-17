@@ -1,0 +1,13 @@
+{"record_type":"authorization_event","attempt":"m8-2-glm53-02","sequence":1,"event":"additional_replay_explicitly_authorized"}
+{"record_type":"launcher_event","attempt":"m8-2-glm53-02","sequence":2,"event":"remote-data=approved"}
+{"record_type":"launcher_event","attempt":"m8-2-glm53-02","sequence":3,"event":"workspace=selected; prepared disposable workspace"}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":4,"kind":"list","scope":"tests","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":5,"kind":"shell","scope":"tests","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":6,"kind":"shell","scope":"tests/test_runner_sdk.py","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":7,"kind":"list","scope":"khaos","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":8,"kind":"shell","scope":"khaos","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":9,"kind":"shell","scope":"khaos/ipc.py","approved":true,"return_code":0}
+{"record_type":"tool_summary","attempt":"m8-2-glm53-02","sequence":10,"kind":"shell","scope":"khaos/ipc.py and tests filenames","approved":true,"return_code":0}
+{"record_type":"diagnostic_summary","attempt":"m8-2-glm53-02","sequence":11,"matching_action_diagnostic_events":0}
+{"record_type":"process_summary","attempt":"m8-2-glm53-02","sequence":12,"event":"launch_services_waiter_exit","return_code":0,"task_success":"NOT_PROVEN"}
+{"record_type":"grading_summary","attempt":"m8-2-glm53-02","sequence":13,"event":"hidden_patch_applied_to_baseline_copy","candidate_paths_copied":0,"test_command_return_code":1}

@@ -55,23 +55,36 @@
     "branch": "experiment/m8-2-glm53-diagnostic-replay",
     "base_pr_28_head": "fd21764381546140249d94fcf53f9737bc9d212f",
     "selected_model": "glm-5.3",
-    "status": "INCOMPLETE_STOPPED_BEFORE_RUNNER_EXECUTION",
-    "formal_model_attempts": 1,
-    "tool_operations": 0,
+    "status": "TWO_AUTHORIZED_ATTEMPTS; SECOND EXECUTED SEVEN APPROVED TOOLS; NO CANDIDATE",
+    "formal_model_attempts": 2,
+    "tool_operations": 7,
     "diagnostic_events": 0,
-    "hidden_grader": "FAILED on unchanged baseline copy; not a coding-quality result",
-    "coding_outcome": "INCOMPLETE",
+    "hidden_grader": "FAILED on unchanged baseline copy in both attempts; zero candidate paths; not a model coding-quality result",
+    "coding_outcome": "NO_CANDIDATE_PRODUCED; FINAL TASK OUTCOME NOT_PROVEN",
     "synthetic_preflight_diagnostic_events": 1,
-    "model_requests_minimum": 1,
-    "model_requests_exact": "NOT_PROVEN after workspace cancellation",
-    "initial_response": "valid list proposal accepted",
-    "workspace_selection": "cancelled",
+    "model_requests_minimum": 7,
+    "model_requests_exact": "NOT_PROVEN",
+    "initial_response": "Attempt 01 initial list response accepted; attempt 02 produced seven accepted tool proposals.",
+    "workspace_selection": "attempt 01 cancelled; attempt 02 selected prepared disposable workspace",
     "task_text_transmitted": true,
-    "workspace_content_transmitted": false,
-    "runner_operations": 0,
-    "retry_or_fallback": "none",
-    "credential_source": "hidden Terminal input; Hermes .env not loaded; key equivalence NOT_VERIFIED",
-    "changed_paths": []
+    "workspace_content_transmitted": true,
+    "runner_operations": 5,
+    "retry_or_fallback": "none; attempt 02 separately authorized",
+    "credential_source": {
+      "attempt_01": "hidden Terminal input; Hermes .env not loaded; key equivalence NOT_VERIFIED",
+      "attempt_02": "Hermes .env loaded; key value not printed or retained"
+    },
+    "changed_paths": [],
+    "attempt_01_status": "workspace selection cancelled before workspace access",
+    "attempt_02_status": "seven approved read-only tool operations returned successfully; no candidate edits; final Host completion marker not captured",
+    "tool_operation_kind_counts": {
+      "list": 2,
+      "shell": 5
+    },
+    "tool_return_code_counts": {
+      "0": 7
+    },
+    "runner_seconds": "NOT_CAPTURED"
   },
   "comparability_limits": [
     "M7 used GLM-5.3-Flash; M8.0 and M8.2 select GLM-5.3.",
@@ -81,5 +94,5 @@
     "M8.2 accepted its initial list response but stopped before workspace access and Runner execution. The post-cancellation exchange is not proven, so full-task non-recurrence is not established.",
     "The M8.2 grader tested an unchanged baseline copy and is not a model coding-quality result."
   ],
-  "interpretation": "M7 and M8.0 failed the frozen coding task after successful approved operations, with different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. In M8.2, the initial model response was accepted as a valid list proposal, so that response did not reproduce the prior shape rejection. The workspace selection was then cancelled before any workspace content read or Runner operation. The post-cancellation Host exchange is NOT_PROVEN, so M8.2 neither establishes full-task non-recurrence nor resolves the historical root cause. The independent grader failed against the unchanged baseline copy and is not a coding-quality result."
+  "interpretation": "M7 and M8.0 failed the frozen coding task after successful approved operations, with different reported Host validation categories. M8.0 proves a terminal model-output shape rejection, not the exact rejected fields or its initial-versus-correction cause. M8.2 attempt 01 accepted its initial list response but stopped at workspace selection. The separately authorized attempt 02 selected the prepared workspace and completed seven approved read/list and shell inspections, all with return code 0, but produced no candidate edits. The attempt 02 final Host completion marker was not captured, so the task's terminal cause remains NOT_PROVEN. Both M8.2 hidden grading runs tested unchanged baseline copies and are not coding-quality results. Neither attempt establishes full coding reliability or resolves the historical M8.0 root cause."
 }

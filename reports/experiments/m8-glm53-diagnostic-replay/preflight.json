@@ -1,7 +1,7 @@
 {
-  "status": "PREFLIGHT_PASSED; ONE FORMAL REPLAY STARTED AND STOPPED BEFORE RUNNER",
-  "model_call": "ONE FORMAL ATTEMPT STARTED; at least one successful model response observed",
-  "api_requests": "AT_LEAST_ONE; exact request count NOT_PROVEN",
+  "status": "PREFLIGHT_PASSED; TWO USER-AUTHORIZED FORMAL REPLAYS; ATTEMPT 02 PRODUCED NO CANDIDATE",
+  "model_call": "Attempt 01 had an accepted initial list response; attempt 02 produced seven accepted tool proposals, with no final Host completion marker captured.",
+  "api_requests": "Attempt 01: at least 1; attempt 02: at least 7; exact per-attempt and total request counts NOT_PROVEN.",
   "khaos_bigmodel_api_key_present": false,
   "remote_authorization": "USER_AUTHORIZED_ONE_REPLAY; signed Launcher remote-data approval was approved",
   "production_product": {
@@ -97,5 +97,22 @@
     "workspace_content_transmitted": false,
     "post_cancellation_response": "NOT_PROVEN; tool_result exchange was initiated but no tool-response marker was captured",
     "retry_or_fallback": "none"
+  },
+  "additional_replay_authorization": {
+    "attempt": "m8-2-glm53-02",
+    "authorization": "User explicitly authorized exactly one additional replay; total formal attempt limit is now two.",
+    "remote_data_prompt": "APPROVED in signed Launcher after disclosure of endpoint and data categories.",
+    "hermes_credential_source": "Hermes .env loaded by the one-time replay launcher; key value was not printed or retained.",
+    "workspace": "Prepared isolated workspace selected; workspace text was transmitted only within approved scopes.",
+    "approved_tool_operations": 7,
+    "operation_kinds": {
+      "list": 2,
+      "shell": 5
+    },
+    "all_tool_return_codes": 0,
+    "candidate_changes": 0,
+    "final_host_completion_marker": "NOT_CAPTURED",
+    "attempt_host_diagnostic_events": 0,
+    "hidden_grader": "Attempt 02 hidden patch applied to unchanged baseline copy; zero candidate paths; test command return code 1."
   }
 }
