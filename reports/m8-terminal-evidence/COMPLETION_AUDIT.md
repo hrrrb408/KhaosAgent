@@ -18,10 +18,12 @@ The historical capture gap is now explained at the evidence-aggregation level: t
 
 ## Conditions before engineering closure
 
-Engineering closure remains `CONDITIONAL` until:
+Engineering closure remains `CONDITIONAL` because PR #30 is intentionally left as an open Draft and independent Code Owner approval remains `NOT PROVEN` in single-maintainer mode. Its implementation SHA `3b651d2f6c6b69a4162a8b9ef8ec77a6bbef92a2` has passing `security-tests` and `security-freeze` checks. The report-only follow-up SHA must also pass both checks before this audit is final.
 
-1. an independent PR is created from the exact PR #29 HEAD `3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b`, without auto-merge;
-2. the exact proposed SHA passes required remote checks and reports are updated with those results.
+For final closure, verify:
+
+1. PR #30 remains stacked on exact PR #29 HEAD `3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b`, without auto-merge;
+2. the final report-only head passes the required remote checks.
 
 Terminal Capture Reliability is `PASS` based on 27 focused observer tests, the full 368-test macOS suite, and the signed-product deterministic acceptance. Evidence covers completion, failure, cancellation, budget exhaustion, observed Host termination, missing records, process-only exit, attempt separation, and bounded redaction. This does not establish Coding Reliability.
 

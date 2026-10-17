@@ -50,5 +50,6 @@ This is deterministic probe evidence, not model coding-quality evidence.
 | `python3 tools/check_security_freeze.py --base 3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b` | PASS, 7 exact sensitive paths declared |
 | `git diff --check` | PASS |
 | `python3 -m py_compile reports/benchmark/dataset-v1/capture_agent_events.py reports/tool-planning/run_frozen_recheck.py` | PASS |
+| GitHub PR #30 checks at implementation SHA `3b651d2f6c6b69a4162a8b9ef8ec77a6bbef92a2` | PASS: `security-tests` (13m20s) and `security-freeze` (4s) |
 
-The full suite is 27 tests above the 341-test baseline; the increase is the new terminal-capture test module. No benchmark task corpus, scoring rules, or hidden tests changed. The external capture/recheck scripts changed to produce attempt-scoped evidence. No real GLM or other remote model call was made for M8.2.1. Exact-base PR creation and exact-SHA remote CI remain pending.
+The full suite is 27 tests above the 341-test baseline; the increase is the new terminal-capture test module. No benchmark task corpus, scoring rules, or hidden tests changed. The external capture/recheck scripts changed to produce attempt-scoped evidence. No real GLM or other remote model call was made for M8.2.1. PR #30 is an open Draft stacked on the exact PR #29 base. The exact checks above cover the implementation SHA; this report-only follow-up will trigger another exact-head run, which will be recorded by the final PR status.

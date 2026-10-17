@@ -28,4 +28,4 @@ Independent Code Owner approval remains an external review requirement and is no
 
 ## Validation status
 
-Focused capture tests pass (27 tests); the signed-product deterministic UI acceptance passes; the canonical macOS suite passes with 368 tests; and both current and exact-base Security Freeze checks pass. Exact-SHA remote PR checks remain pending. Runtime TCB delta is zero, and no remote model call was made.
+Focused capture tests pass (27 tests); the signed-product deterministic UI acceptance passes; the canonical macOS suite passes with 368 tests; and both current and exact-base Security Freeze checks pass. GitHub `security-tests` and `security-freeze` pass on PR #30 implementation SHA `3b651d2f6c6b69a4162a8b9ef8ec77a6bbef92a2`. The report-only follow-up creates a new head that must receive its own checks. Runtime TCB delta is zero, and no remote model call was made.
