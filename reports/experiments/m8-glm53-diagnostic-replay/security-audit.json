@@ -14,7 +14,7 @@
   "new_dependencies": 0,
   "hidden_test_changes": 0,
   "remote_data_transmissions": 0,
-  "api_key_present": false,
+  "khaos_bigmodel_api_key_present": false,
   "launcher_model_label_stale": true,
-  "diagnostic_capture_gate": "BLOCKED: actual XPC stderr is /dev/null; per-service stderr redirection via launchctl debug requires root."
+  "diagnostic_capture_gate": "BLOCKED: after authorized local authentication, launchctl debug could not target the app-private embedded XPC service. A manually bootstrapped copy was removed. StandardErrorPath in a disposable signed product copy captured 0 bytes. No source, TCB, IPC, entitlement, or authority changes were made."
 }

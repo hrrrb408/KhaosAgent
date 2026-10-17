@@ -2,7 +2,7 @@
   "status": "BLOCKED_DIAGNOSTIC_CAPTURE",
   "model_call": "NOT_RUN",
   "api_requests": 0,
-  "api_key_present": false,
+  "khaos_bigmodel_api_key_present": false,
   "remote_authorization": "NOT_REQUESTED",
   "production_product": {
     "path": "/Users/huangruibang/Applications/Khaos-M8.2-Diagnostic-Preflight.app",
@@ -26,8 +26,25 @@
   },
   "capture_gate": {
     "status": "BLOCKED",
-    "evidence": "launchctl debug ... --stderr returned a root-privilege requirement; the Host XPC stderr descriptor was /dev/null and the unified-log query contained no M8.1 diagnostic event.",
+    "evidence": "After local administrator authentication, the app-private embedded XPC service was not addressable by the stable launchctl debug target. A manually bootstrapped copy was a distinct service and was removed. StandardErrorPath at both tested plist locations captured 0 bytes even though the signed Host observed KHAOS_AGENT_ACTION_DIAGNOSTICS=1 and returned invalid_request.",
     "remote_call_permitted_by_this_preflight": false
+  },
+  "stderr_capture_authorization_followup": {
+    "owner_authorized_one_time_redirect": true,
+    "launchctl_debug": {
+      "private_embedded_service_stable_target": "NOT_FOUND",
+      "temporary_bootstrapped_copy": "REMOVED",
+      "persistent_override_remaining": false
+    },
+    "disposable_signed_product_copy": {
+      "diagnostic_environment_flag_observed": true,
+      "synthetic_request_response": "invalid_request",
+      "standard_error_path_top_level_bytes": 0,
+      "standard_error_path_nested_bytes": 0,
+      "capture_file_mode": "0600"
+    },
+    "model_call": "NOT_RUN",
+    "task_data_transmitted": false
   },
   "temporary_launchd_environment_flag_cleared": true
 }

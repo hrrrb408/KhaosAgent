@@ -43,9 +43,13 @@ grading are all `NOT_RUN` (zero requests and zero operations).
 
 ## Decision
 
-The real GLM-5.3 replay did not start. The opt-in diagnostic flag can reach a signed Agent Host XPC process when supplied in that service's `XPCService.EnvironmentVariables`, but the Host's stderr file descriptor is `/dev/null`. Capturing it with `launchctl debug --stderr` requires root privileges on this machine. No bounded diagnostic line can therefore be collected from the signed service under the available non-root path.
+The real GLM-5.3 replay did not start. The opt-in diagnostic flag reaches the signed Agent Host XPC process when supplied in that service's `XPCService.EnvironmentVariables`, but its stderr descriptor is `/dev/null`.
 
-The remote call was stopped before task data was sent. No fresh authorization was requested, no model API request was made, and no hidden grader was run. The API key environment variable was absent. The temporary user launchd environment override was removed after the probe.
+After the owner authorized a one-time stderr redirect, I authenticated and tried `launchctl debug` against the app-embedded XPC service. The private service was not addressable as the stable `gui/501/org.khaos.Seed.AgentHost` target. Bootstrapping a copied XPC bundle made that target addressable, but it created a separate launchd service; the product Launcher's `NSXPCConnection(serviceName:)` continued to start its own bundle-private service. The temporary registration was removed and the stuck privileged `launchctl` client was terminated.
+
+I also re-signed a disposable copy of the signed product with `KHAOS_AGENT_ACTION_DIAGNOSTICS=1` and `StandardErrorPath` set both at the XPC bundle's top level and inside `XPCService`. The signed Host observed the opt-in flag and returned the expected synthetic `invalid_request`, but both stderr capture attempts produced a zero-byte file. This does not establish a capture path for the app-private XPC. The diagnostic gate therefore remains blocked; no model call or task-data transmission occurred.
+
+The remote call was stopped before task data was sent. No fresh authorization was requested, no model API request was made, and no hidden grader was run. `KHAOS_BIGMODEL_API_KEY` was absent from the preflight invocation; no API key was used. The temporary user launchd environment override was removed after the probe.
 
 Apple documents `EnvironmentVariables` as an XPC service property. That enables the diagnostic flag for a specific signed service; it does not provide a stderr capture path. See [Apple's XPCService property documentation](https://developer.apple.com/documentation/bundleresources/information-property-list/xpcservice/environmentvariables).
 
@@ -55,7 +59,8 @@ Apple documents `EnvironmentVariables` as an XPC service property. That enables 
 - The only source change is the one-line Agent Host model selection change from `glm-5.3-flash` to `glm-5.3`. The Launcher still displays the stale label `BigModel GLM-5.3-Flash Coding Plan`; that mismatch would need to be disclosed before any future authorization.
 - A signed Coding Plan product was built at `/Users/huangruibang/Applications/Khaos-M8.2-Diagnostic-Preflight.app`. Deep signature and builder verification passed. Its `--bootstrap-check`, launched through Launch Services, returned `kernel-and-snapshot-broker-peer-authentication=verified` with empty stderr. The built product remains diagnostics-off by default.
 - A disposable signed XPC fixture, derived from the product's Agent Host service bundle, added the documented per-service environment value `KHAOS_AGENT_ACTION_DIAGNOSTICS=1` and preserved the Host entitlements. A signed client sent a synthetic `tool_result` without a pending proposal. The XPC Host returned `invalid_request`, and the flag was observed in that Host process. This path rejects before model completion and did not send a task or call a model API.
-- The fixture's Host stderr descriptor was `/dev/null`; the filtered unified-log query yielded no M8.1 diagnostic line. `launchctl debug ... --stderr` returned `This subcommand requires root privileges: debug`. The actual product bundle was not configured with the diagnostic variable, and its Agent Host service was not started during the bootstrap check.
+- The fixture's Host stderr descriptor was `/dev/null`; the filtered unified-log query yielded no M8.1 diagnostic line. The owner later authorized local administrator authentication for a one-time `launchctl debug` redirect. The app-private service was not addressable by the stable service target; a manually bootstrapped copy was a distinct job and was removed after the probe.
+- A disposable re-signed product copy received the opt-in diagnostic environment through `XPCService.EnvironmentVariables`. Its signed Host returned `invalid_request` for a synthetic `tool_result` without a pending proposal, with no model request or workspace access. `StandardErrorPath` at both tested plist locations left the mode-0600 capture file empty. No diagnostic event was collected from the embedded service.
 - The frozen prompt SHA-256 matches M8.0 (`7a86c99d…6810a2`). The hidden patch SHA-256 matches (`185ea8ad…446e16`) and its contents were not read, printed, or transmitted. The exact baseline commit is present as `HEAD` and `refs/heads/main` in the frozen task bundle; it is not present as an object in this PR #28 checkout. The benchmark dataset was not modified.
 
 ## Historical evidence and conclusion
@@ -82,7 +87,8 @@ M8.2 produced no new model behavior to attribute. The historical root cause rema
 - Signed product deep verification — **PASS**.
 - Signed product Kernel and Snapshot Broker peer authentication — **PASS**.
 - Signed XPC diagnostic flag propagation in the disposable fixture — **PASS**.
-- Signed XPC diagnostic stderr capture — **BLOCKED** (`/dev/null`; redirection command requires root).
+- Signed XPC diagnostic flag propagation — **PASS** in the disposable fixture and signed product copy; synthetic requests returned `invalid_request`.
+- Signed XPC diagnostic stderr capture — **BLOCKED**: the private embedded service was not addressable by the stable `launchctl debug` target, and both disposable `StandardErrorPath` placements captured 0 bytes.
 - M8.2 model request and hidden grading — **NOT_RUN**.
 
 ## M8.3 direction
@@ -109,4 +115,4 @@ Removed duplication / abstractions: 0
 Runtime TCB delta: 0
 ```
 
-The next M8.2 attempt needs a reviewed, explicit, bounded diagnostic capture path that works for the signed Agent Host XPC without root privileges. Until that gate is proven, the GLM-5.3 replay remains `NOT_RUN`.
+The next M8.2 attempt needs a reviewed, explicit, bounded diagnostic capture path for the actual app-private Agent Host XPC. The tested launchd redirections did not provide one. Until that gate is proven, the GLM-5.3 replay remains `NOT_RUN`.

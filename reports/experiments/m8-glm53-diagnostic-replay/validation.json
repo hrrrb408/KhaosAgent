@@ -17,6 +17,16 @@
     "snapshot_broker_authentication": "PASS",
     "model_request": "NOT_RUN"
   },
+  "diagnostic_capture_followup": {
+    "launchctl_debug_after_owner_authorization": "BLOCKED: private embedded XPC service had no stable service target",
+    "temporary_bootstrapped_service": "REMOVED",
+    "signed_host_diagnostic_flag": "PASS",
+    "synthetic_invalid_tool_result": "invalid_request",
+    "standard_error_path_top_level": "FAIL: 0 bytes captured",
+    "standard_error_path_nested": "FAIL: 0 bytes captured",
+    "remote_request": "NOT_RUN",
+    "task_data_transmitted": false
+  },
   "offline_agent_action_diagnostics_tests": "PASS within canonical suite",
   "git_diff_check": "PASS",
   "pr_28_exact_head_checks": {
