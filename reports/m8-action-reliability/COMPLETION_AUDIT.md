@@ -16,7 +16,7 @@ Date: 2026-10-18
 - Canonical full suite: PASS, 371 tests in 669.223 seconds, exit code 0.
 - Current Security Freeze: PASS; `python3 tools/check_security_freeze.py` reported sensitive changes=0.
 - Exact-base Security Freeze: PASS; `python3 tools/check_security_freeze.py --base 6c5791264f64f2d171ad23deabf47ae684fc7ac4` reported five declared protected-file changes.
-- Pull request: pending creation, stacked on PR #30 at exact base 6c5791264f64f2d171ad23deabf47ae684fc7ac4. Do not merge. Independent Code Owner approval remains NOT PROVEN.
+- Pull request: #31, OPEN/Draft at https://github.com/hrrrb408/KhaosAgent/pull/31, stacked on PR #30's exact base 6c5791264f64f2d171ad23deabf47ae684fc7ac4. The initial submitted head was 895b0b5e370e6fb517f9720edc0e651d3fd7dc44; its `security-freeze` check passed and its `security-tests` check was still running when this audit update began. The PR checks page is the source for terminal status on the latest head. Do not merge. Independent Code Owner approval remains NOT PROVEN.
 
 ## Final status
 
