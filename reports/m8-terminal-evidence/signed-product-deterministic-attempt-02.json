@@ -1,0 +1,73 @@
+{
+  "coding_workflow": {},
+  "current_stage": "terminal-invalid-json",
+  "failure_type": "AssertionError",
+  "finished_at_utc": "2026-10-17T16:37:29.410668+00:00",
+  "format": "khaos-bounded-coding-loop-acceptance-v1",
+  "model_mode": "deterministic-model-probe",
+  "provider": null,
+  "security_checks": {},
+  "started_at_utc": "2026-10-17T16:37:28.555355+00:00",
+  "status": "failed",
+  "terminal_outcomes": {
+    "invalid-json": {
+      "agent_final_response_observed": false,
+      "agent_host_termination_observed": false,
+      "attempt_id": "invalid-json",
+      "bounded_result_bytes": null,
+      "capture_process_completed": true,
+      "conflicting_terminal_markers": false,
+      "cumulative_runner_seconds": null,
+      "error_code": null,
+      "event": "terminal_outcome",
+      "event_counts": {
+        "agent_final_response": 0,
+        "correction_accepted": 0,
+        "correction_failed": 0,
+        "correction_requested": 0,
+        "harness_state_rejected": 0,
+        "model_response_rejected": 0,
+        "tool_approval_approved": 0,
+        "tool_approval_denied": 0,
+        "tool_approval_presented": 0,
+        "tool_execution_completed": 0,
+        "tool_proposal_observed": 0,
+        "tool_response_accepted": 0,
+        "tool_result_returned": 0
+      },
+      "evidence_complete": false,
+      "executed_command_return_codes": [],
+      "host_diagnostic_events": [],
+      "input_bytes": {
+        "agenthost_diagnostics": null,
+        "stderr": 46,
+        "stdout": 111
+      },
+      "input_sha256": {
+        "agenthost_diagnostics": null,
+        "stderr": "f32870debe5705487121a44d92a939ce45779008b2aa51b4ac74f4ef4ca343b1",
+        "stdout": "5d572c81d8fd7af60b38482b806272aa155cc968ffb828f0a60eab032c3347ed"
+      },
+      "input_truncated": {
+        "agenthost_diagnostics": false,
+        "stderr": false,
+        "stdout": false
+      },
+      "last_observed_tool_sequence": 0,
+      "launch_services_waiter_exit_code": 0,
+      "launcher_termination_observed": false,
+      "observed_at_utc": "2026-10-17T16:37:29.369243+00:00",
+      "observed_error_codes": [
+        "local_model_invalid_output"
+      ],
+      "observed_tool_proposals": 0,
+      "reason_code": "no_launcher_terminal_marker",
+      "source": "launcher_output",
+      "synthetic": true,
+      "task_record_present": false,
+      "task_status_present": false,
+      "terminal_class": "terminal_outcome_not_captured",
+      "terminal_observed": false
+    }
+  }
+}

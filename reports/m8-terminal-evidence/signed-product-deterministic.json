@@ -1,0 +1,13 @@
+{
+  "coding_workflow": {},
+  "current_stage": "terminal-invalid-json",
+  "failure_type": "AssertionError",
+  "finished_at_utc": "2026-10-17T16:36:05.646253+00:00",
+  "format": "khaos-bounded-coding-loop-acceptance-v1",
+  "model_mode": "deterministic-model-probe",
+  "provider": null,
+  "security_checks": {},
+  "started_at_utc": "2026-10-17T16:36:04.845588+00:00",
+  "status": "failed",
+  "terminal_outcomes": {}
+}

@@ -527,13 +527,19 @@ python3 -m unittest discover -s tests \
 ```
 
 This builds a disposable signed product with the deterministic Agent Host model
-probe. Its one-task coding fixture includes hostile README instructions, a
-scope-denied canary read, a test that prints a fake success string before
-failing, an edit, inspection, correction, and successful retest. It also checks
+probe. It first checks that a malformed local-model response fails closed with
+no Runner operation and remains unknown without a Launcher task record, then a
+seven-call final response. Offline observer tests separately verify JSON-stage
+and repeated Action-shape diagnostics. Its one-task coding fixture includes
+hostile README instructions, a scope-denied canary read, a test that prints a
+fake success string before failing, an edit, inspection, correction, and
+successful retest. It also checks
 a successful scoped read followed by a denied write mid-task with no next
 approval, Picker cancellation, the 8-call budget, and Agent Host termination
 during an approved exit-1 command whose in-scope write is committed while the
-command and Host processes are then confirmed exited. It requires
+command and Host processes are then confirmed exited. Each task receives a
+separate bounded terminal summary; the failure probes and seven-call case are marked synthetic and
+does not count as model coding success. It requires
 manual workspace selection and per-operation decisions; approve only the
 displayed scopes in the disposable fixtures. The report does not contain raw
 model prompts, command output, API credentials, or workspace file contents.

@@ -1,15 +1,18 @@
 {
-  "base": "fd21764381546140249d94fcf53f9737bc9d212f",
+  "base": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
   "files": [
+    "AGENTS.md",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
+    "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
+    "tests/test_agent_terminal_capture.py",
     "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M8.2 changes only the untrusted Agent Host diagnostic sink from inaccessible app-private stderr to a dedicated OS unified-log category. The protected signed-product regression now captures the opt-in sanitized event; runtime TCB entries and Agent action/approval behavior are unchanged.",
-  "invariants": "Preserve the strict ten-field Action contract, one format-only correction, existing Launcher approval, Kernel scope enforcement, no Host fallback, default-off diagnostics, the 512-byte per-event bound, and exclusion of raw model/task/workspace data. Only fixed-format allowlisted diagnostics may enter the OS unified log.",
+  "motivation": "M8.2.1 adds bounded attempt-scoped terminal outcome capture and signed-product regression evidence after recovering omitted M8.2 terminal records. Product runtime behavior and trusted enforcement are unchanged.",
+  "invariants": "Keep task outcome distinct from process exit and final text markers; preserve fail-closed unknown outcomes, bounded allowlists, redaction, attempt isolation, and existing approval, scope, sandbox, and Kernel boundaries. Make no remote model calls.",
   "authority_delta": "0 runtime authority; no new capability, approval path, remote recipient, Kernel permission, trusted IPC, or sandbox exception.",
-  "real_os_tests": "PASS on macOS: focused OS unified-log probe (1 test), canonical suite (341 tests), signed GLM-5.3 Coding Plan product deep signature and builder verification, Launch Services Kernel/Snapshot Broker peer authentication, and one signed Agent Host XPC synthetic diagnostic capture. No model request or task-data transmission occurred.",
-  "trusted_delta": "0 runtime TCB files or lines. AgentHostActionOutput.swift remains untrusted Agent Host code. The changed protected test and its freeze hashes/declaration are build-governance only.",
-  "baseline_decision": "Bind this change to exact M8.1 PR #28 HEAD. Update only the changed test file SHA-256 and manifest digest; preserve every runtime TCB hash and all other manifest entries. The base-aware and current Security Freeze checks pass. Independent Code Owner approval remains NOT PROVEN in single-maintainer mode."
+  "real_os_tests": "PASS on macOS: signed-product deterministic coding acceptance (1 UI integration test, 614.930s) including malformed local-model output, seven approved no-op operations followed by final response, coding workflow, denial, Picker cancellation, budget boundary, and Host termination; canonical suite (368 tests, 667.614s); current and exact-base Security Freeze checks; PR #30 implementation SHA 3b651d2f6c6b69a4162a8b9ef8ec77a6bbef92a2 GitHub security-tests (13m20s) and security-freeze (4s) both PASS. No remote model call was made.",
+  "trusted_delta": "0 runtime TCB files or lines. Changes are external capture/recheck scripts, reports, signed-product test fixtures, tests, and governance metadata.",
+  "baseline_decision": "Bind to exact PR #29 HEAD 3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b. Update only changed governance/test hashes and the manifest digest; preserve all runtime TCB hashes. Independent Code Owner approval remains NOT PROVEN in single-maintainer mode."
 }
