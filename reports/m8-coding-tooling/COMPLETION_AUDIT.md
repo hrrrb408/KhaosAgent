@@ -68,8 +68,9 @@ Independent Code Owner approval: NOT_PROVEN
 - Offline prototype: `python3 -m unittest discover -s reports/m8-coding-tooling -p test_offline_editing.py -v` — 15 tests passed, exit code 0.
 - Canonical suite: `python3 -m unittest discover -s tests -v` — 379 tests passed in 700.111 seconds, exit code 0. This includes the real macOS Seatbelt, signed XPC, workspace changes and snapshot checks. Opt-in interactive product acceptance flows were not run.
 - Security Freeze: `python3 tools/check_security_freeze.py` — verified; sensitive changes=0; independent approval is external.
+- Report hygiene: 12 deliverable files checked for trailing whitespace and final newlines; staged `git diff --check` passed.
 - External Codex, Pi and Oh My Pi upstream suites were not run; this task performed pinned source review and inspected relevant tests.
 
-The research branch is `research/m8-5-1-coding-tool-architecture`, based on exact commit `23d00c762af04b20b46f818fc611bcd5db16a211`. PR #32 was rechecked as OPEN and draft at that same head, based on `feature/m8-3-action-contract-reliability`; this research PR is intended to stack on PR #32's head branch `experiment/m8-4-glm53-coding-reliability`. No PR was merged.
+The research branch is `research/m8-5-1-coding-tool-architecture`, based on exact commit `23d00c762af04b20b46f818fc611bcd5db16a211`. PR #32 was rechecked as OPEN and draft at that same head, based on `feature/m8-3-action-contract-reliability`. The new research PR is [#33](https://github.com/hrrrb408/KhaosAgent/pull/33), OPEN and draft, based on PR #32's head branch `experiment/m8-4-glm53-coding-reliability`. No PR was merged.
 
-Final report hygiene, commit SHA, and the new draft PR URL are recorded after delivery.
+Only `reports/m8-coding-tooling/` was added in the managed research worktree. The original checkout and its pre-existing untracked artifacts were left untouched.
