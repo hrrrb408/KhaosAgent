@@ -322,6 +322,68 @@ if prompt.contains("KHAOS_HOST_CRASH_PROBE") {
     ))
 }
 
+if prompt.contains("KHAOS_STAGED_EDIT_FEASIBILITY_PROBE") {
+    let step = proposalNumber(prompt)
+    if step == 0 {
+        let oldText = "value.split(\",\")"
+        let newText = "[part.strip() for part in value.split(\",\") if part.strip()]"
+        guard let oldJSONData = try? JSONSerialization.data(
+            withJSONObject: oldText,
+            options: [.fragmentsAllowed, .withoutEscapingSlashes]
+        ),
+        let oldJSON = String(data: oldJSONData, encoding: .utf8),
+        let newJSONData = try? JSONSerialization.data(
+            withJSONObject: newText,
+            options: [.fragmentsAllowed, .withoutEscapingSlashes]
+        ),
+        let newJSON = String(data: newJSONData, encoding: .utf8) else {
+            emit(textAction("Staged edit feasibility probe could not encode its fixed fixture."))
+        }
+        let stagedEdit = #"""
+            import json, os, stat, sys
+            from pathlib import Path
+            p=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()
+            if not stat.S_ISREG(st.st_mode): raise SystemExit(20)
+            s=p.read_text(encoding="utf-8"); i=s.find(old)
+            if not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)
+            d=(s[:i]+new+s[i+len(old):]).encode("utf-8"); q=p.with_name(".khaos-edit-"+os.urandom(16).hex())
+            u=os.umask(0)
+            try: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))
+            finally: os.umask(u)
+            try:
+                with os.fdopen(fd,"wb") as f: f.write(d); f.flush(); os.fsync(f.fileno())
+                os.replace(q,p); q=None
+            finally:
+                if q is not None: os.unlink(q)
+            print("EDIT_APPLIED")
+            """#
+        guard let stagedEditJSONData = try? JSONSerialization.data(
+            withJSONObject: stagedEdit,
+            options: [.fragmentsAllowed, .withoutEscapingSlashes]
+        ),
+        let stagedEditJSON = String(data: stagedEditJSONData, encoding: .utf8) else {
+            emit(textAction("Staged edit feasibility probe could not encode its fixed Runner script."))
+        }
+        emit(shellAction(
+            ["python3", "-I", "-B", "-c", "exec(\(stagedEditJSON))", "tags.py", oldJSON, newJSON],
+            readScope: ["tags.py"],
+            writeScope: ["tags.py"]
+        ))
+    }
+    guard let result = latestToolResult(prompt),
+          result["returncode"] as? Int == 0,
+          result["added"] as? Int == 0,
+          result["modified"] as? Int == 1,
+          result["deleted"] as? Int == 0,
+          let stdout = result["stdout"] as? String,
+          stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "EDIT_APPLIED" else {
+        emit(textAction("Staged edit feasibility probe did not observe one scoped modified file."))
+    }
+    emit(textAction(
+        "The signed Runner returned EDIT_APPLIED for one scoped file modification after staged replacement."
+    ))
+}
+
 if prompt.contains("KHAOS_CODING_LOOP_PROBE") {
     let systemPromptIndex = arguments.firstIndex(of: "--system-prompt")
     let systemPrompt = systemPromptIndex.flatMap { index in
