@@ -1,0 +1,12 @@
+{
+  "attempt_id": "m8-4-c-02",
+  "candidate_present": false,
+  "changed_paths": [],
+  "changed_source_files": [],
+  "diff_bytes": 0,
+  "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "excluded_test_edits": [],
+  "graded_candidate_paths": [],
+  "parent_process_baseline_check": "PASS_HEAD_MATCH_AND_CLEAN",
+  "raw_diff_committed": false
+}

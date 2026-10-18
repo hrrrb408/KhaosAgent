@@ -1,0 +1,176 @@
+{
+  "agent_final_response_observed": false,
+  "agent_host_termination_observed": false,
+  "attempt_association_complete": true,
+  "attempt_id": "m8-4-c-02",
+  "bounded_result_bytes": 5946,
+  "capture_process_completed": true,
+  "capture_recovery": "ORIGINAL_OS_PROCESS_NO_RELAUNCH",
+  "captured_host_pids": [
+    "90608"
+  ],
+  "conflicting_terminal_markers": false,
+  "cumulative_runner_seconds": 55.923,
+  "diagnostic_capture_complete": false,
+  "diagnostic_collection_gap": true,
+  "diagnostic_count_scope": "OBSERVED_ROWS_ONLY_EXACT_TOTALS_NOT_CAPTURED",
+  "error_code": "invalid_model_output_shape",
+  "event": "terminal_outcome",
+  "event_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 1,
+    "correction_requested": 1,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 7,
+    "initial_action_rejected": 1,
+    "initial_action_responses": 8,
+    "missing_text": 1,
+    "model_response_rejected": 2,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 1,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "evidence_complete": true,
+  "executed_command_return_codes": [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+  ],
+  "host_diagnostic_events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "error": "invalid_agent_action_unused_fields",
+      "event": "initial_response_failed",
+      "stage": "agent_action_validation"
+    },
+    {
+      "event": "correction_requested"
+    },
+    {
+      "attempt": "correction",
+      "event": "action_response_received"
+    },
+    {
+      "actual_key_count": 4,
+      "attempt": "correction",
+      "error": "invalid_model_output_shape",
+      "event": "correction_response_failed",
+      "expected_key_count": 10,
+      "missing_keys": [
+        "text",
+        "pluginID",
+        "candidateDigest",
+        "generation",
+        "pluginInput",
+        "evolutionGoal"
+      ],
+      "stage": "action_shape",
+      "unexpected_key_count": 0
+    }
+  ],
+  "input_bytes": {
+    "agenthost_diagnostics": 4026,
+    "stderr": 2300,
+    "stdout": 487
+  },
+  "input_sha256": {
+    "agenthost_diagnostics": "16a9a3ef5f6428548a17cd157b4be63b732340adde29bb3526bbfed1fec26e3f",
+    "stderr": "80d29541a05da0b980ef3d340e545d2ad6e40ae71478e3e1acc3c192aa160e95",
+    "stdout": "6b80d39bddde5cc2eee4a09f2cd418dae18328fb80fc79be65ca77988a486b89"
+  },
+  "input_truncated": {
+    "agenthost_diagnostics": false,
+    "stderr": false,
+    "stdout": false
+  },
+  "last_observed_tool_sequence": 7,
+  "launch_services_waiter_exit_code": null,
+  "launcher_termination_observed": false,
+  "observed_at_utc": "2026-10-18T08:07:19.450913+00:00",
+  "observed_error_codes": [
+    "invalid_model_output_shape"
+  ],
+  "observed_tool_proposals": 7,
+  "reason_code": "agent_host_or_model_failure",
+  "source": "launcher_task_record",
+  "synthetic": false,
+  "task_record_present": true,
+  "task_status_present": false,
+  "terminal_class": "task_failed",
+  "terminal_evidence_scope": "COMPLETE_LAUNCHER_TASK_RECORD; HOST_DIAGNOSTIC_TOTALS_NOT_CAPTURED",
+  "terminal_observed": true,
+  "waiter_exit_code_status": "NOT_CAPTURED_AFTER_DRIVER_INTERRUPTION"
+}

@@ -1,0 +1,97 @@
+{
+  "attempt_id": "m8-4-a-02",
+  "capture_complete": true,
+  "counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 0,
+    "correction_requested": 0,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 8,
+    "initial_action_rejected": 0,
+    "initial_action_responses": 8,
+    "missing_text": 0,
+    "model_response_rejected": 0,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 0,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    }
+  ],
+  "host_pids": [
+    "15788"
+  ],
+  "raw_log_sha256": "6a42316383dc55a7523c0dda833d3ceec85f9200338c4d11e053048a956cf07a"
+}

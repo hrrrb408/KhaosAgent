@@ -1,0 +1,21 @@
+{
+  "attempt_id": "m8-4-c-02",
+  "authorization_sha256": "4d76cd86b15b17ae319a1c2513a0b5f7b715ab5d0cb74968ac2fdd966c2db4c7",
+  "coding_outcome": "NO_CANDIDATE",
+  "diagnostic_collection_gap": true,
+  "evidence_completeness": "INCOMPLETE_HOST_DIAGNOSTIC_GAP",
+  "formal_attempt_started": true,
+  "grader_status": "COMPLETED",
+  "group": "C",
+  "normalization_exact_total": "NOT_CAPTURED",
+  "normalization_observed_count": 0,
+  "original_driver_interrupted": true,
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "remote_completion_requests": "NOT_CAPTURED",
+  "source_commit": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a",
+  "status": "COMPLETED_ANALYZED_WITH_DIAGNOSTIC_GAP",
+  "task_terminal_evidence": "COMPLETE",
+  "terminal_class": "task_failed",
+  "waiter_exit_code_status": "NOT_CAPTURED",
+  "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5"
+}

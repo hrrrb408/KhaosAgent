@@ -1,0 +1,143 @@
+{
+  "agent_final_response_observed": true,
+  "agent_host_termination_observed": false,
+  "attempt_association_complete": true,
+  "attempt_id": "m8-4-a-02",
+  "bounded_result_bytes": 4159,
+  "capture_process_completed": true,
+  "captured_host_pids": [
+    "15788"
+  ],
+  "conflicting_terminal_markers": false,
+  "cumulative_runner_seconds": 40.034,
+  "diagnostic_capture_complete": true,
+  "error_code": null,
+  "event": "terminal_outcome",
+  "event_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 0,
+    "correction_requested": 0,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 8,
+    "initial_action_rejected": 0,
+    "initial_action_responses": 8,
+    "missing_text": 0,
+    "model_response_rejected": 0,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 0,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "evidence_complete": true,
+  "executed_command_return_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "host_diagnostic_events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    }
+  ],
+  "input_bytes": {
+    "agenthost_diagnostics": 3016,
+    "stderr": 2250,
+    "stdout": 795
+  },
+  "input_sha256": {
+    "agenthost_diagnostics": "6a42316383dc55a7523c0dda833d3ceec85f9200338c4d11e053048a956cf07a",
+    "stderr": "b183f96513fc02628b76a1fdeca72cbceff7dcbf4dcb31ad39b5bbcc8744392e",
+    "stdout": "c131ba87d8556a07c77bf5d8149542529902bdad9db677d4b0f961acb12d8f1c"
+  },
+  "input_truncated": {
+    "agenthost_diagnostics": false,
+    "stderr": false,
+    "stdout": false
+  },
+  "last_observed_tool_sequence": 7,
+  "launch_services_waiter_exit_code": 0,
+  "launcher_termination_observed": false,
+  "observed_at_utc": "2026-10-18T08:31:34.512071+00:00",
+  "observed_error_codes": [],
+  "observed_tool_proposals": 7,
+  "reason_code": "final_response",
+  "source": "launcher_task_status",
+  "synthetic": false,
+  "task_record_present": true,
+  "task_status_present": true,
+  "terminal_class": "task_completed",
+  "terminal_observed": true
+}

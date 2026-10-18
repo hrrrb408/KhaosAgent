@@ -82,7 +82,7 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext 架构设计文档.md",
+      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
@@ -535,9 +535,20 @@
       ]
     },
     {
+      "path": "tests/macos_xpc_probe/AgentHostACContractProbe.swift",
+      "role": "build-governance",
+      "sha256": "ade4c06b0ca0ac12345970ab77ad7f529dcda90ab136c417afadbcb27ab83631",
+      "source_mode": "0o644",
+      "boundary": "reviewed M8.4 deterministic comparison test; not runtime authority",
+      "tests": [
+        "tests/test_m8_4_contract.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
       "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
       "role": "build-governance",
-      "sha256": "a6ce7cf367c36be77ec278112dc60e9d16025a0cf9ca4fb1634af80d0696db16",
+      "sha256": "eb06324f20fba47fea00187b950ef59409c7e80014736472342c0ffa6d012c47",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -878,7 +889,7 @@
     {
       "path": "tests/test_agent_terminal_capture.py",
       "role": "build-governance",
-      "sha256": "9e9f3a5dc6eea4b6ce2a30632eeab6f8b991126fe46dbd794d822968c9b9eb31",
+      "sha256": "48de1d655dcb9be47e3e09c58ff7c4efda1f9890f86df18d91265d3c376aeff6",
       "source_mode": "0o644",
       "boundary": "reviewed test input; exercises sanitized terminal evidence capture and is not runtime authority",
       "tests": [
@@ -920,6 +931,17 @@
       ]
     },
     {
+      "path": "tests/test_m8_4_contract.py",
+      "role": "build-governance",
+      "sha256": "858cc8f5108f06df7c9f245fe50d259c21e86ffaf57a255e0d5d2229f3d5cce6",
+      "source_mode": "0o644",
+      "boundary": "reviewed M8.4 deterministic comparison test; not runtime authority",
+      "tests": [
+        "tests/test_m8_4_contract.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
       "path": "tests/test_macos_seatbelt.py",
       "role": "build-governance",
       "sha256": "5caf16409df972b3512dad26460b9021a79a5bcad0d44c8ac1d8cf839370f931",
@@ -944,7 +966,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "8366522dcbd726ca0745f3ac1b09315320086d93648315229cc3add59f0d56ed",
+      "sha256": "aa6f49c92842dee64c56c5c6d36e88fca4dd38c4d7230bdb667b2421654ed8da",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -1087,7 +1109,7 @@
     {
       "path": "tools/build_macos_seed.py",
       "role": "build-governance",
-      "sha256": "59a8c7facf19ec7a998ca70b75b52391230a8d54cce47120ab20c6f4917cf0d2",
+      "sha256": "39164567427c88cc4996fa0bc668e5b688bb4bfa3744f9011bc4954fecdeaa5f",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

@@ -1,0 +1,21 @@
+{
+  "all_test_commands_passed": false,
+  "attempt_id": "m8-4-c-01",
+  "baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "excluded_test_edits": [],
+  "grade_status": "COMPLETED",
+  "graded_candidate_paths": [],
+  "grader_exit_code": 0,
+  "grader_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "grader_stdout_sha256": "61e1f9e9f60749c5cdda968f2017ad01ee897f0a0d4bdbea18f0d17fc8f1d96b",
+  "hidden_patch_applied": true,
+  "hidden_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+  "raw_grade_sha256": "cc477a18d4bcb07077bec698d026328d6a9528f52d6069f79cc04717e2647855",
+  "raw_test_output_committed": false,
+  "return_codes": [
+    1
+  ],
+  "timed_out": [
+    false
+  ]
+}

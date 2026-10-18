@@ -390,6 +390,43 @@ class AgentTerminalCaptureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.summarize(attempt_id="attempt\nsecret")
 
+    def test_normalization_counts_require_subsequent_semantic_acceptance(self) -> None:
+        events = [
+            "event=action_response_received attempt=initial",
+            "event=action_text_normalized attempt=initial raw=PRIVATE_CANARY",
+            "event=initial_response_failed attempt=initial stage=action_field_types error=invalid_model_output_field_types",
+            "event=correction_requested cause=model_field_types",
+            "event=action_response_received attempt=correction",
+            "event=action_text_normalized attempt=correction",
+            "event=action_response_accepted attempt=correction",
+            "event=correction_response_accepted attempt=correction",
+            "event=action_response_received attempt=initial",
+            "event=action_response_accepted attempt=initial",
+        ]
+        summary = self.summarize(agenthost_diagnostics="\n".join(
+            "agent-host-model-diagnostic " + event for event in events
+        ))
+        counts = summary["event_counts"]
+        for key, expected in {
+            "initial_action_responses": 2, "initial_action_accepted": 1,
+            "initial_action_rejected": 1, "normalization_applied": 2,
+            "normalization_accepted": 1, "missing_text": 2,
+            "correction_requested": 1, "correction_accepted": 1,
+        }.items():
+            self.assertEqual(counts[key], expected, key)
+        self.assertNotIn("PRIVATE_CANARY", json.dumps(summary))
+        self.assertNotIn("raw", summary["host_diagnostic_events"][1])
+
+    def test_diagnostic_capacity_covers_budget_and_reports_overflow(self) -> None:
+        events = "\n".join(
+            "agent-host-model-diagnostic event=action_response_received attempt=initial"
+            for _ in range(200)
+        )
+        summary = self.summarize(agenthost_diagnostics=events)
+        self.assertEqual(len(summary["host_diagnostic_events"]), 128)
+        self.assertEqual(summary["event_counts"]["diagnostic_events_dropped"], 72)
+        self.assertFalse(summary["diagnostic_capture_complete"])
+
     def test_snapshot_cli_writes_only_sanitized_attempt_summary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

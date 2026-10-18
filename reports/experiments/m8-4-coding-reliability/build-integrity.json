@@ -1,0 +1,99 @@
+{
+  "A": {
+    "build_configuration": {
+      "agent_action_diagnostics": true,
+      "architecture": "arm64",
+      "build_version": "1",
+      "builder_sha256": "39164567427c88cc4996fa0bc668e5b688bb4bfa3744f9011bc4954fecdeaa5f",
+      "certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+      "input_policy": "recorded-development-inputs",
+      "macos": "27.0.1",
+      "python_version": "3.13.4 (main, Jun  3 2025, 15:34:24) [Clang 17.0.0 (clang-1700.0.13.3)]",
+      "schema": 1,
+      "sdk": "27.0",
+      "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+    },
+    "executables": {
+      "agent_host": {
+        "signed_sha256": "3b4cd0eb8b2f7108eeed4b35eb68cfa3b14e91c9618d65b44232ff047291ecb4",
+        "unsigned_copy_sha256": "d7c0139c2be0866a0956724ff9ce795452d6d8aac3a3c24bc8143f2d3dc81a4d"
+      },
+      "kernel": {
+        "signed_sha256": "dc51663095e976a73cd922f227d58157b98288b4097d046fad0bdf8c08433d34",
+        "unsigned_copy_sha256": "6764bfb97c69770faa2efcb8c97c35cbf4135f7fbed0a2249002d5bf53ab3745"
+      },
+      "launcher": {
+        "signed_sha256": "3c6482101bc8bec75ab2d420eba2b899581fc5be75aa028fae175a1a06e0996e",
+        "unsigned_copy_sha256": "302131b233a45cc0717f9b28d3397c9157d09db27b4088a1f930fdbce1fbc32d"
+      },
+      "snapshot_broker": {
+        "signed_sha256": "f36ca287bac40c3eab2bac48dadb4423ccbf2be0324d5b75e2d5ee96a9e476db",
+        "unsigned_copy_sha256": "32021ab659109afa693af0c13c17b41ee603386e4ba2487b065bd40bf9e68d88"
+      }
+    },
+    "source_commit": "7f1399be6475a0e9db9893d557990565d0ff94c6"
+  },
+  "C": {
+    "build_configuration": {
+      "agent_action_diagnostics": true,
+      "architecture": "arm64",
+      "build_version": "1",
+      "builder_sha256": "39164567427c88cc4996fa0bc668e5b688bb4bfa3744f9011bc4954fecdeaa5f",
+      "certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+      "input_policy": "recorded-development-inputs",
+      "macos": "27.0.1",
+      "python_version": "3.13.4 (main, Jun  3 2025, 15:34:24) [Clang 17.0.0 (clang-1700.0.13.3)]",
+      "schema": 1,
+      "sdk": "27.0",
+      "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+    },
+    "executables": {
+      "agent_host": {
+        "signed_sha256": "03050dd77cf5ed43d349e8c1c7da88f38e7284f9bc27c2840d7965885a53481a",
+        "unsigned_copy_sha256": "72ccdd9162e2af74966b2e937e7888c63118e10c104808652b53b5691445b9e6"
+      },
+      "kernel": {
+        "signed_sha256": "a94f26322772028a2c78f4d40b77d901d503a8826db366407f74d2d193aaa1bf",
+        "unsigned_copy_sha256": "6764bfb97c69770faa2efcb8c97c35cbf4135f7fbed0a2249002d5bf53ab3745"
+      },
+      "launcher": {
+        "signed_sha256": "fa74a3e747db4226d32331c781f7a73845736b863366de39edabb37ddbbe34d0",
+        "unsigned_copy_sha256": "302131b233a45cc0717f9b28d3397c9157d09db27b4088a1f930fdbce1fbc32d"
+      },
+      "snapshot_broker": {
+        "signed_sha256": "7e4fdb49c6d366c6e530dd57ae9354eaca37141e3243d1aeb650ffe852dddfb9",
+        "unsigned_copy_sha256": "32021ab659109afa693af0c13c17b41ee603386e4ba2487b065bd40bf9e68d88"
+      }
+    },
+    "source_commit": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a"
+  },
+  "group_a_control_patch_sha256": "d7a53a0c923922dc75d321232e99b06ba8585d20481ef4f21ad87deddb7fce22",
+  "identical_entitlements": {
+    "broker": {},
+    "host": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.network.client": true
+    },
+    "kernel": {},
+    "launcher": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.files.user-selected.read-write": true
+    }
+  },
+  "remote_calls_started": 0,
+  "signed_bytes_claim": "separate signatures may differ; unsigned copies are compared without modifying signed products",
+  "source_differences": [
+    "khaos/macos/AgentHostActionOutput.swift"
+  ],
+  "trusted_packaged_byte_differences": [
+    "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction",
+    "Contents/XPCServices/KernelSnapshotBroker.xpc/Contents/MacOS/KernelSnapshotBroker"
+  ],
+  "trusted_packaged_comparison": "PASS: all 3081 other files byte-identical; the two signed executables have identical unsigned copies",
+  "trusted_packaged_file_count": 3083,
+  "trusted_unsigned_binary_equality": {
+    "kernel": true,
+    "launcher": true,
+    "snapshot_broker": true
+  }
+}

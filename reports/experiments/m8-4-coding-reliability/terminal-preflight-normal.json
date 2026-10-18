@@ -1,0 +1,68 @@
+{
+  "agent_final_response_observed": true,
+  "agent_host_termination_observed": false,
+  "attempt_id": "m84-preflight-normal",
+  "bounded_result_bytes": 125,
+  "capture_process_completed": true,
+  "conflicting_terminal_markers": false,
+  "cumulative_runner_seconds": 3.302,
+  "diagnostic_capture_complete": true,
+  "error_code": null,
+  "event": "terminal_outcome",
+  "event_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 0,
+    "correction_requested": 0,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 0,
+    "initial_action_rejected": 0,
+    "initial_action_responses": 0,
+    "missing_text": 0,
+    "model_response_rejected": 0,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 0,
+    "tool_approval_approved": 1,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 1,
+    "tool_execution_completed": 1,
+    "tool_proposal_observed": 1,
+    "tool_response_accepted": 1,
+    "tool_result_returned": 1
+  },
+  "evidence_complete": true,
+  "executed_command_return_codes": [
+    0
+  ],
+  "host_diagnostic_events": [],
+  "input_bytes": {
+    "agenthost_diagnostics": null,
+    "stderr": 350,
+    "stdout": 522
+  },
+  "input_sha256": {
+    "agenthost_diagnostics": null,
+    "stderr": "f43499d471ec3df54c3746b80f435c9c4e55d41ef209f94f74913b4f6a0759d1",
+    "stdout": "79b62919c543a7ca2cdeebc38ad792efb0ec680e83a6c9368e91eabaafebb9d0"
+  },
+  "input_truncated": {
+    "agenthost_diagnostics": false,
+    "stderr": false,
+    "stdout": false
+  },
+  "last_observed_tool_sequence": 1,
+  "launch_services_waiter_exit_code": 0,
+  "launcher_termination_observed": false,
+  "observed_at_utc": "2026-10-18T02:49:54.717995+00:00",
+  "observed_error_codes": [],
+  "observed_tool_proposals": 1,
+  "reason_code": "final_response",
+  "source": "launcher_task_status",
+  "synthetic": true,
+  "task_record_present": true,
+  "task_status_present": true,
+  "terminal_class": "task_completed",
+  "terminal_observed": true
+}

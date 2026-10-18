@@ -1,0 +1,32 @@
+{
+  "A": {
+    "deep_signature": "PASS",
+    "bootstrap": "PASS",
+    "signed_host_diagnostic": "PASS",
+    "synthetic_events": [
+      "event=harness_state_rejected attempt=none stage=harness_state error=tool_result_without_pending_proposal"
+    ],
+    "event_bytes": 104,
+    "host_signed_bytes_preserved": true,
+    "host_sha256": "3b4cd0eb8b2f7108eeed4b35eb68cfa3b14e91c9618d65b44232ff047291ecb4",
+    "api_key_present": false,
+    "user_turns_sent": 0,
+    "remote_calls": 0,
+    "capture_log_sha256": "7f9053e22fdb35df9dd03309fdc10925095a21388986c1292a73e0743f053034"
+  },
+  "C": {
+    "deep_signature": "PASS",
+    "bootstrap": "PASS",
+    "signed_host_diagnostic": "PASS",
+    "synthetic_events": [
+      "event=harness_state_rejected attempt=none stage=harness_state error=tool_result_without_pending_proposal"
+    ],
+    "event_bytes": 104,
+    "host_signed_bytes_preserved": true,
+    "host_sha256": "03050dd77cf5ed43d349e8c1c7da88f38e7284f9bc27c2840d7965885a53481a",
+    "api_key_present": false,
+    "user_turns_sent": 0,
+    "remote_calls": 0,
+    "capture_log_sha256": "a38d057bc3e2f1b6f5ff63b8de56faf7701f5ed0fa715fb5e28d2dd852ed9542"
+  }
+}

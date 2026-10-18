@@ -1,0 +1,151 @@
+{
+  "attempt_id": "m8-4-c-02",
+  "capture_complete": false,
+  "counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": "NOT_CAPTURED",
+    "correction_failed": "NOT_CAPTURED",
+    "correction_requested": "NOT_CAPTURED",
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": "NOT_CAPTURED",
+    "initial_action_accepted": "NOT_CAPTURED",
+    "initial_action_rejected": "NOT_CAPTURED",
+    "initial_action_responses": "NOT_CAPTURED",
+    "missing_text": "NOT_CAPTURED",
+    "model_response_rejected": "NOT_CAPTURED",
+    "normalization_accepted": "NOT_CAPTURED",
+    "normalization_applied": "NOT_CAPTURED",
+    "shape_failures": "NOT_CAPTURED",
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "diagnostic_collection_gap": true,
+  "events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "error": "invalid_agent_action_unused_fields",
+      "event": "initial_response_failed",
+      "stage": "agent_action_validation"
+    },
+    {
+      "event": "correction_requested"
+    },
+    {
+      "attempt": "correction",
+      "event": "action_response_received"
+    },
+    {
+      "actual_key_count": 4,
+      "attempt": "correction",
+      "error": "invalid_model_output_shape",
+      "event": "correction_response_failed",
+      "expected_key_count": 10,
+      "missing_keys": [
+        "text",
+        "pluginID",
+        "candidateDigest",
+        "generation",
+        "pluginInput",
+        "evolutionGoal"
+      ],
+      "stage": "action_shape",
+      "unexpected_key_count": 0
+    }
+  ],
+  "exact_host_metrics": "NOT_CAPTURED",
+  "historical_gap_query_event_rows": 0,
+  "host_pids": [
+    "90608"
+  ],
+  "observed_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 1,
+    "correction_requested": 1,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 7,
+    "initial_action_rejected": 1,
+    "initial_action_responses": 8,
+    "missing_text": 1,
+    "model_response_rejected": 2,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 1,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "original_log_sha256": "6e1baa0710b702f797a28dfa5691ac6d5456ecdb635abee14183b2f177276067",
+  "raw_log_sha256": "16a9a3ef5f6428548a17cd157b4be63b732340adde29bb3526bbfed1fec26e3f",
+  "resumed_log_sha256": "0608b430d00fdb71e5afe3be76d83846684a5ae2483b1f510f020d5cbbd44909"
+}
