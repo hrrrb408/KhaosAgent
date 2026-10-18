@@ -274,20 +274,47 @@ enum TrustedCandidateBPreview {
             && script.contains("sys.argv")
     }
 
+    static func canonicalPythonJSONString(_ value: String) -> String {
+        var result = "\""
+        for scalar in value.unicodeScalars {
+            switch scalar.value {
+            case 0x08: result += "\\b"
+            case 0x09: result += "\\t"
+            case 0x0A: result += "\\n"
+            case 0x0C: result += "\\f"
+            case 0x0D: result += "\\r"
+            case 0x22: result += "\\\""
+            case 0x5C: result += "\\\\"
+            case 0x00...0x1F, 0x7F...0xFFFF:
+                result += pythonUnicodeEscape(scalar.value)
+            case 0x20...0x7E:
+                result.unicodeScalars.append(scalar)
+            default:
+                let offset = scalar.value - 0x10000
+                result += pythonUnicodeEscape(0xD800 + (offset >> 10))
+                result += pythonUnicodeEscape(0xDC00 + (offset & 0x3FF))
+            }
+        }
+        result += "\""
+        return result
+    }
+
     private static func decodeCanonicalJSONString(_ value: String) -> String? {
         guard let data = value.data(using: .utf8),
               let decoded = try? JSONSerialization.jsonObject(
                 with: data,
                 options: [.fragmentsAllowed]
               ) as? String,
-              let canonical = try? JSONSerialization.data(
-                withJSONObject: decoded,
-                options: [.fragmentsAllowed, .withoutEscapingSlashes]
-              ),
-              canonical == data else {
+              canonicalPythonJSONString(decoded) == value else {
             return nil
         }
         return decoded
+    }
+
+    private static func pythonUnicodeEscape(_ codeUnit: UInt32) -> String {
+        let hexadecimal = String(codeUnit, radix: 16)
+        return "\\u" + String(repeating: "0", count: max(0, 4 - hexadecimal.count))
+            + hexadecimal
     }
 
     private static func validRelativePath(_ path: String) -> Bool {

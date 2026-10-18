@@ -4,6 +4,19 @@ import Foundation
 @main
 enum TrustedEditApprovalProbe {
     static func main() {
+        if CommandLine.arguments.contains("--fixed-script-json") {
+            printJSON(["fixed_script": TrustedCandidateBPreview.fixedEditScript])
+            return
+        }
+        if CommandLine.arguments.contains("--parse-python-fixtures") {
+            do {
+                try parsePythonFixtures()
+            } catch {
+                fail("Python fixture parsing failed: \(error)")
+            }
+            return
+        }
+
         let fixed = TrustedCandidateBPreview.fixedEditScript
         let oldText = "alpha, beta, "
         let newText = "alpha, beta"
@@ -169,6 +182,99 @@ enum TrustedEditApprovalProbe {
         print("candidate-b-fixed-script-sha256=\(TrustedCandidateBPreview.fixedScriptSHA256)")
     }
 
+    private static func parsePythonFixtures() throws {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        guard let fixtures = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            fail("Python fixtures were not a JSON array")
+        }
+        var records: [[String: Any]] = []
+        for fixture in fixtures {
+            guard let caseID = fixture["case_id"] as? String,
+                  let pythonInput = fixture["python_input"] as? [String: Any],
+                  let expectedDecision = fixture["expected_decision"] as? String,
+                  let argv = fixture["runner_argv"] as? [String],
+                  let path = pythonInput["path"] as? String else {
+                fail("Python fixture has an invalid shape")
+            }
+            var record: [String: Any] = [
+                "case_id": caseID,
+                "python_input": pythonInput,
+                "python_encoded_argv": fixture["python_encoded_argv"] as? [String] ?? argv,
+                "runner_argv": argv,
+                "expected_decision": expectedDecision,
+                "fixture_note": fixture["fixture_note"] as? String ?? "",
+            ]
+            do {
+                let source = try TrustedAgentRunnerSource.make(argv: argv)
+                let sourceDigest = KernelWorkspaceXPC.runnerSourceSHA256(source)
+                record["runner_source"] = source
+                record["runner_source_sha256"] = sourceDigest
+                switch TrustedCandidateBPreview.parse(
+                    runnerSource: source,
+                    runnerSourceSHA256: sourceDigest,
+                    readScope: [path],
+                    writeScope: [path]
+                ) {
+                case let .complete(edit):
+                    let requestID = KernelWorkspaceXPC.newRequestID()
+                    let request = KernelWorkspaceXPC.WorkspaceRunRequest(
+                        timeoutSeconds: 30,
+                        runnerSource: source,
+                        runnerSourceSHA256: sourceDigest,
+                        workspaceReadScope: [path],
+                        workspaceWriteScope: [path]
+                    )
+                    let invocation = try KernelWorkspaceXPC.encodeInvocation(
+                        request: request,
+                        requestID: requestID,
+                        bookmark: Data([1, 2, 3])
+                    )
+                    let requestDigest = KernelWorkspaceXPC.sha256Hex(invocation)
+                    record["actual_decision"] = "COMPLETE"
+                    record["swift_parsed_values"] = [
+                        "argv": edit.argv,
+                        "path": edit.path,
+                        "oldText": edit.oldText,
+                        "newText": edit.newText,
+                    ]
+                    record["request_id"] = requestID.token
+                    record["request_sha256"] = requestDigest
+                    record["preview_summary"] = edit.summary(
+                        workspacePath: "/tmp/python-swift-fixture",
+                        requestSHA256: requestDigest
+                    )
+                case let .incomplete(reason):
+                    record["actual_decision"] = "PREVIEW_INCOMPLETE"
+                    record["preview_failure"] = reason
+                    record["swift_parsed_values"] = NSNull()
+                case .ordinaryRequest:
+                    record["actual_decision"] = "ORDINARY_REQUEST"
+                    record["swift_parsed_values"] = NSNull()
+                }
+            } catch {
+                record["runner_source"] = NSNull()
+                record["runner_source_sha256"] = NSNull()
+                record["actual_decision"] = TrustedCandidateBPreview.isCandidateBLike(argv)
+                    ? "PREVIEW_INCOMPLETE"
+                    : "NOT_RUN"
+                record["preview_failure"] = "Runner source exceeded its byte limit."
+                record["swift_parsed_values"] = NSNull()
+            }
+            records.append(record)
+        }
+        printJSON(["cases": records])
+    }
+
+    private static func printJSON(_ value: Any) {
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: value,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ) else {
+            fail("could not encode JSON output")
+        }
+        FileHandle.standardOutput.write(data)
+    }
+
     private static func candidateArgv(
         path: String = "tags.py",
         oldText: String,
@@ -225,11 +331,7 @@ enum TrustedEditApprovalProbe {
     }
 
     private static func jsonString(_ value: String) -> String {
-        let data = try! JSONSerialization.data(
-            withJSONObject: value,
-            options: [.fragmentsAllowed, .withoutEscapingSlashes]
-        )
-        return String(decoding: data, as: UTF8.self)
+        TrustedCandidateBPreview.canonicalPythonJSONString(value)
     }
 
     private static func digest(_ source: String) -> String {

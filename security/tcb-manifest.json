@@ -495,10 +495,11 @@
     {
       "path": "khaos/macos/TrustedEditApproval.swift",
       "role": "runtime-tcb",
-      "sha256": "a01cf5bc9f19f85d3262f6b0bf1def75474f7e0c8f7100989a4cc71c03668afd",
+      "sha256": "ce1c3238bd1d5491e054655540616adb0d408eaf72c3df42448a7003da39cdd4",
       "source_mode": "0o644",
       "boundary": "launcher_binary: validates and renders the exact frozen Candidate B request before user approval; performs no workspace read and never imports Plugin code",
       "tests": [
+        "python3 tools/check_security_freeze.py",
         "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed"
       ]
     },
@@ -602,13 +603,14 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
       "role": "build-governance",
-      "sha256": "804235c3cfe6596f74f54bf1741654bebc634c147a2ad57ea1db60a043c25241",
+      "sha256": "ab51a69f0bb94bb0f09ec01d88ec4c22e68da52773bb86828004cb3fa42e37dd",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
-        "tests/test_security_freeze.py",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_model_probe_follows_coding_results_not_output_claims -v",
         "python3 tools/check_security_freeze.py",
-        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_model_probe_follows_coding_results_not_output_claims -v"
+        "tests/test_macos_xpc_sandbox.py::test_seed_app_builds_and_authenticates_its_kernel_service",
+        "tests/test_security_freeze.py"
       ]
     },
     {
@@ -814,14 +816,14 @@
     {
       "path": "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift",
       "role": "build-governance",
-      "sha256": "3ffd6be750dbec61ef7f35bf53720107275e282ae5801d77bd081bcefd4f2086",
+      "sha256": "cf2141d8cd22f0fedc313e1d566e630cf8aace6a1aad126c629e99ea11b7938c",
       "source_mode": "0o644",
       "boundary": "development-only Swift source probe; not shipped and not runtime authority",
       "tests": [
-        "tests/test_macos_xpc_sandbox.py",
-        "tests/test_security_freeze.py",
         "python3 tools/check_security_freeze.py",
-        "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed"
+        "tests/test_macos_xpc_sandbox.py",
+        "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed",
+        "tests/test_security_freeze.py"
       ]
     },
     {
@@ -1014,31 +1016,34 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "b1e43b149a2f987c55338df36f0bc43ad3d8edcca9266b62f7a8b90240b23663",
+      "sha256": "de2b25c3887959fc9adf051e4354207ef48bc931ac414b4d1c77f11837fe21a5",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
-        "tests/test_security_freeze.py",
-        "python3 tools/check_security_freeze.py",
+        "python3 -m unittest discover -s tests -p test_broker.py -k caller_cancel -v",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_action_output_correction_is_single_and_format_only -v",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit -v",
         "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit_probe_runs_through_kernel_and_commits_one_file -k staged_edit_failure_paths_keep_the_committed_state_scoped -v",
+        "python3 tools/check_security_freeze.py",
         "signed-product staged-edit feasibility: KHAOS_RUN_PRODUCT_STAGED_EDIT_FEASIBILITY_UI=1; exact isolated tags.py scope; one Run once decision",
         "signed-product staged-edit refusal: KHAOS_RUN_PRODUCT_STAGED_EDIT_REFUSAL_UI=1; exact isolated tags.py scope; Cancel; zero Runner executions",
+        "test_staged_edit_cancellation_after_private_replace_discards_snapshot",
+        "test_staged_edit_cancellation_after_source_read_before_replace_discards_snapshot",
+        "test_staged_edit_case_and_unicode_aliases_do_not_escape_exact_scope",
+        "test_staged_edit_commit_race_preserves_concurrent_live_target",
+        "test_staged_edit_link_and_hardlink_targets_preserve_canaries",
+        "test_staged_edit_parent_rename_to_symlink_after_read_cannot_escape",
         "test_staged_edit_path_spellings_and_out_of_scope_targets",
         "test_staged_edit_rejects_invalid_replacement_baselines",
-        "test_staged_edit_link_and_hardlink_targets_preserve_canaries",
-        "test_staged_edit_case_and_unicode_aliases_do_not_escape_exact_scope",
-        "test_staged_edit_unicode_normalization_alias_respects_exact_scope",
         "test_staged_edit_rejects_target_swap_and_unreadable_baseline_reads",
-        "test_staged_edit_parent_rename_to_symlink_after_read_cannot_escape",
         "test_staged_edit_rejects_unauthorized_changeset_and_temp_collision",
-        "test_staged_edit_cancellation_after_source_read_before_replace_discards_snapshot",
-        "test_staged_edit_cancellation_after_private_replace_discards_snapshot",
-        "test_staged_edit_commit_race_preserves_concurrent_live_target",
-        "test_staged_edit_runner_termination_before_replace_discards_snapshot",
         "test_staged_edit_runner_termination_after_replace_discards_snapshot",
-        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit -v",
-        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_action_output_correction_is_single_and_format_only -v",
-        "python3 -m unittest discover -s tests -p test_broker.py -k caller_cancel -v"
+        "test_staged_edit_runner_termination_before_replace_discards_snapshot",
+        "test_staged_edit_unicode_normalization_alias_respects_exact_scope",
+        "tests/test_macos_xpc_sandbox.py::test_launcher_workspace_command_cancellation_is_task_and_connection_bound",
+        "tests/test_macos_xpc_sandbox.py::test_seed_app_builds_and_authenticates_its_kernel_service",
+        "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed",
+        "tests/test_security_freeze.py"
       ]
     },
     {

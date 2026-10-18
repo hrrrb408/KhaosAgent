@@ -2189,6 +2189,185 @@ Path.read_text = read_then_hold
                 result.stdout,
                 r"candidate-b-fixed-script-sha256=[0-9a-f]{64}",
             )
+            self._assert_python_candidate_b_interop(probe)
+
+    def _assert_python_candidate_b_interop(self, probe: Path) -> None:
+        fixed_script_result = subprocess.run(
+            [str(probe), "--fixed-script-json"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(
+            fixed_script_result.returncode,
+            0,
+            fixed_script_result.stdout + fixed_script_result.stderr,
+        )
+        fixed_script = json.loads(fixed_script_result.stdout)["fixed_script"]
+
+        def json_argument(value: str, *, ensure_ascii: bool = True) -> str:
+            return json.dumps(
+                value,
+                ensure_ascii=ensure_ascii,
+                separators=(",", ":"),
+            )
+
+        fixtures: list[dict[str, object]] = []
+
+        def add_case(
+            case_id: str,
+            old_text: str,
+            new_text: str,
+            *,
+            path: str = "tags.py",
+            script: str = fixed_script,
+            expected: str = "COMPLETE",
+            runner_argv: list[str] | None = None,
+            note: str = "",
+        ) -> None:
+            encoded_argv = [
+                "python3",
+                "-I",
+                "-B",
+                "-c",
+                f"exec({json_argument(script)})",
+                path,
+                json_argument(old_text),
+                json_argument(new_text),
+            ]
+            fixtures.append(
+                {
+                    "case_id": case_id,
+                    "python_input": {
+                        "path": path,
+                        "oldText": old_text,
+                        "newText": new_text,
+                    },
+                    "python_encoded_argv": encoded_argv,
+                    "runner_argv": runner_argv or encoded_argv,
+                    "expected_decision": expected,
+                    "fixture_note": note,
+                }
+            )
+
+        add_case("C01", "replace me", "replacement")
+        add_case("C02", "你好", "再见")
+        add_case("C03", "emoji 🙂", "emoji 🧪")
+        add_case(
+            "C04",
+            "def value():\n    return 1\n",
+            "def value():\n    return 2\n",
+        )
+        add_case("C05", "first\r\nsecond", "first\r\nchanged")
+        add_case("C06", "first\nsecond", "first\nchanged")
+        add_case("C07", 'say "hello"', "say 'goodbye'")
+        add_case("C08", r"C:\work\tags.py", r"D:\data\tags.py")
+        add_case("C09", "before\tvalue", "after\tvalue")
+        add_case("C19", "before\b\f\tvalue", "after\b\f\tvalue")
+        add_case("C10", r"literal \u4f60", r"literal \u597d")
+        add_case("C11", "rocket \U0001f680", "lab \U0001f9ea")
+        add_case("C12", "remove this", "")
+        add_case("C13", "x" * 4_094, "short", note="argv[6] is exactly 4096 UTF-8 bytes")
+        add_case(
+            "C14",
+            "x" * 4_095,
+            "short",
+            expected="PREVIEW_INCOMPLETE",
+            note="argv[6] is 4097 UTF-8 bytes",
+        )
+        add_case("C15A", "old", "new", path="p" * 128, note="maximum accepted path length")
+        add_case(
+            "C15B",
+            "old",
+            "new",
+            path="p" * 129,
+            expected="PREVIEW_INCOMPLETE",
+            note="one byte beyond the AgentHost path bound",
+        )
+        add_case(
+            "C16",
+            "old",
+            "new",
+            script=fixed_script + "\nprint('changed')",
+            expected="PREVIEW_INCOMPLETE",
+            note="Python encoding is valid, but the fixed Runner script identity changed",
+        )
+        canonical_unicode_argv = [
+            "python3",
+            "-I",
+            "-B",
+            "-c",
+            f"exec({json_argument(fixed_script)})",
+            "tags.py",
+            json_argument("你好"),
+            json_argument("再见"),
+        ]
+        noncanonical_unicode_argv = list(canonical_unicode_argv)
+        noncanonical_unicode_argv[6] = json_argument("你好", ensure_ascii=False)
+        noncanonical_unicode_argv[7] = json_argument("再见", ensure_ascii=False)
+        add_case(
+            "C17",
+            "你好",
+            "再见",
+            expected="PREVIEW_INCOMPLETE",
+            runner_argv=noncanonical_unicode_argv,
+            note="equivalent ensure_ascii=False spelling must fail the single canonical encoding",
+        )
+        boundary_text = "".join(chr(value) for value in (0x7F, 0x80, 0x7FF, 0x800, 0x2028, 0x2029, 0x10FFFF))
+        add_case(
+            "C18",
+            boundary_text,
+            "boundary / café",
+            note="Python/Swift boundary scalars including DEL, separators, and U+10FFFF",
+        )
+
+        parsed_fixtures = subprocess.run(
+            [str(probe), "--parse-python-fixtures"],
+            input=json.dumps(fixtures, ensure_ascii=True, separators=(",", ":")),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertEqual(
+            parsed_fixtures.returncode,
+            0,
+            parsed_fixtures.stdout + parsed_fixtures.stderr,
+        )
+        cases = json.loads(parsed_fixtures.stdout)["cases"]
+        self.assertEqual(len(cases), len(fixtures))
+        for case in cases:
+            with self.subTest(case=case["case_id"]):
+                self.assertEqual(case["actual_decision"], case["expected_decision"])
+                if case["expected_decision"] == "COMPLETE":
+                    parsed = case["swift_parsed_values"]
+                    self.assertEqual(parsed["argv"], case["runner_argv"])
+                    self.assertEqual(parsed["path"], case["python_input"]["path"])
+                    self.assertEqual(parsed["oldText"], case["python_input"]["oldText"])
+                    self.assertEqual(parsed["newText"], case["python_input"]["newText"])
+                    self.assertRegex(case["request_sha256"], r"^[0-9a-f]{64}$")
+                    self.assertIn(case["request_sha256"], case["preview_summary"])
+                    self.assertIsInstance(case["runner_source"], str)
+                else:
+                    self.assertIsNone(case["swift_parsed_values"])
+
+        evidence_path = os.environ.get("KHAOS_PYTHON_SWIFT_EVIDENCE_PATH")
+        if evidence_path:
+            Path(evidence_path).write_text(
+                json.dumps(
+                    {
+                        "format": "khaos-candidate-b-python-swift-golden-v1",
+                        "encoding": "Python json.dumps(ensure_ascii=True, separators=(\",\", \":\"))",
+                        "python_version": sys.version,
+                        "cases": cases,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
     def test_launcher_workspace_command_cancellation_is_task_and_connection_bound(self) -> None:
         swiftc = subprocess.run(
@@ -2730,6 +2909,9 @@ Path.read_text = read_then_hold
         staged_edit_refusal = (
             os.environ.get("KHAOS_RUN_PRODUCT_STAGED_EDIT_REFUSAL_UI") == "1"
         )
+        staged_edit_complex_review = (
+            os.environ.get("KHAOS_RUN_PRODUCT_STAGED_EDIT_REVIEW_UI") == "1"
+        )
         bigmodel_coding_loop = (
             os.environ.get("KHAOS_RUN_PRODUCT_BIGMODEL_CODING_LOOP_UI") == "1"
         )
@@ -2744,6 +2926,7 @@ Path.read_text = read_then_hold
             deterministic_coding_loop,
             staged_edit_feasibility,
             staged_edit_refusal,
+            staged_edit_complex_review,
             bigmodel_coding_loop,
             bigmodel_data_denial,
         )) > 1:
@@ -3464,6 +3647,23 @@ Path.read_text = read_then_hold
                     staged_edit_refusal_only=True,
                 )
 
+            if staged_edit_complex_review:
+                evidence_value = os.environ.get(
+                    "KHAOS_STAGED_EDIT_REVIEW_EVIDENCE_PATH"
+                )
+                self.assertTrue(
+                    evidence_value,
+                    "KHAOS_STAGED_EDIT_REVIEW_EVIDENCE_PATH is required to preserve acceptance evidence",
+                )
+                self._assert_product_coding_loop_acceptance(
+                    product_app=product_app,
+                    product_launcher=product_launcher,
+                    scratch=root,
+                    evidence_path=Path(evidence_value),
+                    bigmodel_provider=None,
+                    staged_edit_complex_review_only=True,
+                )
+
             if real_model_coding_loop:
                 evidence_value = os.environ.get(
                     "KHAOS_REAL_MODEL_CODING_LOOP_EVIDENCE_PATH"
@@ -3518,6 +3718,7 @@ Path.read_text = read_then_hold
                 deterministic_coding_loop,
                 staged_edit_feasibility,
                 staged_edit_refusal,
+                staged_edit_complex_review,
                 real_model_coding_loop,
                 bigmodel_coding_loop,
                 bigmodel_data_denial,
@@ -7266,6 +7467,7 @@ def run():
         remote_data_denial_only: bool = False,
         staged_edit_feasibility_only: bool = False,
         staged_edit_refusal_only: bool = False,
+        staged_edit_complex_review_only: bool = False,
     ) -> None:
         report_path = evidence_path.expanduser().absolute()
         if report_path.exists():
@@ -7278,6 +7480,8 @@ def run():
                 if staged_edit_feasibility_only
                 else "khaos-signed-runner-staged-edit-refusal-v1"
                 if staged_edit_refusal_only
+                else "khaos-signed-candidate-b-reviewability-v1"
+                if staged_edit_complex_review_only
                 else "khaos-bigmodel-data-refusal-acceptance-v1"
                 if remote_data_denial_only
                 else "khaos-bounded-coding-loop-acceptance-v1"
@@ -7294,6 +7498,9 @@ def run():
                 "signed-runner-staged-edit-refusal"
                 if staged_edit_refusal_only
                 else
+                "signed-candidate-b-complex-reviewability"
+                if staged_edit_complex_review_only
+                else
                 "bigmodel-product"
                 if remote
                 else "local-real-model-product"
@@ -7305,6 +7512,75 @@ def run():
             "terminal_outcomes": {},
             "security_checks": {},
         }
+        if staged_edit_complex_review_only:
+            signature = subprocess.run(
+                ["codesign", "--verify", "--deep", "--strict", str(product_app)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(signature.returncode, 0, signature.stderr)
+            display = subprocess.run(
+                ["codesign", "--display", "--verbose=4", str(product_launcher)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(display.returncode, 0, display.stderr)
+            with (product_app / "Contents" / "Info.plist").open("rb") as stream:
+                product_info = plistlib.load(stream)
+            build_inputs_path = (
+                product_app / "Contents" / "Resources" / "build-inputs.json"
+            )
+            build_inputs = json.loads(build_inputs_path.read_text(encoding="utf-8"))
+            repo_root = Path(__file__).resolve().parents[1]
+            source_head = subprocess.run(
+                ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            kernel_binary = (
+                product_app
+                / "Contents"
+                / "XPCServices"
+                / "KernelProduction.xpc"
+                / "Contents"
+                / "MacOS"
+                / "KernelProduction"
+            )
+            agent_host_binary = (
+                product_app
+                / "Contents"
+                / "XPCServices"
+                / "KhaosAgentHost.xpc"
+                / "Contents"
+                / "MacOS"
+                / "KhaosAgentHost"
+            )
+            report["signed_product"] = {
+                "source_head": source_head,
+                "build_record_sha256": hashlib.sha256(
+                    build_inputs_path.read_bytes()
+                ).hexdigest(),
+                "build_record": build_inputs,
+                "bundle_identifier": product_info.get("CFBundleIdentifier"),
+                "launcher_code_requirement": self._designated_code_requirement(
+                    product_launcher,
+                    "org.khaos.Seed",
+                ),
+                "launcher_signature_details": display.stderr,
+                "launcher_sha256": hashlib.sha256(
+                    product_launcher.read_bytes()
+                ).hexdigest(),
+                "kernel_xpc_sha256": hashlib.sha256(
+                    kernel_binary.read_bytes()
+                ).hexdigest(),
+                "agent_host_sha256": hashlib.sha256(
+                    agent_host_binary.read_bytes()
+                ).hexdigest(),
+                "codesign_deep_strict_verified": True,
+            }
         if real_model:
             agent_host_contents = (
                 product_app
@@ -7759,7 +8035,12 @@ def run():
             workflow = scratch / "coding-loop-workspace"
             coding_workspace(workflow, adversarial_fixture=not real_model)
             initial_tags_mode = (workflow / "tags.py").stat().st_mode & 0o777
-            if staged_edit_feasibility_only or staged_edit_refusal_only:
+            if staged_edit_complex_review_only:
+                review_case = self._python_candidate_b_review_case(scratch)
+                report["candidate_b_review_request"] = review_case["evidence"]
+                flush_report()
+                prompt = str(review_case["prompt"])
+            elif staged_edit_feasibility_only or staged_edit_refusal_only:
                 prompt = (
                     "KHAOS_STAGED_EDIT_FEASIBILITY_PROBE Apply the one fixed staged replacement "
                     "to tags.py in this disposable workspace."
@@ -7781,7 +8062,7 @@ def run():
                 prompt = "KHAOS_CODING_LOOP_PROBE 修复这个项目中的一个失败测试。"
             report["current_stage"] = "single-user-task-coding-workflow"
             flush_report()
-            if staged_edit_refusal_only:
+            if staged_edit_refusal_only or staged_edit_complex_review_only:
                 report["current_stage"] = "signed-staged-edit-refusal"
                 flush_report()
                 initial_source = (workflow / "tags.py").read_bytes()
@@ -7802,10 +8083,21 @@ def run():
                     "agent-session=tool=approval-presented",
                     timeout=120,
                 )
-                gate(
-                    "Review the exact tags.py staged-replacement proposal and choose Cancel. "
-                    "The Runner must not execute and the workspace must remain unchanged."
-                )
+                if staged_edit_complex_review_only:
+                    gate(
+                        "In the signed Candidate B preview, choose View Complete Details. "
+                        "Do not choose Run once. After the details screen is visible, press Return here."
+                    )
+                    gate(
+                        "Scroll the signed details to the bottom and review argv[7], both decoded text values, "
+                        "the exact scopes, Runner source digest, Request ID, and Request SHA-256. "
+                        "Choose Back to Preview, then press Escape to deny. Press Return here after Escape."
+                    )
+                else:
+                    gate(
+                        "Review the exact tags.py staged-replacement proposal and choose Cancel. "
+                        "The Runner must not execute and the workspace must remain unchanged."
+                    )
                 wait_for_marker(
                     process,
                     stdout_path,
@@ -7870,12 +8162,41 @@ def run():
                     "workspace_changes": 0,
                     "task_terminal_class": terminal["terminal_class"],
                 }
+                if staged_edit_complex_review_only:
+                    record_match = re.search(
+                        r"^Launcher task record: (\{.*\})$",
+                        stdout_text,
+                        flags=re.MULTILINE,
+                    )
+                    self.assertIsNotNone(record_match, stdout_text[-4_000:])
+                    task_record = json.loads(record_match.group(1))
+                    self.assertEqual(len(task_record["workspace_requests"]), 1)
+                    workspace_record = task_record["workspace_requests"][0]
+                    self.assertEqual(workspace_record["approval"], "denied")
+                    self.assertEqual(workspace_record["kernel_result"], "not_submitted")
+                    self.assertEqual(workspace_record["runner_execution"], "not_started")
+                    self.assertEqual(workspace_record["commit_outcome"], "not_committed")
+                    self.assertEqual(workspace_record["read_scope"], ["tags.py"])
+                    self.assertEqual(workspace_record["write_scope"], ["tags.py"])
+                    self.assertRegex(
+                        workspace_record["invocation_sha256"],
+                        r"^[0-9a-f]{64}$",
+                    )
+                    report["task_record"] = task_record
+                    report["security_checks"]["signed_candidate_b_reviewability"] = {
+                        "complete_details_opened_by_operator": True,
+                        "bottom_review_and_escape_denial_recorded_by_operator": True,
+                        "request_binding_matches_terminal_record": True,
+                        "runner_execution_count": 0,
+                        "kernel_request_submitted": False,
+                        "workspace_unchanged": True,
+                    }
                 report["status"] = "passed"
                 report["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
                 report.pop("current_stage", None)
                 flush_report()
                 print(
-                    f"Signed Runner staged-edit refusal evidence saved to {report_path}",
+                    f"Signed staged-edit review evidence saved to {report_path}",
                     flush=True,
                 )
                 return
@@ -11432,6 +11753,132 @@ def run():
         match = re.search(r"^> (\{.*\})$", result.stdout, flags=re.MULTILINE)
         self.assertIsNotNone(match, result.stdout)
         return json.loads(match.group(1))
+
+    def _python_candidate_b_review_case(self, scratch: Path) -> dict[str, object]:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        probe = scratch / "TrustedEditApprovalReviewFixtureProbe"
+        compiled = subprocess.run(
+            [
+                swiftc,
+                "-sdk",
+                sdk,
+                "-target",
+                f"{platform.machine()}-apple-macosx26.0",
+                str(MACOS_TCB_SOURCES / "KernelWorkspaceXPC.swift"),
+                str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                str(MACOS_TCB_SOURCES / "TrustedEditApproval.swift"),
+                str(PROBE_SOURCES / "TrustedEditApprovalProbe.swift"),
+                "-o",
+                str(probe),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(compiled.returncode, 0, compiled.stderr)
+        fixed_script_result = subprocess.run(
+            [str(probe), "--fixed-script-json"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(
+            fixed_script_result.returncode,
+            0,
+            fixed_script_result.stdout + fixed_script_result.stderr,
+        )
+        fixed_script = json.loads(fixed_script_result.stdout)["fixed_script"]
+
+        def json_argument(value: str) -> str:
+            return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+
+        old_text = 'value = "旧🙂"\\path\t\u202e\r\nreturn "old"\n'
+        prefix = (
+            'def parse_tags(value):\n'
+            '    # 新 🧪\u202e\r\n'
+            '    text = "quote: \\" slash: \\\\ tab:\t backspace:\b formfeed:\f"\n'
+            '    return "'
+        )
+        suffix = '"\n'
+        filler_size = 4_096 - len(json_argument(prefix + suffix).encode("ascii"))
+        self.assertGreater(filler_size, 0)
+        new_text = prefix + ("x" * filler_size) + suffix
+        new_argument = json_argument(new_text)
+        self.assertEqual(len(new_argument.encode("ascii")), 4_096)
+        self.assertLessEqual(len(new_text.encode("utf-8")), 4_096)
+        argv = [
+            "python3",
+            "-I",
+            "-B",
+            "-c",
+            f"exec({json_argument(fixed_script)})",
+            "tags.py",
+            json_argument(old_text),
+            new_argument,
+        ]
+        self.assertEqual(len(argv), 8)
+        self.assertTrue(all(len(argument.encode("utf-8")) <= 4_096 for argument in argv))
+        fixture = {
+            "case_id": "SIGNED-B38",
+            "python_input": {
+                "path": "tags.py",
+                "oldText": old_text,
+                "newText": new_text,
+            },
+            "python_encoded_argv": argv,
+            "runner_argv": argv,
+            "expected_decision": "COMPLETE",
+            "fixture_note": "complex signed review; argv[7] is exactly 4096 ASCII bytes",
+        }
+        parsed = subprocess.run(
+            [str(probe), "--parse-python-fixtures"],
+            input=json.dumps([fixture], ensure_ascii=True, separators=(",", ":")),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertEqual(parsed.returncode, 0, parsed.stdout + parsed.stderr)
+        parser_record = json.loads(parsed.stdout)["cases"][0]
+        self.assertEqual(parser_record["actual_decision"], "COMPLETE")
+        self.assertEqual(parser_record["swift_parsed_values"]["oldText"], old_text)
+        self.assertEqual(parser_record["swift_parsed_values"]["newText"], new_text)
+        prompt = "KHAOS_STAGED_EDIT_PYTHON_ARGV_PROBE " + json.dumps(
+            argv,
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        return {
+            "prompt": prompt,
+            "evidence": {
+                "argv_origin": "Python stdlib json.dumps(ensure_ascii=True, separators=(\",\", \":\"))",
+                "python_version": sys.version,
+                "candidate_argv": argv,
+                "argv_count": len(argv),
+                "path": "tags.py",
+                "read_scope": ["tags.py"],
+                "write_scope": ["tags.py"],
+                "old_text_utf8_bytes": len(old_text.encode("utf-8")),
+                "new_text_utf8_bytes": len(new_text.encode("utf-8")),
+                "argv_7_utf8_bytes": len(argv[7].encode("utf-8")),
+                "fixed_script_sha256": hashlib.sha256(fixed_script.encode("utf-8")).hexdigest(),
+                "runner_source_sha256": parser_record["runner_source_sha256"],
+                "headless_production_parser_decision": parser_record["actual_decision"],
+            },
+        }
 
     @staticmethod
     def _staged_edit_argv(

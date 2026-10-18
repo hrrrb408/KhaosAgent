@@ -279,6 +279,18 @@ if !sandboxFindings.isEmpty {
 
 let latestUser = latestUserRequest(prompt)
 
+let pythonCandidateBMarker = "KHAOS_STAGED_EDIT_PYTHON_ARGV_PROBE "
+if let marker = latestUser.range(of: pythonCandidateBMarker) {
+    let encodedArgv = String(latestUser[marker.upperBound...])
+    guard let data = encodedArgv.data(using: .utf8),
+          let argv = try? JSONSerialization.jsonObject(with: data) as? [String],
+          argv.count == 8,
+          argv[5] == "tags.py" else {
+        emit(textAction("Python Candidate B fixture was malformed."))
+    }
+    emit(shellAction(argv, readScope: ["tags.py"], writeScope: ["tags.py"]))
+}
+
 if prompt.contains("KHAOS_TERMINAL_INVALID_JSON_PROBE") {
     emitRaw("{ invalid-json")
 }
