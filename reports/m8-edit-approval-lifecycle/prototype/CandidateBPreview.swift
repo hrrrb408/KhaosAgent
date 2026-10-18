@@ -39,7 +39,7 @@ enum CandidateBPreview {
         return lines.map { "\(prefix)\(visible($0))" }
     }
 
-    private static func visible(_ text: String) -> String {
+    static func visible(_ text: String) -> String {
         var result = ""
         for scalar in text.unicodeScalars {
             switch scalar.value {
