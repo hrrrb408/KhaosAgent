@@ -7961,6 +7961,7 @@ def run():
                 and not real_model
                 and not staged_edit_feasibility_only
                 and not staged_edit_refusal_only
+                and not staged_edit_complex_review_only
             ):
                 failure_probes = (
                     ("invalid-json", "KHAOS_TERMINAL_INVALID_JSON_PROBE"),
