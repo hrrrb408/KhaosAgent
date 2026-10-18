@@ -967,7 +967,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "3cedd0604ad90c8e19cf948e0b33b99e3a9e77470fa74f2c7a698ca6d4cd043f",
+      "sha256": "fbfc99fd7d438310c46e4b0ee311ab0c9ccb548af870956037325ee288d92fe2",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -975,7 +975,20 @@
         "python3 tools/check_security_freeze.py",
         "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit_probe_runs_through_kernel_and_commits_one_file -k staged_edit_failure_paths_keep_the_committed_state_scoped -v",
         "signed-product staged-edit feasibility: KHAOS_RUN_PRODUCT_STAGED_EDIT_FEASIBILITY_UI=1; exact isolated tags.py scope; one Run once decision",
-        "signed-product staged-edit refusal: KHAOS_RUN_PRODUCT_STAGED_EDIT_REFUSAL_UI=1; exact isolated tags.py scope; Cancel; zero Runner executions"
+        "signed-product staged-edit refusal: KHAOS_RUN_PRODUCT_STAGED_EDIT_REFUSAL_UI=1; exact isolated tags.py scope; Cancel; zero Runner executions",
+        "test_staged_edit_path_spellings_and_out_of_scope_targets",
+        "test_staged_edit_rejects_invalid_replacement_baselines",
+        "test_staged_edit_link_and_hardlink_targets_preserve_canaries",
+        "test_staged_edit_case_and_unicode_aliases_do_not_escape_exact_scope",
+        "test_staged_edit_unicode_normalization_alias_respects_exact_scope",
+        "test_staged_edit_rejects_target_swap_and_unreadable_baseline_reads",
+        "test_staged_edit_parent_rename_to_symlink_after_read_cannot_escape",
+        "test_staged_edit_rejects_unauthorized_changeset_and_temp_collision",
+        "test_staged_edit_cancellation_after_source_read_before_replace_discards_snapshot",
+        "test_staged_edit_cancellation_after_private_replace_discards_snapshot",
+        "test_staged_edit_commit_race_preserves_concurrent_live_target",
+        "test_staged_edit_runner_termination_before_replace_discards_snapshot",
+        "test_staged_edit_runner_termination_after_replace_discards_snapshot"
       ]
     },
     {
