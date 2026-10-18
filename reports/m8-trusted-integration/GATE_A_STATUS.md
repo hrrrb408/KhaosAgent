@@ -21,7 +21,7 @@
 - Owner authorization: `YES`
 - Independent Code Owner Review: `NOT_PERFORMED — SINGLE_MAINTAINER_MODE`
 - Owner Review: `PENDING`
-- Draft PR: created after final verification; no merge or deployment
+- Draft PR: [#39](https://github.com/hrrrb408/KhaosAgent/pull/39), OPEN/Draft, stacked on PR #38; no merge or deployment
 - Technical Gate A: `NOT_PROVEN`
 - M8.5.2B: `BLOCKED`
 - Production Structured Edit: `NOT_STARTED`

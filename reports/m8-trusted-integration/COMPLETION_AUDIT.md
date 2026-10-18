@@ -17,7 +17,7 @@
 - Security Freeze: `PASS` on the current tree and exact PR #38 base.
 - Owner Review: `PENDING`.
 - Independent Code Owner Review: `NOT_PERFORMED — SINGLE_MAINTAINER_MODE`.
-- Draft PR: pending final Git delivery step; no merge or deployment.
+- Draft PR: [#39](https://github.com/hrrrb408/KhaosAgent/pull/39), OPEN/Draft; no merge or deployment.
 - Technical Gate A: `NOT_PROVEN`.
 - M8.5.2B: `BLOCKED`.
 - Production Structured Edit: `NOT_STARTED`.
@@ -47,5 +47,7 @@ predates this preview/cancellation integration and is not signed UI acceptance f
 this change.
 
 The canonical suite and headless signed Kernel attack passed. No new interactive
-Runner operation, GLM call, merge, or deployment was performed. The draft PR URL
-and commit are recorded here after creation.
+Runner operation, GLM call, merge, or deployment was performed.
+
+- Commit: `6898d55438cb59cb9b24a1f0b2b86f4f01f223d5`
+- Draft PR: [#39](https://github.com/hrrrb408/KhaosAgent/pull/39), based on PR #38 exact head `12c75d75c1464aabd631b092e07903631f692ff6`.
