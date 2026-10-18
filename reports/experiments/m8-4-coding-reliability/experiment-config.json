@@ -13,8 +13,11 @@
   "credential_source": "reuse existing Hermes credential in memory only; never print or archive the value",
   "denied_tool_product_preflight": "PASS_ZERO_EXECUTIONS",
   "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
-  "formal_attempts_completed": 3,
-  "formal_attempts_started": 3,
+  "experiment_closure": "PARTIAL_DIAGNOSTIC_GAP",
+  "extra_attempts_authorized": false,
+  "formal_attempts_completed": 4,
+  "formal_attempts_started": 4,
+  "formal_execution": "COMPLETE_4_OF_4",
   "format": "khaos-m8.4-controlled-benchmark-v1",
   "input_integrity": {
     "frozen_files_sha256": {
@@ -89,12 +92,13 @@
   "protocol_sha256": "fc4518e1e978cf4e747befcf727c7c5e03bac58cfc89d5bda42cd8c0f77ea9af",
   "provider": "bigmodel-coding-plan",
   "raw_retention": "owner-only local directory outside Git workspaces; no raw logs or candidate/grader contents committed",
+  "remaining_formal_slots": 0,
   "signed_host_diagnostic_preflight": "PASS",
   "source_revisions": {
     "A": "7f1399be6475a0e9db9893d557990565d0ff94c6",
     "C": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a"
   },
-  "status": "C02_COMPLETED_AWAITING_FRESH_A02_AUTHORIZATION",
+  "status": "FOUR_FORMAL_ATTEMPTS_COMPLETED_NO_FURTHER_ATTEMPTS",
   "task": "runner-exception-classification",
   "trusted_unsigned_binaries_identical": true
 }

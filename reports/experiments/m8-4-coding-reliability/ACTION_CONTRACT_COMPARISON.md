@@ -1,48 +1,32 @@
 # M8.4 Action Contract comparison
 
-Bounded real-model protocol recovery: OBSERVED; completed formal denominators are A=1 and C=2; a-02 remains NOT_RUN. Exact Host-rate evidence uses only a-01 and c-01 because c-02 collection was interrupted. The comparison is exploratory and incomplete. Deterministic results are excluded from this denominator.
+Formal denominators: A=2, C=2. Exact Host metrics exist for both A attempts and c-01 only. c-02 diagnostic totals are NOT_CAPTURED; its observed events are lower bounds, not zeros or a complete rate denominator. Synthetic and historical results are excluded.
 
-The actual production parsers were compiled independently. A rejects a list/shell response missing only text. C accepts exactly that shape, fills the existing empty string, and preserves original semantic/wire validation. Both reject missing scopes, unknown fields, invalid type/action combinations, incompatible Plugin/evolution fields and denied continuation. Both retain the single-correction limit. Signed diagnostic probes observed A's shape failure and C's normalization plus acceptance; enabling diagnostics did not change output or acceptance.
-
-After authorized runs, the comparison will tabulate received/accepted/rejected initial actions, shape and missing-text failures, corrections, normalizations applied/accepted, tool proposals/approvals/executions and complete terminals. Uncaptured values stay NOT_CAPTURED. No conclusion about actual GLM behavior follows from the current synthetic evidence.
-
-## Completed a-01 observations
-
-A received eight initial responses: six accepted and two rejected (6/8 initial acceptance). Two corrections were requested across different turns: one accepted and one failed. Three total shape failures occurred across ten observed initial/correction responses. Missing text appeared twice: once as the only missing key in a nine-key initial object, and once among six missing correction keys. Strict A applied zero normalizations. Seven proposals were independently approved and executed; no candidate was generated.
-
-The recovered initial failure omitted candidateDigest, generation and pluginInput, which C would also reject structurally. The terminal initial failure omitted only text; its correction then omitted text plus five other required keys and failed. The diagnostics do not preserve the rejected type/value payload, so they cannot prove that the nine-key response would pass C's action-type, field-type or semantic checks. No paired counterfactual or reliability improvement is claimed. The independently run C response evidence below directly establishes actual bounded normalization, without reconstructing A payloads.
-
-Exact denominators, statuses and bounded operation review summaries are in comparison.json and attempts/a-01/. Actual provider request count is NOT_CAPTURED; ten observed model responses are not relabeled as an exact HTTP request count.
-
-## Completed c-01 observations
-
-C received nine initial responses and accepted all nine, with zero shape rejections and zero corrections. Its first eight list/shell responses each omitted only text, triggered the reviewed compatibility rule, and passed full type, semantic and wire validation. Snapshot prefixes at each pending approval and exact request hashes independently bind all eight normalized responses to the eight proposals, eight owner approvals and eight executions. Seven executions returned 0 and one returned 1. The ninth accepted response did not normalize and did not produce a ninth tool call; the task record remains budget_exhausted.
-
-Each of these eight normalized responses would fail strict A's required-key gate. This establishes the observed compatibility mechanism on actual model outputs; it does not prove C would accept A's unrecorded rejected payload. Initial acceptance in this first pair is A 6/8 and C 9/9, total shape failures 3 versus 0, and correction successes 1/2 versus no requested corrections. These are different stochastic model trajectories, not replay of identical raw responses. One attempt per group cannot establish a population effect or coding reliability.
-
-Both coding outcomes remain NO_CANDIDATE. The missing-text mechanism prevented eight structural rejections in C, but all eight tools were reads. Illegal-shape/semantic rejection risks are covered by the preflight production-parser/adversarial suite, not established by the absence of bad accepted actions in this small model sample.
-
-## Interim completed-attempt table
-
-| Metric | A (1 attempt) | C (1 attempt) |
-| --- | ---: | ---: |
-| Initial actions accepted / received | 6/8 | 9/9 |
-| Total shape failures (initial + correction) | 3 | 0 |
-| Missing text occurrences (including normalization) | 2 | 8 |
-| Corrections accepted / requested | 1/2 | 0/0 |
-| Normalizations applied / accepted | 0/0 | 8/8 |
-| Proposals / approvals / executions | 7/7/7 | 8/8/8 |
-| Read executions / return-zero reads | 7/7 | 8/7 |
-| Source changes / model tests / repairs | 0/0/0 | 0/0/0 |
+| Metric | A, both attempts | C, both attempts |
+| --- | ---: | --- |
+| Formal attempts | 2 | 2 |
+| Initial accepted / received | 14/16 | NOT_CAPTURED; c-01 complete subset 9/9 |
+| Total shape failures | 3 | NOT_CAPTURED; c-01 0, c-02 observed 1 |
+| Missing-text shape failures | 2 | NOT_CAPTURED; c-01 0, c-02 observed 1 |
+| Corrections accepted / requested | 1/2 | NOT_CAPTURED; c-01 0/0, c-02 observed 0/1 |
+| Normalizations applied / accepted | 0/0 | NOT_CAPTURED total; c-01 8/8, c-02 observed 0/0 |
+| Proposals / approvals / executions | 14/14/14 | 15/15/15 |
+| Read executions / return-zero reads | 14/14 | 15/13 |
+| Source modifications / model tests / code repairs | 0/0/0 | 0/0/0 |
 | Candidates generated | 0 | 0 |
-| Independent hidden grades passing / completed | 0/1 | 0/1 |
-| Complete task terminals | 1/1 | 1/1 |
-| Coding PASS / completed attempts | 0/1 | 0/1 |
+| Hidden-test PASS / grades completed | 0/2 | 0/2 |
+| Complete Task Records | 2/2 | 2/2 |
+| Complete Host diagnostics | 2/2 | 1/2 |
+| Coding PASS / formal attempts | 0/2 | 0/2 |
 
-The hidden grades above test unchanged baselines because neither attempt produced a candidate. Missing-text occurrences include recovered C responses and must not be read as missing-text failures. No synthetic or historical attempts enter these denominators.
+Missing-text occurrences include eight recovered c-01 responses as well as rejected shapes; recovered occurrences are not failures. Each of those eight actual responses passed field/type/semantic/wire checks, became a proposal, received a separate owner approval and executed. Prefix snapshots bind normalization to acceptance and exact request hashes. Seven commands returned 0 and one returned 1. Strict A would reject each at its required-key gate. This establishes **OBSERVED bounded protocol improvement**.
 
-## c-02 observation and denominator limitation
+A/a-01 accepted 6/8 initial responses. One three-missing-field initial response recovered through correction. Its terminal initial response missed only text, but rejected type/value payload is not retained, so acceptance by C cannot be established. The final correction omitted six fields and failed. Shape failures total three, missing text twice, accepted corrections 1/2. A/a-02 accepted 8/8 initials, needed no correction and completed its final response, without generating a candidate.
 
-The surviving c-02 product executed seven independently approved reads, with no source candidate. Original and resumed diagnostic rows show a real unused-field semantic rejection on the eighth observed initial response, followed by a correction missing text plus five other keys. Candidate C correctly kept the existing semantic and multi-missing-field rejection path; no normalization event was observed. The collector gap means exact initial/rejection/normalization/correction totals are NOT_CAPTURED, so zero observed normalization is not promoted to a proven whole-attempt NOT_TRIGGERED result.
+C/c-01 accepted 9/9 initial responses, normalized eight, used no correction and ended budget_exhausted after eight reads. The ninth response did not produce a ninth tool execution. C/c-02's observed eighth initial response failed existing unused-field semantic validation, followed by a four-key correction rejected at action_shape. This multi-missing-field correction is outside compatibility. Zero observed normalizations in c-02 cannot establish whole-attempt NOT_TRIGGERED because capture was interrupted.
 
-Complete diagnostic attempts are currently A 1/1 and C 1/2. Exact Host response metrics in the interim table above refer only to a-01/c-01. Coding outcomes, actual tool executions and original independent grades are known for all three completed attempts; C coding PASS is 0/2. Missing observations are excluded rather than converted to zeros. The long c-02 interruption also increases temporal/provider-state uncertainty. Overall quantitative A/C Comparison Integrity remains NOT_PROVEN even though input/build single-variable checks and eight c-01 recoveries are established.
+Correction use fell to zero in c-01 relative to a-01, but this is not a paired replay of identical outputs. c-02 still demonstrates semantic and correction failure beyond the text rule. No newly accepted illegal action was observed; the real-model sample alone cannot prove absence of that risk. Production-parser/adversarial tests establish the bounded rule and unchanged rejection paths, with diagnostics on/off acceptance parity and the same single-correction limit.
+
+Quantitative A/C Comparison Integrity: **NOT_PROVEN**. Full C response denominators are unknown. Even the complete subset (A 14/16 versus c-01 9/9) compares unequal stochastic samples. Fixed A,C,C,A order does not eliminate provider variability; the c-02 multi-hour interruption adds temporal confounding. No population failure-rate reduction is claimed. Actual HTTP request count is NOT_CAPTURED and is not inferred from tools or model response rows.
+
+All four outcomes are NO_CANDIDATE. The observed difference is protocol recovery; source editing, model testing, test-driven code repair and coding success did not improve. With no coding success-rate difference, no numerical follow-up sample-size claim is justified. Any future study needs separate authorization and preregistered tasks, effect size and power; no additional calls are part of M8.4.

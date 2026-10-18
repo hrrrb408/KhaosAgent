@@ -1,0 +1,17 @@
+{
+  "actual_private_dataset_frozen_inputs": "PASS",
+  "all_runtime_tcb_file_hashes_match": true,
+  "changed_khaos_paths": [
+    "khaos/macos/AgentHost.swift",
+    "khaos/macos/AgentHostActionOutput.swift"
+  ],
+  "exact_base": "f5631de1b5ebb056af28bbd145757b6f76053154",
+  "observed_at_utc": "2026-10-18T08:29:31.081890+00:00",
+  "only_untrusted_host_sources_changed": true,
+  "repository_frozen_inputs": "PASS",
+  "runtime_authority_delta": 0,
+  "runtime_tcb_entries_equal_to_base": true,
+  "runtime_tcb_manifest_entry_count": 34,
+  "runtime_tcb_source_changes": [],
+  "scope": "source and frozen input integrity, separate from current task outcome and incomplete C02 diagnostics"
+}

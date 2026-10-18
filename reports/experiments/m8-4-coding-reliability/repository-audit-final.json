@@ -1,0 +1,171 @@
+{
+  "observed_at_utc": "2026-10-18 08:27:35 UTC",
+  "main_sha": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "prs": [
+    {
+      "baseRefName": "main",
+      "baseRefOid": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+      "headRefName": "experiment/m8-glm53-coding-baseline",
+      "headRefOid": "5acf90bcc0ff02e764e84150ebcebe91536ebc26",
+      "isDraft": false,
+      "number": 27,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T05:45:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39007432754/job/117322654934",
+          "name": "security-freeze",
+          "startedAt": "2026-10-17T05:45:35Z",
+          "status": "COMPLETED",
+          "workflowName": "Security Freeze"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T05:58:11Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39007432795/job/117322654987",
+          "name": "security-tests",
+          "startedAt": "2026-10-17T05:45:40Z",
+          "status": "COMPLETED",
+          "workflowName": "Seed CI"
+        }
+      ]
+    },
+    {
+      "baseRefName": "main",
+      "baseRefOid": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+      "headRefName": "feature/m8-1-action-contract-diagnostics",
+      "headRefOid": "fd21764381546140249d94fcf53f9737bc9d212f",
+      "isDraft": false,
+      "number": 28,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T07:29:15Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39013798520/job/117341619784",
+          "name": "security-freeze",
+          "startedAt": "2026-10-17T07:29:10Z",
+          "status": "COMPLETED",
+          "workflowName": "Security Freeze"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T07:43:06Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39013798540/job/117341619891",
+          "name": "security-tests",
+          "startedAt": "2026-10-17T07:29:15Z",
+          "status": "COMPLETED",
+          "workflowName": "Seed CI"
+        }
+      ]
+    },
+    {
+      "baseRefName": "feature/m8-1-action-contract-diagnostics",
+      "baseRefOid": "fd21764381546140249d94fcf53f9737bc9d212f",
+      "headRefName": "experiment/m8-2-glm53-diagnostic-replay",
+      "headRefOid": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
+      "isDraft": true,
+      "number": 29,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T15:44:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39046372970/job/117435807937",
+          "name": "security-freeze",
+          "startedAt": "2026-10-17T15:44:35Z",
+          "status": "COMPLETED",
+          "workflowName": "Security Freeze"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T15:58:22Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39046373030/job/117435808082",
+          "name": "security-tests",
+          "startedAt": "2026-10-17T15:44:39Z",
+          "status": "COMPLETED",
+          "workflowName": "Seed CI"
+        }
+      ]
+    },
+    {
+      "baseRefName": "experiment/m8-2-glm53-diagnostic-replay",
+      "baseRefOid": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
+      "headRefName": "feature/m8-2-terminal-evidence-closure",
+      "headRefOid": "6c5791264f64f2d171ad23deabf47ae684fc7ac4",
+      "isDraft": true,
+      "number": 30,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T17:35:33Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39054422817/job/117459361889",
+          "name": "security-freeze",
+          "startedAt": "2026-10-17T17:35:27Z",
+          "status": "COMPLETED",
+          "workflowName": "Security Freeze"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T17:49:30Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39054422821/job/117459361778",
+          "name": "security-tests",
+          "startedAt": "2026-10-17T17:35:31Z",
+          "status": "COMPLETED",
+          "workflowName": "Seed CI"
+        }
+      ]
+    },
+    {
+      "baseRefName": "feature/m8-2-terminal-evidence-closure",
+      "baseRefOid": "6c5791264f64f2d171ad23deabf47ae684fc7ac4",
+      "headRefName": "feature/m8-3-action-contract-reliability",
+      "headRefOid": "f5631de1b5ebb056af28bbd145757b6f76053154",
+      "isDraft": true,
+      "number": 31,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T19:20:26Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39062027069/job/117481775492",
+          "name": "security-freeze",
+          "startedAt": "2026-10-17T19:20:22Z",
+          "status": "COMPLETED",
+          "workflowName": "Security Freeze"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-17T19:33:30Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/hrrrb408/KhaosAgent/actions/runs/39062027051/job/117481775493",
+          "name": "security-tests",
+          "startedAt": "2026-10-17T19:20:28Z",
+          "status": "COMPLETED",
+          "workflowName": "Seed CI"
+        }
+      ]
+    }
+  ],
+  "actual_stack": [
+    "27 -> main",
+    "28 -> main",
+    "29 -> 28",
+    "30 -> 29",
+    "31 -> 30"
+  ],
+  "m84_frozen_base_still_matches_pr31": true,
+  "other_prs_modified": false,
+  "other_prs_merged": false
+}
