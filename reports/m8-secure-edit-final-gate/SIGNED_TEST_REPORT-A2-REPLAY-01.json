@@ -1,0 +1,116 @@
+{
+  "coding_workflow": {
+    "changed_paths": [
+      "tags.py"
+    ],
+    "command_return_codes": [
+      0
+    ],
+    "final_source_sha256": "8db3b1d5a79058bc0db32f9904c38162c6384ff813d41ab45b9db2348a264a63",
+    "kernel_changeset": {
+      "added": 0,
+      "deleted": 0,
+      "modified": 1
+    },
+    "launcher_approved_and_executed_calls": 1,
+    "one_user_task": true,
+    "parent_focused_test_return_code": 0,
+    "target_mode_preserved": true,
+    "task_record_present": true,
+    "temporary_entries_remaining": 0,
+    "terminal_class": "task_completed",
+    "unscoped_canary_preserved": true
+  },
+  "finished_at_utc": "2026-10-18T15:03:45.023634+00:00",
+  "format": "khaos-signed-runner-staged-edit-feasibility-v1",
+  "model_mode": "signed-runner-staged-edit-feasibility",
+  "provider": null,
+  "security_checks": {
+    "signed_runner_staged_replacement": {
+      "codesign_deep_strict_verified": true,
+      "exact_read_scope": [
+        "tags.py"
+      ],
+      "exact_write_scope": [
+        "tags.py"
+      ],
+      "non_target_changes": 0,
+      "runner_execution_count": 1,
+      "runner_stdout_marker_returned_to_agent": "EDIT_APPLIED",
+      "temporary_file_committed": false,
+      "user_approval_count": 1
+    }
+  },
+  "started_at_utc": "2026-10-18T15:02:04.533518+00:00",
+  "status": "passed",
+  "terminal_outcomes": {
+    "workflow": {
+      "agent_final_response_observed": true,
+      "agent_host_termination_observed": false,
+      "attempt_id": "workflow",
+      "bounded_result_bytes": 139,
+      "capture_process_completed": true,
+      "conflicting_terminal_markers": false,
+      "cumulative_runner_seconds": 3.383,
+      "diagnostic_capture_complete": true,
+      "error_code": null,
+      "event": "terminal_outcome",
+      "event_counts": {
+        "agent_final_response_marker": 0,
+        "correction_accepted": 0,
+        "correction_failed": 0,
+        "correction_requested": 0,
+        "diagnostic_events_dropped": 0,
+        "harness_state_rejected": 0,
+        "initial_action_accepted": 0,
+        "initial_action_rejected": 0,
+        "initial_action_responses": 0,
+        "missing_text": 0,
+        "model_response_rejected": 0,
+        "normalization_accepted": 0,
+        "normalization_applied": 0,
+        "shape_failures": 0,
+        "tool_approval_approved": 1,
+        "tool_approval_denied": 0,
+        "tool_approval_presented": 1,
+        "tool_execution_completed": 1,
+        "tool_proposal_observed": 1,
+        "tool_response_accepted": 1,
+        "tool_result_returned": 1
+      },
+      "evidence_complete": true,
+      "executed_command_return_codes": [
+        0
+      ],
+      "host_diagnostic_events": [],
+      "input_bytes": {
+        "agenthost_diagnostics": null,
+        "stderr": 350,
+        "stdout": 554
+      },
+      "input_sha256": {
+        "agenthost_diagnostics": null,
+        "stderr": "1a2847ffd87deec99c2cee512102a50d45b4f9cd68844776898f54d8d3ca4912",
+        "stdout": "cfe345626740a15012da17d9c99212baf69af2840614b07069948338b6e21c29"
+      },
+      "input_truncated": {
+        "agenthost_diagnostics": false,
+        "stderr": false,
+        "stdout": false
+      },
+      "last_observed_tool_sequence": 1,
+      "launch_services_waiter_exit_code": 0,
+      "launcher_termination_observed": false,
+      "observed_at_utc": "2026-10-18T15:03:44.969402+00:00",
+      "observed_error_codes": [],
+      "observed_tool_proposals": 1,
+      "reason_code": "final_response",
+      "source": "launcher_task_status",
+      "synthetic": true,
+      "task_record_present": true,
+      "task_status_present": true,
+      "terminal_class": "task_completed",
+      "terminal_observed": true
+    }
+  }
+}

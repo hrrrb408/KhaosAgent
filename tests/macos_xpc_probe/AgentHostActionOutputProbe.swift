@@ -54,6 +54,7 @@ enum AgentHostActionOutputProbe {
         }
 
         try actionValidation()
+        try reviewableArgumentSerialization()
         try postToolTransitions()
         taskSequencing()
         for rejection in AgentActionRejection.allCases {
@@ -646,6 +647,125 @@ enum AgentHostActionOutputProbe {
             let encoded = try AgentHostActionOutput.encodeAction(valid, activePlugin: nil)
             require(AgentHostProtocol.decodeReply(encoded) != nil, "valid action did not round trip")
         }
+    }
+
+    private static func reviewableArgumentSerialization() throws {
+        let script = "from pathlib import Path\np=Path('tags.py')\nprint('synthetic edit')"
+        let fixtures: [(String, String, String)] = [
+            ("short-ascii", "value.split(',')", "value.strip()"),
+            ("multiline", "first line\nsecond line", "one line\n\n三行"),
+            ("unicode", "标签 🧪", "标记 café"),
+            ("quotes-backslashes", #"quote \" and path C:\\tmp\\tags.py"#, #"quote ' and path D:\\data\\tags.py"#),
+            ("json-escapes", "tab:\t newline:\n return:\r quote:\" slash:\\\\", "tab:\t newline:\n"),
+        ]
+
+        for (name, oldText, newText) in fixtures {
+            let argv = try syntheticEditArgv(script: script, oldText: oldText, newText: newText)
+            let frame = try roundTripShell(argv)
+            require(frame.count <= AgentHostProtocol.maximumFrameBytes,
+                    "\(name) exceeded the existing Agent Host frame bound")
+            let decodedScript = try decodeNestedScript(argv[4])
+            let decodedOldText = try decodeJSONString(argv[6])
+            let decodedNewText = try decodeJSONString(argv[7])
+            require(decodedScript == script, "\(name) changed the nested Runner script")
+            require(decodedOldText == oldText, "\(name) changed the original text")
+            require(decodedNewText == newText, "\(name) changed the replacement text")
+        }
+
+        let maximumArgumentText = String(repeating: "x", count: 4_094)
+        let maximumOldJSON = try jsonString(maximumArgumentText)
+        let maximumNewJSON = try jsonString(maximumArgumentText)
+        require(maximumOldJSON.utf8.count == AgentHostProtocol.maximumArgumentBytes
+                    && maximumNewJSON.utf8.count == AgentHostProtocol.maximumArgumentBytes,
+                "the long edit fixture did not reach the per-argument limit")
+        for (oldText, newText) in [(maximumArgumentText, "short"), ("short", maximumArgumentText)] {
+            let argv = try syntheticEditArgv(script: script, oldText: oldText, newText: newText)
+            _ = try roundTripShell(argv)
+            let decodedOldText = try decodeJSONString(argv[6])
+            let decodedNewText = try decodeJSONString(argv[7])
+            require(decodedOldText == oldText && decodedNewText == newText,
+                    "a legal maximum-sized edit argument changed in transit")
+        }
+
+        let nearFrameLimit = (0..<32).map { "arg-\($0)-" + String(repeating: "x", count: 1_800) }
+        let nearFrame = try roundTripShell(nearFrameLimit)
+        require(nearFrame.count > AgentHostProtocol.maximumFrameBytes * 8 / 10
+                    && nearFrame.count <= AgentHostProtocol.maximumFrameBytes,
+                "the maximum-argument-count fixture did not approach the frame limit")
+
+        for invalidArgv in [
+            [String(repeating: "x", count: AgentHostProtocol.maximumArgumentBytes + 1)],
+            ["line one\nline two"],
+            ["bidirectional \u{202E} text"],
+            ["zero\u{0000}byte"],
+        ] {
+            rejects(.wireContract) {
+                _ = try AgentHostActionOutput.encodeAction(
+                    action("shell", argv: invalidArgv, read: ["tags.py"], write: ["tags.py"]),
+                    activePlugin: nil
+                )
+            }
+        }
+        rejects(.workspaceFields) {
+            _ = try AgentHostActionOutput.encodeAction(
+                action(
+                    "shell",
+                    argv: Array(repeating: "x", count: AgentHostProtocol.maximumArguments + 1),
+                    read: ["tags.py"],
+                    write: ["tags.py"]
+                ),
+                activePlugin: nil
+            )
+        }
+        print("agent-host-reviewable-argv=passed")
+    }
+
+    private static func syntheticEditArgv(
+        script: String,
+        oldText: String,
+        newText: String
+    ) throws -> [String] {
+        [
+            "python3", "-I", "-B", "-c", "exec(\(try jsonString(script)))",
+            "tags.py", try jsonString(oldText), try jsonString(newText),
+        ]
+    }
+
+    private static func jsonString(_ value: String) throws -> String {
+        let encoded = try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.fragmentsAllowed, .withoutEscapingSlashes]
+        )
+        guard let text = String(data: encoded, encoding: .utf8) else {
+            fatalError("synthetic edit string was not UTF-8")
+        }
+        return text
+    }
+
+    private static func decodeJSONString(_ argument: String) throws -> String? {
+        try JSONSerialization.jsonObject(
+            with: Data(argument.utf8),
+            options: [.fragmentsAllowed]
+        ) as? String
+    }
+
+    private static func decodeNestedScript(_ argument: String) throws -> String? {
+        guard argument.hasPrefix("exec("), argument.hasSuffix(")") else { return nil }
+        return try decodeJSONString(String(argument.dropFirst(5).dropLast()))
+    }
+
+    private static func roundTripShell(_ argv: [String]) throws -> Data {
+        let frame = try AgentHostActionOutput.encodeAction(
+            action("shell", argv: argv, read: ["tags.py"], write: ["tags.py"]),
+            activePlugin: nil
+        )
+        guard case let .shell(proposal)? = AgentHostProtocol.decodeReply(frame) else {
+            fatalError("the reviewed shell proposal did not decode")
+        }
+        require(proposal.argv == argv, "the Launcher-visible argv changed in serialization")
+        require(proposal.readScope == ["tags.py"] && proposal.writeScope == ["tags.py"],
+                "the Launcher-visible scopes changed in serialization")
+        return frame
     }
 
     private static func postToolTransitions() throws {
