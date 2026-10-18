@@ -1,0 +1,20 @@
+diff --git a/khaos/macos/AgentHostActionOutput.swift b/khaos/macos/AgentHostActionOutput.swift
+index 555013b..a21354a 100644
+--- a/khaos/macos/AgentHostActionOutput.swift
++++ b/khaos/macos/AgentHostActionOutput.swift
+@@ -154,15 +154,6 @@ enum AgentHostActionOutput {
+         if expected == actual {
+             return (object, false)
+         }
+-        // Only list/shell ignore text; scopes and every other field stay explicit.
+-        if expected == Set(actionOutputKeys),
+-           actual == expected.subtracting(["text"]),
+-           let type = object["type"] as? String,
+-           (type == "list" || type == "shell") {
+-            var normalized = object
+-            normalized["text"] = ""
+-            return (normalized, true)
+-        }
+         throw AgentHostJSONInspectionError.invalidShape(AgentHostJSONShapeDiagnostic(
+             rootIsObject: true,
+             expectedKeyCount: expectedKeys.count,

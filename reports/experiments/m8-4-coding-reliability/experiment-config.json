@@ -1,4 +1,5 @@
 {
+  "approval_policy": "identical task confinement, explicit scopes and existing budgets; no approval bias by productivity; preserve every human denial",
   "authorization": "new explicit authorization required for each attempt; then independent Launcher decisions",
   "base_pr31_head": "f5631de1b5ebb056af28bbd145757b6f76053154",
   "budgets": {
@@ -42,7 +43,11 @@
     "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5"
   },
   "maximum_attempts": 4,
+  "maximum_correction_requests_per_turn": 1,
+  "maximum_initial_model_turns_per_attempt": 9,
+  "maximum_logical_completion_requests_per_attempt": 18,
   "model": "glm-5.3",
+  "normal_terminal_product_preflight": "PENDING_ONE_REVIEWED_OPERATION",
   "order": [
     {
       "attempt": "a-01",
@@ -79,9 +84,15 @@
     },
     "top_p": 0.95
   },
-  "protocol_sha256": "d76fb5924f1ff1de5690b5334213f064b5ea69870587fca7d8760935387cc1f9",
+  "protocol_sha256": "fc4518e1e978cf4e747befcf727c7c5e03bac58cfc89d5bda42cd8c0f77ea9af",
   "provider": "bigmodel-coding-plan",
   "raw_retention": "owner-only local directory outside Git workspaces; no raw logs or candidate/grader contents committed",
+  "signed_host_diagnostic_preflight": "PASS",
+  "source_revisions": {
+    "A": "7f1399be6475a0e9db9893d557990565d0ff94c6",
+    "C": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a"
+  },
   "status": "PREFLIGHT_IN_PROGRESS_NO_REMOTE_CALLS",
-  "task": "runner-exception-classification"
+  "task": "runner-exception-classification",
+  "trusted_unsigned_binaries_identical": true
 }

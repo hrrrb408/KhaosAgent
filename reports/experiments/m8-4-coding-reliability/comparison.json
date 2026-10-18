@@ -1,0 +1,12 @@
+{
+  "status": "NOT_RUN",
+  "formal_attempts": {
+    "A": 0,
+    "C": 0
+  },
+  "historical_attempts_in_denominator": 0,
+  "synthetic_attempts_in_denominator": 0,
+  "action_contract_improvement": "INCONCLUSIVE",
+  "coding_task_outcome": "NOT_RUN",
+  "coding_reliability_closure": "NOT_PROVEN"
+}

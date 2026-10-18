@@ -1,0 +1,77 @@
+{
+  "main_sha": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+  "prs": [
+    {
+      "number": 27,
+      "state": "open",
+      "draft": false,
+      "head_sha": "5acf90bcc0ff02e764e84150ebcebe91536ebc26",
+      "base_sha": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+      "head_ref": "experiment/m8-glm53-coding-baseline",
+      "base_ref": "main",
+      "checks": [
+        "security-freeze\tpass\t6s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39007432754/job/117322654934\t",
+        "security-tests\tpass\t12m31s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39007432795/job/117322654987\t"
+      ],
+      "checks_command_exit": 0
+    },
+    {
+      "number": 28,
+      "state": "open",
+      "draft": false,
+      "head_sha": "fd21764381546140249d94fcf53f9737bc9d212f",
+      "base_sha": "27ef0b4787f807fc76ffd7ba9cdb467ffc9a2f27",
+      "head_ref": "feature/m8-1-action-contract-diagnostics",
+      "base_ref": "main",
+      "checks": [
+        "security-freeze\tpass\t5s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39013798520/job/117341619784\t",
+        "security-tests\tpass\t13m51s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39013798540/job/117341619891\t"
+      ],
+      "checks_command_exit": 0
+    },
+    {
+      "number": 29,
+      "state": "open",
+      "draft": true,
+      "head_sha": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
+      "base_sha": "fd21764381546140249d94fcf53f9737bc9d212f",
+      "head_ref": "experiment/m8-2-glm53-diagnostic-replay",
+      "base_ref": "feature/m8-1-action-contract-diagnostics",
+      "checks": [
+        "security-freeze\tpass\t7s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39046372970/job/117435807937\t",
+        "security-tests\tpass\t13m43s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39046373030/job/117435808082\t"
+      ],
+      "checks_command_exit": 0
+    },
+    {
+      "number": 30,
+      "state": "open",
+      "draft": true,
+      "head_sha": "6c5791264f64f2d171ad23deabf47ae684fc7ac4",
+      "base_sha": "3cdf26e1933dbcf9896dcd83a0cb6e05eadff92b",
+      "head_ref": "feature/m8-2-terminal-evidence-closure",
+      "base_ref": "experiment/m8-2-glm53-diagnostic-replay",
+      "checks": [
+        "security-freeze\tpass\t6s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39054422817/job/117459361889\t",
+        "security-tests\tpass\t13m59s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39054422821/job/117459361778\t"
+      ],
+      "checks_command_exit": 0
+    },
+    {
+      "number": 31,
+      "state": "open",
+      "draft": true,
+      "head_sha": "f5631de1b5ebb056af28bbd145757b6f76053154",
+      "base_sha": "6c5791264f64f2d171ad23deabf47ae684fc7ac4",
+      "head_ref": "feature/m8-3-action-contract-reliability",
+      "base_ref": "feature/m8-2-terminal-evidence-closure",
+      "checks": [
+        "security-freeze\tpass\t4s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39062027069/job/117481775492\t",
+        "security-tests\tpass\t13m2s\thttps://github.com/hrrrb408/KhaosAgent/actions/runs/39062027051/job/117481775493\t"
+      ],
+      "checks_command_exit": 0
+    }
+  ],
+  "base_worktree_initially_clean": true,
+  "original_worktree_untracked_evidence_preserved": true
+}

@@ -1,0 +1,23 @@
+{
+  "A": {
+    "status": "PASS",
+    "default_off": true,
+    "acceptance_unchanged_with_observation": true,
+    "events": [
+      "event=action_response_received attempt=initial",
+      "event=initial_response_failed attempt=initial stage=action_shape error=invalid_model_output_shape root_is_object=true expected_key_count=10 actual_key_count=9 missing_keys=text unexpected_key_count=0"
+    ],
+    "log_sha256": "30ff5bdb8f7d020f4b08d28dd6f2fa17539399e211c6f76c92be6d8ccfff075b"
+  },
+  "C": {
+    "status": "PASS",
+    "default_off": true,
+    "acceptance_unchanged_with_observation": true,
+    "events": [
+      "event=action_response_received attempt=initial",
+      "event=action_text_normalized attempt=initial",
+      "event=action_response_accepted attempt=initial"
+    ],
+    "log_sha256": "4b8e9c0acb8684156a0cacb34e30f75a153b513958b826c0e88c702bcc1097ef"
+  }
+}
