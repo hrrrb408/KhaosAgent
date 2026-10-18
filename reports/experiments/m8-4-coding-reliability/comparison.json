@@ -1,12 +1,66 @@
 {
-  "status": "NOT_RUN",
+  "A_coding_pass": {
+    "denominator": 1,
+    "numerator": 0
+  },
+  "A_initial_acceptance": {
+    "denominator": 8,
+    "numerator": 6
+  },
+  "C_rates": "NOT_RUN",
+  "action_contract_improvement": "INCONCLUSIVE",
+  "coding_reliability_closure": "NOT_PROVEN",
+  "coding_task_outcome": "NO_CANDIDATE_IN_COMPLETED_A01",
+  "completed_attempts": [
+    "a-01"
+  ],
   "formal_attempts": {
-    "A": 0,
+    "A": 1,
     "C": 0
   },
+  "groups": {
+    "A": {
+      "candidate_generated": 0,
+      "changed_source_files": 0,
+      "coding_no_candidate": 1,
+      "coding_pass": 0,
+      "complete_terminals": 1,
+      "correction_accepted": 1,
+      "correction_failed": 1,
+      "correction_missing_text": 1,
+      "correction_requested": 2,
+      "formal_attempts": 1,
+      "hidden_test_pass": 0,
+      "independent_grader_completed": 1,
+      "initial_action_accepted": 6,
+      "initial_action_rejected": 2,
+      "initial_action_responses": 8,
+      "initial_missing_text": 1,
+      "missing_text_total": 2,
+      "model_test_operations": 0,
+      "normalization_accepted": 0,
+      "normalization_applied": 0,
+      "read_operations": 7,
+      "repair_attempts": 0,
+      "shape_failures": 3,
+      "tool_approvals": 7,
+      "tool_executions": 7,
+      "tool_proposals": 7,
+      "write_operations": 0
+    },
+    "C": {
+      "formal_attempts": 0,
+      "metrics": "NOT_RUN"
+    }
+  },
   "historical_attempts_in_denominator": 0,
+  "observed_model_responses": 10,
+  "remote_completion_requests": "NOT_CAPTURED",
+  "status": "PARTIAL_ONE_OF_FOUR_COMPLETED",
   "synthetic_attempts_in_denominator": 0,
-  "action_contract_improvement": "INCONCLUSIVE",
-  "coding_task_outcome": "NOT_RUN",
-  "coding_reliability_closure": "NOT_PROVEN"
+  "unrun_attempts": [
+    "c-01",
+    "c-02",
+    "a-02"
+  ]
 }

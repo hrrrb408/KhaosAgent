@@ -1,9 +1,16 @@
 {
   "attempt_id": "m8-4-a-01",
+  "authorization_sha256": "352afabe1c453d4f1e3b1acba7795c61f85ae1e4edc925bf16562abe22e52e70",
+  "coding_outcome": "NO_CANDIDATE",
+  "evidence_completeness": "COMPLETE",
+  "formal_attempt_started": true,
+  "grader_status": "COMPLETED",
   "group": "A",
-  "status": "PREPARED_NOT_AUTHORIZED",
+  "normalization": "NOT_APPLICABLE_STRICT_A",
   "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
-  "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
-  "formal_attempt_started": false,
-  "remote_completion_requests": "NOT_RUN"
+  "remote_completion_requests": "NOT_CAPTURED",
+  "source_commit": "7f1399be6475a0e9db9893d557990565d0ff94c6",
+  "status": "COMPLETED_ANALYZED",
+  "terminal_class": "task_failed",
+  "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5"
 }

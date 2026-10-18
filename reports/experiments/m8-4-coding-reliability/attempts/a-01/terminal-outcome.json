@@ -1,0 +1,202 @@
+{
+  "agent_final_response_observed": false,
+  "agent_host_termination_observed": false,
+  "attempt_association_complete": true,
+  "attempt_id": "m8-4-a-01",
+  "bounded_result_bytes": 5134,
+  "capture_process_completed": true,
+  "captured_host_pids": [
+    "84939"
+  ],
+  "conflicting_terminal_markers": false,
+  "cumulative_runner_seconds": 62.53,
+  "diagnostic_capture_complete": true,
+  "error_code": "invalid_model_output_shape",
+  "event": "terminal_outcome",
+  "event_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 1,
+    "correction_failed": 1,
+    "correction_requested": 2,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 6,
+    "initial_action_rejected": 2,
+    "initial_action_responses": 8,
+    "missing_text": 2,
+    "model_response_rejected": 3,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 3,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
+  "evidence_complete": true,
+  "executed_command_return_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "host_diagnostic_events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "actual_key_count": 7,
+      "attempt": "initial",
+      "error": "invalid_model_output_shape",
+      "event": "initial_response_failed",
+      "expected_key_count": 10,
+      "missing_keys": [
+        "candidateDigest",
+        "generation",
+        "pluginInput"
+      ],
+      "stage": "action_shape",
+      "unexpected_key_count": 0
+    },
+    {
+      "event": "correction_requested"
+    },
+    {
+      "attempt": "correction",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "correction",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "correction",
+      "event": "correction_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "actual_key_count": 9,
+      "attempt": "initial",
+      "error": "invalid_model_output_shape",
+      "event": "initial_response_failed",
+      "expected_key_count": 10,
+      "missing_keys": [
+        "text"
+      ],
+      "stage": "action_shape",
+      "unexpected_key_count": 0
+    },
+    {
+      "event": "correction_requested"
+    },
+    {
+      "attempt": "correction",
+      "event": "action_response_received"
+    },
+    {
+      "actual_key_count": 4,
+      "attempt": "correction",
+      "error": "invalid_model_output_shape",
+      "event": "correction_response_failed",
+      "expected_key_count": 10,
+      "missing_keys": [
+        "text",
+        "pluginID",
+        "candidateDigest",
+        "generation",
+        "pluginInput",
+        "evolutionGoal"
+      ],
+      "stage": "action_shape",
+      "unexpected_key_count": 0
+    }
+  ],
+  "input_bytes": {
+    "agenthost_diagnostics": 4828,
+    "stderr": 2297,
+    "stdout": 487
+  },
+  "input_sha256": {
+    "agenthost_diagnostics": "8996bc0f0ab2a25971d742441a12751f0b5917bf5a9094083452ee4e5f35f049",
+    "stderr": "c3a6bba9a141b57c03a4fabf7ac64a847e2ca7121c5bb14a1c521eddb50fe7fe",
+    "stdout": "6cb807c6a60658acd02c6da4e570143989606dc2e793e80578528f0fa63db42f"
+  },
+  "input_truncated": {
+    "agenthost_diagnostics": false,
+    "stderr": false,
+    "stdout": false
+  },
+  "last_observed_tool_sequence": 7,
+  "launch_services_waiter_exit_code": 0,
+  "launcher_termination_observed": false,
+  "observed_at_utc": "2026-10-18T03:18:14.390337+00:00",
+  "observed_error_codes": [
+    "invalid_model_output_shape"
+  ],
+  "observed_tool_proposals": 7,
+  "reason_code": "agent_host_or_model_failure",
+  "source": "launcher_task_record",
+  "synthetic": false,
+  "task_record_present": true,
+  "task_status_present": false,
+  "terminal_class": "task_failed",
+  "terminal_observed": true
+}

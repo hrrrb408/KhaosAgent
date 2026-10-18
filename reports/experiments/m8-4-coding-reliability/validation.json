@@ -12,7 +12,7 @@
   "current_freeze": "PASS",
   "exact_base_freeze": "PASS",
   "exact_base": "f5631de1b5ebb056af28bbd145757b6f76053154",
-  "remote_formal_attempts_started": 0,
+  "remote_formal_attempts_started": 1,
   "canonical_test_count": 379,
   "canonical_elapsed_seconds": 677.619,
   "canonical_exit_code": 0,
@@ -20,5 +20,11 @@
   "unauthorized_start_gate": "PASS",
   "preflight_request_sha256": "3f3813a07733475c348e13a2ed1880c3333facb4f16706bee011eed877b10f19",
   "signed_denial_zero_execution": "PASS",
-  "bookkeeping_tests": "PASS_6"
+  "bookkeeping_tests": "PASS_6",
+  "formal_attempts_completed": 1,
+  "a01_terminal": "PASS_COMPLETE_FAILED_TASK",
+  "a01_approval_review": "PASS_7_INDEPENDENT_APPROVALS",
+  "a01_independent_grading": "COMPLETED_HIDDEN_TESTS_FAILED",
+  "a01_candidate": "NO_CANDIDATE",
+  "a01_environment_closed": "PASS_NO_LIVE_LAUNCHER_OR_HOST"
 }

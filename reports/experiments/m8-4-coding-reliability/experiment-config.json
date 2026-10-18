@@ -13,7 +13,8 @@
   "credential_source": "reuse existing Hermes credential in memory only; never print or archive the value",
   "denied_tool_product_preflight": "PASS_ZERO_EXECUTIONS",
   "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
-  "formal_attempts_started": 0,
+  "formal_attempts_completed": 1,
+  "formal_attempts_started": 1,
   "format": "khaos-m8.4-controlled-benchmark-v1",
   "input_integrity": {
     "frozen_files_sha256": {
@@ -93,7 +94,7 @@
     "A": "7f1399be6475a0e9db9893d557990565d0ff94c6",
     "C": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a"
   },
-  "status": "PREFLIGHT_PASS_AWAITING_FRESH_A01_AUTHORIZATION",
+  "status": "A01_COMPLETED_AWAITING_FRESH_C01_AUTHORIZATION",
   "task": "runner-exception-classification",
   "trusted_unsigned_binaries_identical": true
 }
