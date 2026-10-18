@@ -80,6 +80,10 @@ def main() -> int:
         help="stable code-signing identity available in the keychain",
     )
     parser.add_argument("--build-version", default="1", help="numeric dotted local build version")
+    parser.add_argument(
+        "--agent-action-diagnostics", action="store_true",
+        help="opt in to bounded Agent Host diagnostics in this signed build",
+    )
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     parser.add_argument(
@@ -104,6 +108,7 @@ def main() -> int:
             args.signing_identity,
             expected_inputs=args.expected_inputs,
             build_version=args.build_version,
+            agent_action_diagnostics=args.agent_action_diagnostics,
             keychain=args.keychain,
             python_executable=args.python_executable,
             model_provider=args.model_provider,
@@ -125,6 +130,7 @@ def build_app(
     keychain: Path | None = None,
     expected_inputs: Path | None = None,
     build_version: str = "1",
+    agent_action_diagnostics: bool = False,
     python_executable: Path,
     model_provider: str = "local",
     llama_cli: Path | None = None,
@@ -174,6 +180,7 @@ def build_app(
             "sdk": _run(["xcrun", "--sdk", "macosx", "--show-sdk-version"]).strip(),
             "python_version": _run([str(python_executable), "-I", "-S", "-c", "import sys; print(sys.version)"]).strip(),
             "input_policy": "expected-map" if expected_inputs else "recorded-development-inputs",
+            "agent_action_diagnostics": agent_action_diagnostics,
         }
         app = Path(temporary) / output.name
         _assemble_app(
@@ -303,6 +310,11 @@ def _assemble_app(
         ),
         minimum_os_version="26.0",
     )
+    xpc_configuration: dict[str, object] = {
+        "ServiceType": "Application", "RunLoopType": "NSRunLoop",
+    }
+    if build_record["agent_action_diagnostics"]:
+        xpc_configuration["EnvironmentVariables"] = {"KHAOS_AGENT_ACTION_DIAGNOSTICS": "1"}
     _write_plist(
         agent_host_contents / "Info.plist",
         {
@@ -316,10 +328,7 @@ def _assemble_app(
             "LSMinimumSystemVersion": "26.0",
             "KhaosLauncherRequirement": launcher_requirement,
             "KhaosModelProvider": model_provider,
-            "XPCService": {
-                "ServiceType": "Application",
-                "RunLoopType": "NSRunLoop",
-            },
+            "XPCService": xpc_configuration,
         },
     )
     if llama_cli is not None and model_file is not None and model_license is not None:

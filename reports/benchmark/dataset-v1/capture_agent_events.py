@@ -15,7 +15,8 @@ from pathlib import Path
 
 MAX_LOG_BYTES = 256 * 1024
 MAX_HASH_BYTES = 16 * 1024 * 1024
-MAX_TERMINAL_EVENTS = 27
+# Nine model turns (eight tools plus final), each with at most one correction.
+MAX_TERMINAL_EVENTS = 128
 MAX_CAPTURE_EVENTS = 128
 MAX_WAIT_SECONDS = 3600
 ACTION_KEYS = {
@@ -28,6 +29,9 @@ DIAGNOSTIC_EVENTS = {
     "correction_response_failed",
     "correction_response_accepted",
     "harness_state_rejected",
+    "action_response_received",
+    "action_text_normalized",
+    "action_response_accepted",
 }
 ATTEMPT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 SAFE_CODE = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -176,14 +180,26 @@ def _host_diagnostic_events(text: str) -> tuple[list[dict[str, object]], dict[st
         "correction_accepted": 0,
         "correction_failed": 0,
         "harness_state_rejected": 0,
+        "initial_action_responses": 0,
+        "initial_action_accepted": 0,
+        "initial_action_rejected": 0,
+        "shape_failures": 0,
+        "missing_text": 0,
+        "normalization_applied": 0,
+        "normalization_accepted": 0,
+        "diagnostic_events_dropped": 0,
     }
+    normalized_attempt = None
     for line in text.splitlines():
         marker = "agent-host-model-diagnostic "
         if marker not in line or len(line.encode("utf-8", errors="replace")) > 512:
             continue
         fields = dict(re.findall(r"([a-z_]+)=([^\s]+)", line.split(marker, 1)[1]))
         event = fields.get("event")
-        if event not in DIAGNOSTIC_EVENTS or len(events) >= MAX_TERMINAL_EVENTS:
+        if event not in DIAGNOSTIC_EVENTS:
+            continue
+        if len(events) >= MAX_TERMINAL_EVENTS:
+            counts["diagnostic_events_dropped"] += 1
             continue
         item: dict[str, object] = {"event": event}
         attempt = fields.get("attempt")
@@ -209,8 +225,31 @@ def _host_diagnostic_events(text: str) -> tuple[list[dict[str, object]], dict[st
             if all(name in ACTION_KEYS for name in names):
                 item["missing_keys"] = names
         events.append(item)
+        if event == "action_response_received":
+            normalized_attempt = None
+            if attempt == "initial":
+                counts["initial_action_responses"] += 1
+        if event == "action_text_normalized":
+            normalized_attempt = attempt if attempt in {"initial", "correction"} else None
+            counts["normalization_applied"] += 1
+            counts["missing_text"] += 1
+        if event == "action_response_accepted":
+            if attempt == "initial":
+                counts["initial_action_accepted"] += 1
+            if normalized_attempt is not None and normalized_attempt == attempt:
+                counts["normalization_accepted"] += 1
+            normalized_attempt = None
         if event in {"initial_response_failed", "correction_response_failed"}:
             counts["model_response_rejected"] += 1
+            normalized_attempt = None
+            if item.get("stage") == "action_shape":
+                counts["shape_failures"] += 1
+                if "text" in item.get("missing_keys", []):
+                    counts["missing_text"] += 1
+            if attempt == "initial" and item.get("stage") in {
+                "action_json", "action_shape", "action_field_types", "agent_action_validation"
+            }:
+                counts["initial_action_rejected"] += 1
         if event == "correction_requested":
             counts["correction_requested"] += 1
         if event == "correction_response_accepted":
@@ -361,6 +400,7 @@ def summarize_terminal(
         "observed_error_codes": observed_error_codes,
         "event_counts": event_counts,
         "host_diagnostic_events": host_events,
+        "diagnostic_capture_complete": host_counts["diagnostic_events_dropped"] == 0,
         "agent_host_termination_observed": agent_host_termination_observed,
         "launcher_termination_observed": launcher_termination_observed,
         "capture_process_completed": capture_process_completed,

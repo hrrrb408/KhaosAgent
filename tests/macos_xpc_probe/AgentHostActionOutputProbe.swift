@@ -284,6 +284,17 @@ enum AgentHostActionOutputProbe {
         let harnessLine = AgentHostActionOutput.harnessStateFailureDiagnostic(
             errorCode: "tool_result_without_pending_proposal", enabled: true
         )
+        for event in AgentHostActionProgressEvent.allCases {
+            for attempt in [AgentHostModelAttempt.initial, .correction] {
+                require(AgentHostActionOutput.actionProgressDiagnostic(
+                    event: event, attempt: attempt, enabled: false
+                ) == nil, "progress diagnostics are not default-off")
+                require(AgentHostActionOutput.actionProgressDiagnostic(
+                    event: event, attempt: attempt, enabled: true
+                ) == "agent-host-model-diagnostic event=\(event.rawValue) attempt=\(attempt.rawValue)",
+                    "progress event exposed payload or lost attribution")
+            }
+        }
         require(
             harnessLine?.contains("event=harness_state_rejected attempt=none stage=harness_state") == true
                 && (harnessLine?.utf8.count ?? 513) <= 512

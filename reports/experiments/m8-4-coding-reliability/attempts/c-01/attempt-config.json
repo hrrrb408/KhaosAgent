@@ -1,0 +1,8 @@
+{
+  "attempt_id": "m8-4-c-01",
+  "group": "C",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+  "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5",
+  "remote_calls_started": 0
+}

@@ -1112,6 +1112,8 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                 / "KhaosAgentHost.xpc"
             )
             agent_host_entitlements = self._signed_entitlements(agent_host_bundle)
+            with (agent_host_bundle / "Contents/Info.plist").open("rb") as stream:
+                self.assertNotIn("EnvironmentVariables", plistlib.load(stream)["XPCService"])
             self.assertIs(
                 agent_host_entitlements.get("com.apple.security.app-sandbox"),
                 True,

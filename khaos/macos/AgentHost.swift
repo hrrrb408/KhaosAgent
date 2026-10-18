@@ -831,11 +831,15 @@ private final class BigModelSession {
         exactKeys: [String],
         attempt: AgentHostModelAttempt? = nil
     ) throws -> Value {
+        if let attempt {
+            AgentHostActionOutput.diagnoseActionProgress(.responseReceived, attempt: attempt)
+        }
         do {
             return try AgentHostActionOutput.decodeModelOutput(
                 data,
                 as: type,
-                expectedKeys: exactKeys
+                expectedKeys: exactKeys,
+                attempt: attempt
             )
         } catch let error as AgentHostJSONInspectionError {
             switch error {
@@ -1339,8 +1343,13 @@ private final class AgentHostSession: NSObject, AgentHostSessionEndpoint {
                 stage: code == "tool_call_limit" ? .harnessState : .actionValidation,
                 errorCode: code
             )
-        } else if correctionUsed {
-            AgentHostActionOutput.diagnoseCorrectionAccepted()
+        } else {
+            AgentHostActionOutput.diagnoseActionProgress(
+                .responseAccepted, attempt: correctionUsed ? .correction : .initial
+            )
+            if correctionUsed {
+                AgentHostActionOutput.diagnoseCorrectionAccepted()
+            }
         }
         return reply
     }

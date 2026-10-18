@@ -52,6 +52,12 @@ enum AgentHostModelAttempt: String {
     }
 }
 
+enum AgentHostActionProgressEvent: String, CaseIterable {
+    case responseReceived = "action_response_received"
+    case textNormalized = "action_text_normalized"
+    case responseAccepted = "action_response_accepted"
+}
+
 enum AgentHostModelDiagnosticStage: String {
     case providerRequest = "provider_request"
     case providerResponse = "provider_response"
@@ -175,12 +181,16 @@ enum AgentHostActionOutput {
     static func decodeModelOutput<Value: Decodable>(
         _ data: Data,
         as type: Value.Type,
-        expectedKeys: [String]
+        expectedKeys: [String],
+        attempt: AgentHostModelAttempt? = nil
     ) throws -> Value {
         try validateModelContentSize(data)
         let inspection = try inspectJSONObject(data, expectedKeys: expectedKeys)
         let decodeData: Data
         if inspection.normalized {
+            if let attempt {
+                diagnoseActionProgress(.textNormalized, attempt: attempt)
+            }
             do {
                 decodeData = try JSONSerialization.data(
                     withJSONObject: inspection.object, options: [.sortedKeys]
@@ -237,6 +247,23 @@ enum AgentHostActionOutput {
     static func correctionAcceptedDiagnostic(enabled: Bool) -> String? {
         guard enabled else { return nil }
         return "agent-host-model-diagnostic event=correction_response_accepted attempt=correction"
+    }
+
+    static func actionProgressDiagnostic(
+        event: AgentHostActionProgressEvent,
+        attempt: AgentHostModelAttempt,
+        enabled: Bool
+    ) -> String? {
+        guard enabled else { return nil }
+        return "agent-host-model-diagnostic event=\(event.rawValue) attempt=\(attempt.rawValue)"
+    }
+
+    static func diagnoseActionProgress(
+        _ event: AgentHostActionProgressEvent,
+        attempt: AgentHostModelAttempt
+    ) {
+        guard modelDiagnosticsEnabled() else { return }
+        emitModelDiagnostic(actionProgressDiagnostic(event: event, attempt: attempt, enabled: true))
     }
 
     static func harnessStateFailureDiagnostic(

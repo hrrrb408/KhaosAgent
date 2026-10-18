@@ -1,0 +1,87 @@
+{
+  "authorization": "new explicit authorization required for each attempt; then independent Launcher decisions",
+  "base_pr31_head": "f5631de1b5ebb056af28bbd145757b6f76053154",
+  "budgets": {
+    "aggregate_result_bytes": 32768,
+    "history_bytes": 8192,
+    "per_operation_seconds": 30,
+    "runner_seconds": 180,
+    "single_result_bytes": 4096,
+    "tool_proposals": 8
+  },
+  "credential_source": "reuse existing Hermes credential in memory only; never print or archive the value",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "formal_attempts_started": 0,
+  "format": "khaos-m8.4-controlled-benchmark-v1",
+  "input_integrity": {
+    "frozen_files_sha256": {
+      "frozen/runner-exception-classification.bundle": "0b2f23199529a610b6bac146700774ab09b3e6b20e550a08cf889eb039e30f5a",
+      "grade_attempt.py": "561a6c72dc88fbbb0c747201d99fd249d91a89f176a45c906d0c8116ed7c4c88",
+      "manifest.json": "ffa69ed0e27e50f94d48feae9cc56828b87838020d1f3871a7664be2b547d491",
+      "prepare_run.py": "219796f25fe87042126b0a4d9fd325bcc25ee93b36baffa3509eb2cc9acbd900",
+      "private/runner-exception-classification/gold.patch": "be1c5e1b443ec7f265be089ba99b9002014c343b426faefc5c990a06331ca660",
+      "private/runner-exception-classification/hidden-tests.patch": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16"
+    },
+    "hidden_patch_sha256": "185ea8ada844d790c0d716b2d7d921c8c4e739b238baa5d1b7b325e6fc446e16",
+    "prompt_sha256": "7a86c99de62538d4c514cb0f5fa1dd31d747701be60f03c12d4a2420736810a2",
+    "public_test_commands": [
+      [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_worker.py",
+        "-v"
+      ]
+    ],
+    "status": "PASS",
+    "task": "runner-exception-classification",
+    "workspace_baseline": "7b6af61b3925b28ef105ea521c49424344de04c5"
+  },
+  "maximum_attempts": 4,
+  "model": "glm-5.3",
+  "order": [
+    {
+      "attempt": "a-01",
+      "group": "A"
+    },
+    {
+      "attempt": "c-01",
+      "group": "C"
+    },
+    {
+      "attempt": "c-02",
+      "group": "C"
+    },
+    {
+      "attempt": "a-02",
+      "group": "A"
+    }
+  ],
+  "parameters": {
+    "correction_attempt_limit": 1,
+    "correction_effort": "low",
+    "correction_max_tokens": 1024,
+    "max_tokens": 32768,
+    "reasoning_effort": "max",
+    "request_timeout_seconds": 600,
+    "response_format": {
+      "type": "json_object"
+    },
+    "stream": false,
+    "temperature": 1,
+    "thinking": {
+      "clear_thinking": false,
+      "type": "enabled"
+    },
+    "top_p": 0.95
+  },
+  "protocol_sha256": "d76fb5924f1ff1de5690b5334213f064b5ea69870587fca7d8760935387cc1f9",
+  "provider": "bigmodel-coding-plan",
+  "raw_retention": "owner-only local directory outside Git workspaces; no raw logs or candidate/grader contents committed",
+  "status": "PREFLIGHT_IN_PROGRESS_NO_REMOTE_CALLS",
+  "task": "runner-exception-classification"
+}
