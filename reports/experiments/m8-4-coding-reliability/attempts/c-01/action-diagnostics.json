@@ -1,0 +1,137 @@
+{
+  "attempt_id": "m8-4-c-01",
+  "capture_complete": true,
+  "counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 0,
+    "correction_requested": 0,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 9,
+    "initial_action_rejected": 0,
+    "initial_action_responses": 9,
+    "missing_text": 8,
+    "model_response_rejected": 0,
+    "normalization_accepted": 8,
+    "normalization_applied": 8,
+    "shape_failures": 0,
+    "tool_approval_approved": 8,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 8,
+    "tool_execution_completed": 8,
+    "tool_proposal_observed": 8,
+    "tool_response_accepted": 8,
+    "tool_result_returned": 8
+  },
+  "events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    }
+  ],
+  "host_pids": [
+    "88335"
+  ],
+  "raw_log_sha256": "cd7a88e847b5a0cbc360c40ba9cfaf0238937da1ecb6086b0c4ad8210988baf3"
+}

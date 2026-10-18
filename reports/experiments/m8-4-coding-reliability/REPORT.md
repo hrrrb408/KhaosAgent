@@ -1,6 +1,6 @@
 # M8.4 controlled coding benchmark
 
-Status: PARTIAL, a-01 completed; three slots remain unrun. Formal remote attempts started/completed: 1/1. Group A a-01 produced NO_CANDIDATE: seven separately approved reads returned 0, no source edit or model test occurred, and the task terminated on invalid_model_output_shape after a failed correction. Terminal and diagnostic evidence is complete; the unchanged independent grader completed and its hidden-test command returned 1. No A/C improvement is claimed before C runs.
+Status: PARTIAL, a-01 and c-01 completed; c-02 and a-02 remain unrun. Formal attempts started/completed: 2/2. Both completed attempts are NO_CANDIDATE, with complete terminal/diagnostic evidence and completed independent hidden grading (test return code 1). A stopped after seven reads on invalid_model_output_shape; C executed eight read operations and stopped at the original tool budget. C performed eight actual missing-text normalizations, all semantically accepted, independently approved and executed. This establishes bounded protocol recovery, while coding success remains unobserved and general coding reliability NOT_PROVEN. The registered experiment is only halfway complete.
 
 The actual dependency chain is PR #27 -> main, PR #28 -> main, PR #29 -> #28, PR #30 -> #29, PR #31 -> #30. All five PRs remain open with passing checks at their audited heads. M8.3's historical statement that PR #28 was based on PR #27 is incorrect; repository-audit.json records the current GitHub base/head SHAs. No earlier PR was modified or merged.
 
@@ -8,4 +8,4 @@ Frozen inputs match. Independent A/C signed products are built with common diagn
 
 The initial zero-tool terminal probe returned text but exposed the Launcher's existing absence of Task Record for zero-tool tasks. The observer retained an unknown outcome; raw failure evidence is preserved locally and a sanitized summary is archived. This limitation will remain explicit in formal results.
 
-The fixed formal order is A/a-01, C/c-01, C/c-02, A/a-02. Original task, model parameters, budgets and independent grader are frozen in EXPERIMENT_PROTOCOL.md and experiment-config.json. Fresh explicit owner authorization was obtained for a-01 only; no previous M8 authorization is reused. Every operation requires independent human review.
+The fixed formal order is A/a-01, C/c-01, C/c-02, A/a-02. Original task, model parameters, budgets and independent grader are frozen in EXPERIMENT_PROTOCOL.md and experiment-config.json. Fresh explicit owner authorizations were obtained separately for a-01 and c-01; no previous M8 authorization is reused. Every operation requires independent human review.

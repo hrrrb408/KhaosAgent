@@ -1,5 +1,6 @@
 {
   "attempt_id": "m8-4-a-01",
+  "failed_read_operations": 0,
   "launcher_counts": {
     "agent_final_response_marker": 0,
     "correction_accepted": 1,
@@ -140,6 +141,8 @@
     }
   ],
   "raw_argv_or_scopes_committed": false,
+  "read_count_definition": "approved read-operation executions; successful and failed results reported separately",
+  "read_operation_executions": 7,
   "read_operations": 7,
   "repair_attempts": 0,
   "return_codes": [
@@ -151,5 +154,6 @@
     0,
     0
   ],
+  "successful_read_operations": 7,
   "write_operations": 0
 }

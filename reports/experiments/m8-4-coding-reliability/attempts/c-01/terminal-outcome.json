@@ -1,0 +1,184 @@
+{
+  "agent_final_response_observed": false,
+  "agent_host_termination_observed": false,
+  "attempt_association_complete": true,
+  "attempt_id": "m8-4-c-01",
+  "bounded_result_bytes": 7506,
+  "capture_process_completed": true,
+  "captured_host_pids": [
+    "88335"
+  ],
+  "conflicting_terminal_markers": false,
+  "cumulative_runner_seconds": 55.023,
+  "diagnostic_capture_complete": true,
+  "error_code": null,
+  "event": "terminal_outcome",
+  "event_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 0,
+    "correction_requested": 0,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 9,
+    "initial_action_rejected": 0,
+    "initial_action_responses": 9,
+    "missing_text": 8,
+    "model_response_rejected": 0,
+    "normalization_accepted": 8,
+    "normalization_applied": 8,
+    "shape_failures": 0,
+    "tool_approval_approved": 8,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 8,
+    "tool_execution_completed": 8,
+    "tool_proposal_observed": 8,
+    "tool_response_accepted": 8,
+    "tool_result_returned": 8
+  },
+  "evidence_complete": true,
+  "executed_command_return_codes": [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+  ],
+  "host_diagnostic_events": [
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_text_normalized"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_received"
+    },
+    {
+      "attempt": "initial",
+      "event": "action_response_accepted"
+    }
+  ],
+  "input_bytes": {
+    "agenthost_diagnostics": 4770,
+    "stderr": 2555,
+    "stdout": 1610
+  },
+  "input_sha256": {
+    "agenthost_diagnostics": "cd7a88e847b5a0cbc360c40ba9cfaf0238937da1ecb6086b0c4ad8210988baf3",
+    "stderr": "4f73326c142a1cc53182e8ef64f2c4c5d8d65f06ef9a537ea8f9036e91b9d0b0",
+    "stdout": "32c53a84580b6b5a476e1e3c9597a8ca7dd13e0dfc256d41eb8465bd422a5a55"
+  },
+  "input_truncated": {
+    "agenthost_diagnostics": false,
+    "stderr": false,
+    "stdout": false
+  },
+  "last_observed_tool_sequence": 8,
+  "launch_services_waiter_exit_code": 0,
+  "launcher_termination_observed": false,
+  "observed_at_utc": "2026-10-18T03:28:57.601537+00:00",
+  "observed_error_codes": [],
+  "observed_tool_proposals": 8,
+  "reason_code": "budget_exhausted",
+  "source": "launcher_task_status",
+  "synthetic": false,
+  "task_record_present": true,
+  "task_status_present": true,
+  "terminal_class": "budget_exhausted",
+  "terminal_observed": true
+}

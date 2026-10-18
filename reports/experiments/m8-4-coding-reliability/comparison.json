@@ -7,16 +7,26 @@
     "denominator": 8,
     "numerator": 6
   },
-  "C_rates": "NOT_RUN",
-  "action_contract_improvement": "INCONCLUSIVE",
+  "C_coding_pass": {
+    "denominator": 1,
+    "numerator": 0
+  },
+  "C_initial_acceptance": {
+    "denominator": 9,
+    "numerator": 9
+  },
+  "C_rates": "EXPLORATORY_N1",
+  "action_contract_improvement": "OBSERVED",
+  "action_contract_improvement_scope": "eight actual C missing-text recoveries; exploratory comparison only",
   "coding_reliability_closure": "NOT_PROVEN",
-  "coding_task_outcome": "NO_CANDIDATE_IN_COMPLETED_A01",
+  "coding_task_outcome": "NO_CANDIDATE_IN_BOTH_COMPLETED_ATTEMPTS",
   "completed_attempts": [
-    "a-01"
+    "a-01",
+    "c-01"
   ],
   "formal_attempts": {
     "A": 1,
-    "C": 0
+    "C": 1
   },
   "groups": {
     "A": {
@@ -29,6 +39,7 @@
       "correction_failed": 1,
       "correction_missing_text": 1,
       "correction_requested": 2,
+      "failed_read_operations": 0,
       "formal_attempts": 1,
       "hidden_test_pass": 0,
       "independent_grader_completed": 1,
@@ -43,23 +54,52 @@
       "read_operations": 7,
       "repair_attempts": 0,
       "shape_failures": 3,
+      "successful_read_operations": 7,
       "tool_approvals": 7,
       "tool_executions": 7,
       "tool_proposals": 7,
       "write_operations": 0
     },
     "C": {
-      "formal_attempts": 0,
-      "metrics": "NOT_RUN"
+      "candidate_generated": 0,
+      "changed_source_files": 0,
+      "coding_no_candidate": 1,
+      "coding_pass": 0,
+      "complete_terminals": 1,
+      "correction_accepted": 0,
+      "correction_failed": 0,
+      "correction_missing_text": 0,
+      "correction_requested": 0,
+      "failed_read_operations": 1,
+      "formal_attempts": 1,
+      "hidden_test_pass": 0,
+      "independent_grader_completed": 1,
+      "initial_action_accepted": 9,
+      "initial_action_rejected": 0,
+      "initial_action_responses": 9,
+      "initial_missing_text": 8,
+      "missing_text_total": 8,
+      "model_test_operations": 0,
+      "normalization_accepted": 8,
+      "normalization_applied": 8,
+      "normalization_approved": 8,
+      "normalization_executed": 8,
+      "read_operations": 8,
+      "repair_attempts": 0,
+      "shape_failures": 0,
+      "successful_read_operations": 7,
+      "tool_approvals": 8,
+      "tool_executions": 8,
+      "tool_proposals": 8,
+      "write_operations": 0
     }
   },
   "historical_attempts_in_denominator": 0,
-  "observed_model_responses": 10,
+  "observed_model_responses": 19,
   "remote_completion_requests": "NOT_CAPTURED",
-  "status": "PARTIAL_ONE_OF_FOUR_COMPLETED",
+  "status": "PARTIAL_TWO_OF_FOUR_COMPLETED",
   "synthetic_attempts_in_denominator": 0,
   "unrun_attempts": [
-    "c-01",
     "c-02",
     "a-02"
   ]
