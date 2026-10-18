@@ -581,12 +581,13 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
       "role": "build-governance",
-      "sha256": "0bdf9904431c3c4e86b2f388ffff3b202bffa0b3cd976f416c4becafe6f2799e",
+      "sha256": "804235c3cfe6596f74f54bf1741654bebc634c147a2ad57ea1db60a043c25241",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
         "tests/test_security_freeze.py",
-        "python3 tools/check_security_freeze.py"
+        "python3 tools/check_security_freeze.py",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_model_probe_follows_coding_results_not_output_claims -v"
       ]
     },
     {
@@ -966,12 +967,15 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "aa6f49c92842dee64c56c5c6d36e88fca4dd38c4d7230bdb667b2421654ed8da",
+      "sha256": "3cedd0604ad90c8e19cf948e0b33b99e3a9e77470fa74f2c7a698ca6d4cd043f",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
         "tests/test_security_freeze.py",
-        "python3 tools/check_security_freeze.py"
+        "python3 tools/check_security_freeze.py",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit_probe_runs_through_kernel_and_commits_one_file -k staged_edit_failure_paths_keep_the_committed_state_scoped -v",
+        "signed-product staged-edit feasibility: KHAOS_RUN_PRODUCT_STAGED_EDIT_FEASIBILITY_UI=1; exact isolated tags.py scope; one Run once decision",
+        "signed-product staged-edit refusal: KHAOS_RUN_PRODUCT_STAGED_EDIT_REFUSAL_UI=1; exact isolated tags.py scope; Cancel; zero Runner executions"
       ]
     },
     {
