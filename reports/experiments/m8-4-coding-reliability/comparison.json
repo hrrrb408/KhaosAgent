@@ -8,25 +8,56 @@
     "numerator": 6
   },
   "C_coding_pass": {
-    "denominator": 1,
+    "denominator": 2,
     "numerator": 0
   },
   "C_initial_acceptance": {
     "denominator": 9,
-    "numerator": 9
+    "excluded_attempts": [
+      "c-02"
+    ],
+    "numerator": 9,
+    "scope": "diagnostically complete c-01 only"
   },
-  "C_rates": "EXPLORATORY_N1",
+  "C_rates": "HOST_RATES_C01_SUBSET_ONLY; CODING_OUTCOMES_BOTH_C_ATTEMPTS",
   "action_contract_improvement": "OBSERVED",
   "action_contract_improvement_scope": "eight actual C missing-text recoveries; exploratory comparison only",
+  "c02_exact_host_counts": "NOT_CAPTURED",
+  "c02_observed_host_counts": {
+    "agent_final_response_marker": 0,
+    "correction_accepted": 0,
+    "correction_failed": 1,
+    "correction_requested": 1,
+    "diagnostic_events_dropped": 0,
+    "harness_state_rejected": 0,
+    "initial_action_accepted": 7,
+    "initial_action_rejected": 1,
+    "initial_action_responses": 8,
+    "missing_text": 1,
+    "model_response_rejected": 2,
+    "normalization_accepted": 0,
+    "normalization_applied": 0,
+    "shape_failures": 1,
+    "tool_approval_approved": 7,
+    "tool_approval_denied": 0,
+    "tool_approval_presented": 7,
+    "tool_execution_completed": 7,
+    "tool_proposal_observed": 7,
+    "tool_response_accepted": 7,
+    "tool_result_returned": 7
+  },
   "coding_reliability_closure": "NOT_PROVEN",
-  "coding_task_outcome": "NO_CANDIDATE_IN_BOTH_COMPLETED_ATTEMPTS",
+  "coding_task_outcome": "NO_CANDIDATE_IN_ALL_THREE_COMPLETED_ATTEMPTS",
+  "comparison_integrity": "NOT_PROVEN",
   "completed_attempts": [
     "a-01",
-    "c-01"
+    "c-01",
+    "c-02"
   ],
+  "exact_model_response_total": "NOT_CAPTURED_C02_DIAGNOSTIC_GAP",
   "formal_attempts": {
     "A": 1,
-    "C": 1
+    "C": 2
   },
   "groups": {
     "A": {
@@ -63,17 +94,23 @@
     "C": {
       "candidate_generated": 0,
       "changed_source_files": 0,
-      "coding_no_candidate": 1,
+      "coding_no_candidate": 2,
       "coding_pass": 0,
-      "complete_terminals": 1,
+      "complete_terminals": 2,
       "correction_accepted": 0,
       "correction_failed": 0,
       "correction_missing_text": 0,
       "correction_requested": 0,
-      "failed_read_operations": 1,
-      "formal_attempts": 1,
+      "diagnostic_complete_attempts": 1,
+      "diagnostic_incomplete_attempts": 1,
+      "failed_read_operations": 2,
+      "formal_attempts": 2,
       "hidden_test_pass": 0,
-      "independent_grader_completed": 1,
+      "host_metrics_attempt_ids": [
+        "c-01"
+      ],
+      "host_metrics_scope": "EXACT_C01_ONLY; C02_EXACT_HOST_METRICS_NOT_CAPTURED",
+      "independent_grader_completed": 2,
       "initial_action_accepted": 9,
       "initial_action_rejected": 0,
       "initial_action_responses": 9,
@@ -84,23 +121,27 @@
       "normalization_applied": 8,
       "normalization_approved": 8,
       "normalization_executed": 8,
-      "read_operations": 8,
+      "read_operations": 15,
       "repair_attempts": 0,
       "shape_failures": 0,
-      "successful_read_operations": 7,
-      "tool_approvals": 8,
-      "tool_executions": 8,
-      "tool_proposals": 8,
+      "successful_read_operations": 13,
+      "tool_approvals": 15,
+      "tool_executions": 15,
+      "tool_metrics_attempt_ids": [
+        "c-01",
+        "c-02"
+      ],
+      "tool_proposals": 15,
       "write_operations": 0
     }
   },
   "historical_attempts_in_denominator": 0,
-  "observed_model_responses": 19,
+  "observed_model_response_scope": "19 complete-subset responses plus 9 observed C02 responses; not exact whole-study count",
+  "observed_model_responses": 28,
   "remote_completion_requests": "NOT_CAPTURED",
-  "status": "PARTIAL_TWO_OF_FOUR_COMPLETED",
+  "status": "PARTIAL_THREE_OF_FOUR_COMPLETED_WITH_C02_DIAGNOSTIC_GAP",
   "synthetic_attempts_in_denominator": 0,
   "unrun_attempts": [
-    "c-02",
     "a-02"
   ]
 }

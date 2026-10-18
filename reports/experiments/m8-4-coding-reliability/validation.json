@@ -12,7 +12,7 @@
   "current_freeze": "PASS",
   "exact_base_freeze": "PASS",
   "exact_base": "f5631de1b5ebb056af28bbd145757b6f76053154",
-  "remote_formal_attempts_started": 2,
+  "remote_formal_attempts_started": 3,
   "canonical_test_count": 379,
   "canonical_elapsed_seconds": 677.619,
   "canonical_exit_code": 0,
@@ -21,7 +21,7 @@
   "preflight_request_sha256": "3f3813a07733475c348e13a2ed1880c3333facb4f16706bee011eed877b10f19",
   "signed_denial_zero_execution": "PASS",
   "bookkeeping_tests": "PASS_6",
-  "formal_attempts_completed": 2,
+  "formal_attempts_completed": 3,
   "a01_terminal": "PASS_COMPLETE_FAILED_TASK",
   "a01_approval_review": "PASS_7_INDEPENDENT_APPROVALS",
   "a01_independent_grading": "COMPLETED_HIDDEN_TESTS_FAILED",
@@ -32,5 +32,13 @@
   "c01_independent_grading": "COMPLETED_HIDDEN_TESTS_FAILED",
   "c01_candidate": "NO_CANDIDATE",
   "c01_environment_closed": "PASS_NO_LIVE_LAUNCHER_OR_HOST",
-  "c01_normalization_chain": "PASS_8_APPLIED_ACCEPTED_PROPOSED_APPROVED_EXECUTED"
+  "c01_normalization_chain": "PASS_8_APPLIED_ACCEPTED_PROPOSED_APPROVED_EXECUTED",
+  "c02_terminal": "PASS_TASK_RECORD_RECOVERED_FROM_ORIGINAL_LOGS",
+  "c02_approval_review": "PASS_7_INDEPENDENT_APPROVALS",
+  "c02_independent_grading": "COMPLETED_HIDDEN_TESTS_FAILED",
+  "c02_candidate": "NO_CANDIDATE",
+  "c02_environment_closed": "PASS_NO_LIVE_LAUNCHER_OR_HOST",
+  "c02_host_diagnostics": "INCOMPLETE_COLLECTION_INTERRUPTION",
+  "c02_waiter_exit_code": "NOT_CAPTURED",
+  "comparative_host_metric_integrity": "NOT_PROVEN_C02_GAP"
 }

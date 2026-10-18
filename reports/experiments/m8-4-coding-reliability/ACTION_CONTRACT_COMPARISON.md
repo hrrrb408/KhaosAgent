@@ -1,6 +1,6 @@
 # M8.4 Action Contract comparison
 
-Bounded real-model protocol recovery: OBSERVED; completed formal denominators are A=1 and C=1; c-02 and a-02 remain NOT_RUN. The comparison is exploratory and incomplete. Deterministic results are excluded from this denominator.
+Bounded real-model protocol recovery: OBSERVED; completed formal denominators are A=1 and C=2; a-02 remains NOT_RUN. Exact Host-rate evidence uses only a-01 and c-01 because c-02 collection was interrupted. The comparison is exploratory and incomplete. Deterministic results are excluded from this denominator.
 
 The actual production parsers were compiled independently. A rejects a list/shell response missing only text. C accepts exactly that shape, fills the existing empty string, and preserves original semantic/wire validation. Both reject missing scopes, unknown fields, invalid type/action combinations, incompatible Plugin/evolution fields and denied continuation. Both retain the single-correction limit. Signed diagnostic probes observed A's shape failure and C's normalization plus acceptance; enabling diagnostics did not change output or acceptance.
 
@@ -40,3 +40,9 @@ Both coding outcomes remain NO_CANDIDATE. The missing-text mechanism prevented e
 | Coding PASS / completed attempts | 0/1 | 0/1 |
 
 The hidden grades above test unchanged baselines because neither attempt produced a candidate. Missing-text occurrences include recovered C responses and must not be read as missing-text failures. No synthetic or historical attempts enter these denominators.
+
+## c-02 observation and denominator limitation
+
+The surviving c-02 product executed seven independently approved reads, with no source candidate. Original and resumed diagnostic rows show a real unused-field semantic rejection on the eighth observed initial response, followed by a correction missing text plus five other keys. Candidate C correctly kept the existing semantic and multi-missing-field rejection path; no normalization event was observed. The collector gap means exact initial/rejection/normalization/correction totals are NOT_CAPTURED, so zero observed normalization is not promoted to a proven whole-attempt NOT_TRIGGERED result.
+
+Complete diagnostic attempts are currently A 1/1 and C 1/2. Exact Host response metrics in the interim table above refer only to a-01/c-01. Coding outcomes, actual tool executions and original independent grades are known for all three completed attempts; C coding PASS is 0/2. Missing observations are excluded rather than converted to zeros. The long c-02 interruption also increases temporal/provider-state uncertainty. Overall quantitative A/C Comparison Integrity remains NOT_PROVEN even though input/build single-variable checks and eight c-01 recoveries are established.
