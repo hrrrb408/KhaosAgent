@@ -43,11 +43,11 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_inputs() -> dict[str, object]:
-    task = next(t for t in json.loads((DATASET / "manifest.json").read_text())["tasks"] if t["id"] == TASK)
+def verify_inputs(dataset: Path = DATASET) -> dict[str, object]:
+    task = next(t for t in json.loads((dataset / "manifest.json").read_text())["tasks"] if t["id"] == TASK)
     prompt_hash = sha256((task["prompt"] + "\n").encode())
-    hidden_hash = sha256((DATASET / "private" / TASK / "hidden-tests.patch").read_bytes())
-    heads = subprocess.check_output(["git", "bundle", "list-heads", str(DATASET / task["workspace"])], text=True)
+    hidden_hash = sha256((dataset / "private" / TASK / "hidden-tests.patch").read_bytes())
+    heads = subprocess.check_output(["git", "bundle", "list-heads", str(dataset / task["workspace"])], text=True)
     if prompt_hash != PROMPT_SHA256 or hidden_hash != HIDDEN_SHA256:
         raise ValueError("frozen prompt or hidden-test hash mismatch; do not run")
     if task["frozen_baseline_commit"] != WORKSPACE_BASE or any(
@@ -56,7 +56,7 @@ def verify_inputs() -> dict[str, object]:
         raise ValueError("frozen workspace baseline mismatch; do not run")
     hashes = {}
     for relative, expected in FROZEN_SHA256.items():
-        path = DATASET / relative
+        path = dataset / relative
         data = path.read_bytes()
         if sha256(data) != expected:
             raise ValueError(f"benchmark input changed: {relative}")

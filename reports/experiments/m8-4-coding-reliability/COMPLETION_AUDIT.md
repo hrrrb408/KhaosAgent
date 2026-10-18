@@ -1,6 +1,6 @@
 # M8.4 completion audit
 
-The goal remains active. Input integrity, independent A/C signed builds, trusted-component equality, parser comparison and actual signed diagnostic transport are established. The canonical suite passed 376 tests in 686.398 seconds; a signed one-operation terminal/refusal check is pending independent operation review. New per-attempt remote authorization, four formal runs, hidden grading, comparative analysis, final CI and independent stacked PR remain unfinished.
+The goal remains active. Input integrity, independent A/C signed builds, trusted-component equality, parser comparison and actual signed diagnostic transport are established. The canonical suite passed 379 tests in 677.619 seconds (exit 0); signed one-operation completion and refusal both passed; six A/C and bookkeeping tests and both Security Freeze checks passed. New per-attempt remote authorization, four formal runs, hidden grading, comparative analysis, final CI and independent stacked PR remain unfinished.
 
 Experiment Closure: PARTIAL
 

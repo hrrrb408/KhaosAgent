@@ -933,7 +933,7 @@
     {
       "path": "tests/test_m8_4_contract.py",
       "role": "build-governance",
-      "sha256": "86aa8671672fff1ce5e51413d47e8343be09670286acb57b6bc59b15820c62fd",
+      "sha256": "858cc8f5108f06df7c9f245fe50d259c21e86ffaf57a255e0d5d2229f3d5cce6",
       "source_mode": "0o644",
       "boundary": "reviewed M8.4 deterministic comparison test; not runtime authority",
       "tests": [

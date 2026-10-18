@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 
-from experiment_support import ROOT, TASK, PROMPT_SHA256, sha256, verify_inputs
+from experiment_support import ROOT, TASK, PROMPT_SHA256, WORKSPACE_BASE, sha256, verify_inputs
 
 REPORTS = Path(__file__).resolve().parent
 ORDER = ["a-01", "c-01", "c-02", "a-02"]
@@ -26,6 +26,53 @@ def save(path: Path, value: object) -> None:
 
 def load(path: Path):
     return json.loads(path.read_text())
+
+
+def candidate_snapshot(workspace: Path) -> tuple[bytes, list[str]]:
+    """Include untracked files without changing the index or following symlinks."""
+    git = ["git", "-C", str(workspace)]
+    options = ["--no-ext-diff", "--no-textconv", "--binary"]
+    diff = subprocess.check_output(git + ["diff", *options, "HEAD"])
+    tracked = subprocess.check_output(git + ["diff", "--name-only", "-z", "HEAD"])
+    untracked = subprocess.check_output(git + ["ls-files", "--others", "--exclude-standard", "-z"])
+    paths = sorted(set(p.decode() for p in (tracked + untracked).split(b"\0") if p))
+    for path in (p.decode() for p in untracked.split(b"\0") if p):
+        result = subprocess.run(git + ["diff", "--no-index", *options, "--", "/dev/null", path],
+                                capture_output=True)
+        if result.returncode not in (0, 1):
+            raise RuntimeError("candidate snapshot failed")
+        diff += result.stdout
+    return diff, paths
+
+
+def independent_grade(dataset: Path, run_dir: Path, attempt_id: str) -> dict:
+    """Keep grader output private and preserve an explicit error summary."""
+    result = subprocess.run([
+        sys.executable, str(dataset / "grade_attempt.py"), "--model", "api",
+        "--task-id", TASK, "--attempt", attempt_id,
+    ], capture_output=True)
+    (run_dir / "grader.stdout").write_bytes(result.stdout)
+    (run_dir / "grader.stderr").write_bytes(result.stderr)
+    summary = {"attempt_id": attempt_id, "grader_exit_code": result.returncode,
+               "grader_stdout_sha256": sha256(result.stdout),
+               "grader_stderr_sha256": sha256(result.stderr), "raw_test_output_committed": False}
+    try:
+        if result.returncode != 0:
+            raise ValueError("grader invocation failed")
+        grade = load(run_dir / "grade.json")
+        summary.update(grade_status="COMPLETED", baseline=grade["frozen_baseline_commit"],
+            hidden_patch_sha256=grade["hidden_test_patch_sha256"],
+            hidden_patch_applied=grade["hidden_test_patch_applied"],
+            return_codes=[t["return_code"] for t in grade["tests"]],
+            timed_out=[t["timed_out"] for t in grade["tests"]],
+            all_test_commands_passed=grade["all_test_commands_passed"],
+            graded_candidate_paths=grade["candidate_paths_copied"],
+            excluded_test_edits=grade["candidate_test_edits_excluded"],
+            raw_grade_sha256=sha256((run_dir / "grade.json").read_bytes()))
+    except (OSError, ValueError, KeyError, TypeError):
+        summary.update(grade_status="GRADER_ERROR", all_test_commands_passed="NOT_CAPTURED",
+                       graded_candidate_paths="NOT_CAPTURED", excluded_test_edits="NOT_CAPTURED")
+    return summary
 
 
 def main() -> None:
@@ -67,7 +114,11 @@ def main() -> None:
     }:
         raise SystemExit("Hermes endpoint metadata no longer matches the approved recipient")
     verify_inputs()
+    dataset = Path(state["dataset"])
+    verify_inputs(dataset)
     workspace = Path(attempt["workspace"])
+    if subprocess.check_output(["git", "-C", str(workspace), "rev-parse", "HEAD"], text=True).strip() != WORKSPACE_BASE:
+        raise SystemExit("attempt workspace baseline changed")
     if subprocess.check_output(["git", "-C", str(workspace), "status", "--porcelain"]):
         raise SystemExit("attempt workspace is not clean")
     if sha256((run_dir / "task-prompt.txt").read_bytes()) != PROMPT_SHA256:
@@ -140,14 +191,6 @@ def main() -> None:
     run.update(status="completed" if terminal["evidence_complete"] else "terminal_outcome_incomplete",
                launcher_exit_code=returncode, completed_at_utc=datetime.now(timezone.utc).isoformat())
     save(run_dir / "run.json", run)
-    diff = subprocess.check_output(["git", "-C", str(workspace), "diff", "--binary", "HEAD"])
-    (run_dir / "candidate.patch").write_bytes(diff)
-    subprocess.run([
-        sys.executable, str(Path(state["dataset"]) / "grade_attempt.py"), "--model", "api",
-        "--task-id", TASK, "--attempt", attempt["run_id"],
-    ], check=True, capture_output=True)
-    grade = load(run_dir / "grade.json")
-    candidate_paths = grade["candidate_paths_copied"]
     save(public / "terminal-outcome.json", terminal)
     save(public / "action-diagnostics.json", {
         "attempt_id": attempt["run_id"], "events": terminal["host_diagnostic_events"],
@@ -155,22 +198,17 @@ def main() -> None:
         "capture_complete": terminal["diagnostic_capture_complete"] and len(host_pids) == 1,
         "raw_log_sha256": sha256(log_path.read_bytes()),
     })
+    diff, candidate_paths = candidate_snapshot(workspace)
+    (run_dir / "candidate.patch").write_bytes(diff)
+    verify_inputs(dataset)
+    grade = independent_grade(dataset, run_dir, attempt["run_id"])
     save(public / "candidate-metadata.json", {
         "attempt_id": attempt["run_id"], "candidate_present": bool(candidate_paths),
-        "changed_paths": candidate_paths, "excluded_test_edits": grade["candidate_test_edits_excluded"],
+        "changed_paths": candidate_paths, "excluded_test_edits": grade["excluded_test_edits"],
+        "graded_candidate_paths": grade["graded_candidate_paths"],
         "diff_sha256": sha256(diff), "diff_bytes": len(diff), "raw_diff_committed": False,
     })
-    save(public / "grade.json", {
-        "attempt_id": attempt["run_id"], "baseline": grade["frozen_baseline_commit"],
-        "hidden_patch_sha256": grade["hidden_test_patch_sha256"],
-        "hidden_patch_applied": grade["hidden_test_patch_applied"],
-        "return_codes": [t["return_code"] for t in grade["tests"]],
-        "timed_out": [t["timed_out"] for t in grade["tests"]],
-        "all_test_commands_passed": grade["all_test_commands_passed"],
-        "candidate_present": bool(candidate_paths),
-        "raw_grade_sha256": sha256((run_dir / "grade.json").read_bytes()),
-        "raw_test_output_committed": False,
-    })
+    save(public / "grade.json", grade)
     save(public / "tool-summary.json", {
         "attempt_id": attempt["run_id"], "launcher_counts": terminal["event_counts"],
         "return_codes": terminal["executed_command_return_codes"],

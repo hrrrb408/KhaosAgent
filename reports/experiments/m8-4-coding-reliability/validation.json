@@ -1,5 +1,5 @@
 {
-  "preflight": "PENDING",
+  "preflight": "PASS",
   "frozen_inputs": "PASS",
   "compiled_AC_contracts": "PASS",
   "diagnostic_default_off_and_acceptance_parity": "PASS",
@@ -7,16 +7,18 @@
   "signed_bootstrap_both_groups": "PASS",
   "trusted_unsigned_binaries_and_packaged_components": "PASS",
   "zero_tool_terminal": "INCOMPLETE_RETAINED_AS_UNKNOWN",
-  "signed_one_operation_terminal": "WAITING_FOR_USER_OPERATION_APPROVAL",
+  "signed_one_operation_terminal": "PASS",
   "canonical_suite": "PASS",
   "current_freeze": "PASS",
   "exact_base_freeze": "PASS",
   "exact_base": "f5631de1b5ebb056af28bbd145757b6f76053154",
   "remote_formal_attempts_started": 0,
-  "canonical_test_count": 376,
-  "canonical_elapsed_seconds": 686.398,
+  "canonical_test_count": 379,
+  "canonical_elapsed_seconds": 677.619,
   "canonical_exit_code": 0,
-  "canonical_log_sha256": "b32aae20f4cf6d47e6b39c93021007516405a96d4f2772e23195e7237af90cec",
+  "canonical_log_sha256": "119e24a6372447f1f8a37b09e5ade5d79a8ba2d869ec142d8d2dd7d3a31676dc",
   "unauthorized_start_gate": "PASS",
-  "preflight_request_sha256": "3f3813a07733475c348e13a2ed1880c3333facb4f16706bee011eed877b10f19"
+  "preflight_request_sha256": "3f3813a07733475c348e13a2ed1880c3333facb4f16706bee011eed877b10f19",
+  "signed_denial_zero_execution": "PASS",
+  "bookkeeping_tests": "PASS_6"
 }

@@ -11,6 +11,7 @@
     "tool_proposals": 8
   },
   "credential_source": "reuse existing Hermes credential in memory only; never print or archive the value",
+  "denied_tool_product_preflight": "PASS_ZERO_EXECUTIONS",
   "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
   "formal_attempts_started": 0,
   "format": "khaos-m8.4-controlled-benchmark-v1",
@@ -47,7 +48,7 @@
   "maximum_initial_model_turns_per_attempt": 9,
   "maximum_logical_completion_requests_per_attempt": 18,
   "model": "glm-5.3",
-  "normal_terminal_product_preflight": "PENDING_ONE_REVIEWED_OPERATION",
+  "normal_terminal_product_preflight": "PASS",
   "order": [
     {
       "attempt": "a-01",
@@ -92,7 +93,7 @@
     "A": "7f1399be6475a0e9db9893d557990565d0ff94c6",
     "C": "db04df6c82ba11f1ba5f9d3156953b68a45c5e0a"
   },
-  "status": "PREFLIGHT_IN_PROGRESS_NO_REMOTE_CALLS",
+  "status": "PREFLIGHT_PASS_AWAITING_FRESH_A01_AUTHORIZATION",
   "task": "runner-exception-classification",
   "trusted_unsigned_binaries_identical": true
 }
