@@ -1,0 +1,20 @@
+{
+  "coding_workflow": {
+    "command_return_codes": [],
+    "launcher_approved_calls": 0,
+    "launcher_reviewed_proposals": 0,
+    "operation_denied": false,
+    "single_user_prompt": true,
+    "workspace_selection_cancelled": false
+  },
+  "current_stage": "single-user-task-coding-workflow",
+  "failure_type": "AssertionError",
+  "finished_at_utc": "2026-10-18T15:00:24.155474+00:00",
+  "format": "khaos-signed-runner-staged-edit-feasibility-v1",
+  "model_mode": "signed-runner-staged-edit-feasibility",
+  "provider": null,
+  "security_checks": {},
+  "started_at_utc": "2026-10-18T15:00:23.204929+00:00",
+  "status": "failed",
+  "terminal_outcomes": {}
+}

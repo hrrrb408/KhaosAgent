@@ -578,6 +578,165 @@ unittest.main(module=module, argv=["test_tags"], verbosity=2)
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt Runner",
     )
+    def test_staged_edit_readable_target_outside_write_scope_is_denied(self) -> None:
+        original = (
+            "# B14 M8.5.2A.2 synthetic read-only target\n"
+            'def parse_tags(value):\n    return value.split(",")\n'
+        )
+        old_text = 'value.split(",")'
+        new_text = '[part.strip() for part in value.split(",") if part.strip()]'
+        expected = original.replace(old_text, new_text, 1)
+        with tempfile.TemporaryDirectory(prefix="khaos-staged-edit-write-scope-") as value:
+            root = Path(value)
+            proposal = self._staged_edit_probe_proposal(root)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            readable_target = workspace / "other.py"
+            readable_target.write_text(original, encoding="utf-8")
+            authorized_target = workspace / "tags.py"
+            authorized_target.write_text("authorized but not selected\n", encoding="utf-8")
+            canary = workspace / "unscoped-canary.txt"
+            canary.write_text("synthetic canary\n", encoding="utf-8")
+            initial_hashes = {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in (readable_target, authorized_target, canary)
+            }
+            prefix = f"""
+import os, time
+from pathlib import Path
+_EXPECTED = {original!r}
+_REPLACED = {expected!r}
+_OLD = {old_text!r}
+_real_read_text = Path.read_text
+_real_open = os.open
+_real_replace = os.replace
+def _mark(name):
+    Path(os.environ["TMPDIR"], name).write_text("observed")
+def _read_text(path, *args, **kwargs):
+    value = _real_read_text(path, *args, **kwargs)
+    if os.fspath(path) == "other.py" and value == _EXPECTED and value.count(_OLD) == 1:
+        _mark("b14-read-and-old-text-match")
+    return value
+def _open(path, *args, **kwargs):
+    if os.fspath(path).startswith(".khaos-edit-"):
+        _mark("b14-temp-create-attempt")
+        try:
+            descriptor = _real_open(path, *args, **kwargs)
+        except OSError as error:
+            _mark("b14-temp-create-denied-" + str(error.errno))
+            time.sleep(0.2)
+            raise
+        _mark("b14-temp-create-succeeded")
+        return descriptor
+    return _real_open(path, *args, **kwargs)
+def _replace(source, target, *args, **kwargs):
+    try:
+        _real_replace(source, target, *args, **kwargs)
+    except OSError as error:
+        _mark("b14-replace-denied-" + str(error.errno))
+        time.sleep(0.2)
+        raise
+    _mark("b14-replace-succeeded")
+    time.sleep(0.2)
+Path.read_text = _read_text
+os.open = _open
+os.replace = _replace
+"""
+            observed: set[str] = set()
+
+            def observe_runner_progress() -> bool:
+                for scratch in self._staged_command_scratch_dirs():
+                    for marker in (
+                        "b14-read-and-old-text-match",
+                        "b14-temp-create-attempt",
+                        "b14-temp-create-succeeded",
+                        "b14-temp-create-denied-1",
+                        "b14-temp-create-denied-13",
+                        "b14-replace-succeeded",
+                        "b14-replace-denied-1",
+                        "b14-replace-denied-13",
+                    ):
+                        if (scratch / marker).is_file():
+                            observed.add(marker)
+                for snapshot in self._staged_snapshot_workspaces():
+                    snapshot_target = snapshot / "other.py"
+                    try:
+                        snapshot_contents = snapshot_target.read_text(encoding="utf-8")
+                    except OSError:
+                        continue
+                    if snapshot_contents == original:
+                        observed.add("b14-snapshot-target-unchanged")
+                    elif snapshot_contents == expected:
+                        observed.add("b14-snapshot-target-modified")
+                return False
+
+            result = None
+            kernel_error = None
+            try:
+                result = self._run_staged_edit_probe(
+                    proposal,
+                    workspace,
+                    target="other.py",
+                    prefix=prefix,
+                    old_text=old_text,
+                    new_text=new_text,
+                    read_scope=("other.py",),
+                    write_scope=("tags.py",),
+                    cancel_requested=observe_runner_progress,
+                )
+            except KernelLaunchError as error:
+                kernel_error = str(error)
+
+            self.assertIn("b14-read-and-old-text-match", observed)
+            self.assertIn("b14-temp-create-attempt", observed)
+            self.assertIn("b14-temp-create-succeeded", observed)
+            self.assertIn("b14-replace-succeeded", observed)
+            self.assertIn("b14-snapshot-target-modified", observed)
+            self.assertEqual(kernel_error, "commit_rejected")
+            self.assertIsNone(result)
+            final_hashes = {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in (readable_target, authorized_target, canary)
+            }
+            self.assertEqual(final_hashes, initial_hashes)
+            self.assertEqual(
+                {entry.name for entry in workspace.iterdir()},
+                {"other.py", "tags.py", "unscoped-canary.txt"},
+            )
+            self.assertFalse(list(workspace.glob(".khaos-edit-*")))
+            print(
+                "B14_EVIDENCE "
+                + json.dumps(
+                    {
+                        "case": "Result B: private snapshot changed; Kernel rejected changeset",
+                        "requested_target": "other.py",
+                        "readScope": ["other.py"],
+                        "writeScope": ["tags.py"],
+                        "observed_runner_stages": sorted(observed),
+                        "runner_result": (
+                            "KernelLaunchError(commit_rejected); no WorkspaceCommandResult "
+                            "or command return code was surfaced"
+                        ),
+                        "kernel_commit_result": kernel_error,
+                        "private_snapshot_target": "modified to fixed replacement before commit rejection",
+                        "initial_sha256": initial_hashes,
+                        "final_sha256": final_hashes,
+                        "live_workspace_entries": sorted(
+                            entry.name for entry in workspace.iterdir()
+                        ),
+                        "committed_temp_entries": sorted(
+                            entry.name for entry in workspace.glob(".khaos-edit-*")
+                        ),
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
     def test_staged_edit_failure_paths_keep_the_committed_state_scoped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="khaos-staged-edit-failures-") as value:
             root = Path(value)
@@ -1570,6 +1729,95 @@ os.replace = replace_then_wait
         sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
         "requires the real macOS Seatbelt Runner",
     )
+    def test_staged_edit_late_cancel_reports_the_already_committed_result(self) -> None:
+        original = 'def parse_tags(value):\n    return value.split(",")\n'
+        expected = (
+            "def parse_tags(value):\n"
+            '    return [part.strip() for part in value.split(",") if part.strip()]\n'
+        )
+        with tempfile.TemporaryDirectory(prefix="khaos-staged-edit-post-commit-cancel-") as value:
+            root = Path(value)
+            proposal = self._staged_edit_probe_proposal(root)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            target = workspace / "tags.py"
+            target.write_text(original, encoding="utf-8")
+            canary = workspace / "unscoped-canary.txt"
+            canary.write_text("synthetic canary\n", encoding="utf-8")
+            initial_hashes = {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in (target, canary)
+            }
+            runner_source = self._runner_source_for_argv(
+                self._staged_edit_argv(proposal)
+            )
+            return_line = "    return result['returncode']\n"
+            self.assertEqual(runner_source.count(return_line), 1)
+            runner_source = "import time\n" + runner_source.replace(
+                return_line,
+                "    time.sleep(0.5)\n" + return_line,
+            )
+            late_cancel_observed = threading.Event()
+
+            def cancel_after_live_mutation() -> bool:
+                if not late_cancel_observed.is_set():
+                    try:
+                        if target.read_text(encoding="utf-8") == expected:
+                            late_cancel_observed.set()
+                    except OSError:
+                        pass
+                return late_cancel_observed.is_set()
+
+            result = run_workspace_command(
+                workspace,
+                runner_source=runner_source,
+                workspace_read_scope=("tags.py",),
+                workspace_write_scope=("tags.py",),
+                timeout_seconds=5,
+                cancel_requested=cancel_after_live_mutation,
+            )
+
+            self.assertTrue(late_cancel_observed.is_set())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "EDIT_APPLIED")
+            self.assertEqual((result.added, result.modified, result.deleted), (0, 1, 0))
+            self.assertEqual(target.read_text(encoding="utf-8"), expected)
+            self.assertEqual(canary.read_text(encoding="utf-8"), "synthetic canary\n")
+            self.assertFalse(list(workspace.glob(".khaos-edit-*")))
+            final_hashes = {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in (target, canary)
+            }
+            print(
+                "B34_POST_COMMIT_EVIDENCE "
+                + json.dumps(
+                    {
+                        "late_cancel": "sent after live target contained the committed replacement",
+                        "kernel_result": "WorkspaceCommandResult",
+                        "runner_returncode": result.returncode,
+                        "changeset": {
+                            "added": result.added,
+                            "modified": result.modified,
+                            "deleted": result.deleted,
+                        },
+                        "terminal_consistency": "committed result returned; live target matches replacement",
+                        "initial_sha256": initial_hashes,
+                        "final_sha256": final_hashes,
+                        "canary_unchanged": initial_hashes["unscoped-canary.txt"]
+                        == final_hashes["unscoped-canary.txt"],
+                        "temporary_entries_remaining": len(
+                            list(workspace.glob(".khaos-edit-*"))
+                        ),
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and SANDBOX_EXECUTABLE.is_file(),
+        "requires the real macOS Seatbelt Runner",
+    )
     def test_staged_edit_cancellation_after_source_read_before_replace_discards_snapshot(self) -> None:
         original = 'def parse_tags(value):\n    return value.split(",")\n'
         with tempfile.TemporaryDirectory(prefix="khaos-staged-edit-pre-replace-cancel-") as value:
@@ -2010,6 +2258,7 @@ Path.read_text = read_then_hold
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("agent-host-action-output=passed", result.stdout)
+                self.assertIn("agent-host-reviewable-argv=passed", result.stdout)
                 self.assertNotIn(
                     "agent-host-model-diagnostic", result.stdout + result.stderr
                 )

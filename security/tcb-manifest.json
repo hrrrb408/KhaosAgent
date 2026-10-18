@@ -82,7 +82,7 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
+      "path": "docs/Khaos vNext 架构设计文档.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
@@ -548,12 +548,13 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostActionOutputProbe.swift",
       "role": "build-governance",
-      "sha256": "eb06324f20fba47fea00187b950ef59409c7e80014736472342c0ffa6d012c47",
+      "sha256": "db7db858e8832eac2836f61ab690c145c5167cecafc8aa83296395ff201105d0",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
         "tests/test_security_freeze.py",
-        "python3 tools/check_security_freeze.py"
+        "python3 tools/check_security_freeze.py",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_action_output_correction_is_single_and_format_only -v"
       ]
     },
     {
@@ -967,7 +968,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "fbfc99fd7d438310c46e4b0ee311ab0c9ccb548af870956037325ee288d92fe2",
+      "sha256": "fcc26d5a118b9558625b32cb6609f976ca91ce0c9edaa1f05aa389225a43d850",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -988,7 +989,10 @@
         "test_staged_edit_cancellation_after_private_replace_discards_snapshot",
         "test_staged_edit_commit_race_preserves_concurrent_live_target",
         "test_staged_edit_runner_termination_before_replace_discards_snapshot",
-        "test_staged_edit_runner_termination_after_replace_discards_snapshot"
+        "test_staged_edit_runner_termination_after_replace_discards_snapshot",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k staged_edit -v",
+        "python3 -m unittest discover -s tests -p test_macos_xpc_sandbox.py -k agent_host_action_output_correction_is_single_and_format_only -v",
+        "python3 -m unittest discover -s tests -p test_broker.py -k caller_cancel -v"
       ]
     },
     {
