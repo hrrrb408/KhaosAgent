@@ -1251,6 +1251,8 @@ struct WorkspaceGrant {
                 throw ProbeError.clientFailed("snapshot Broker endpoint rejected")
             case .timedOut:
                 throw ProbeError.xpcTimeout
+            case .cancelledBeforeSubmission:
+                throw ProbeError.clientFailed("Kernel XPC request cancelled before submission")
             }
         }
     }
@@ -1278,6 +1280,8 @@ struct WorkspaceGrant {
                 throw ProbeError.clientFailed("snapshot Broker endpoint rejected")
             case .timedOut:
                 throw ProbeError.xpcTimeout
+            case .cancelledBeforeSubmission:
+                throw ProbeError.clientFailed("Kernel XPC request cancelled before submission")
             }
         }
     }

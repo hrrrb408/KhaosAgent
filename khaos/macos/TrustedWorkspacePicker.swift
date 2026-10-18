@@ -8,6 +8,13 @@ enum TrustedWorkspacePickerError: Error {
 struct TrustedWorkspaceSelection {
     let scopeURL: URL
     let bookmark: Data
+    let identity: UUID
+
+    init(scopeURL: URL, bookmark: Data, identity: UUID = UUID()) {
+        self.scopeURL = scopeURL
+        self.bookmark = bookmark
+        self.identity = identity
+    }
 }
 
 enum TrustedWorkspacePicker {

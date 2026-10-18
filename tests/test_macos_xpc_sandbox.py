@@ -2141,6 +2141,100 @@ Path.read_text = read_then_hold
             self.assertEqual(canary.read_text(encoding="utf-8"), "synthetic canary\n")
             self.assertFalse(list(workspace.glob(".khaos-edit-*")))
 
+    def test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed(self) -> None:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="khaos-candidate-b-preview-") as value:
+            probe = Path(value) / "TrustedEditApprovalProbe"
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    "-sdk",
+                    sdk,
+                    "-target",
+                    f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "KernelWorkspaceXPC.swift"),
+                    str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                    str(MACOS_TCB_SOURCES / "TrustedEditApproval.swift"),
+                    str(PROBE_SOURCES / "TrustedEditApprovalProbe.swift"),
+                    "-o",
+                    str(probe),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("trusted-edit-approval-preview=passed", result.stdout)
+            self.assertRegex(
+                result.stdout,
+                r"candidate-b-fixed-script-sha256=[0-9a-f]{64}",
+            )
+
+    def test_launcher_workspace_command_cancellation_is_task_and_connection_bound(self) -> None:
+        swiftc = subprocess.run(
+            ["xcrun", "--find", "swiftc"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="khaos-workspace-command-client-") as value:
+            probe = Path(value) / "KernelWorkspaceCommandClientProbe"
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    "-sdk",
+                    sdk,
+                    "-target",
+                    f"{platform.machine()}-apple-macosx26.0",
+                    str(MACOS_TCB_SOURCES / "KernelWorkspaceXPC.swift"),
+                    str(MACOS_TCB_SOURCES / "XPCPeerIdentity.swift"),
+                    str(MACOS_TCB_SOURCES / "KernelWorkspaceClient.swift"),
+                    str(PROBE_SOURCES / "KernelWorkspaceCommandClientProbe.swift"),
+                    "-o",
+                    str(probe),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                [str(probe)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("kernel-workspace-command-client=passed", result.stdout)
+
     def test_agent_host_candidate_source_preserves_baseline_outside_run(self) -> None:
         swiftc = subprocess.run(
             ["xcrun", "--find", "swiftc"],

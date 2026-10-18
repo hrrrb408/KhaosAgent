@@ -295,7 +295,7 @@
     {
       "path": "khaos/macos/AgentHostClient.swift",
       "role": "runtime-tcb",
-      "sha256": "c262a5bac6c876089a37c5d0d67380d09530680ea99aeb809796faba113d7e09",
+      "sha256": "c287ba78a60868b88cc9f97481f7bb35be1199a3a5d6ac59e13a89e40adc2a44",
       "source_mode": "0o644",
       "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -305,11 +305,21 @@
     {
       "path": "khaos/macos/AgentHostProtocol.swift",
       "role": "runtime-tcb",
-      "sha256": "2749c6b973efeebcad6bb2e773ed7ec1058f9faddf6adb1e3c7c6d72a1ff5286",
+      "sha256": "34bc20ce717ebb6c5f93867dbdac9ff4827fa42c45f1def4b4f7274cec6d635c",
       "source_mode": "0o644",
       "boundary": "launcher_binary + agent_host_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
         "tests/test_macos_xpc_sandbox.py"
+      ]
+    },
+    {
+      "path": "khaos/macos/AgentTaskProgress.swift",
+      "role": "runtime-tcb",
+      "sha256": "13ce315384188a2b6570d9caced981939b938b7d76d2e1a724f9fe9238921521",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: presents trusted task progress and cancellation controls; it grants no Kernel authority and never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py::test_launcher_workspace_command_cancellation_is_task_and_connection_bound"
       ]
     },
     {
@@ -425,7 +435,7 @@
     {
       "path": "khaos/macos/KernelWorkspaceClient.swift",
       "role": "runtime-tcb",
-      "sha256": "871f08c0ed8fe87f4175a5bbc294fd81a9054daa5c31383fd758fb5ee8379d0b",
+      "sha256": "af0754eeac918f1589e8a4bcd5ccd71f6fde027c2b0483a522b374b9a5ff3890",
       "source_mode": "0o644",
       "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -475,7 +485,7 @@
     {
       "path": "khaos/macos/KernelWorkspaceXPC.swift",
       "role": "runtime-tcb",
-      "sha256": "919f507ec1c87e719c73820b5fbb651f468ea694953bc2b8bdc70308f0ddf86a",
+      "sha256": "4621ae27b873dbad6d36e67cc76a2aa7afe0534bc2f22a8ec6b9ab77aae6e8dc",
       "source_mode": "0o644",
       "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -483,9 +493,19 @@
       ]
     },
     {
+      "path": "khaos/macos/TrustedEditApproval.swift",
+      "role": "runtime-tcb",
+      "sha256": "a01cf5bc9f19f85d3262f6b0bf1def75474f7e0c8f7100989a4cc71c03668afd",
+      "source_mode": "0o644",
+      "boundary": "launcher_binary: validates and renders the exact frozen Candidate B request before user approval; performs no workspace read and never imports Plugin code",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed"
+      ]
+    },
+    {
       "path": "khaos/macos/TrustedWorkspaceLauncherMain.swift",
       "role": "runtime-tcb",
-      "sha256": "7c0f9a815d8ffbb04ad3e63a1f39451205bc256bc32c0ecef19215c43c1f6fd7",
+      "sha256": "214e6f13888f9be1b6b46e8838e99215a0b89daba64e93cc33fdaeedff1e39de",
       "source_mode": "0o644",
       "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -495,7 +515,7 @@
     {
       "path": "khaos/macos/TrustedWorkspacePicker.swift",
       "role": "runtime-tcb",
-      "sha256": "6fac2c1304ac6fd29fb29b3905b8a6ee695862bb62bd42700af3bcfae77ef42f",
+      "sha256": "a732644263294d7ada0a2c4688b011f34b9b8b3ef371d37401462260647c3e65",
       "source_mode": "0o644",
       "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -658,6 +678,19 @@
       ]
     },
     {
+      "path": "tests/macos_xpc_probe/KernelWorkspaceCommandClientProbe.swift",
+      "role": "build-governance",
+      "sha256": "9a3bf7a50e1d861b0961de4193f16ee424e2863cc780cf9620f031cad8abdae3",
+      "source_mode": "0o644",
+      "boundary": "development-only Swift source probe; not shipped and not runtime authority",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py",
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py",
+        "tests/test_macos_xpc_sandbox.py::test_launcher_workspace_command_cancellation_is_task_and_connection_bound"
+      ]
+    },
+    {
       "path": "tests/macos_xpc_probe/KernelWorkspaceReplyVersionProbe.swift",
       "role": "build-governance",
       "sha256": "9858a255c2af211f8e14beefd30ae3528d54d6ba3cde2adfba6f16ae6f8904ba",
@@ -779,9 +812,22 @@
       ]
     },
     {
+      "path": "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift",
+      "role": "build-governance",
+      "sha256": "3ffd6be750dbec61ef7f35bf53720107275e282ae5801d77bd081bcefd4f2086",
+      "source_mode": "0o644",
+      "boundary": "development-only Swift source probe; not shipped and not runtime authority",
+      "tests": [
+        "tests/test_macos_xpc_sandbox.py",
+        "tests/test_security_freeze.py",
+        "python3 tools/check_security_freeze.py",
+        "tests/test_macos_xpc_sandbox.py::test_trusted_candidate_b_preview_parser_is_bound_and_fails_closed"
+      ]
+    },
+    {
       "path": "tests/macos_xpc_probe/WorkspaceGrant.swift",
       "role": "build-governance",
-      "sha256": "377e6087411677b45218d5faac3707046ed57c2b367d52d0c8443acd9e260acc",
+      "sha256": "22241c15cc754f872be878d5fb787193af43133a87745c1b701b233234f370a3",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -968,7 +1014,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "fcc26d5a118b9558625b32cb6609f976ca91ce0c9edaa1f05aa389225a43d850",
+      "sha256": "b1e43b149a2f987c55338df36f0bc43ad3d8edcca9266b62f7a8b90240b23663",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -1130,7 +1176,7 @@
     {
       "path": "tools/build_macos_seed.py",
       "role": "build-governance",
-      "sha256": "39164567427c88cc4996fa0bc668e5b688bb4bfa3744f9011bc4954fecdeaa5f",
+      "sha256": "967f0fd75e800391766a0e1d9108bac156b738663c76cd30a835c79eeedf8d93",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

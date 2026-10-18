@@ -245,6 +245,8 @@ def _assemble_app(
             source_root / "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift",
             source_root / "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift",
             source_root / "khaos/macos/TrustedWorkspacePicker.swift",
+            source_root / "khaos/macos/TrustedEditApproval.swift",
+            source_root / "khaos/macos/AgentTaskProgress.swift",
             source_root / "khaos/macos/AgentHostProtocol.swift",
             source_root / "khaos/macos/AgentHostClient.swift",
             source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift",
