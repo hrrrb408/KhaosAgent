@@ -14,6 +14,21 @@ Every anchor must occur exactly once, repeated overlays fail, all overlaid bytes
 are hashed before ordinary compilation and signing. The harness records its own
 and the deterministic model probe's digests in the signed build record.
 
+Attempt 7 packaged `Production.app` and `Acceptance.app` from the same clean
+source commit `184c2c609d7123a692c8e8778b617cc1dfba07e6`. The production build
+record says `production_test_hook_isolation=PASS`; the builder asserted that
+the marker, barrier label and acceptance event strings are absent from all
+production executables and bundled Python sources. Production binary SHA-256:
+Launcher `eed6fe31929d69dc2d640a347883a2777f3f0054e6d86100f33b90a733c3a581`,
+Kernel `b933a530cb86b17c4a33b6bc01799bb813c0e419c48c96c81b34ce70f2b64522`,
+Agent Host `dcb651244186850a7dec94cb8557e19f71bc5d9cf480c80e6d3a6c274b77754d`.
+The signed acceptance build embeds the test-only overlay and has Launcher
+`22804f90525a34f813acd7730b794acb8a6feb2830c62a431a6248552c3f1e8a`, Kernel
+`1276cf25e2e52ae046a14778cffb0aa3ced51f408b4c7fe79a5a3569923943be`, Agent
+Host `0a76f99bec6074df0d26f9eaf2a29b4722d030397ed8b38214e6c24cd3bbfe37`.
+The separate signed post-commit build at `ef0d2081c7504a335b070e367d9ecb9b97e3f10a`
+also records production-hook isolation PASS.
+
 - B32: a DispatchSemaphore blocks the existing serial client's beginSubmission,
   after actual approval. Only the real cancellation method signals it. The normal
   cancellation flag and existing completion path then prevent submission.
@@ -98,3 +113,13 @@ the signed app: one authenticated Runner request and private staged edit were
 observed, the Kernel returned `process_cancelled`, live workspace hashes stayed
 unchanged, and the Task Record and exact Host receipt said `not_committed`.
 This correction is confined to the acceptance build overlay and harness.
+
+The signed post-commit attempt 2 reached `KERNEL_POST_COMMIT_PRE_REPLY` only
+after `COMMIT_APPLIED` and a verified live `tags.py` replacement. A
+maintainer-authorized agent UI cancellation occurred at that barrier. The same
+XPC-to-worker request bridge recorded the forwarded cancellation, while the
+original Kernel response, Task Record and Host receipt all retained the
+successful committed result and Runner return code 0. The live file and canary
+hashes matched that outcome. B34 pre-commit, B34 post-commit and B39 terminal
+consistency for these cancellation cases are now `PASS_L4`; this does not close
+the separate B11/B33/B35/B36 Gate A evidence gaps or Owner Review.

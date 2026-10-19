@@ -1,70 +1,68 @@
 # Completion audit
 
-M8.5.2A.7 is **PARTIAL**. B32 now has reconciled signed L4 evidence from an
-owner-operated cancellation after approval and before submission. A signed B34
-pre-commit cancellation was performed, but its test evidence was incomplete;
-B34 post-commit remains unrun. Complete B39 and Gate A remain open. No result was
-inferred from an approval refusal or a test timeout.
+M8.5.2A.7 Engineering: **PARTIAL**. The signed cancellation synchronization and
+the B32/B34/B39 cancellation evidence are complete. Gate A remains blocked by
+other mandatory signed lifecycle requirements and outstanding owner decisions;
+this report does not promote Gate A or start M8.5.2B.
 
-## Engineering and verification
+## Final status
 
-- Signed Test Synchronization: **PASS**. B32 and both B34 barriers are bounded,
-  deterministic, test-only synchronization points.
-- Production Test-Hook Isolation: **PASS**. Attempt 6's separate production
-  build excludes the barrier markers; its signed acceptance build contains the
-  private fixture overlay.
-- B32 Signed Cancellation: **PASS_L4**. The owner approved Candidate B and
-  cancelled the original task at `POST_APPROVAL_PRE_SUBMIT`. The original task
-  record says `not_submitted:cancelled_before_runner_submission`, with zero
-  Kernel submissions, zero Runner executions, an unchanged workspace and
-  delivered terminal data matching the Host receipt. See attempt 6 in
-  `SIGNED_ACCEPTANCE.md` and its retained `reconciliation.json`.
-- B34 Pre-Commit Cancellation: **NOT_PROVEN**. Attempt 2 recorded a real
-  `cancel_accepted`, Kernel `process_cancelled`, unchanged workspace and matching
-  Host terminal result, but did not capture Runner execution/private staged
-  changes and expected the wrong Kernel error code. A corrected fixture build
-  and signed rerun are required. B34 Post-Commit Cancellation: **NOT_PROVEN**.
-  B39 Terminal Consistency: **NOT_PROVEN** overall; B32 is covered while both
-  signed B34 outcomes remain uncovered.
-- Receipt-parser correction: test-only; the original assertion compared the
-  full Host response against terminal bytes even though the response appends
-  fixed probe instructions. It now checks that the exact terminal bytes are the
-  prefix of the Host receipt. The three focused fixture tests pass.
-- B34 observer correction: test-only; record the authenticated Runner
-  `process.exec` request and staged `tags.py` digest at the commit-ready point,
-  and expect the actual `process_cancelled` Kernel result. Focused overlay tests
-  pass; corrected signed B34 rerun is pending.
-- Canonical tests: **PENDING** after the receipt-parser regression test was
-  added. The previous 402-test run is historical and does not replace a final
-  run at the proposed HEAD.
-- Security Freeze: **PASS** in the current worktree and against exact base
-  `707395146bbaf6be9ac6f58ae1f538e443b064a8`; the protected test/governance
-  hashes and exact 12-file declaration have been refreshed and checked.
-- PR #41 remains an open Draft based on PR #40. New test and report changes are
-  not yet on GitHub; final-HEAD Seed CI and Security Freeze are **PENDING**.
-  No PR was merged. PR #39 and #40 remain open Drafts.
-
-Production source delta against #40 remains +28/-2 lines, net +26 trusted
-Launcher lines. Test-only source delta is pending recalculation at final HEAD.
-Kernel authority, Kernel ABI and workspace-scope authority deltas remain 0. The
-receipt and B34 observer corrections add only test/governance code; they add no
-production TCB, process, IPC operation, dependency or product state.
-
-## Acceptance and gate
-
-- Attempts 3 and 4 stopped at the pre-approval Picker. Attempt 5 reached the
-  barrier but no cancellation arrived before its timeout. Attempt 6 contains the
-  actual approved-then-cancelled operation; its runner's false receipt-equality
-  failure is preserved and separately reconciled against the unchanged signed
-  build, original logs, Task Record, empty Kernel event file, workspace hashes
-  and exact Host receipt bytes.
-- A corrected B34 signed pre-commit acceptance and the signed post-commit case
-  remain required manual operations. B11 and B33–B36 also retain mandatory
-  signed lifecycle gaps; B39 needs the signed B34 terminal chain.
-- B01–B39 reconciliation is **COMPLETE as an evidence inventory**, not as a
-  passed Gate. Proposed L3 reuse items remain subject to itemized owner
-  decisions in `GATE_A_RECONCILIATION.md`.
-- Owner Review: **PENDING**. Independent Code Owner Review: **NOT_PERFORMED —
-  SINGLE_MAINTAINER_MODE**.
+- Signed Test Synchronization: **PASS**. B32 post-approval/pre-submit, B34
+  pre-commit and B34 post-commit barriers are deterministic, bounded and
+  confined to the private acceptance-build source snapshot.
+- Production Test-Hook Isolation: **PASS**. The attempt 7 and post-commit
+  attempt 2 build receipts record separate production and signed acceptance
+  builds. Production binaries and bundled Python sources exclude test markers;
+  the signed acceptance builds contain only the test observer/barrier overlay.
+- B32 Signed Cancellation: **PASS_L4**.
+- B34 Pre-Commit Cancellation: **PASS_L4**.
+- B34 Post-Commit Cancellation: **PASS_L4**.
+- B39 Terminal Consistency across the signed B32 and both B34 cutoff outcomes:
+  **PASS_L4**. Kernel result, workspace state, Launcher Task Record and exact
+  Host terminal receipt agree. The late-cancel committed path retains
+  `output/committed`, Runner return code 0, and the changed file hash.
+- B01–B39 Evidence Reconciliation: **COMPLETE** as an itemized evidence
+  inventory and disposition matrix. This does not mean every requirement has
+  passed; B11, B33, B35–B36 remain signed evidence gaps, and proposed L3 reuse
+  remains subject to the decisions listed in `GATE_A_RECONCILIATION.md`.
+- Owner Review: **PENDING**. Independent Code Owner Review:
+  **NOT_PERFORMED — SINGLE_MAINTAINER_MODE**.
+- Kernel Authority Delta: **0**. Kernel ABI Delta: **0**. Workspace Scope
+  Authority Delta: **0**.
+- Production TCB Delta: `khaos/macos/TrustedWorkspaceLauncherMain.swift`
+  **+28/-2 lines** (net +26); no Kernel source, authority rule, ABI, scope rule,
+  process, IPC operation, persistent product state or dependency was added.
+- Test-Only Code Delta against PR #40: **+844/-0 lines**. The overlays are
+  build-snapshot-only and add no production switch or runtime test entrance.
+- Canonical Tests: **PASS**, 404 tests in 815.322 seconds. The run followed the
+  final product/test-source commit `184c2c609d7123a692c8e8778b617cc1dfba07e6`;
+  subsequent commits only recorded signed evidence in reports.
+- Security Freeze: **PASS** against the working tree and exact PR #40 base
+  `707395146bbaf6be9ac6f58ae1f538e443b064a8` after the report updates.
+- GitHub CI: **PENDING** until the final PR #41 head is pushed and its checks
+  complete.
 - Technical Gate A: **NOT_PROVEN**. M8.5.2B Readiness: **BLOCKED**.
 - Production Structured Edit: **NOT_STARTED**. Linux: **NOT_STARTED**.
+
+The actual signed app action was explicitly delegated by the project owner to
+the agent through native UI control. Reports identify those clicks as
+maintainer-authorized agent operations, not owner-personal clicks. Failed
+attempts and their original artifacts remain preserved; no failed result was
+rewritten as a pass.
+
+## Remaining Gate A blockers
+
+The full reconciliation records the boundary evidence and disposition for all
+B01–B39 requirements. New signed L4 evidence is still required for B11, B33,
+and B35–B36. Some shared Kernel/OS invariants have existing L3 evidence that may
+be reusable only after the project owner accepts the itemized mapping. Owner
+Review must be performed by the owner; it is not inferred from this report or
+the agent-operated acceptance clicks. Technical Gate A therefore remains
+`NOT_PROVEN` until these items and final-head GitHub checks are closed.
+
+## Delivery
+
+PR #41 is an open Draft stacked on PR #40 at exact base
+`707395146bbaf6be9ac6f58ae1f538e443b064a8`. PR #39 and #40 remain open Drafts.
+No PR was merged. Final CI status will be recorded after pushing the final
+report commit and observing the checks for that PR head.

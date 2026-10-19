@@ -1,17 +1,15 @@
 # Signed acceptance
 
-B32 is **PASS_L4** from the owner-operated signed acceptance in attempt 6 and
-its preserved-artifact reconciliation. B34 pre-commit, B34 post-commit and the
-complete B39 matrix remain **NOT_PROVEN**. Approval refusal is not post-approval
-cancellation. No user action is simulated.
+B32, B34 pre-commit, B34 post-commit, and B39 terminal consistency across those
+cancellation cases are **PASS_L4**. Approval refusal is not post-approval
+cancellation. No test code simulates approval or cancellation; the real signed
+App received owner-authorized native UI actions. B34 actions were operated by
+the agent at the owner's explicit direction and are labeled that way throughout.
 
-The implementation commit is `c7c1354ce67a60721c28328d675bec32404d79dd`.
-Attempts 3 and 4 were built from `64fa81387811ff9c5904cd22e3547de112be3a51`;
-the commits after `c7c1354` changed only reports. The production app is
-separately built from unmodified inputs; each acceptance app uses test-only
-overlays. Each attempt retains its build record, source/binary hashes,
-signature verification, workspace, Kernel events, Launcher logs and JSON
-result. Failed attempts are never overwritten.
+The production app is separately built from unmodified inputs; each acceptance
+app uses test-only overlays. Each attempt retains its build record,
+source/binary hashes, signature verification, workspace, Kernel events,
+Launcher logs and JSON result. Failed attempts are never overwritten.
 
 ## Development preparation history
 
@@ -174,9 +172,7 @@ attempt1 and post-commit attempt1 apps were not launched.
 
 The earlier B34 attempt 2 remains **NOT_PROVEN** because it did not bind the
 Runner request and private staged change. B34 attempt 6 exposed a release-order
-race in the test controller; attempt 7 below is the corrected signed run. B34
-post-commit cancellation and complete B39 terminal consistency remain
-**NOT_PROVEN** until their separate post-commit run is complete.
+race in the test controller; attempt 7 below is the corrected signed run.
 
 ### B34 pre-commit attempt 6: cancellation acknowledgment released too early
 
@@ -250,7 +246,51 @@ post-commit cancellation and complete B39 terminal consistency remain
   Full attempt artifacts remain at
   `/Users/huangruibang/Applications/khaos-m8-a7-pre-commit-attempt7/`.
 
-B34 pre-commit is **PASS_L4**. B34 post-commit cancellation and complete B39
-terminal consistency remain **NOT_PROVEN** pending a separate signed post-commit
-barrier run. The CUA actions above are recorded as maintainer-authorized agent
-operations, not as owner-personal clicks.
+B34 pre-commit is **PASS_L4**. The CUA actions above are recorded as
+maintainer-authorized agent operations, not as owner-personal clicks.
+
+### B34 post-commit attempt 2: late cancellation preserves the commit
+
+- Source commit `ef0d2081c7504a335b070e367d9ecb9b97e3f10a`; source-diff SHA-256
+  is the empty tree `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`;
+  build receipt SHA-256 `8f53d338a8b688d00b53c42e277baf74665ee3d1e25d471420e4d0e5c67fa103`.
+  Production-hook isolation **PASS**. Signed identity `Apple Development:
+  8613929930739 (8X4352T2RG)`, Team `UBAP6LN5AM`, Bundle ID `org.khaos.Seed`,
+  CDHash `9bb06dfa2676c0eafe5e3961cbcfb570b2ef4d89`. Acceptance Launcher SHA-256
+  `9de520240e65fe534953e31095c8231c5534b39ade398bdaa411102c62da2d33`, Kernel
+  `b14d1807a2192a299274c763b3e26bd879f78aa70be669b9c99c71ac811a66a4`, Agent
+  Host `19138b655ea9c466dc0fa3ca6c1e288b182cf919dd9103cba99da3200448f5ec`.
+- A maintainer-authorized agent UI operation selected the disposable workspace,
+  reviewed Candidate B and exact `tags.py` read/write scopes, clicked Run Once,
+  then clicked Cancel at `KERNEL_POST_COMMIT_PRE_REPLY`, after the real Kernel
+  emitted `COMMIT_APPLIED`. The cancellation frame was observed with the same
+  XPC request and bridged internal workspace request before the test barrier
+  released.
+- Task ID `607c85a1-18f3-43c5-9168-c475375aae2b`; Request ID
+  `1fb056ce6da74ccc825b59b1aa16d278`; internal workspace request ID
+  `82a5cc348f28e9f7b71c41f14fde3ade`; Runner request ID
+  `d8f0aedb53b3d0dc3124a80f7a9fd620`; Workspace Session ID
+  `16671fc9-0751-4050-af9a-67d7242d8bdf`; XPC Connection ID
+  `54383353-e191-45ea-b840-012d7c3ed615`; invocation SHA-256
+  `a9bd3875450a981d8eec258f1c00076e59958ed1e167034247cfc065febf3f52`.
+- Approval was `approved_candidate_b_preview`; cancellation result was
+  `cancel_accepted`. Kernel submission count **1**, authenticated Runner request
+  count **1**, and commit event reports `added=0, modified=1, deleted=0`.
+  Original Kernel terminal result was successful `output` with Runner return
+  code **0**. The Task Record says `cancellation_requested=true`,
+  `commit_outcome=committed`, `kernel_result=output`,
+  `runner_execution=completed`, `runner_return_code=0`, and terminal delivery
+  `delivered`. Host received the same terminal bytes followed by its bounded
+  probe response. Workspace `tags.py` changed from baseline SHA-256
+  `476ac287f5ed529f016a1ba705a336abb57f38156da8a097a2a0ddbed2e5f164` to
+  committed SHA-256
+  `8db3b1d5a79058bc0db32f9904c38162c6384ff813d41ab45b9db2348a264a63`; the
+  canary stayed `b8245a42e2c8d3a781e1235308f65911a61b1462df2bc56e47ab2eae7e45c9de`.
+  This is **B34 post-commit PASS_L4**. The original committed result remained
+  authoritative despite the later cancellation acknowledgment. Artifacts are
+  retained at `/Users/huangruibang/Applications/khaos-m8-a7-post-commit-attempt2/`.
+
+B34 pre-commit: **PASS_L4**. B34 post-commit: **PASS_L4**. B39 terminal
+consistency across B32, B34 pre-commit and B34 post-commit: **PASS_L4**. Agent UI
+actions were explicitly authorized by the project owner and are reported as
+agent-operated UI actions, not owner-personal clicks.
