@@ -3,7 +3,7 @@
   "files": [
     "AGENTS.md",
     "docs/KERNEL_ABI.md",
-    "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
+    "docs/Khaos vNext 架构设计文档.md",
     "khaos/macos/TrustedWorkspaceLauncherMain.swift",
     "security/freeze-baseline.json",
     "security/security-change.json",
@@ -14,10 +14,10 @@
     "tests/test_broker.py",
     "tests/test_signed_cancellation_fixture.py"
   ],
-  "motivation": "M8.5.2A.7 deterministic signed B32/B34/B39 acceptance. Add build-snapshot-only stage barriers and observers; no runtime test switch. Audit found cancelled outcomes bypassed Host result delivery; use existing terminal tool_result before closing session.",
-  "invariants": "Original request identity, same XPC cancellation, frozen invocation, approval, read/write scopes, READY/ACCEPT, full changeset and OS sandbox remain unchanged. Host can_continue=false and all replies ignored after cancellation. Missing Host delivery is separately unconfirmed and never alters Kernel truth.",
-  "authority_delta": "0 Kernel authority, 0 Kernel/Host wire schema, 0 workspace scope authority. Production Kernel, client, worker, broker and builder remain byte-identical to base.",
-  "real_os_tests": "Two deterministic private-overlay/READY-before-ACCEPT checks pass. Full suite, final signed production exclusion and actual owner-operated acceptance pending; no L4 claim yet.",
-  "trusted_delta": "Launcher terminal delivery plus one informational Task Record field. Test overlay is compiled only in disposable acceptance app; exact source and binary hashes recorded by harness. No new processes, IPC operations, dependencies or product state.",
-  "baseline_decision": "Reviewed the narrow Launcher diff and test-only overlays before refreshing affected manifest inputs. Preserve historical baseline and single-maintainer independent-review gap; Owner Review PENDING. Exact proposed PR base is PR40 HEAD."
+  "motivation": "M8.5.2A.7 deterministic signed B32/B34/B39 acceptance. Add build-snapshot-only stage barriers and observers; no runtime test switch. Audit found cancelled outcomes bypassed Host result delivery; use existing terminal tool_result before closing session. Correct the test-only Host receipt assertion to verify the exact terminal bytes as the prefix of the bounded Host response, followed by fixed probe instructions.",
+  "invariants": "Original request identity, same XPC cancellation, frozen invocation, approval, read/write scopes, READY/ACCEPT, full changeset and OS sandbox remain unchanged. Host can_continue=false and all replies ignored after cancellation. Missing Host delivery remains unconfirmed and never alters Kernel truth. The test receipt parser only checks that exact terminal bytes reach the Host probe.",
+  "authority_delta": "0 Kernel authority, 0 Kernel/Host wire schema, 0 workspace scope authority. No production source changed in the receipt-parser correction.",
+  "real_os_tests": "B32 signed owner-operated acceptance attempt 6 reached POST_APPROVAL_PRE_SUBMIT; the original XPC task was cancelled before workspace.run submission, Runner count was zero, workspace hashes matched, and the exact terminal bytes were reconciled in the Host receipt. The initial harness exited at a false whole-response equality assertion; the corrected prefix assertion and regression test pass. B34 pre/post signed acceptance remains pending.",
+  "trusted_delta": "No production Trusted Code change in this parser correction; prior M8.5.2A.7 Launcher terminal-delivery delta remains +28/-2 lines. Test-only parser/helper and regression test added; no new process, IPC operation, dependency or product state.",
+  "baseline_decision": "Reviewed the production cancellation diff and the test-only receipt parser correction. Preserve the existing runtime baseline; refresh affected test/governance hashes after review. PR base remains PR40 exact HEAD. Owner Review remains PENDING."
 }

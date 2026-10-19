@@ -1,4 +1,5 @@
 """Deterministic checks for test-only source overlays; no UI action is simulated."""
+import base64
 import importlib.util
 import os
 from pathlib import Path
@@ -8,11 +9,20 @@ import threading
 import time
 import unittest
 
-from signed_cancellation_fixture import CASES, MARKER, overlay, replace_once
+from signed_cancellation_fixture import CASES, MARKER, host_receipt_contains_terminal, overlay, replace_once
 from tools.build_macos_seed import ROOT, _snapshot_sources
 
 
 class SignedCancellationFixtureTests(unittest.TestCase):
+    def test_host_receipt_must_start_with_exact_terminal_bytes(self):
+        terminal = b"cancelled before submission"
+        receipt = terminal + b"\nfixed model-probe instructions"
+        self.assertTrue(host_receipt_contains_terminal(
+            base64.b64encode(terminal).decode(), base64.b64encode(receipt).decode()))
+        self.assertFalse(host_receipt_contains_terminal(
+            base64.b64encode(terminal).decode(),
+            base64.b64encode(b"different terminal" + receipt).decode()))
+
     def test_private_overlay_is_explicit_and_fails_on_anchor_drift(self):
         paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/kernel/worker.py",
                  ROOT / "khaos/macos/KernelWorkspaceClient.swift",

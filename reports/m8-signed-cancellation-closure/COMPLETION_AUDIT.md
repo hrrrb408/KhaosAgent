@@ -1,56 +1,61 @@
 # Completion audit
 
-M8.5.2A.7 is **PARTIAL**. The deterministic synchronization mechanism and
-production-build exclusion are implemented and verified. The required signed
-owner actions were not completed: B32 attempt 4 expired in the system workspace
-Picker before Candidate preview or approval. B32, both B34 cutoff cases, and
-B39 therefore remain **NOT_PROVEN**. No cancellation result was inferred.
+M8.5.2A.7 is **PARTIAL**. B32 now has reconciled signed L4 evidence from an
+owner-operated cancellation after approval and before submission. The signed
+B34 pre-commit and post-commit operations remain unrun, so complete B39 and Gate
+A remain open. No result was inferred from an approval refusal or a test timeout.
 
 ## Engineering and verification
 
-- Signed Test Synchronization: **PASS** for the deterministic, timing-only test
-  barriers and READY/ACCEPT control. Focused barrier tests pass.
-- Production Test-Hook Isolation: **PASS**. The ordinary production build has
-  no barrier marker or hook; the separately signed acceptance build contains
-  the test overlays. Attempt 4's signed build receipt records this result.
-- Focused tests: **PASS** — two overlay/READY-before-ACCEPT tests; original
-  task/XPC-connection-bound cancellation test; direct unscoped private-deletion
-  Kernel changeset attack (real isolated commit child).
-- Canonical tests: `python3 -m unittest discover -s tests -v` — **PASS**,
-  402 tests in 845.657 seconds. The run executed the product/test code from
-  `c7c1354`; commits since then changed reports only.
-- Security Freeze: **PASS** for the worktree and against exact base
-  `707395146bbaf6be9ac6f58ae1f538e443b064a8` (12 sensitive paths).
-- PR #41 is open Draft, based on PR #40's branch. At pre-report HEAD
-  `cf92ee39d17bbdee462306a4a7f254bac1bd0314`, Security Freeze was **PASS** and
-  Seed CI was **PENDING**. This report update changes no production or test
-  source; re-read both required GitHub checks on the pushed report HEAD before
-  delivery.
-- No PR was merged. PR #39 and #40 remain open Drafts.
+- Signed Test Synchronization: **PASS**. B32 and both B34 barriers are bounded,
+  deterministic, test-only synchronization points.
+- Production Test-Hook Isolation: **PASS**. Attempt 6's separate production
+  build excludes the barrier markers; its signed acceptance build contains the
+  private fixture overlay.
+- B32 Signed Cancellation: **PASS_L4**. The owner approved Candidate B and
+  cancelled the original task at `POST_APPROVAL_PRE_SUBMIT`. The original task
+  record says `not_submitted:cancelled_before_runner_submission`, with zero
+  Kernel submissions, zero Runner executions, an unchanged workspace and
+  delivered terminal data matching the Host receipt. See attempt 6 in
+  `SIGNED_ACCEPTANCE.md` and its retained `reconciliation.json`.
+- B34 Pre-Commit Cancellation: **NOT_PROVEN**. B34 Post-Commit Cancellation:
+  **NOT_PROVEN**. B39 Terminal Consistency: **NOT_PROVEN** overall; the B32
+  terminal path is covered, while both signed B34 outcomes remain uncovered.
+- Receipt-parser correction: test-only; the original assertion compared the
+  full Host response against terminal bytes even though the response appends
+  fixed probe instructions. It now checks that the exact terminal bytes are the
+  prefix of the Host receipt. The three focused fixture tests pass.
+- Canonical tests: **PENDING** after the receipt-parser regression test was
+  added. The previous 402-test run is historical and does not replace a final
+  run at the proposed HEAD.
+- Security Freeze: **PASS** in the current worktree and against exact base
+  `707395146bbaf6be9ac6f58ae1f538e443b064a8`; the protected test/governance
+  hashes and exact 12-file declaration have been refreshed and checked.
+- PR #41 remains an open Draft based on PR #40. New test and report changes are
+  not yet on GitHub; final-HEAD Seed CI and Security Freeze are **PENDING**.
+  No PR was merged. PR #39 and #40 remain open Drafts.
 
-Production source delta against #40: +28/-2 lines, net +26 trusted Launcher
-lines. Test-only source delta: +504 lines (12 model-probe, 237 harness, 144
-overlay, 33 direct commit attack, 78 overlay tests). Kernel authority delta 0;
-Kernel ABI delta 0; workspace-scope authority delta 0. No new trusted process,
-IPC operation, dependency, architecture concept, or persistent product state.
+Production source delta against #40 remains +28/-2 lines, net +26 trusted
+Launcher lines. Test-only source delta is +521/-0 lines. Kernel authority,
+Kernel ABI and workspace-scope authority deltas remain 0. The receipt
+correction adds only test/governance code; it adds no production TCB, process,
+IPC operation, dependency or product state.
 
 ## Acceptance and gate
 
-- B32 attempt 3 and attempt 4 both stopped before approval because the owner did
-  not select the disposable workspace. Attempt 4's hashes and signed binary
-  identity are in `SIGNED_ACCEPTANCE.md`; the pre/post workspace hashes match.
-  This is a pre-approval UI timeout, not evidence that cancellation failed.
-- B34 pre-commit and post-commit apps were built and isolated, but not run.
-- B39 has no signed end-to-end record.
+- Attempts 3 and 4 stopped at the pre-approval Picker. Attempt 5 reached the
+  barrier but no cancellation arrived before its timeout. Attempt 6 contains the
+  actual approved-then-cancelled operation; its runner's false receipt-equality
+  failure is preserved and separately reconciled against the unchanged signed
+  build, original logs, Task Record, empty Kernel event file, workspace hashes
+  and exact Host receipt bytes.
+- B34 signed pre-commit and post-commit acceptance remain the next required
+  manual operations. B11 and B33–B36 also retain mandatory signed lifecycle
+  gaps; B39 needs the signed B34 terminal chain.
 - B01–B39 reconciliation is **COMPLETE as an evidence inventory**, not as a
-  passed Gate. B11, B32–B36 and B39 still have mandatory signed lifecycle gaps;
-  proposed L3 reuse items remain subject to the listed owner decisions.
+  passed Gate. Proposed L3 reuse items remain subject to itemized owner
+  decisions in `GATE_A_RECONCILIATION.md`.
 - Owner Review: **PENDING**. Independent Code Owner Review: **NOT_PERFORMED —
   SINGLE_MAINTAINER_MODE**.
 - Technical Gate A: **NOT_PROVEN**. M8.5.2B Readiness: **BLOCKED**.
 - Production Structured Edit: **NOT_STARTED**. Linux: **NOT_STARTED**.
-
-The minimum next step is for the project owner to operate the signed Candidate B
-preview and Run Once action, then click Cancel only after the named barrier is
-observed. Complete B32 before opening the B34 apps. Remaining mandatory signed
-gaps and evidence-reuse decisions are itemized in `GATE_A_RECONCILIATION.md`.

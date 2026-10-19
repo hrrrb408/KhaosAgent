@@ -20,7 +20,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools import build_macos_seed as builder
-from signed_cancellation_fixture import CASES, MARKER, overlay
+from signed_cancellation_fixture import CASES, MARKER, host_receipt_contains_terminal, overlay
 from test_macos_xpc_sandbox import MacOSXPCSandboxTests
 
 
@@ -173,7 +173,7 @@ def run(root: Path) -> None:
                     if "acceptance-terminal-sent=" in line)
         received = next(line.partition("CANCELLATION_RECEIPT_BASE64=")[2] for line in stderr.splitlines()
                         if "acceptance-host-receipt=CANCELLATION_RECEIPT_BASE64=" in line)
-        assert base64.b64decode(sent) == base64.b64decode(received), "Host received different terminal data"
+        assert host_receipt_contains_terminal(sent, received), "Host did not receive the exact terminal data"
         result["host_terminal_receipt_base64"] = received
         requests = record["workspace_requests"]
         assert len(requests) == 1

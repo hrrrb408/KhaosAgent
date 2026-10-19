@@ -60,3 +60,13 @@ neither was launched for manual acceptance. Preserve them under
 `~/Applications/khaos-m8-a7-b32-attempt{1,2}`. Only subsequent exact-source receipts
 can establish final signed acceptance. Current statuses and evidence are recorded
 in the other three reports; no L4 claim is inherited from these preparation builds.
+
+Attempt 6 exposed a test-only receipt assertion defect: the deterministic Host
+probe's encoded response contains the exact terminal result followed by fixed
+probe instructions. The previous whole-payload equality check rejected this
+valid receipt. `host_receipt_contains_terminal` now verifies the exact terminal
+bytes as a prefix, with a focused regression test that rejects a mismatched
+prefix. This correction changes no signed product input, production behavior,
+authorization rule or TCB boundary. Attempt 6's original runner failure remains
+preserved; its separate `reconciliation.json` records the corrected checks over
+the exact signed-run artifacts.

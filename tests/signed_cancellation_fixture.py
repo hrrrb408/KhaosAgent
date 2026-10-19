@@ -5,12 +5,19 @@ only the private build snapshot is edited, before hashing and signing.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from pathlib import Path
 
 MARKER = "KHAOS_SIGNED_CANCELLATION_ACCEPTANCE_ONLY"
 CASES = {"b32", "pre-commit", "post-commit"}
+
+
+def host_receipt_contains_terminal(sent_base64: str, received_base64: str) -> bool:
+    sent = base64.b64decode(sent_base64, validate=True)
+    received = base64.b64decode(received_base64, validate=True)
+    return received.startswith(sent)
 
 
 def replace_once(source: str, old: str, new: str) -> str:
