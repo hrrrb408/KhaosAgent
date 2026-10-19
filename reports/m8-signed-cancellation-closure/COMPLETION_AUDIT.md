@@ -39,8 +39,11 @@ this report does not promote Gate A or start M8.5.2B.
   subsequent commits only recorded signed evidence in reports.
 - Security Freeze: **PASS** against the working tree and exact PR #40 base
   `707395146bbaf6be9ac6f58ae1f538e443b064a8` after the report updates.
-- GitHub CI: **PENDING** until the final PR #41 head is pushed and its checks
-  complete.
+- GitHub Seed CI and Security Freeze: **PASS** on exact implementation/evidence
+  HEAD `e1cedf60d1b0a326eff4d65ee8ddec614f8b82a8` ([Seed CI](https://github.com/hrrrb408/KhaosAgent/actions/runs/39224504979),
+  [Security Freeze](https://github.com/hrrrb408/KhaosAgent/actions/runs/39224504985)).
+  This completion-audit update changes only this report; its new PR head must
+  also pass both checks before final exact-head closure.
 - Technical Gate A: **NOT_PROVEN**. M8.5.2B Readiness: **BLOCKED**.
 - Production Structured Edit: **NOT_STARTED**. Linux: **NOT_STARTED**.
 
@@ -64,5 +67,5 @@ the agent-operated acceptance clicks. Technical Gate A therefore remains
 
 PR #41 is an open Draft stacked on PR #40 at exact base
 `707395146bbaf6be9ac6f58ae1f538e443b064a8`. PR #39 and #40 remain open Drafts.
-No PR was merged. Final CI status will be recorded after pushing the final
-report commit and observing the checks for that PR head.
+No PR was merged. The PR checks are the authority for the report-only successor
+head; final closure requires those checks to pass on that exact SHA as well.
