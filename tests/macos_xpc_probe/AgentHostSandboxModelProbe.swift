@@ -66,6 +66,88 @@ func shellAction(
     ]
 }
 
+func pythonJSONArgument(_ value: String) -> String {
+    func unicodeEscape(_ scalar: UInt32) -> String {
+        let digits = String(scalar, radix: 16)
+        return "\\u" + String(repeating: "0", count: 4 - digits.count) + digits
+    }
+
+    var output = "\""
+    for scalar in value.unicodeScalars {
+        switch scalar.value {
+        case 0x22:
+            output += "\\\""
+        case 0x5c:
+            output += "\\\\"
+        case 0x08:
+            output += "\\b"
+        case 0x09:
+            output += "\\t"
+        case 0x0a:
+            output += "\\n"
+        case 0x0c:
+            output += "\\f"
+        case 0x0d:
+            output += "\\r"
+        case 0x00...0x1f, 0x7f...0xffff:
+            output += unicodeEscape(scalar.value)
+        case 0x10000...0x10ffff:
+            let adjusted = scalar.value - 0x10000
+            output += unicodeEscape(0xd800 + (adjusted >> 10))
+            output += unicodeEscape(0xdc00 + (adjusted & 0x3ff))
+        default:
+            output.unicodeScalars.append(scalar)
+        }
+    }
+    output += "\""
+    return output
+}
+
+func stagedEditScript() -> String {
+    #"""
+        import json, os, stat, sys
+        from pathlib import Path
+        p=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()
+        if not stat.S_ISREG(st.st_mode): raise SystemExit(20)
+        s=p.read_text(encoding="utf-8"); i=s.find(old)
+        if not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)
+        d=(s[:i]+new+s[i+len(old):]).encode("utf-8"); q=p.with_name(".khaos-edit-"+os.urandom(16).hex())
+        u=os.umask(0)
+        try: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))
+        finally: os.umask(u)
+        try:
+            with os.fdopen(fd,"wb") as f: f.write(d); f.flush(); os.fsync(f.fileno())
+            os.replace(q,p); q=None
+        finally:
+            if q is not None: os.unlink(q)
+        print("EDIT_APPLIED")
+        """#
+}
+
+func stagedEditReviewArgv() -> [String] {
+    let oldText = "value = \"旧🙂\"\\path\t\u{202e}\r\nreturn \"old\"\n"
+    let prefix = "def parse_tags(value):\n    # 新 🧪\u{202e}\r\n    text = \"quote: \\\" slash: \\\\ tab:\t backspace:\u{0008} formfeed:\u{000c}\"\n    return \""
+    let suffix = "\"\n"
+    let fillerCount = 4_096 - pythonJSONArgument(prefix + suffix).utf8.count
+    guard fillerCount >= 0 else { return [] }
+    let newText = prefix + String(repeating: "x", count: fillerCount) + suffix
+    let argv = [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\(pythonJSONArgument(stagedEditScript())))",
+        "tags.py",
+        pythonJSONArgument(oldText),
+        pythonJSONArgument(newText),
+    ]
+    guard argv[7].utf8.count == 4_096,
+          argv.allSatisfy({ $0.utf8.count <= 4_096 }) else {
+        return []
+    }
+    return argv
+}
+
 func pluginAction(
     _ pluginID: String,
     _ digest: String,
@@ -279,13 +361,10 @@ if !sandboxFindings.isEmpty {
 
 let latestUser = latestUserRequest(prompt)
 
-let pythonCandidateBMarker = "KHAOS_STAGED_EDIT_PYTHON_ARGV_PROBE "
-if let marker = latestUser.range(of: pythonCandidateBMarker) {
-    let encodedArgv = String(latestUser[marker.upperBound...])
-    guard let data = encodedArgv.data(using: .utf8),
-          let argv = try? JSONSerialization.jsonObject(with: data) as? [String],
-          argv.count == 8,
-          argv[5] == "tags.py" else {
+let pythonCandidateBMarker = "KHAOS_STAGED_EDIT_PYTHON_ARGV_PROBE"
+if latestUser.contains(pythonCandidateBMarker) {
+    let argv = stagedEditReviewArgv()
+    guard argv.count == 8, argv[5] == "tags.py" else {
         emit(textAction("Python Candidate B fixture was malformed."))
     }
     emit(shellAction(argv, readScope: ["tags.py"], writeScope: ["tags.py"]))
@@ -339,43 +418,9 @@ if prompt.contains("KHAOS_STAGED_EDIT_FEASIBILITY_PROBE") {
     if step == 0 {
         let oldText = "value.split(\",\")"
         let newText = "[part.strip() for part in value.split(\",\") if part.strip()]"
-        guard let oldJSONData = try? JSONSerialization.data(
-            withJSONObject: oldText,
-            options: [.fragmentsAllowed, .withoutEscapingSlashes]
-        ),
-        let oldJSON = String(data: oldJSONData, encoding: .utf8),
-        let newJSONData = try? JSONSerialization.data(
-            withJSONObject: newText,
-            options: [.fragmentsAllowed, .withoutEscapingSlashes]
-        ),
-        let newJSON = String(data: newJSONData, encoding: .utf8) else {
-            emit(textAction("Staged edit feasibility probe could not encode its fixed fixture."))
-        }
-        let stagedEdit = #"""
-            import json, os, stat, sys
-            from pathlib import Path
-            p=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()
-            if not stat.S_ISREG(st.st_mode): raise SystemExit(20)
-            s=p.read_text(encoding="utf-8"); i=s.find(old)
-            if not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)
-            d=(s[:i]+new+s[i+len(old):]).encode("utf-8"); q=p.with_name(".khaos-edit-"+os.urandom(16).hex())
-            u=os.umask(0)
-            try: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))
-            finally: os.umask(u)
-            try:
-                with os.fdopen(fd,"wb") as f: f.write(d); f.flush(); os.fsync(f.fileno())
-                os.replace(q,p); q=None
-            finally:
-                if q is not None: os.unlink(q)
-            print("EDIT_APPLIED")
-            """#
-        guard let stagedEditJSONData = try? JSONSerialization.data(
-            withJSONObject: stagedEdit,
-            options: [.fragmentsAllowed, .withoutEscapingSlashes]
-        ),
-        let stagedEditJSON = String(data: stagedEditJSONData, encoding: .utf8) else {
-            emit(textAction("Staged edit feasibility probe could not encode its fixed Runner script."))
-        }
+        let oldJSON = pythonJSONArgument(oldText)
+        let newJSON = pythonJSONArgument(newText)
+        let stagedEditJSON = pythonJSONArgument(stagedEditScript())
         emit(shellAction(
             ["python3", "-I", "-B", "-c", "exec(\(stagedEditJSON))", "tags.py", oldJSON, newJSON],
             readScope: ["tags.py"],
