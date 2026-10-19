@@ -248,6 +248,79 @@ class MacOSXPCSandboxTests(unittest.TestCase):
                         expected,
                     )
 
+    def test_bigmodel_decode_preserves_errors_and_payload_free_diagnostics(self) -> None:
+        source = (MACOS_TCB_SOURCES / "AgentHost.swift").read_text(encoding="utf-8")
+        errors = source.split("private enum BigModelError: Error {", 1)[1].split(
+            "private final class BigModelSession", 1
+        )[0]
+        decoder = source.split("    private func decode<Value: Decodable>(", 1)[1].split(
+            "    private func trimHistory()", 1
+        )[0]
+        with tempfile.TemporaryDirectory(prefix="khaos-bigmodel-decode-") as value:
+            root = Path(value)
+            probe = root / "Probe.swift"
+            executable = root / "decode-probe"
+            diagnostics = root / "ActionOutput.swift"
+            # Capture the existing unified-log sink in this synthetic probe only.
+            # The production error mapper and diagnostic formatter remain verbatim.
+            diagnostics.write_text(
+                (MACOS_TCB_SOURCES / "AgentHostActionOutput.swift").read_text().replace(
+                    'modelDiagnosticLogger.info("\\(line, privacy: .public)")',
+                    'fputs(line + "\\n", stderr)',
+                ), encoding="utf-8",
+            )
+            probe.write_text(
+                "import Foundation\nprivate enum BigModelError: Error {" + errors
+                + "private struct DecoderProbe { func decode<Value: Decodable>(" + decoder
+                + "}\n"
+                + """@main struct Main {
+    static func main() {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        do {
+            let _: AgentAction = try DecoderProbe().decode(
+                data, as: AgentAction.self,
+                exactKeys: AgentHostActionOutput.actionOutputKeys, attempt: .correction
+            )
+            print("accepted")
+        } catch let error as BigModelError { print(error.code) }
+        catch { fatalError("unexpected error") }
+    }
+}
+""",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ["xcrun", "swiftc", "-parse-as-library",
+                 str(MACOS_TCB_SOURCES / "AgentHostProtocol.swift"),
+                 str(diagnostics), str(probe), "-o", str(executable)],
+                check=True, capture_output=True, text=True, timeout=60,
+            )
+            action = dict(type="text", text="private-canary", argv=[], readScope=[],
+                          writeScope=[], pluginID="", candidateDigest="", generation=0,
+                          pluginInput="", evolutionGoal="")
+            cases = [
+                (b'{private-canary', "invalid_model_output_json", "action_json"),
+                (b'{"private-canary":1}', "invalid_model_output_shape", "action_shape"),
+                (json.dumps(dict(action, argv=42)).encode(),
+                 "invalid_model_output_field_types", "action_field_types"),
+                (b'private-canary' * 4096, "model_output_too_large", "model_content"),
+                (json.dumps(action).encode(), "accepted", None),
+            ]
+            for payload, expected, stage in cases:
+                with self.subTest(expected=expected):
+                    result = subprocess.run(
+                        [str(executable)], input=payload, capture_output=True, check=True,
+                        env=dict(os.environ, KHAOS_AGENT_ACTION_DIAGNOSTICS="1"), timeout=10,
+                    )
+                    self.assertEqual(result.stdout.decode().strip(), expected)
+                    diagnostic = result.stderr.decode()
+                    self.assertNotIn("private-canary", diagnostic)
+                    if stage:
+                        self.assertIn(f"stage={stage} error={expected}", diagnostic)
+                        self.assertEqual(diagnostic.count("correction_response_failed"), 1)
+                    else:
+                        self.assertNotIn("response_failed", diagnostic)
+
     def test_agent_host_protocol_rejects_authority_injection_and_stale_bindings(
         self,
     ) -> None:

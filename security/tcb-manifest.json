@@ -167,7 +167,7 @@
     {
       "path": "khaos/kernel/broker.py",
       "role": "runtime-tcb",
-      "sha256": "4e4165738bf2270ab53caf52f6d6c245102cfac6b1b4ce0c514b72cdf1f08d35",
+      "sha256": "90dbc43a63737e6c17e9cca9e2a2df3a13a636e24952db9a0529d12cd49c4c4d",
       "source_mode": "0o644",
       "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -180,7 +180,7 @@
     {
       "path": "khaos/kernel/macos_disk_image.py",
       "role": "development-enforcement",
-      "sha256": "683609c583d17b8ec8e1ca64f823fa9440a5a22097cdb7e8b59107951da6d3b7",
+      "sha256": "b36fdb82ffe4efe504768e3e41677538552bfd72026b7d35e81b240db1056ab0",
       "source_mode": "0o644",
       "boundary": "development-only APFS test backend; not shipped",
       "tests": [
@@ -282,7 +282,7 @@
     {
       "path": "khaos/launcher.py",
       "role": "runtime-tcb",
-      "sha256": "9eb6ec7dd9c46c3b338303bc223483e118e04b8d3fa74ed0d76795e8a1c2e305",
+      "sha256": "895351d3998da3e0a82a9f3da15a9da9474677f2fecda4db3377d427c593853c",
       "source_mode": "0o644",
       "boundary": "kernel_python: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -485,7 +485,7 @@
     {
       "path": "khaos/macos/KernelWorkspaceXPC.swift",
       "role": "runtime-tcb",
-      "sha256": "4621ae27b873dbad6d36e67cc76a2aa7afe0534bc2f22a8ec6b9ab77aae6e8dc",
+      "sha256": "f056abf94c3b455ea8bd1c504e4394b9843953c4bcd76b91f281c5e97149fd30",
       "source_mode": "0o644",
       "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -1016,7 +1016,7 @@
     {
       "path": "tests/test_macos_xpc_sandbox.py",
       "role": "build-governance",
-      "sha256": "3b115dfcbbc89288ff05be50fbe43b8aa3510b89f21469fcc94d1e4f5c85916b",
+      "sha256": "2d1e0122665b02f0d43a2ee1e50862ba9b8fc92649f9c6c540705a2377ac89b8",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [

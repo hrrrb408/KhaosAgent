@@ -723,17 +723,6 @@ enum KernelWorkspaceXPC {
         )
     }
 
-    static func decodeRunRequest(
-        _ frame: Data,
-        requestID: RequestID? = nil
-    ) -> WorkspaceRunRequest? {
-        guard case let .workspaceRun(request)? = decodeInvocationRequest(
-            frame,
-            requestID: requestID
-        ) else { return nil }
-        return request
-    }
-
     static func decodeInvocationRequest(
         _ frame: Data,
         requestID: RequestID? = nil

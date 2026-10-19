@@ -842,45 +842,28 @@ private final class BigModelSession {
                 attempt: attempt
             )
         } catch let error as AgentHostJSONInspectionError {
+            let failure: BigModelError
+            var shape: AgentHostJSONShapeDiagnostic?
             switch error {
             case .invalidJSON:
-                if let attempt {
-                    AgentHostActionOutput.diagnoseModelFailure(
-                        attempt: attempt,
-                        stage: .actionJSON,
-                        errorCode: BigModelError.invalidModelOutputJSON.code
-                    )
-                }
-                throw BigModelError.invalidModelOutputJSON
-            case .invalidShape(let shape):
-                if let attempt {
-                    AgentHostActionOutput.diagnoseModelFailure(
-                        attempt: attempt,
-                        stage: .actionShape,
-                        errorCode: BigModelError.invalidModelOutputShape.code,
-                        shape: shape
-                    )
-                }
-                throw BigModelError.invalidModelOutputShape
+                failure = .invalidModelOutputJSON
+            case .invalidShape(let diagnostic):
+                failure = .invalidModelOutputShape
+                shape = diagnostic
             case .invalidFieldTypes:
-                if let attempt {
-                    AgentHostActionOutput.diagnoseModelFailure(
-                        attempt: attempt,
-                        stage: .actionFieldTypes,
-                        errorCode: BigModelError.invalidModelOutputFieldTypes.code
-                    )
-                }
-                throw BigModelError.invalidModelOutputFieldTypes
+                failure = .invalidModelOutputFieldTypes
             case .contentTooLarge:
-                if let attempt {
-                    AgentHostActionOutput.diagnoseModelFailure(
-                        attempt: attempt,
-                        stage: .modelContent,
-                        errorCode: BigModelError.modelOutputTooLarge.code
-                    )
-                }
-                throw BigModelError.modelOutputTooLarge
+                failure = .modelOutputTooLarge
             }
+            if let attempt {
+                AgentHostActionOutput.diagnoseModelFailure(
+                    attempt: attempt,
+                    stage: failure.diagnosticStage,
+                    errorCode: failure.code,
+                    shape: shape
+                )
+            }
+            throw failure
         } catch {
             throw BigModelError.invalidModelOutputFieldTypes
         }

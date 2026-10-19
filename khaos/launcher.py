@@ -39,7 +39,6 @@ from .kernel.workspace_snapshot import (
     WorkspaceSnapshotError,
     WorkspaceWriteScope,
     _path_for_directory_descriptor,
-    _open_absolute_directory,
 )
 
 
