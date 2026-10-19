@@ -182,27 +182,32 @@ def run(root: Path) -> None:
         assert request["cancellation_requested"] is True
         submissions = [e for e in events if e["stage"] == "WORKSPACE_RUN_SUBMISSION"]
         runners = [e for e in events if e["stage"] == "RUNNER_EXECUTION"]
-        private_changes = [e for e in events if e["stage"] == "PRIVATE_CHANGESET_READY"]
+        bridges = [e for e in events if e["stage"] == "WORKSPACE_REQUEST_BRIDGE"]
+        private_changes = [e for e in events if e["stage"] == "PRIVATE_SNAPSHOT_CHANGED"]
         replies = [json.loads(base64.b64decode(e["response_base64"])) for e in events if e["stage"] == "ORIGINAL_KERNEL_REPLY"]
         after = {p.name: sha(p) for p in workspace.iterdir()}
         assert after["unscoped-canary.txt"] == before["unscoped-canary.txt"]
         assert set(after) == set(before), "unexpected temporary entries"
         if case == "b32":
-            assert not submissions and not runners and not replies
+            assert not submissions and not bridges and not runners and not replies
             assert request["kernel_result"].startswith("not_submitted:")
             assert request["commit_outcome"] == "not_committed" and after == before
         else:
-            assert len(submissions) == len(runners) == len(replies) == 1
+            assert len(submissions) == len(bridges) == len(runners) == len(replies) == 1
             assert submissions[0]["request_id"] == request["request_id"] == replies[0]["request_id"]
-            assert runners[0]["workspace_request_id"] == request["request_id"]
+            bridge = bridges[0]
+            assert bridge["xpc_request_id"] == request["request_id"]
+            assert bridge["workspace_request_id"] == runners[0]["workspace_request_id"]
             assert len(private_changes) == 1, private_changes
             change = private_changes[0]
-            assert change["staged_write_paths"] == ["tags.py"], change
+            assert change["workspace_request_id"] == bridge["workspace_request_id"]
+            assert change["changed_paths"] == ["tags.py"], change
             expected_tags = (
                 'def parse_tags(value):\n'
                 '    return [part.strip() for part in value.split(",") if part.strip()]\n'
             ).encode()
-            assert change["staged_file_sha256"]["tags.py"] == hashlib.sha256(expected_tags).hexdigest()
+            assert change["private_file_sha256"]["tags.py"] == hashlib.sha256(expected_tags).hexdigest()
+            assert change["baseline_file_sha256"]["tags.py"] == before["tags.py"]
             if case == "pre-commit":
                 assert replies[0]["error"]["code"] == "process_cancelled", replies
                 assert request["kernel_result"] == "error:process_cancelled"

@@ -148,20 +148,16 @@ def _acceptance_barrier(stage, **fields):
             callback_replacement = (
                 "            ) -> None:\n"
                 "                import hashlib\n"
-                '                staged_write_paths = ["/".join(path) for path in file_write_paths]\n'
-                "                staged_file_sha256 = {\n"
-                '                    "/".join(path): hashlib.sha256(\n'
-                "                        staging_path.joinpath(*path).read_bytes()\n"
-                "                    ).hexdigest()\n"
-                "                    for path in file_write_paths\n"
-                "                    if staging_path.joinpath(*path).is_file()\n"
-                "                }\n"
                 "                if workspace_request_id is not None:\n"
+                '                    private_tags = snapshot.path / "tags.py"\n'
+                '                    baseline_tags = snapshot.baseline.get(("tags.py",))\n'
+                "                    private_digest = hashlib.sha256(private_tags.read_bytes()).hexdigest()\n"
                 "                    _acceptance_event(\n"
-                '                        "PRIVATE_CHANGESET_READY",\n'
+                '                        "PRIVATE_SNAPSHOT_CHANGED",\n'
                 "                        workspace_request_id=workspace_request_id,\n"
-                "                        staged_write_paths=staged_write_paths,\n"
-                "                        staged_file_sha256=staged_file_sha256,\n"
+                '                        changed_paths=["tags.py"] if baseline_tags and private_digest != baseline_tags.digest else [],\n'
+                '                        baseline_file_sha256={"tags.py": baseline_tags.digest if baseline_tags else None},\n'
+                '                        private_file_sha256={"tags.py": private_digest},\n'
                 "                    )\n"
                 "                apply_workspace_commit_sandbox(\n"
                 "                    snapshot,\n"
@@ -209,6 +205,38 @@ def _acceptance_barrier(stage, **fields):
 ''')
 
     edit("khaos/kernel/worker.py", worker)
+
+    def launcher(source: str) -> str:
+        source = replace_once(source, "import json\n", python_helpers + "import json\n")
+        source = replace_once(
+            source,
+            "    plugin_input: dict[str, object] | None = None,\n) -> WorkspaceCommandResult:\n",
+            "    plugin_input: dict[str, object] | None = None,\n"
+            "    acceptance_parent_request_id: str | None = None,\n"
+            ") -> WorkspaceCommandResult:\n",
+        )
+        return replace_once(
+            source,
+            "        request_id = secrets.token_hex(16)\n",
+            "        request_id = secrets.token_hex(16)\n"
+            "        if acceptance_parent_request_id is not None:\n"
+            '            _acceptance_event("WORKSPACE_REQUEST_BRIDGE",\n'
+            "                              xpc_request_id=acceptance_parent_request_id,\n"
+            "                              workspace_request_id=request_id)\n",
+        )
+
+    edit("khaos/launcher.py", launcher)
+
+    def bridge(source: str) -> str:
+        anchor = '''                    brokered_snapshot_storage_bytes=int(snapshot_storage_text),
+                )
+'''
+        return replace_once(source, anchor, '''                    brokered_snapshot_storage_bytes=int(snapshot_storage_text),
+                    acceptance_parent_request_id=request_id,
+                )
+''')
+
+    edit("khaos/kernel/workspace_xpc_bridge.py", bridge)
 
     def service(source: str) -> str:
         # File output is test-only; protocol response bytes remain untouched.
