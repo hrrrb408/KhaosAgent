@@ -20,7 +20,13 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools import build_macos_seed as builder
-from signed_cancellation_fixture import CASES, MARKER, host_receipt_contains_terminal, overlay
+from signed_cancellation_fixture import (
+    CASES,
+    MARKER,
+    cancellation_forwarded,
+    host_receipt_contains_terminal,
+    overlay,
+)
 from test_macos_xpc_sandbox import MacOSXPCSandboxTests
 
 
@@ -151,9 +157,27 @@ def run(root: Path) -> None:
                       + "\n", flush=True)
             if "acceptance-cancellation-ack=" in stderr and not cancel_seen:
                 cancel_seen = True
-                # Ack follows the Kernel's signal write. This only releases the
-                # test pause; it cannot choose the result or grant authority.
-                (root / "release").touch(mode=0o600, exist_ok=False)
+                if case in {"b32", "post-commit"}:
+                    # B32 has not submitted a Kernel request; post-commit has
+                    # already fixed its result. Neither needs worker forwarding.
+                    (root / "release").touch(mode=0o600, exist_ok=False)
+            if case == "pre-commit" and barrier_seen and cancel_seen:
+                submissions = [e for e in events if e["stage"] == "WORKSPACE_RUN_SUBMISSION"]
+                bridges = [e for e in events if e["stage"] == "WORKSPACE_REQUEST_BRIDGE"]
+                if (
+                    len(submissions) == 1
+                    and len(bridges) == 1
+                    and cancellation_forwarded(
+                        events,
+                        submissions[0]["request_id"],
+                        bridges[0]["workspace_request_id"],
+                    )
+                    and not (root / "release").exists()
+                ):
+                    # cancel_accepted only acknowledges the original XPC task.
+                    # Release the test barrier only after the exact workspace
+                    # cancellation frame has been written to its Kernel worker.
+                    (root / "release").touch(mode=0o600, exist_ok=False)
             if process.poll() is not None:
                 break
             time.sleep(0.05)
@@ -209,6 +233,9 @@ def run(root: Path) -> None:
             assert change["private_file_sha256"]["tags.py"] == hashlib.sha256(expected_tags).hexdigest()
             assert change["baseline_file_sha256"]["tags.py"] == before["tags.py"]
             if case == "pre-commit":
+                assert cancellation_forwarded(
+                    events, request["request_id"], bridge["workspace_request_id"]
+                ), events
                 assert replies[0]["error"]["code"] == "process_cancelled", replies
                 assert request["kernel_result"] == "error:process_cancelled"
                 assert request["commit_outcome"] == "not_committed" and after == before

@@ -9,7 +9,14 @@ import threading
 import time
 import unittest
 
-from signed_cancellation_fixture import CASES, MARKER, host_receipt_contains_terminal, overlay, replace_once
+from signed_cancellation_fixture import (
+    CASES,
+    MARKER,
+    cancellation_forwarded,
+    host_receipt_contains_terminal,
+    overlay,
+    replace_once,
+)
 from tools.build_macos_seed import ROOT, _snapshot_sources
 
 
@@ -22,6 +29,21 @@ class SignedCancellationFixtureTests(unittest.TestCase):
         self.assertFalse(host_receipt_contains_terminal(
             base64.b64encode(terminal).decode(),
             base64.b64encode(b"different terminal" + receipt).decode()))
+
+    def test_precommit_release_requires_the_matching_forwarded_cancel_frame(self):
+        event = {
+            "stage": "WORKSPACE_CANCEL_FORWARDED",
+            "xpc_request_id": "original-xpc-request",
+            "workspace_request_id": "kernel-worker-request",
+        }
+        self.assertTrue(cancellation_forwarded(
+            [event], "original-xpc-request", "kernel-worker-request"))
+        self.assertFalse(cancellation_forwarded(
+            [event], "different-xpc-request", "kernel-worker-request"))
+        self.assertFalse(cancellation_forwarded(
+            [event], "original-xpc-request", "different-worker-request"))
+        self.assertFalse(cancellation_forwarded(
+            [event, event], "original-xpc-request", "kernel-worker-request"))
 
     def test_private_overlay_is_explicit_and_fails_on_anchor_drift(self):
         paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/kernel/worker.py",
@@ -43,6 +65,9 @@ class SignedCancellationFixtureTests(unittest.TestCase):
                 ):
                     compile((snapshot / relative).read_text(), relative, "exec")
                 self.assertIn(MARKER, (snapshot / "khaos/kernel/broker.py").read_text())
+                launcher_overlay = (snapshot / "khaos/launcher.py").read_text()
+                self.assertIn('"WORKSPACE_CANCEL_FORWARDED"', launcher_overlay)
+                self.assertIn("acceptance_parent_request_id=acceptance_parent_request_id", launcher_overlay)
                 with self.assertRaisesRegex(ValueError, "anchor must occur once"):
                     overlay(snapshot, Path(value), case)
         self.assertEqual(before, {path: path.read_bytes() for path in paths})

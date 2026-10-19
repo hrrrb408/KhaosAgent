@@ -20,6 +20,21 @@ def host_receipt_contains_terminal(sent_base64: str, received_base64: str) -> bo
     return received.startswith(sent)
 
 
+def cancellation_forwarded(
+    events: list[dict], xpc_request_id: str, workspace_request_id: str
+) -> bool:
+    matches = [
+        event
+        for event in events
+        if event.get("stage") == "WORKSPACE_CANCEL_FORWARDED"
+    ]
+    return (
+        len(matches) == 1
+        and matches[0].get("xpc_request_id") == xpc_request_id
+        and matches[0].get("workspace_request_id") == workspace_request_id
+    )
+
+
 def replace_once(source: str, old: str, new: str) -> str:
     if source.count(old) != 1:
         raise ValueError(f"acceptance source anchor must occur once: {old[:100]!r}")
@@ -214,6 +229,43 @@ def _acceptance_barrier(stage, **fields):
             "    plugin_input: dict[str, object] | None = None,\n"
             "    acceptance_parent_request_id: str | None = None,\n"
             ") -> WorkspaceCommandResult:\n",
+        )
+        source = replace_once(
+            source,
+            "        response = _receive_kernel_response(\n"
+            "            process,\n"
+            "            request_id,\n"
+            "            cancel_requested=cancel_requested,\n"
+            "        )\n",
+            "        response = _receive_kernel_response(\n"
+            "            process,\n"
+            "            request_id,\n"
+            "            cancel_requested=cancel_requested,\n"
+            "            acceptance_parent_request_id=acceptance_parent_request_id,\n"
+            "        )\n",
+        )
+        source = replace_once(
+            source,
+            "    *,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            ") -> dict[str, object]:\n",
+            "    *,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            "    acceptance_parent_request_id: str | None = None,\n"
+            ") -> dict[str, object]:\n",
+        )
+        source = replace_once(
+            source,
+            "                                timeout_seconds=3,\n"
+            "                            )\n"
+            "                        except IPCProtocolError:\n",
+            "                                timeout_seconds=3,\n"
+            "                            )\n"
+            "                            if acceptance_parent_request_id is not None:\n"
+            '                                _acceptance_event("WORKSPACE_CANCEL_FORWARDED",\n'
+            "                                                  xpc_request_id=acceptance_parent_request_id,\n"
+            "                                                  workspace_request_id=request_id)\n"
+            "                        except IPCProtocolError:\n",
         )
         return replace_once(
             source,
