@@ -18,8 +18,10 @@ and the deterministic model probe's digests in the signed build record.
   after actual approval. Only the real cancellation method signals it. The normal
   cancellation flag and existing completion path then prevent submission.
 - B34 pre: after the committer reports READY, pause before the existing cancel
-  recheck and ACCEPT. The external controller releases only after receiving the
-  original connection's cancellation acknowledgment. Existing logic sends ABORT.
+  recheck and ACCEPT. The controller releases only after the test observer sees
+  the matching `workspace.cancel` frame written to the original Kernel worker,
+  correlated through the XPC-to-worker request bridge. `cancel_accepted` alone
+  does not release the barrier. Existing Kernel logic then sends ABORT.
 - B34 post: pause after the real commit child is reaped, status/version validated,
   and APPLIED counts known. Cancellation cannot replace the existing summary.
 - Test observers record workspace.run ingress, an authenticated Runner
@@ -32,10 +34,12 @@ All barriers expire after 55 seconds (below the existing execution deadlines).
 Timeout is failed acceptance; pre-ACCEPT timeout aborts, post-commit timeout keeps
 the known committed result. There is no automatic retry; each manual attempt is
 preserved in a separate directory. The control path is baked into the signed
-fixture, outside workspace/Host/Runner scopes. The barrier
-controls timing only; separate test-only observers record bounded stage and
-digest metadata. The owner must click Run Once and Cancel; no program
-synthesizes actions.
+fixture, outside workspace/Host/Runner scopes. The barrier controls timing only;
+separate test-only observers record bounded stage and digest metadata. The owner
+explicitly authorized agent-operated UI acceptance for this run. The signed App
+received native Run Once and Cancel UI actions; no test code simulated or
+prefilled either decision. Reports distinguish these maintainer-authorized
+agent operations from owner-personal clicks.
 
 Existing READY/ACCEPT, command handle, Task Record, launch/sign/hash helpers and
 fixed Candidate B model probe are reused. Legacy managed-process lifecycle tests
@@ -81,6 +85,16 @@ was instrumented before its authenticated IPC request, and the expected Kernel
 code was `commit_rejected` even though the actual cancellation result is
 `process_cancelled`. The corrected private overlay records the Runner's
 `process.exec` request and staged `tags.py` digest before the existing commit
-gate, and expects `process_cancelled`. The signed attempt remains
-`NOT_PROVEN`; a fresh owner-operated run is required to exercise the corrected
-observer.
+gate, and expects `process_cancelled`.
+
+B34 pre-commit attempt 6 then showed that the test controller released the
+barrier on `cancel_accepted`, before the XPC-to-Python Launcher poll forwarded
+the matching cancellation frame. The real Kernel committed successfully and
+the Launcher/Host accurately reported that outcome. The fixture now emits
+`WORKSPACE_CANCEL_FORWARDED` only after `send_frame` writes the original
+`workspace.cancel` message, checks both bridged request IDs, and only then
+releases the pre-commit barrier. Attempt 7 exercised this corrected sequence in
+the signed app: one authenticated Runner request and private staged edit were
+observed, the Kernel returned `process_cancelled`, live workspace hashes stayed
+unchanged, and the Task Record and exact Host receipt said `not_committed`.
+This correction is confined to the acceptance build overlay and harness.

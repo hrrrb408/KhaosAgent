@@ -172,7 +172,85 @@ attempt1 and post-commit attempt1 apps were not launched.
   `29e5ed74d9bc9f56ec57b0208becb439d86e7ae0fd0fe87d6c56965d5aa3b721`.
   The owner action is not repeated evidence for a later corrected signed build.
 
-B34 pre-commit remains **NOT_PROVEN** pending a corrected signed run that binds
-the authenticated Runner execution, exact staged private change, Kernel result,
-Task Record, Host terminal receipt and unchanged live workspace. B34 post-commit
-cancellation and complete B39 terminal consistency also remain **NOT_PROVEN**.
+The earlier B34 attempt 2 remains **NOT_PROVEN** because it did not bind the
+Runner request and private staged change. B34 attempt 6 exposed a release-order
+race in the test controller; attempt 7 below is the corrected signed run. B34
+post-commit cancellation and complete B39 terminal consistency remain
+**NOT_PROVEN** until their separate post-commit run is complete.
+
+### B34 pre-commit attempt 6: cancellation acknowledgment released too early
+
+- The real signed app reached the correct `KERNEL_READY_PRE_ACCEPT` barrier after
+  one Runner request had changed the private snapshot. A maintainer-authorized
+  agent UI action clicked Cancel on the original Task Progress window. The app
+  returned `cancel_accepted`, but the controller released the barrier before
+  the Python Launcher forwarded the matching `workspace.cancel` frame to its
+  Kernel worker. The Kernel then accepted and committed the staged changeset.
+- This is **FAILED_ATTEMPT**, not a pre-commit cancellation pass. Original Kernel
+  response was successful `output`; the workspace changed from `476ac287…` to
+  `8db3b1d5…`; and the Task Record and Host receipt truthfully said committed,
+  Runner return code 0. The harness failed because it expected an error response.
+  All artifacts are preserved at
+  `/Users/huangruibang/Applications/khaos-m8-a7-pre-commit-attempt6/`.
+- Source commit `5251cfa38cdfd84cd428f65b7589a35bb508992e`; build receipt
+  SHA-256 `e99fffc46bfc9dc9b092dd42195c5c68b7fd273648b53db1471e53c7a77f6441`;
+  production-hook isolation **PASS**. Signed identity `Apple Development:
+  8613929930739 (8X4352T2RG)`, Team `UBAP6LN5AM`, Bundle ID `org.khaos.Seed`,
+  CDHash `acf91fc08f797dde0686c119350b67f019fec656`. Launcher SHA-256
+  `0e6a5b1295c9dcbc0e30b40eee6a407a73763ddd094550ec49a94ea080182981`, Kernel
+  `5159eba9a3b4dda9b4d66acf971daa51d56690469870608522fea115e241a725`, Agent
+  Host `75e54d9e8a093254942d81870e090bb9a7c5130f4f035c949581bd33aff2a4bd`.
+- Task ID `66aaa170-3346-4bb1-b9fb-f927202e0497`; Request ID
+  `c2eba1b830ad42bcb4e79da862e844da`; Workspace Session ID
+  `18fa99ce-3043-4817-a5a6-ee464a97bf4a`; XPC Connection ID
+  `afedd009-0947-4db1-845b-8a14c452f294`; invocation SHA-256
+  `c36bd0f3de49730428af21b4d3d4ea01a4b172771831ef9ebf85551c08632553`.
+
+### B34 pre-commit attempt 7: synchronized cancellation forwarded to Kernel
+
+- The corrected signed build is from exact source commit
+  `184c2c609d7123a692c8e8778b617cc1dfba07e6`; source-diff SHA-256 is the empty
+  tree `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`;
+  build receipt SHA-256 `df7414b4fb2e2ee526b0afe8edd3a46b5f63f6f5261f2200a40aaef9f0d50e97`.
+  Production-hook isolation **PASS**. Signed identity `Apple Development:
+  8613929930739 (8X4352T2RG)`, Team `UBAP6LN5AM`, Bundle ID `org.khaos.Seed`,
+  CDHash `de6bda27f1b70f0072813f38481666b61b3d01a3`. Acceptance Launcher SHA-256
+  `22804f90525a34f813acd7730b794acb8a6feb2830c62a431a6248552c3f1e8a`, Kernel
+  `1276cf25e2e52ae046a14778cffb0aa3ced51f408b4c7fe79a5a3569923943be`, Agent
+  Host `0a76f99bec6074df0d26f9eaf2a29b4722d030397ed8b38214e6c24cd3bbfe37`.
+- A maintainer-authorized agent UI operation selected the disposable workspace,
+  reviewed the actual Candidate B replacement and exact `tags.py` read/write
+  scopes, clicked Run Once, then clicked Cancel at `KERNEL_READY_PRE_ACCEPT`.
+  The Kernel barrier stayed closed until a test-only
+  `WORKSPACE_CANCEL_FORWARDED` event linked the XPC request to the same internal
+  workspace request; only then was the barrier released.
+- Task ID `4baf75f1-e2ac-4f91-955b-d98681e8224a`; Request ID
+  `ac8383a0793a4c25bf484688b3d3517d`; internal workspace request ID
+  `c4cbd5b7191428cad0c07c02bfce3901`; Runner request ID
+  `9193b6f629b4b30e515471351b934f08`; Workspace Session ID
+  `74542503-9f03-4595-823d-013ededec374`; XPC Connection ID
+  `2513b969-9725-4352-b066-ccb21a9719be`; invocation SHA-256
+  `6d1152b673d3f3dd9ca3307479e3925b7a35a152df3b5d59bae1d97cc45eba56`.
+- Approval was `approved_candidate_b_preview`. Kernel submission count **1**;
+  authenticated Runner request count **1**. Private snapshot changed only
+  `tags.py`, from baseline SHA-256
+  `476ac287f5ed529f016a1ba705a336abb57f38156da8a097a2a0ddbed2e5f164` to
+  candidate SHA-256
+  `8db3b1d5a79058bc0db32f9904c38162c6384ff813d41ab45b9db2348a264a63`.
+  Original Kernel terminal result was `process_cancelled`; Task Record says
+  `commit_outcome=not_committed`, `kernel_result=error:process_cancelled`, and
+  `terminal_result_delivery=delivered`. Its `runner_execution=unknown` and null
+  return code are retained as recorded; the authenticated Runner request and
+  private staged write are separately observed. Workspace hashes before, at the
+  barrier, and after match (`tags.py` baseline above;
+  `unscoped-canary.txt` SHA-256
+  `b8245a42e2c8d3a781e1235308f65911a61b1462df2bc56e47ab2eae7e45c9de`). The
+  Host receipt contains the exact Launcher terminal bytes. This satisfies
+  **B34 pre-commit PASS_L4** and proves this B34 subcase of terminal consistency.
+  Full attempt artifacts remain at
+  `/Users/huangruibang/Applications/khaos-m8-a7-pre-commit-attempt7/`.
+
+B34 pre-commit is **PASS_L4**. B34 post-commit cancellation and complete B39
+terminal consistency remain **NOT_PROVEN** pending a separate signed post-commit
+barrier run. The CUA actions above are recorded as maintainer-authorized agent
+operations, not as owner-personal clicks.
