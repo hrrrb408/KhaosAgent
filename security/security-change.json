@@ -1,15 +1,16 @@
 {
   "base": "dee62b20dc1acbd64b009d47c29dc3f42ba9fdde",
   "files": [
+    "khaos/macos/KernelWorkspaceXPC.swift",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
     "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made.",
-  "invariants": "All Launcher, Kernel, Runner, approval, scope, cancellation, admission, and changeset enforcement code remains byte-identical. The test redirects only the existing unified logging sink in a temporary source copy; production code is unmodified by that redirection.",
-  "authority_delta": "0; no production trusted source changes in this commit.",
-  "real_os_tests": "Synthetic Swift decoder regression passed on macOS (five cases). Canonical suite is being run; no new signed UI evidence is claimed. B32/B34/B39 remain NOT_PROVEN.",
-  "trusted_delta": "0 runtime TCB LOC. One governance test added; manifest hashes reviewed only for that test.",
-  "baseline_decision": "Keep existing security baseline and historical claims. Bind this exact declaration to PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Update the test digest and dependent manifest digest only after reviewing the source diff. Owner Review PENDING; independent Code Owner approval NOT PROVEN."
+  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made. Separate trusted cleanup: remove the unused 11-line Swift-only decodeRunRequest convenience wrapper; production readInvocation already calls decodeInvocationRequest directly.",
+  "invariants": "The removed method is not @objc, not an XPC interface selector, not serialized ABI, and has no static or dynamic consumer in the closed compile source lists, tests, or packaging. decodeInvocationRequest, decodeEnvelope, decodeWorkspaceRequest, request binding, XPC protocols, parser behavior, and cancellation are unchanged. Cross-boundary validation remains on each side. Synthetic test sink redirection remains test-only.",
+  "authority_delta": "0 Kernel/ABI/workspace-scope authority delta. No trusted code is added. All remaining parser and enforcement code is byte-identical.",
+  "real_os_tests": "Run full canonical macOS suite after the deletion, including real signed KernelProduction.xpc invalid-request/source/scope attacks, cancellation, AgentHost output probe, and Memory/Runner regressions. Focused decoder test passed. No signed UI acceptance claim; B32/B34/B39 remain NOT_PROVEN.",
+  "trusted_delta": "Runtime TCB -11 LOC in KernelWorkspaceXPC.swift; no new trusted code, processes, operations, dependencies, or state. AgentHost.swift untrusted -17 LOC. One governance regression test added.",
+  "baseline_decision": "Exact base remains PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Reviewed the wrapper deletion and test source before updating their manifest hashes and dependent manifest digest. Preserve previous baseline description/history, pending Owner Review and independent Code Owner gap. No normative decision changes."
 }

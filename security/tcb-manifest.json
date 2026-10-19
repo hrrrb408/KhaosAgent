@@ -485,7 +485,7 @@
     {
       "path": "khaos/macos/KernelWorkspaceXPC.swift",
       "role": "runtime-tcb",
-      "sha256": "4621ae27b873dbad6d36e67cc76a2aa7afe0534bc2f22a8ec6b9ab77aae6e8dc",
+      "sha256": "f056abf94c3b455ea8bd1c504e4394b9843953c4bcd76b91f281c5e97149fd30",
       "source_mode": "0o644",
       "boundary": "launcher_binary + service_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
