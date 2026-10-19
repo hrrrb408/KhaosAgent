@@ -19,7 +19,7 @@
 | Trusted Runtime Code Delta | `+2116 / -182` lines; net `+1934` relative to PR base | The new fix itself is +32/-5 in `TrustedEditApproval.swift` relative to original PR head. |
 | Canonical tests | `PASS` — 398 tests | `REGRESSION_REPORT.md` and `canonical-full-suite.log`. |
 | Security Freeze | `PASS` | Current check and exact PR-base check passed. |
-| GitHub CI for final evidence commit | `PENDING` | Must be checked against the pushed final head; the prior head's checks do not close this row. |
+| GitHub CI for acceptance evidence commit `b70d05ecc0c870e114fc4a55df06dfbb6edce87c` | `PASS` | Seed CI run `39181079445` passed the canonical suite; Security Freeze run `39181079707` passed on this exact SHA. |
 | Development Authorization | `OWNER_AUTHORIZED` | User authorized this acceptance work. |
 | Owner Review | `PENDING` | No explicit project-owner review decision has been recorded. |
 | Independent Code Owner Review | `NOT_PERFORMED — SINGLE_MAINTAINER_MODE` | Must remain explicit. |
@@ -30,8 +30,9 @@
 
 ## Delivery
 
-- PR #39: [https://github.com/hrrrb408/KhaosAgent/pull/39](https://github.com/hrrrb408/KhaosAgent/pull/39), existing Draft; this acceptance is being submitted by commit to the same branch.
-- Exact final commit and matching GitHub checks will be recorded after push.
+- PR #39: [https://github.com/hrrrb408/KhaosAgent/pull/39](https://github.com/hrrrb408/KhaosAgent/pull/39), existing Draft; acceptance evidence commit `b70d05ecc0c870e114fc4a55df06dfbb6edce87c` is pushed to the same branch.
+- The signed B38 app was built from source head `e43c00912fb2129718e99fef8c16b7cb1a8d4025`; its exact build and test-fixture hashes are recorded in `SIGNED_UI_ACCEPTANCE.md`.
+- This audit update is documentation-only. Recheck the PR's latest exact-head GitHub rollup after it is pushed.
 - No merge was performed.
 - The unrelated generic `Khaos Seed` Picker that remained visible after the signed B38 test asked for a separate unique test-file operation. It was left untouched because that operation was outside this acceptance.
 
