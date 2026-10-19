@@ -1,28 +1,15 @@
 {
-  "base": "12c75d75c1464aabd631b092e07903631f692ff6",
+  "base": "dee62b20dc1acbd64b009d47c29dc3f42ba9fdde",
   "files": [
-    "khaos/macos/AgentHostClient.swift",
-    "khaos/macos/AgentHostProtocol.swift",
-    "khaos/macos/AgentTaskProgress.swift",
-    "khaos/macos/KernelWorkspaceClient.swift",
-    "khaos/macos/KernelWorkspaceXPC.swift",
-    "khaos/macos/TrustedEditApproval.swift",
-    "khaos/macos/TrustedWorkspaceLauncherMain.swift",
-    "khaos/macos/TrustedWorkspacePicker.swift",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
-    "tests/macos_xpc_probe/KernelWorkspaceCommandClientProbe.swift",
-    "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift",
-    "tests/macos_xpc_probe/WorkspaceGrant.swift",
-    "tests/test_macos_xpc_sandbox.py",
-    "tools/build_macos_seed.py"
+    "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M8.5.2A.6 completes the PR #39 trusted Launcher review and fixes the demonstrated Python/Swift Candidate B JSON string encoding mismatch. The parser now accepts the canonical Python ensure_ascii encoding while preserving fixed-script, exact-scope, source-digest, and frozen-invocation checks. Signed UI acceptance is run separately with an isolated deterministic fixture and requires the owner to operate approval UI.",
-  "invariants": "No Kernel capability, approval rule, workspace scope, ABI, XPC operation, Seatbelt policy, or Runner authority changes. Candidate B oldText/newText must use Python json.dumps(..., ensure_ascii=True, separators=(\",\", \":\")) canonical string encoding. Preview still rejects changed fixed scripts, over-budget values, invalid paths, non-exact read/write scopes, Runner source digest mismatch, and invocation binding mismatch. The same frozen invocation bytes are displayed and submitted. Cancellation remains bound to the original task, workspace session, Request ID, and authenticated XPC connection; the original Kernel result remains authoritative.",
-  "authority_delta": "0 Kernel authority delta. The only production runtime change is a small Launcher string canonicalizer required to interoperate with Python-generated requests. No capability, IPC method, process, dependency, persistent product state, or scope is added.",
-  "real_os_tests": "Focused Python-generated Candidate B to production Swift parser test passed on macOS with 20 cases (16 complete, 4 rejected); focused same-connection Launcher cancellation probe passed. Signed product UI acceptance is tracked separately and is not inferred from these headless checks. Canonical full suite and Security Freeze are run before submission.",
-  "trusted_delta": "PR #39 total runtime TCB diff after the compatibility fix: 2116 additions and 182 deletions, net +1934 across the reviewed runtime-TCB set. The incremental compatibility change to TrustedEditApproval.swift is +32/-5 (net +27); no new runtime-TCB file. Acceptance-only model-probe and fixture changes are build-governance, not shipped runtime code.",
-  "baseline_decision": "Bind to PR #39 exact base 12c75d75c1464aabd631b092e07903631f692ff6. Refresh only hashes and focused test mappings for changed protected sources, add the development-only AgentHost model-probe path to the exact security declaration, preserve Kernel boundaries and prior manifest audit history, then recalculate the baseline manifest digest. Signed UI evidence must identify its source commit and deep verified product binary hashes."
+  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made.",
+  "invariants": "All Launcher, Kernel, Runner, approval, scope, cancellation, admission, and changeset enforcement code remains byte-identical. The test redirects only the existing unified logging sink in a temporary source copy; production code is unmodified by that redirection.",
+  "authority_delta": "0; no production trusted source changes in this commit.",
+  "real_os_tests": "Synthetic Swift decoder regression passed on macOS (five cases). Canonical suite is being run; no new signed UI evidence is claimed. B32/B34/B39 remain NOT_PROVEN.",
+  "trusted_delta": "0 runtime TCB LOC. One governance test added; manifest hashes reviewed only for that test.",
+  "baseline_decision": "Keep existing security baseline and historical claims. Bind this exact declaration to PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Update the test digest and dependent manifest digest only after reviewing the source diff. Owner Review PENDING; independent Code Owner approval NOT PROVEN."
 }
