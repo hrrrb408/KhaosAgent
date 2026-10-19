@@ -1,16 +1,19 @@
 {
   "base": "dee62b20dc1acbd64b009d47c29dc3f42ba9fdde",
   "files": [
+    "khaos/kernel/broker.py",
+    "khaos/kernel/macos_disk_image.py",
+    "khaos/launcher.py",
     "khaos/macos/KernelWorkspaceXPC.swift",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
     "tests/test_macos_xpc_sandbox.py"
   ],
-  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made. Separate trusted cleanup: remove the unused 11-line Swift-only decodeRunRequest convenience wrapper; production readInvocation already calls decodeInvocationRequest directly.",
-  "invariants": "The removed method is not @objc, not an XPC interface selector, not serialized ABI, and has no static or dynamic consumer in the closed compile source lists, tests, or packaging. decodeInvocationRequest, decodeEnvelope, decodeWorkspaceRequest, request binding, XPC protocols, parser behavior, and cancellation are unchanged. Cross-boundary validation remains on each side. Synthetic test sink redirection remains test-only.",
+  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made. Separate trusted cleanup: remove the unused 11-line Swift-only decodeRunRequest convenience wrapper; production readInvocation already calls decodeInvocationRequest directly. Final AST/import-consumer audit also removes four unused imports: Runner SDK MAX_PLUGIN_INPUT_BYTES, launcher _open_absolute_directory, Broker hashlib, development APFS uuid. No module-level consumer, test monkeypatch, dynamic attribute lookup or packaging consumer was found.",
+  "invariants": "The removed method is not @objc, not an XPC interface selector, not serialized ABI, and has no static or dynamic consumer in the closed compile source lists, tests, or packaging. decodeInvocationRequest, decodeEnvelope, decodeWorkspaceRequest, request binding, XPC protocols, parser behavior, and cancellation are unchanged. Cross-boundary validation remains on each side. Synthetic test sink redirection remains test-only. Three product import lines and one development-only import line are removed; no import of an enforcement function used by code is removed and no validation, process, FD, scope or cleanup expression is changed.",
   "authority_delta": "0 Kernel/ABI/workspace-scope authority delta. No trusted code is added. All remaining parser and enforcement code is byte-identical.",
-  "real_os_tests": "Run full canonical macOS suite after the deletion, including real signed KernelProduction.xpc invalid-request/source/scope attacks, cancellation, AgentHost output probe, and Memory/Runner regressions. Focused decoder test passed. No signed UI acceptance claim; B32/B34/B39 remain NOT_PROVEN.",
-  "trusted_delta": "Runtime TCB -11 LOC in KernelWorkspaceXPC.swift; no new trusted code, processes, operations, dependencies, or state. AgentHost.swift untrusted -17 LOC. One governance regression test added.",
-  "baseline_decision": "Exact base remains PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Reviewed the wrapper deletion and test source before updating their manifest hashes and dependent manifest digest. Preserve previous baseline description/history, pending Owner Review and independent Code Owner gap. No normative decision changes."
+  "real_os_tests": "Preliminary 398-test suite passed in 824.271s; focused five-case decoder probe passed. The earlier 399-test run overlaps final unused-import cleanup and is not final immutable-tree evidence. A fresh full canonical macOS suite is required after all imports are removed. No interactive signed UI acceptance claim; B32/B34/B39 remain NOT_PROVEN.",
+  "trusted_delta": "Runtime TCB -13 LOC: 11-line uncalled Swift wrapper plus two unused trusted import lines. Untrusted product code -18 LOC, total shipped source -31 LOC. Development-only APFS backend -1 LOC, separately accounted. No new enforcement code, processes, IPC, dependencies or state. One governance regression test +73 LOC.",
+  "baseline_decision": "Exact base remains PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Reviewed the wrapper deletion and test source before updating their manifest hashes and dependent manifest digest. Preserve previous baseline description/history, pending Owner Review and independent Code Owner gap. No normative decision changes. Review also verified each unused import against AST name loads, import consumers, dynamic attribute and test patch references before updating only affected source digests."
 }

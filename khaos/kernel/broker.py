@@ -7,7 +7,6 @@ import binascii
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import errno
-import hashlib
 import json
 import os
 from pathlib import Path
