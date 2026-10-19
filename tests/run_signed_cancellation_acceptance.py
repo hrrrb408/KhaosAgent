@@ -182,6 +182,7 @@ def run(root: Path) -> None:
         assert request["cancellation_requested"] is True
         submissions = [e for e in events if e["stage"] == "WORKSPACE_RUN_SUBMISSION"]
         runners = [e for e in events if e["stage"] == "RUNNER_EXECUTION"]
+        private_changes = [e for e in events if e["stage"] == "PRIVATE_CHANGESET_READY"]
         replies = [json.loads(base64.b64decode(e["response_base64"])) for e in events if e["stage"] == "ORIGINAL_KERNEL_REPLY"]
         after = {p.name: sha(p) for p in workspace.iterdir()}
         assert after["unscoped-canary.txt"] == before["unscoped-canary.txt"]
@@ -193,10 +194,19 @@ def run(root: Path) -> None:
         else:
             assert len(submissions) == len(runners) == len(replies) == 1
             assert submissions[0]["request_id"] == request["request_id"] == replies[0]["request_id"]
+            assert runners[0]["workspace_request_id"] == request["request_id"]
+            assert len(private_changes) == 1, private_changes
+            change = private_changes[0]
+            assert change["staged_write_paths"] == ["tags.py"], change
+            expected_tags = (
+                'def parse_tags(value):\n'
+                '    return [part.strip() for part in value.split(",") if part.strip()]\n'
+            ).encode()
+            assert change["staged_file_sha256"]["tags.py"] == hashlib.sha256(expected_tags).hexdigest()
             if case == "pre-commit":
-                assert replies[0]["error"]["code"] == "commit_rejected", replies
-                assert request["kernel_result"] == "error:commit_rejected"
-                assert request["commit_outcome"] == "rejected" and after == before
+                assert replies[0]["error"]["code"] == "process_cancelled", replies
+                assert request["kernel_result"] == "error:process_cancelled"
+                assert request["commit_outcome"] == "not_committed" and after == before
             else:
                 assert replies[0]["ok"] is True
                 assert request["kernel_result"] == "output"
@@ -205,6 +215,7 @@ def run(root: Path) -> None:
                 assert after == result["workspace_at_barrier"]
         result.update(status="PASS_SIGNED_KERNEL_WORKSPACE_LAUNCHER", task_record=record,
                       kernel_events=events, original_kernel_replies=replies,
+                      private_changes=private_changes,
                       kernel_submission_count=len(submissions), runner_execution_count=len(runners),
                       workspace_after=after, host_terminal_delivery="PASS_EXACT_DATA_RECEIPT",
                       stdout_sha256=sha(out), stderr_sha256=sha(err))

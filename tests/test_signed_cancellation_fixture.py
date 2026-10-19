@@ -24,8 +24,7 @@ class SignedCancellationFixtureTests(unittest.TestCase):
             base64.b64encode(b"different terminal" + receipt).decode()))
 
     def test_private_overlay_is_explicit_and_fails_on_anchor_drift(self):
-        paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/kernel/worker.py",
-                 ROOT / "khaos/macos/KernelWorkspaceClient.swift",
+        paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/macos/KernelWorkspaceClient.swift",
                  ROOT / "khaos/macos/KernelWorkspaceService.swift"]
         before = {path: path.read_bytes() for path in paths}
         for case in CASES:
@@ -33,8 +32,8 @@ class SignedCancellationFixtureTests(unittest.TestCase):
                 snapshot = Path(value) / "sources"
                 _snapshot_sources(snapshot, None)
                 changed = overlay(snapshot, Path(value), case)
-                self.assertEqual(len(changed), 5 if case == "b32" else 4)
-                for relative in ("khaos/kernel/broker.py", "khaos/kernel/worker.py"):
+                self.assertEqual(len(changed), 4 if case == "b32" else 3)
+                for relative in ("khaos/kernel/broker.py",):
                     compile((snapshot / relative).read_text(), relative, "exec")
                 self.assertIn(MARKER, (snapshot / "khaos/kernel/broker.py").read_text())
                 with self.assertRaisesRegex(ValueError, "anchor must occur once"):

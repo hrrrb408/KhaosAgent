@@ -142,6 +142,37 @@ real-model coding-quality evidence.
 Signed pre-commit and post-commit acceptance apps are prepared at
 `/Users/huangruibang/Applications/khaos-m8-a7-pre-commit-attempt1/` and
 `/Users/huangruibang/Applications/khaos-m8-a7-post-commit-attempt1/`. Their
-build receipts record production-hook isolation PASS. Neither app was launched
-for manual acceptance. B34 pre-commit cancellation, B34 post-commit cancellation
-and B39 terminal consistency remain **NOT_PROVEN**.
+build receipts record production-hook isolation PASS. The original pre-commit
+attempt1 and post-commit attempt1 apps were not launched.
+
+### B34 pre-commit attempt 2: cancel acknowledged, evidence assertion incomplete
+
+- The owner approved Candidate B and clicked Cancel at `KERNEL_READY_PRE_ACCEPT`.
+  The signed app acknowledged `cancel_accepted`; the original Kernel reply was
+  `process_cancelled`; the Launcher Task Record says `not_committed`; the Host
+  received the same terminal result; and workspace hashes matched before, at
+  the barrier, and after cancellation.
+- This attempt is **NOT_PROVEN** because its acceptance instrumentation did not
+  capture the Runner `process.exec` request or staged private changeset, and its
+  runner also incorrectly expected `commit_rejected` instead of the observed
+  `process_cancelled`. The original evidence is retained at
+  `/Users/huangruibang/Applications/khaos-m8-a7-pre-commit-attempt2/`.
+- Its signed source commit was `c5edbeffa75512ba4b8fca8b83d20069312464da`;
+  build receipt SHA-256 `971808ce8e99b171f006a7d3b5b06666f3af21e658f4f85e355053bea01d3c32`;
+  production test-hook isolation was **PASS**. Signed identity
+  `Apple Development: 8613929930739 (8X4352T2RG)`, Team ID `UBAP6LN5AM`,
+  CDHash `6182f17a7a8d334c764364a8a470f87dd3695481`. Launcher SHA-256
+  `7cb1bd34da7f38751fcbcb6f9251cd09aae485f8cb24c745564d010a780c935d`, Kernel
+  `2ef2f078e74b923c3cc69ed8fd2dca2581c9ab911e80feee77196c8fea2cf449`, Agent
+  Host `5a32d96b16d6a4dbc4b8f77dd2fa1d8ecd9c746b92cbc795f7bbe81149273dc4`.
+- Task ID `7ab54829-86ce-43b5-b24b-4a01790b8b3c`; Request ID
+  `bd80973139bb4a49bffd5e72ebc51f02`; Workspace Session ID
+  `43741c46-10b4-4090-873d-795d6d89e53e`; XPC Connection ID
+  `88693d75-215f-402e-98e5-0da945d7bb39`; invocation SHA-256
+  `29e5ed74d9bc9f56ec57b0208becb439d86e7ae0fd0fe87d6c56965d5aa3b721`.
+  The owner action is not repeated evidence for a later corrected signed build.
+
+B34 pre-commit remains **NOT_PROVEN** pending a corrected signed run that binds
+the authenticated Runner execution, exact staged private change, Kernel result,
+Task Record, Host terminal receipt and unchanged live workspace. B34 post-commit
+cancellation and complete B39 terminal consistency also remain **NOT_PROVEN**.

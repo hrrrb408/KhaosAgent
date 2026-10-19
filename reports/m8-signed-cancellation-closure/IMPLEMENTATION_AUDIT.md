@@ -22,15 +22,20 @@ and the deterministic model probe's digests in the signed build record.
   original connection's cancellation acknowledgment. Existing logic sends ABORT.
 - B34 post: pause after the real commit child is reaped, status/version validated,
   and APPLIED counts known. Cancellation cannot replace the existing summary.
-- Test observers record workspace.run ingress, actual Runner source delivery,
-  original serialized Kernel response, and exact terminal text received by Host.
-  Observers neither write response bytes nor select outcomes.
+- Test observers record workspace.run ingress, an authenticated Runner
+  `process.exec` request, the staged private write path and digest immediately
+  before commit authorization, the original serialized Kernel response, and
+  exact terminal text received by Host. Observers neither write response bytes
+  nor select outcomes.
 
 All barriers expire after 55 seconds (below the existing execution deadlines).
 Timeout is failed acceptance; pre-ACCEPT timeout aborts, post-commit timeout keeps
-the known committed result. No retry is performed. The control path is baked
-into the signed fixture, outside workspace/Host/Runner scopes. It controls timing
-only. The owner must click Run Once and Cancel; no program synthesizes actions.
+the known committed result. There is no automatic retry; each manual attempt is
+preserved in a separate directory. The control path is baked into the signed
+fixture, outside workspace/Host/Runner scopes. The barrier
+controls timing only; separate test-only observers record bounded stage and
+digest metadata. The owner must click Run Once and Cancel; no program
+synthesizes actions.
 
 Existing READY/ACCEPT, command handle, Task Record, launch/sign/hash helpers and
 fixed Candidate B model probe are reused. Legacy managed-process lifecycle tests
@@ -70,3 +75,12 @@ prefix. This correction changes no signed product input, production behavior,
 authorization rule or TCB boundary. Attempt 6's original runner failure remains
 preserved; its separate `reconciliation.json` records the corrected checks over
 the exact signed-run artifacts.
+
+B34 pre-commit attempt 2 exposed two test-evidence defects: Runner execution
+was instrumented before its authenticated IPC request, and the expected Kernel
+code was `commit_rejected` even though the actual cancellation result is
+`process_cancelled`. The corrected private overlay records the Runner's
+`process.exec` request and staged `tags.py` digest before the existing commit
+gate, and expects `process_cancelled`. The signed attempt remains
+`NOT_PROVEN`; a fresh owner-operated run is required to exercise the corrected
+observer.

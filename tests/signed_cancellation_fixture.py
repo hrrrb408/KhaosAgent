@@ -68,6 +68,47 @@ def _acceptance_barrier(stage):
     def broker(source: str) -> str:
         # Place helper after future imports, before ordinary imports.
         source = replace_once(source, "import base64\n", python_helpers + "import base64\n")
+        source = replace_once(
+            source,
+            "        return _serve_process_exec(\n            request_id,\n",
+            '        _acceptance_event("RUNNER_EXECUTION", workspace_request_id=workspace_request_id,\n'
+            '                          runner_request_id=request_id)\n'
+            "        return _serve_process_exec(\n            request_id,\n",
+        )
+        if case in {"pre-commit", "post-commit"}:
+            callback_anchor = (
+                "            ) -> None:\n"
+                "                apply_workspace_commit_sandbox(\n"
+                "                    snapshot,\n"
+                "                    staging_path,\n"
+                "                    file_write_paths,\n"
+                "                    create_unlink_paths,\n"
+                "                )\n"
+            )
+            callback_replacement = (
+                "            ) -> None:\n"
+                "                import hashlib\n"
+                '                staged_write_paths = ["/".join(path) for path in file_write_paths]\n'
+                "                staged_file_sha256 = {\n"
+                '                    "/".join(path): hashlib.sha256(\n'
+                "                        staging_path.joinpath(*path).read_bytes()\n"
+                "                    ).hexdigest()\n"
+                "                    for path in file_write_paths\n"
+                "                    if staging_path.joinpath(*path).is_file()\n"
+                "                }\n"
+                "                _acceptance_event(\n"
+                '                    "PRIVATE_CHANGESET_READY",\n'
+                "                    staged_write_paths=staged_write_paths,\n"
+                "                    staged_file_sha256=staged_file_sha256,\n"
+                "                )\n"
+                "                apply_workspace_commit_sandbox(\n"
+                "                    snapshot,\n"
+                "                    staging_path,\n"
+                "                    file_write_paths,\n"
+                "                    create_unlink_paths,\n"
+                "                )\n"
+            )
+            source = replace_once(source, callback_anchor, callback_replacement)
         if case == "pre-commit":
             anchor = '            if message != _COMMIT_READY:\n                raise WorkspaceCommitError("workspace commit gate is invalid")\n'
             source = replace_once(source, anchor, anchor + '''            if not _acceptance_barrier("KERNEL_READY_PRE_ACCEPT"):
@@ -82,14 +123,6 @@ def _acceptance_barrier(stage):
         return source
 
     edit("khaos/kernel/broker.py", broker)
-
-    def worker(source: str) -> str:
-        anchor = '                runner_diagnostic.set_stage("plugin_start")\n'
-        return replace_once(source, anchor, '''                from .broker import _acceptance_event
-                _acceptance_event("RUNNER_EXECUTION", runner_pid=process.pid,
-                                  request_id=workspace_request_id)
-''' + anchor)
-    edit("khaos/kernel/worker.py", worker)
 
     def service(source: str) -> str:
         # File output is test-only; protocol response bytes remain untouched.

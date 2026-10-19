@@ -945,7 +945,7 @@
         "tests/test_signed_cancellation_fixture.py",
         "python3 tools/check_security_freeze.py"
       ],
-      "sha256": "1ea59ada58ba01ef0dffc965b695f527b92b23b48feb1c35f863c7518e12e2fa"
+      "sha256": "383ef4655627ddf3b6e783506631de622e213798950d21eb1ead044cc9afbb8a"
     },
     {
       "path": "tests/signed_cancellation_fixture.py",
@@ -956,7 +956,7 @@
         "tests/test_signed_cancellation_fixture.py",
         "python3 tools/check_security_freeze.py"
       ],
-      "sha256": "02754aeebb1f060420e6a1602f739fb85a345bf54991a984d2fd16cac6affd8f"
+      "sha256": "eca02743708add339f59ed6fe41eb25c87d3f8498e0120498307ee12ed5c61db"
     },
     {
       "path": "tests/test_agent_terminal_capture.py",
@@ -1143,7 +1143,7 @@
         "tests/test_signed_cancellation_fixture.py",
         "python3 tools/check_security_freeze.py"
       ],
-      "sha256": "a8379922c9d16a56ec873c9e1f8b2b9d94a838a5dbf5fc9d8688d823f5120728"
+      "sha256": "7184d73bdd929d8c888fde5f1ce2bd6d7deb6c48ab7fa6666c2f4fc89dc4c694"
     },
     {
       "path": "tests/test_snapshot_broker_process.py",
