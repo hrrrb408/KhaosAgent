@@ -24,7 +24,8 @@ class SignedCancellationFixtureTests(unittest.TestCase):
             base64.b64encode(b"different terminal" + receipt).decode()))
 
     def test_private_overlay_is_explicit_and_fails_on_anchor_drift(self):
-        paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/macos/KernelWorkspaceClient.swift",
+        paths = [ROOT / "khaos/kernel/broker.py", ROOT / "khaos/kernel/worker.py",
+                 ROOT / "khaos/macos/KernelWorkspaceClient.swift",
                  ROOT / "khaos/macos/KernelWorkspaceService.swift"]
         before = {path: path.read_bytes() for path in paths}
         for case in CASES:
@@ -32,7 +33,7 @@ class SignedCancellationFixtureTests(unittest.TestCase):
                 snapshot = Path(value) / "sources"
                 _snapshot_sources(snapshot, None)
                 changed = overlay(snapshot, Path(value), case)
-                self.assertEqual(len(changed), 4 if case == "b32" else 3)
+                self.assertEqual(len(changed), 5 if case == "b32" else 4)
                 for relative in ("khaos/kernel/broker.py",):
                     compile((snapshot / relative).read_text(), relative, "exec")
                 self.assertIn(MARKER, (snapshot / "khaos/kernel/broker.py").read_text())
@@ -63,7 +64,12 @@ class SignedCancellationFixtureTests(unittest.TestCase):
             errors = []
             def run():
                 try:
-                    answer.append(module._await_commit_authorization(ready_read, decision_write, cancelled.is_set))
+                    answer.append(module._await_commit_authorization(
+                        ready_read,
+                        decision_write,
+                        cancelled.is_set,
+                        workspace_request_id="headless-request",
+                    ))
                 except BaseException as error:
                     errors.append(error)
             thread = threading.Thread(target=run)
@@ -76,6 +82,7 @@ class SignedCancellationFixtureTests(unittest.TestCase):
                     time.sleep(0.005)
                 self.assertTrue(event.exists(), errors)
                 self.assertIn("KERNEL_READY_PRE_ACCEPT", event.read_text())
+                self.assertIn("headless-request", event.read_text())
                 self.assertTrue(thread.is_alive(), "READY must not automatically authorize ACCEPT")
                 cancelled.set()
             finally:
@@ -85,3 +92,47 @@ class SignedCancellationFixtureTests(unittest.TestCase):
             self.assertFalse(errors)
             self.assertEqual(answer, [False])
             self.assertEqual(os.read(decision_read, 1), module._COMMIT_ABORT)
+
+            (root / "release").unlink()
+            probe_ready_read, probe_ready_write = os.pipe()
+            probe_decision_read, probe_decision_write = os.pipe()
+            probe_answer = []
+            probe_errors = []
+            def run_probe():
+                try:
+                    probe_answer.append(module._await_commit_authorization(
+                        probe_ready_read,
+                        probe_decision_write,
+                        None,
+                    ))
+                except BaseException as error:
+                    probe_errors.append(error)
+            try:
+                os.write(probe_ready_write, module._COMMIT_READY)
+                probe_thread = threading.Thread(target=run_probe)
+                probe_thread.start()
+                probe_thread.join(timeout=0.5)
+                self.assertFalse(
+                    probe_thread.is_alive(),
+                    "Seatbelt readiness checks must not wait at the signed test barrier",
+                )
+                self.assertFalse(probe_errors)
+                self.assertEqual(probe_answer, [True])
+                self.assertEqual(os.read(probe_decision_read, 1), module._COMMIT_ACCEPT)
+                events = event.read_text().splitlines()
+                self.assertEqual(
+                    sum('"stage": "KERNEL_READY_PRE_ACCEPT"' in line for line in events),
+                    1,
+                    "Seatbelt readiness checks must not enter the signed test barrier",
+                )
+            finally:
+                (root / "release").touch()
+                if "probe_thread" in locals():
+                    probe_thread.join(timeout=3)
+                for descriptor in (
+                    probe_ready_read,
+                    probe_ready_write,
+                    probe_decision_read,
+                    probe_decision_write,
+                ):
+                    os.close(descriptor)

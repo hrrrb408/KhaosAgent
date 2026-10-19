@@ -51,10 +51,10 @@ def overlay(snapshot: Path, control: Path, case: str) -> dict[str, str]:
         stream.flush()
 
 
-def _acceptance_barrier(stage):
+def _acceptance_barrier(stage, **fields):
     import time
     from pathlib import Path
-    _acceptance_event(stage)
+    _acceptance_event(stage, **fields)
     deadline = time.monotonic() + 55
     while not Path({release_path}).exists():
         if time.monotonic() >= deadline:
@@ -71,9 +71,69 @@ def _acceptance_barrier(stage):
         source = replace_once(
             source,
             "        return _serve_process_exec(\n            request_id,\n",
-            '        _acceptance_event("RUNNER_EXECUTION", workspace_request_id=workspace_request_id,\n'
+            '        if workspace_request_id is not None:\n'
+            '            _acceptance_event("RUNNER_EXECUTION", workspace_request_id=workspace_request_id,\n'
             '                          runner_request_id=request_id)\n'
             "        return _serve_process_exec(\n            request_id,\n",
+        )
+        source = replace_once(
+            source,
+            "    cancel_requested: Callable[[], bool] | None = None,\n) -> WorkspaceCommitSummary:\n",
+            "    cancel_requested: Callable[[], bool] | None = None,\n"
+            "    workspace_request_id: str | None = None,\n"
+            ") -> WorkspaceCommitSummary:\n",
+        )
+        source = replace_once(
+            source,
+            "            cancel_requested=cancel_requested,\n        )\n    except WorkspaceCommitOutcomeUncertain:\n",
+            "            cancel_requested=cancel_requested,\n"
+            "            workspace_request_id=workspace_request_id,\n"
+            "        )\n    except WorkspaceCommitOutcomeUncertain:\n",
+        )
+        source = replace_once(
+            source,
+            "def _commit_snapshot_in_sandbox(\n"
+            "    snapshot: WorkspaceSnapshot,\n"
+            "    workspace_write_scope: WorkspaceWriteScope,\n"
+            "    *,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            ") -> WorkspaceCommitSummary:\n",
+            "def _commit_snapshot_in_sandbox(\n"
+            "    snapshot: WorkspaceSnapshot,\n"
+            "    workspace_write_scope: WorkspaceWriteScope,\n"
+            "    *,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            "    workspace_request_id: str | None = None,\n"
+            ") -> WorkspaceCommitSummary:\n",
+        )
+        source = replace_once(
+            source,
+            "            authorized = _await_commit_authorization(\n"
+            "                ready_read_fd,\n"
+            "                decision_write_fd,\n"
+            "                cancel_requested,\n"
+            "            )\n",
+            "            authorized = _await_commit_authorization(\n"
+            "                ready_read_fd,\n"
+            "                decision_write_fd,\n"
+            "                cancel_requested,\n"
+            "                workspace_request_id=workspace_request_id,\n"
+            "            )\n",
+        )
+        source = replace_once(
+            source,
+            "def _await_commit_authorization(\n"
+            "    ready_read_fd: int,\n"
+            "    decision_write_fd: int,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            ") -> bool | None:\n",
+            "def _await_commit_authorization(\n"
+            "    ready_read_fd: int,\n"
+            "    decision_write_fd: int,\n"
+            "    cancel_requested: Callable[[], bool] | None,\n"
+            "    *,\n"
+            "    workspace_request_id: str | None = None,\n"
+            ") -> bool | None:\n",
         )
         if case in {"pre-commit", "post-commit"}:
             callback_anchor = (
@@ -96,11 +156,13 @@ def _acceptance_barrier(stage):
                 "                    for path in file_write_paths\n"
                 "                    if staging_path.joinpath(*path).is_file()\n"
                 "                }\n"
-                "                _acceptance_event(\n"
-                '                    "PRIVATE_CHANGESET_READY",\n'
-                "                    staged_write_paths=staged_write_paths,\n"
-                "                    staged_file_sha256=staged_file_sha256,\n"
-                "                )\n"
+                "                if workspace_request_id is not None:\n"
+                "                    _acceptance_event(\n"
+                '                        "PRIVATE_CHANGESET_READY",\n'
+                "                        workspace_request_id=workspace_request_id,\n"
+                "                        staged_write_paths=staged_write_paths,\n"
+                "                        staged_file_sha256=staged_file_sha256,\n"
+                "                    )\n"
                 "                apply_workspace_commit_sandbox(\n"
                 "                    snapshot,\n"
                 "                    staging_path,\n"
@@ -111,18 +173,42 @@ def _acceptance_barrier(stage):
             source = replace_once(source, callback_anchor, callback_replacement)
         if case == "pre-commit":
             anchor = '            if message != _COMMIT_READY:\n                raise WorkspaceCommitError("workspace commit gate is invalid")\n'
-            source = replace_once(source, anchor, anchor + '''            if not _acceptance_barrier("KERNEL_READY_PRE_ACCEPT"):
+            source = replace_once(source, anchor, anchor + '''            if workspace_request_id is not None and not _acceptance_barrier(
+                "KERNEL_READY_PRE_ACCEPT",
+                workspace_request_id=workspace_request_id,
+            ):
                 _write_all(decision_write_fd, _COMMIT_ABORT)
                 return False
 ''')
         if case == "post-commit":
             anchor = '    return WorkspaceCommitSummary(added, modified, deleted)\n'
-            source = replace_once(source, anchor, '''    _acceptance_event("COMMIT_APPLIED", added=added, modified=modified, deleted=deleted)
-    _acceptance_barrier("KERNEL_POST_COMMIT_PRE_REPLY")
+            source = replace_once(source, anchor, '''    if workspace_request_id is not None:
+        _acceptance_event(
+            "COMMIT_APPLIED",
+            workspace_request_id=workspace_request_id,
+            added=added,
+            modified=modified,
+            deleted=deleted,
+        )
+        _acceptance_barrier(
+            "KERNEL_POST_COMMIT_PRE_REPLY",
+            workspace_request_id=workspace_request_id,
+        )
 ''' + anchor)
         return source
 
     edit("khaos/kernel/broker.py", broker)
+
+    def worker(source: str) -> str:
+        anchor = '''                    changes = serve_workspace_commit(
+                        process.stdout.fileno(),
+                        process.stdin.fileno(),
+                        snapshot,
+'''
+        return replace_once(source, anchor, anchor + '''                        workspace_request_id=workspace_request_id,
+''')
+
+    edit("khaos/kernel/worker.py", worker)
 
     def service(source: str) -> str:
         # File output is test-only; protocol response bytes remain untouched.
