@@ -3,6 +3,9 @@ import Foundation
 final class AgentHostClient {
     private let connection: NSXPCConnection
     private let modelAPIKey: String?
+    private let lock = NSLock()
+    private var stopped = false
+    private var activeRequest: (id: UUID, pending: AgentHostPendingRequest)?
 
     init() {
         let provider = AgentModelProvider.from(bundle: .main)
@@ -16,30 +19,34 @@ final class AgentHostClient {
         connection.resume()
     }
 
-    func sendUserTurn(
+    func sendUserTurnAsync(
         _ text: String,
-        activePlugin: AgentHostPluginMetadata?
-    ) throws -> AgentHostReply {
-        try request(AgentHostProtocol.userTurn(
+        activePlugin: AgentHostPluginMetadata?,
+        completion: @escaping (Result<AgentHostReply, Error>) -> Void
+    ) throws {
+        let frame = try AgentHostProtocol.userTurn(
             text,
             activePlugin: activePlugin,
             modelAPIKey: modelAPIKey
-        ))
+        )
+        requestAsync(frame, completion: completion)
     }
 
-    func sendToolResult(
+    func sendToolResultAsync(
         ok: Bool,
         canContinue: Bool,
         text: String,
-        activePlugin: AgentHostPluginMetadata?
-    ) throws -> AgentHostReply {
-        try request(AgentHostProtocol.toolResult(
+        activePlugin: AgentHostPluginMetadata?,
+        completion: @escaping (Result<AgentHostReply, Error>) -> Void
+    ) throws {
+        let frame = try AgentHostProtocol.toolResult(
             ok: ok,
             canContinue: canContinue,
             text: text,
             activePlugin: activePlugin,
             modelAPIKey: modelAPIKey
-        ))
+        )
+        requestAsync(frame, completion: completion)
     }
 
     func generateCandidate(
@@ -93,6 +100,16 @@ final class AgentHostClient {
     }
 
     func stop() {
+        lock.lock()
+        guard !stopped else {
+            lock.unlock()
+            return
+        }
+        stopped = true
+        let pending = activeRequest?.pending
+        activeRequest = nil
+        lock.unlock()
+        pending?.finish(.failure(AgentHostClientError.cancelled))
         connection.invalidate()
     }
 
@@ -146,11 +163,114 @@ final class AgentHostClient {
         }
         return reply
     }
+
+    private func requestAsync(
+        _ frame: Data,
+        completion: @escaping (Result<AgentHostReply, Error>) -> Void
+    ) {
+        let requestID = UUID()
+        let pending = AgentHostPendingRequest { [weak self] result in
+            self?.clearActiveRequest(requestID)
+            completion(result)
+        }
+        lock.lock()
+        guard !stopped, activeRequest == nil else {
+            lock.unlock()
+            pending.finish(.failure(AgentHostClientError.unavailable))
+            return
+        }
+        activeRequest = (requestID, pending)
+        lock.unlock()
+
+        guard let endpoint = connection.remoteObjectProxyWithErrorHandler({ [weak self] _ in
+            self?.finishActiveRequest(
+                requestID,
+                result: .failure(AgentHostClientError.invalidResponse(.xpcTransportFailure))
+            )
+        }) as? AgentHostSessionEndpoint else {
+            finishActiveRequest(
+                requestID,
+                result: .failure(AgentHostClientError.unavailable)
+            )
+            return
+        }
+        endpoint.handle(NSData(data: frame)) { [weak self] value in
+            guard let data = value.map(Data.init(referencing:)) else {
+                self?.finishActiveRequest(
+                    requestID,
+                    result: .failure(AgentHostClientError.invalidResponse(.hostReturnedNil))
+                )
+                return
+            }
+            guard let reply = AgentHostProtocol.decodeReply(data) else {
+                self?.finishActiveRequest(
+                    requestID,
+                    result: .failure(AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure))
+                )
+                return
+            }
+            self?.finishActiveRequest(requestID, result: .success(reply))
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(
+            deadline: .now() + .seconds(
+                AgentHostProtocol.modelRequestTimeoutSeconds + 10
+            )
+        ) { [weak self] in
+            self?.finishActiveRequest(
+                requestID,
+                result: .failure(AgentHostClientError.timedOut)
+            )
+        }
+    }
+
+    private func finishActiveRequest(
+        _ requestID: UUID,
+        result: Result<AgentHostReply, Error>
+    ) {
+        lock.lock()
+        guard let active = activeRequest, active.id == requestID else {
+            lock.unlock()
+            return
+        }
+        activeRequest = nil
+        lock.unlock()
+        active.pending.finish(result)
+    }
+
+    private func clearActiveRequest(_ requestID: UUID) {
+        lock.lock()
+        if activeRequest?.id == requestID {
+            activeRequest = nil
+        }
+        lock.unlock()
+    }
+}
+
+private final class AgentHostPendingRequest {
+    private let lock = NSLock()
+    private var completed = false
+    private let completion: (Result<AgentHostReply, Error>) -> Void
+
+    init(completion: @escaping (Result<AgentHostReply, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func finish(_ result: Result<AgentHostReply, Error>) {
+        lock.lock()
+        guard !completed else {
+            lock.unlock()
+            return
+        }
+        completed = true
+        lock.unlock()
+        completion(result)
+    }
 }
 
 enum AgentHostClientError: Error {
     case unavailable
     case timedOut
+    case cancelled
     case invalidResponse(AgentHostResponseStage)
 
     var diagnosticStage: String? {

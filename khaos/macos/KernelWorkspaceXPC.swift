@@ -417,6 +417,37 @@ enum KernelWorkspaceXPC {
         }
     }
 
+    static func submit(
+        _ proxy: KernelWorkspaceEndpoint,
+        requestID: RequestID,
+        invocationFrame: Data,
+        withReply reply: @escaping (Data) -> Void
+    ) throws {
+        guard decodeInvocationEnvelope(
+            invocationFrame,
+            requestID: requestID
+        )?.0 == "workspace.run" else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
+        }
+        let transfer = try WorkspaceInvocationTransfer(frame: invocationFrame)
+        proxy.runWorkspaceCommand(
+            version,
+            requestIDHigh: requestID.high,
+            requestIDLow: requestID.low,
+            invocationStream: transfer.reader
+        ) { data in
+            transfer.closeWriter()
+            reply(data)
+        }
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                try transfer.send()
+            } catch {
+                transfer.closeWriter()
+            }
+        }
+    }
+
     struct RequestID: Equatable {
         let high: UInt64
         let low: UInt64
@@ -763,6 +794,38 @@ enum KernelWorkspaceXPC {
             return nil
         }
         return (operation, payload)
+    }
+
+    private static func decodeInvocationEnvelope(
+        _ invocationFrame: Data,
+        requestID: RequestID
+    ) -> (String, [String: Any])? {
+        guard invocationFrame.count >= transferLengthBytes * 3,
+              invocationFrame.count
+                <= maximumRequestFrameBytes + maximumMessageBytes + transferLengthBytes else {
+            return nil
+        }
+        let requestLength = Int(readUInt32(invocationFrame, offset: 0))
+        guard requestLength > transferLengthBytes,
+              requestLength <= maximumRequestFrameBytes,
+              requestLength <= invocationFrame.count - transferLengthBytes * 2 else {
+            return nil
+        }
+        let requestEnd = transferLengthBytes + requestLength
+        let requestFrame = Data(
+            invocationFrame[transferLengthBytes..<requestEnd]
+        )
+        guard let envelope = decodeEnvelope(requestFrame, requestID: requestID),
+              requestEnd + transferLengthBytes <= invocationFrame.count else {
+            return nil
+        }
+        let bookmarkLength = Int(readUInt32(invocationFrame, offset: requestEnd))
+        guard bookmarkLength > 0,
+              bookmarkLength <= maximumMessageBytes,
+              requestEnd + transferLengthBytes + bookmarkLength == invocationFrame.count else {
+            return nil
+        }
+        return envelope
     }
 
     private static func decodeWorkspaceRequest(
@@ -1271,7 +1334,7 @@ private final class WorkspaceInvocationTransfer {
         ))
     }
 
-    private init(frame framed: Data) throws {
+    fileprivate init(frame framed: Data) throws {
 
         var sockets: [Int32] = [-1, -1]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else {

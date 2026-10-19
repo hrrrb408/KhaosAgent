@@ -1,0 +1,912 @@
+{
+  "format": "khaos-candidate-b-python-swift-golden-v1",
+  "encoding": "Python json.dumps(ensure_ascii=True, separators=(\",\", \":\"))",
+  "python_version": "3.13.4 (main, Jun  3 2025, 15:34:24) [Clang 17.0.0 (clang-1700.0.13.3)]",
+  "cases": [
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C01",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-replace me\n+replacement\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n79c80a788a070a9d4adc1d07d819bee2bc469f7fe7c367ac55e8a2b4681f2845",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"replace me\"",
+        "\"replacement\""
+      ],
+      "python_input": {
+        "newText": "replacement",
+        "oldText": "replace me",
+        "path": "tags.py"
+      },
+      "request_id": "09736de3186e492ab772360251f52e55",
+      "request_sha256": "79c80a788a070a9d4adc1d07d819bee2bc469f7fe7c367ac55e8a2b4681f2845",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"replace me\"",
+        "\"replacement\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwicmVwbGFjZSBtZVwiIiwiXCJyZXBsYWNlbWVudFwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "e91bba90a2a73470ba8cbecdfc3abf31e07860a4998e82ccbaec181195d96601",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"replace me\"",
+          "\"replacement\""
+        ],
+        "newText": "replacement",
+        "oldText": "replace me",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C02",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-你好\n+再见\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\nb6e2e2eb1e5383df1a13d1b5a49aca4291dd204a33a55d4d2502666bdd9e7dbe",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"\\u4f60\\u597d\"",
+        "\"\\u518d\\u89c1\""
+      ],
+      "python_input": {
+        "newText": "再见",
+        "oldText": "你好",
+        "path": "tags.py"
+      },
+      "request_id": "c6d98aa0dc154e3e8552a0f6d2464141",
+      "request_sha256": "b6e2e2eb1e5383df1a13d1b5a49aca4291dd204a33a55d4d2502666bdd9e7dbe",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"\\u4f60\\u597d\"",
+        "\"\\u518d\\u89c1\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiXFx1NGY2MFxcdTU5N2RcIiIsIlwiXFx1NTE4ZFxcdTg5YzFcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "b383f81f0a5884e8a1d4458c10836866441b675878a9fa94aa5c369ac99d6c4e",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"\\u4f60\\u597d\"",
+          "\"\\u518d\\u89c1\""
+        ],
+        "newText": "再见",
+        "oldText": "你好",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C03",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-emoji 🙂\n+emoji 🧪\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n02f0991a9b2b155e2f17c049fd5473fb002ee8cb73d33360030206eb2f27146f",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"emoji \\ud83d\\ude42\"",
+        "\"emoji \\ud83e\\uddea\""
+      ],
+      "python_input": {
+        "newText": "emoji 🧪",
+        "oldText": "emoji 🙂",
+        "path": "tags.py"
+      },
+      "request_id": "8c4880ee8ea64f158a745b2093494e1f",
+      "request_sha256": "02f0991a9b2b155e2f17c049fd5473fb002ee8cb73d33360030206eb2f27146f",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"emoji \\ud83d\\ude42\"",
+        "\"emoji \\ud83e\\uddea\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiZW1vamkgXFx1ZDgzZFxcdWRlNDJcIiIsIlwiZW1vamkgXFx1ZDgzZVxcdWRkZWFcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "72a51501f25ebb4b77d2ceeed4ea9a05f4c84acbf1eff8949dfb64081d813892",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"emoji \\ud83d\\ude42\"",
+          "\"emoji \\ud83e\\uddea\""
+        ],
+        "newText": "emoji 🧪",
+        "oldText": "emoji 🙂",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C04",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-def value():\n-    return 1\n-⟦trailing LF⟧\n+def value():\n+    return 2\n+⟦trailing LF⟧\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n8458556e029e56405a78cd4a223ff72d5cdb50a2245ab1064dbe8877eb684a4f",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"def value():\\n    return 1\\n\"",
+        "\"def value():\\n    return 2\\n\""
+      ],
+      "python_input": {
+        "newText": "def value():\n    return 2\n",
+        "oldText": "def value():\n    return 1\n",
+        "path": "tags.py"
+      },
+      "request_id": "d8e95b8053834592885f02dd1d888982",
+      "request_sha256": "8458556e029e56405a78cd4a223ff72d5cdb50a2245ab1064dbe8877eb684a4f",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"def value():\\n    return 1\\n\"",
+        "\"def value():\\n    return 2\\n\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiZGVmIHZhbHVlKCk6XFxuICAgIHJldHVybiAxXFxuXCIiLCJcImRlZiB2YWx1ZSgpOlxcbiAgICByZXR1cm4gMlxcblwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "10af0b8053192f0e04a5528a2c6d777e96e02193548ef908c0a1411a23dfa100",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"def value():\\n    return 1\\n\"",
+          "\"def value():\\n    return 2\\n\""
+        ],
+        "newText": "def value():\n    return 2\n",
+        "oldText": "def value():\n    return 1\n",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C05",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-first\\u{000d}\n-second\n+first\\u{000d}\n+changed\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n0eaaec4299bd5ec40ca259d558c34cd4d881e5384a6785e4ea9c43eb8b72e8d0",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"first\\r\\nsecond\"",
+        "\"first\\r\\nchanged\""
+      ],
+      "python_input": {
+        "newText": "first\r\nchanged",
+        "oldText": "first\r\nsecond",
+        "path": "tags.py"
+      },
+      "request_id": "91acb82cd4a7410fb8077f85b0a4260a",
+      "request_sha256": "0eaaec4299bd5ec40ca259d558c34cd4d881e5384a6785e4ea9c43eb8b72e8d0",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"first\\r\\nsecond\"",
+        "\"first\\r\\nchanged\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiZmlyc3RcXHJcXG5zZWNvbmRcIiIsIlwiZmlyc3RcXHJcXG5jaGFuZ2VkXCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "280a530055d35a03c80205ae7f3de9316f05c66fb403c59cf093400bb70d69fc",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"first\\r\\nsecond\"",
+          "\"first\\r\\nchanged\""
+        ],
+        "newText": "first\r\nchanged",
+        "oldText": "first\r\nsecond",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C06",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-first\n-second\n+first\n+changed\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\nd8b4aa3d5030c1527cf66877981ed27acd20d47ab0e9d863f516e3e74870199e",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"first\\nsecond\"",
+        "\"first\\nchanged\""
+      ],
+      "python_input": {
+        "newText": "first\nchanged",
+        "oldText": "first\nsecond",
+        "path": "tags.py"
+      },
+      "request_id": "f7383c73a47949019c035b668a3fcdc3",
+      "request_sha256": "d8b4aa3d5030c1527cf66877981ed27acd20d47ab0e9d863f516e3e74870199e",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"first\\nsecond\"",
+        "\"first\\nchanged\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiZmlyc3RcXG5zZWNvbmRcIiIsIlwiZmlyc3RcXG5jaGFuZ2VkXCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "9fe6685d58b1e7341335acd883dd4e207f5df3d088f25bcacba583a9c8caf8db",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"first\\nsecond\"",
+          "\"first\\nchanged\""
+        ],
+        "newText": "first\nchanged",
+        "oldText": "first\nsecond",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C07",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-say \"hello\"\n+say 'goodbye'\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n8cb9e4197ef7346cadc7d66847496843321bd2b7ca0bc49074586d88032c109a",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"say \\\"hello\\\"\"",
+        "\"say 'goodbye'\""
+      ],
+      "python_input": {
+        "newText": "say 'goodbye'",
+        "oldText": "say \"hello\"",
+        "path": "tags.py"
+      },
+      "request_id": "b1c4b51a4452411f86b4233d7d339d9b",
+      "request_sha256": "8cb9e4197ef7346cadc7d66847496843321bd2b7ca0bc49074586d88032c109a",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"say \\\"hello\\\"\"",
+        "\"say 'goodbye'\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwic2F5IFxcXCJoZWxsb1xcXCJcIiIsIlwic2F5ICdnb29kYnllJ1wiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "37631c76966122488efc9c84bbb02750c15b07a57078fd46d7f98bbb8a770000",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"say \\\"hello\\\"\"",
+          "\"say 'goodbye'\""
+        ],
+        "newText": "say 'goodbye'",
+        "oldText": "say \"hello\"",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C08",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-C:\\work\\tags.py\n+D:\\data\\tags.py\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n8c6606bd06aa59de4bc1d802e756a038dd6f690e89af59e89a1e6bb654a471ca",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"C:\\\\work\\\\tags.py\"",
+        "\"D:\\\\data\\\\tags.py\""
+      ],
+      "python_input": {
+        "newText": "D:\\data\\tags.py",
+        "oldText": "C:\\work\\tags.py",
+        "path": "tags.py"
+      },
+      "request_id": "99de267e9a3c40688acb54adac899cfc",
+      "request_sha256": "8c6606bd06aa59de4bc1d802e756a038dd6f690e89af59e89a1e6bb654a471ca",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"C:\\\\work\\\\tags.py\"",
+        "\"D:\\\\data\\\\tags.py\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiQzpcXFxcd29ya1xcXFx0YWdzLnB5XCIiLCJcIkQ6XFxcXGRhdGFcXFxcdGFncy5weVwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "cd959bf89bd9447c26a2c98fb418c78d5a32bdb6df170e142fcc549119af55a5",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"C:\\\\work\\\\tags.py\"",
+          "\"D:\\\\data\\\\tags.py\""
+        ],
+        "newText": "D:\\data\\tags.py",
+        "oldText": "C:\\work\\tags.py",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C09",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-before\\u{0009}value\n+after\\u{0009}value\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\nffe5e5bb9631bc0827c72ac8de5995684d1fab5c5ae8ec016431c01057bd0dec",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"before\\tvalue\"",
+        "\"after\\tvalue\""
+      ],
+      "python_input": {
+        "newText": "after\tvalue",
+        "oldText": "before\tvalue",
+        "path": "tags.py"
+      },
+      "request_id": "2c155730120545978c5261e666e0c6f4",
+      "request_sha256": "ffe5e5bb9631bc0827c72ac8de5995684d1fab5c5ae8ec016431c01057bd0dec",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"before\\tvalue\"",
+        "\"after\\tvalue\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiYmVmb3JlXFx0dmFsdWVcIiIsIlwiYWZ0ZXJcXHR2YWx1ZVwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "98b37b665e0d319121d55ee8b81b17ecb7c2ad864c000522b7353ec1628c2f60",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"before\\tvalue\"",
+          "\"after\\tvalue\""
+        ],
+        "newText": "after\tvalue",
+        "oldText": "before\tvalue",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C10",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-literal \\u4f60\n+literal \\u597d\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n15d475c796dc7c0e7cb2c3b212cc610c8b45c58231e92829994f61c01fbe4b43",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"literal \\\\u4f60\"",
+        "\"literal \\\\u597d\""
+      ],
+      "python_input": {
+        "newText": "literal \\u597d",
+        "oldText": "literal \\u4f60",
+        "path": "tags.py"
+      },
+      "request_id": "1797b2ac83e4460e829d06aab897c4fb",
+      "request_sha256": "15d475c796dc7c0e7cb2c3b212cc610c8b45c58231e92829994f61c01fbe4b43",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"literal \\\\u4f60\"",
+        "\"literal \\\\u597d\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwibGl0ZXJhbCBcXFxcdTRmNjBcIiIsIlwibGl0ZXJhbCBcXFxcdTU5N2RcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "7e95c386ed6d8c05604649a46b3520238d6190dc0ca59e80e47c4561c7efa420",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"literal \\\\u4f60\"",
+          "\"literal \\\\u597d\""
+        ],
+        "newText": "literal \\u597d",
+        "oldText": "literal \\u4f60",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C11",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-rocket 🚀\n+lab 🧪\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\nf805aa3bdd1179b9db70e486498c3bb36e69098d279e51eca54dc6295c45bba2",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"rocket \\ud83d\\ude80\"",
+        "\"lab \\ud83e\\uddea\""
+      ],
+      "python_input": {
+        "newText": "lab 🧪",
+        "oldText": "rocket 🚀",
+        "path": "tags.py"
+      },
+      "request_id": "d25c31b78c40409886ee83603a4faf13",
+      "request_sha256": "f805aa3bdd1179b9db70e486498c3bb36e69098d279e51eca54dc6295c45bba2",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"rocket \\ud83d\\ude80\"",
+        "\"lab \\ud83e\\uddea\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwicm9ja2V0IFxcdWQ4M2RcXHVkZTgwXCIiLCJcImxhYiBcXHVkODNlXFx1ZGRlYVwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "5f0f143d5c106ae89165aab778124296373bac98d035de6fa6164a77ec85d2fb",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"rocket \\ud83d\\ude80\"",
+          "\"lab \\ud83e\\uddea\""
+        ],
+        "newText": "lab 🧪",
+        "oldText": "rocket 🚀",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C12",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-remove this\n+ (empty)\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\nac26231a8b8061dbaa5308b76c39fb01acd0c561f1f54a558443785d12557dee",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"remove this\"",
+        "\"\""
+      ],
+      "python_input": {
+        "newText": "",
+        "oldText": "remove this",
+        "path": "tags.py"
+      },
+      "request_id": "0d208e2ff8a24e49aecff1eee44a791f",
+      "request_sha256": "ac26231a8b8061dbaa5308b76c39fb01acd0c561f1f54a558443785d12557dee",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"remove this\"",
+        "\"\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwicmVtb3ZlIHRoaXNcIiIsIlwiXCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "a3a5fb3efe70d76019cf498a830fd805e717cc8014a777dc733837fc9217919c",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"remove this\"",
+          "\"\""
+        ],
+        "newText": "",
+        "oldText": "remove this",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C13",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "argv[6] is exactly 4096 UTF-8 bytes",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+short\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n370d7bff1e9d5752c1cb0d8719e12ceeb7cdeada5531e14310349e90904a29d5",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+        "\"short\""
+      ],
+      "python_input": {
+        "newText": "short",
+        "oldText": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "path": "tags.py"
+      },
+      "request_id": "e479e99ec47a4218b6b1e05f1acf3c78",
+      "request_sha256": "370d7bff1e9d5752c1cb0d8719e12ceeb7cdeada5531e14310349e90904a29d5",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+        "\"short\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwieHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHhcIiIsIlwic2hvcnRcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "3e3c27d8352780fd5c85b916d43aa8641cef11ce459510bff0095ed902dc0eae",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+          "\"short\""
+        ],
+        "newText": "short",
+        "oldText": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "path": "tags.py"
+      }
+    },
+    {
+      "actual_decision": "PREVIEW_INCOMPLETE",
+      "case_id": "C14",
+      "expected_decision": "PREVIEW_INCOMPLETE",
+      "fixture_note": "argv[6] is 4097 UTF-8 bytes",
+      "preview_failure": "A Candidate B argv entry exceeds the 4096-byte limit.",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+        "\"short\""
+      ],
+      "python_input": {
+        "newText": "short",
+        "oldText": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "path": "tags.py"
+      },
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+        "\"short\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwieHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4XCIiLCJcInNob3J0XCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "99d6efa3f3ae5157cfd4be12a027e48928ad2070251ba4180b4ed66f387e793b",
+      "swift_parsed_values": null
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C15A",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "maximum accepted path length",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\npppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\n\nProposed Replacement:\n-old\n+new\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\npppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\n\nWrite Scope:\npppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\n\nRequest SHA-256:\na8aba9c62b0e2682305aa912fc0e0e3ce3d74cff294cf47cfc34faf3000ef418",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+        "\"old\"",
+        "\"new\""
+      ],
+      "python_input": {
+        "newText": "new",
+        "oldText": "old",
+        "path": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      },
+      "request_id": "5861addacf4a4ba19be73fdede1ac377",
+      "request_sha256": "a8aba9c62b0e2682305aa912fc0e0e3ce3d74cff294cf47cfc34faf3000ef418",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+        "\"old\"",
+        "\"new\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwicHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHAiLCJcIm9sZFwiIiwiXCJuZXdcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "dffabfb6404e4ed4cfbdc1a781cd3abac9c786bad277b3eb20987777dfa15d3b",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+          "\"old\"",
+          "\"new\""
+        ],
+        "newText": "new",
+        "oldText": "old",
+        "path": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      }
+    },
+    {
+      "actual_decision": "PREVIEW_INCOMPLETE",
+      "case_id": "C15B",
+      "expected_decision": "PREVIEW_INCOMPLETE",
+      "fixture_note": "one byte beyond the AgentHost path bound",
+      "preview_failure": "Candidate B target path is not a valid relative workspace path.",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+        "\"old\"",
+        "\"new\""
+      ],
+      "python_input": {
+        "newText": "new",
+        "oldText": "old",
+        "path": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      },
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+        "\"old\"",
+        "\"new\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwicHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwIiwiXCJvbGRcIiIsIlwibmV3XCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "04f388ab23f7ea5e0d7a3149db952c77df54d38b0b5689f055670234bf58c88e",
+      "swift_parsed_values": null
+    },
+    {
+      "actual_decision": "PREVIEW_INCOMPLETE",
+      "case_id": "C16",
+      "expected_decision": "PREVIEW_INCOMPLETE",
+      "fixture_note": "Python encoding is valid, but the fixed Runner script identity changed",
+      "preview_failure": "Candidate B fixed script identity does not match the approved version.",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\\nprint('changed')\")",
+        "tags.py",
+        "\"old\"",
+        "\"new\""
+      ],
+      "python_input": {
+        "newText": "new",
+        "oldText": "old",
+        "path": "tags.py"
+      },
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\\nprint('changed')\")",
+        "tags.py",
+        "\"old\"",
+        "\"new\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXFxucHJpbnQoJ2NoYW5nZWQnKVwiKSIsInRhZ3MucHkiLCJcIm9sZFwiIiwiXCJuZXdcIiJd\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "d88b3e48220a6f9853f5ce4a9843bbcb63d81c49086c021ff3a72c10ad6525cf",
+      "swift_parsed_values": null
+    },
+    {
+      "actual_decision": "PREVIEW_INCOMPLETE",
+      "case_id": "C17",
+      "expected_decision": "PREVIEW_INCOMPLETE",
+      "fixture_note": "equivalent ensure_ascii=False spelling must fail the single canonical encoding",
+      "preview_failure": "Candidate B oldText must be a nonempty canonical JSON string.",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"\\u4f60\\u597d\"",
+        "\"\\u518d\\u89c1\""
+      ],
+      "python_input": {
+        "newText": "再见",
+        "oldText": "你好",
+        "path": "tags.py"
+      },
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"你好\"",
+        "\"再见\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwi5L2g5aW9XCIiLCJcIuWGjeingVwiIl0=\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "60c22c03606cbf9ba1ee5b51dcdc0c26726a9666acf8064b78f5b96a501a4e43",
+      "swift_parsed_values": null
+    },
+    {
+      "actual_decision": "COMPLETE",
+      "case_id": "C18",
+      "expected_decision": "COMPLETE",
+      "fixture_note": "Python/Swift boundary scalars including DEL, separators, and U+10FFFF",
+      "preview_summary": "Workspace:\n/tmp/python-swift-fixture\n\nTarget:\ntags.py\n\nProposed Replacement:\n-\\u{007f}\\u{0080}߿ࠀ\\u{2028}\\u{2029}􏿿\n+boundary / café\n\nThis shows the requested text replacement; current workspace text was not read.\nThe fixed Runner script checks for one exact match before replacement.\n\nRead Scope:\ntags.py\n\nWrite Scope:\ntags.py\n\nRequest SHA-256:\n6636f3ac0121e4e8eac9022f3386454f500e0dcae4de4ff07530c57f3af7c4ee",
+      "python_encoded_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"\\u007f\\u0080\\u07ff\\u0800\\u2028\\u2029\\udbff\\udfff\"",
+        "\"boundary / caf\\u00e9\""
+      ],
+      "python_input": {
+        "newText": "boundary / café",
+        "oldText": "߿ࠀ  􏿿",
+        "path": "tags.py"
+      },
+      "request_id": "024100b1552c4b4f83eb60205a9b643f",
+      "request_sha256": "6636f3ac0121e4e8eac9022f3386454f500e0dcae4de4ff07530c57f3af7c4ee",
+      "runner_argv": [
+        "python3",
+        "-I",
+        "-B",
+        "-c",
+        "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+        "tags.py",
+        "\"\\u007f\\u0080\\u07ff\\u0800\\u2028\\u2029\\udbff\\udfff\"",
+        "\"boundary / caf\\u00e9\""
+      ],
+      "runner_source": "import base64, json\nfrom khaos.runner_sdk import process_exec, workspace_commit\n\nARGV = json.loads(base64.b64decode(\"WyJweXRob24zIiwiLUkiLCItQiIsIi1jIiwiZXhlYyhcImltcG9ydCBqc29uLCBvcywgc3RhdCwgc3lzXFxuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXFxucD1QYXRoKHN5cy5hcmd2WzFdKTsgb2xkPWpzb24ubG9hZHMoc3lzLmFyZ3ZbMl0pOyBuZXc9anNvbi5sb2FkcyhzeXMuYXJndlszXSk7IHN0PXAubHN0YXQoKVxcbmlmIG5vdCBzdGF0LlNfSVNSRUcoc3Quc3RfbW9kZSk6IHJhaXNlIFN5c3RlbUV4aXQoMjApXFxucz1wLnJlYWRfdGV4dChlbmNvZGluZz1cXFwidXRmLThcXFwiKTsgaT1zLmZpbmQob2xkKVxcbmlmIG5vdCBvbGQgb3IgaTwwIG9yIHMuZmluZChvbGQsaSsxKT49MCBvciBvbGQ9PW5ldzogcmFpc2UgU3lzdGVtRXhpdCgyMSlcXG5kPShzWzppXStuZXcrc1tpK2xlbihvbGQpOl0pLmVuY29kZShcXFwidXRmLThcXFwiKTsgcT1wLndpdGhfbmFtZShcXFwiLmtoYW9zLWVkaXQtXFxcIitvcy51cmFuZG9tKDE2KS5oZXgoKSlcXG51PW9zLnVtYXNrKDApXFxudHJ5OiBmZD1vcy5vcGVuKHEsb3MuT19XUk9OTFl8b3MuT19DUkVBVHxvcy5PX0VYQ0wsc3RhdC5TX0lNT0RFKHN0LnN0X21vZGUpKVxcbmZpbmFsbHk6IG9zLnVtYXNrKHUpXFxudHJ5OlxcbiAgICB3aXRoIG9zLmZkb3BlbihmZCxcXFwid2JcXFwiKSBhcyBmOiBmLndyaXRlKGQpOyBmLmZsdXNoKCk7IG9zLmZzeW5jKGYuZmlsZW5vKCkpXFxuICAgIG9zLnJlcGxhY2UocSxwKTsgcT1Ob25lXFxuZmluYWxseTpcXG4gICAgaWYgcSBpcyBub3QgTm9uZTogb3MudW5saW5rKHEpXFxucHJpbnQoXFxcIkVESVRfQVBQTElFRFxcXCIpXCIpIiwidGFncy5weSIsIlwiXFx1MDA3ZlxcdTAwODBcXHUwN2ZmXFx1MDgwMFxcdTIwMjhcXHUyMDI5XFx1ZGJmZlxcdWRmZmZcIiIsIlwiYm91bmRhcnkgLyBjYWZcXHUwMGU5XCIiXQ==\"))\n\ndef run():\n    process_exec(tuple(ARGV))\n    # A normal nonzero command result still needs the Kernel's scoped commit frame.\n    workspace_commit()\n    return 0",
+      "runner_source_sha256": "35fa96f144315f29abff051dbb3c040dce46e5adf12bff1742fcc373ec8b0273",
+      "swift_parsed_values": {
+        "argv": [
+          "python3",
+          "-I",
+          "-B",
+          "-c",
+          "exec(\"import json, os, stat, sys\\nfrom pathlib import Path\\np=Path(sys.argv[1]); old=json.loads(sys.argv[2]); new=json.loads(sys.argv[3]); st=p.lstat()\\nif not stat.S_ISREG(st.st_mode): raise SystemExit(20)\\ns=p.read_text(encoding=\\\"utf-8\\\"); i=s.find(old)\\nif not old or i<0 or s.find(old,i+1)>=0 or old==new: raise SystemExit(21)\\nd=(s[:i]+new+s[i+len(old):]).encode(\\\"utf-8\\\"); q=p.with_name(\\\".khaos-edit-\\\"+os.urandom(16).hex())\\nu=os.umask(0)\\ntry: fd=os.open(q,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(st.st_mode))\\nfinally: os.umask(u)\\ntry:\\n    with os.fdopen(fd,\\\"wb\\\") as f: f.write(d); f.flush(); os.fsync(f.fileno())\\n    os.replace(q,p); q=None\\nfinally:\\n    if q is not None: os.unlink(q)\\nprint(\\\"EDIT_APPLIED\\\")\")",
+          "tags.py",
+          "\"\\u007f\\u0080\\u07ff\\u0800\\u2028\\u2029\\udbff\\udfff\"",
+          "\"boundary / caf\\u00e9\""
+        ],
+        "newText": "boundary / café",
+        "oldText": "߿ࠀ  􏿿",
+        "path": "tags.py"
+      }
+    }
+  ]
+}

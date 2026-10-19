@@ -127,6 +127,7 @@ enum AgentHostProtocol {
     static let maximumTextBytes = 16 * 1024
     static let maximumArguments = 32
     static let maximumScopePaths = 8
+    static let maximumScopePathBytes = 128
     static let maximumArgumentBytes = 4096
     static let maximumPluginInputBytes = 8 * 1024
     static let maximumJSONNestingDepth = 8
@@ -374,11 +375,11 @@ enum AgentHostProtocol {
                 ),
                 let readScope = strings(
                     object["read_scope"], maximum: maximumScopePaths,
-                    maximumItemBytes: 128
+                    maximumItemBytes: maximumScopePathBytes
                 ),
                 let writeScope = strings(
                     object["write_scope"], maximum: maximumScopePaths,
-                    maximumItemBytes: 128
+                    maximumItemBytes: maximumScopePathBytes
                 ),
                 !argv.isEmpty,
                 readScope.count + writeScope.count <= maximumScopePaths,
@@ -397,7 +398,7 @@ enum AgentHostProtocol {
             guard Set(object.keys) == ["version", "type", "read_scope"],
                   let paths = strings(
                     object["read_scope"], maximum: maximumScopePaths,
-                    maximumItemBytes: 128
+                    maximumItemBytes: maximumScopePathBytes
                   ),
                   !paths.isEmpty,
                   Set(paths).count == paths.count,

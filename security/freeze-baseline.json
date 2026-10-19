@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "audit_base": "12af8aa1e52b235234648b1f7eb925d648180e54",
-  "baseline": "M7.4 owner-deferred partial UI and numeric oracle; runtime TCB unchanged",
+  "baseline": "M8.5.2A.5 owner-authorized trusted Launcher preview and task cancellation; Kernel authority unchanged",
   "runtime_authority_delta": "none",
   "independent_code_owner_approval": "NOT PROVEN",
   "protected_security_state": "runtime isolation required; arbitrary external same-UID resistance out of scope",
-  "manifest_sha256": "0a8748ca37c9ef5bc3e93a073059f3baf1f52e22df19d75e4e9f4379e2afdf32",
+  "manifest_sha256": "9268fd90e11da17685c164721cb3b218d1583236a802adc1af2af5482c4f8024",
   "scope_revision_base": "bc0df57203fb136696dc7f08e061d9ea44a05967",
   "supported_adversaries": [
     "Khaos AgentHost",

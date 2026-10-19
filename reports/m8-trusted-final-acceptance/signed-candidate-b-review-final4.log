@@ -1,0 +1,10 @@
+test_seed_app_builds_and_authenticates_its_kernel_service (test_macos_xpc_sandbox.MacOSXPCSandboxTests.test_seed_app_builds_and_authenticates_its_kernel_service) ... Select /Users/huangruibang/Applications/khaos-seed-app-7ofh5mf_/coding-loop-workspace in the signed product workspace Picker. After the UI action, press Return here.
+In the signed Candidate B preview, choose View Complete Details. Do not choose Run once. After the details screen is visible, press Return here. After the UI action, press Return here.
+Scroll the signed details to the bottom and review argv[7], both decoded text values, the exact scopes, Runner source digest, Request ID, and Request SHA-256. Choose Back to Preview, then press Escape to deny. Press Return here after Escape. After the UI action, press Return here.
+Signed staged-edit review evidence saved to /Users/huangruibang/.codex/worktrees/m852a6-pr39-acceptance/self-evolving-khaos/reports/m8-trusted-final-acceptance/signed-candidate-b-review-final4.json
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 569.792s
+
+OK

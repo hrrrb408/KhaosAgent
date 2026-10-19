@@ -9,6 +9,32 @@ enum KernelWorkspaceClientError: Error {
     case invalidResponse
     case snapshotBrokerEndpointRejected
     case timedOut
+    case cancelledBeforeSubmission
+}
+
+struct KernelWorkspaceRequestIdentity: Equatable {
+    let taskID: UUID
+    let workspaceSessionID: UUID
+    let requestID: KernelWorkspaceXPC.RequestID
+    let connectionID: UUID
+}
+
+enum KernelWorkspaceCancellationResult: Equatable {
+    case notRequested
+    case notSubmitted
+    case accepted
+    case rejected(String)
+    case unavailable
+    case notActive
+    case staleIdentity
+    case alreadyRequested
+}
+
+struct KernelWorkspaceCommandObservation {
+    let reply: Result<KernelWorkspaceXPC.Reply, KernelWorkspaceClientError>
+    let cancellation: KernelWorkspaceCancellationResult
+    let submitted: Bool
+    let submittedAt: TimeInterval?
 }
 
 struct KernelWorkspaceTarget {
@@ -121,28 +147,62 @@ enum KernelWorkspaceClient {
         return reply
     }
 
+    static func workspaceCommand(
+        _ target: KernelWorkspaceTarget,
+        taskID: UUID,
+        workspaceSessionID: UUID,
+        requestID: KernelWorkspaceXPC.RequestID,
+        invocationFrame: Data,
+        snapshotBrokerEndpoint: NSXPCListenerEndpoint? = nil
+    ) throws -> KernelWorkspaceCommandHandle {
+        let connection = try connectWorkspaceEndpoint(target)
+        return KernelWorkspaceCommandHandle(
+            connection: connection,
+            identity: KernelWorkspaceRequestIdentity(
+                taskID: taskID,
+                workspaceSessionID: workspaceSessionID,
+                requestID: requestID,
+                connectionID: UUID()
+            ),
+            invocationFrame: invocationFrame,
+            snapshotBrokerEndpoint: snapshotBrokerEndpoint
+        )
+    }
+
     private static func setSnapshotBrokerEndpoint(
         _ endpoint: NSXPCListenerEndpoint,
         on connection: NSXPCConnection
     ) throws {
-        let accepted: Bool = try Self.awaitReply(
+        try Self.awaitReply(
             timeout: 15,
             timeoutError: KernelWorkspaceClientError.timedOut
         ) { finish in
-            guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
-                finish(.failure(.requestFailed))
-            }) as? KernelWorkspaceEndpoint else {
-                throw KernelWorkspaceClientError.invalidWorkspaceProxy
-            }
-            proxy.setSnapshotBrokerEndpoint(
-                KernelWorkspaceXPC.version,
-                endpoint: endpoint
-            ) { value in
-                finish(.success(value))
-            }
+            Self.setSnapshotBrokerEndpoint(
+                endpoint,
+                on: connection,
+                completion: finish
+            )
         }
-        guard accepted else {
-            throw KernelWorkspaceClientError.snapshotBrokerEndpointRejected
+    }
+
+    static func setSnapshotBrokerEndpoint(
+        _ endpoint: NSXPCListenerEndpoint,
+        on connection: NSXPCConnection,
+        completion: @escaping (Result<Void, KernelWorkspaceClientError>) -> Void
+    ) {
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+            completion(.failure(.requestFailed))
+        }) as? KernelWorkspaceEndpoint else {
+            completion(.failure(.invalidWorkspaceProxy))
+            return
+        }
+        proxy.setSnapshotBrokerEndpoint(
+            KernelWorkspaceXPC.version,
+            endpoint: endpoint
+        ) { accepted in
+            completion(accepted
+                ? .success(())
+                : .failure(.snapshotBrokerEndpointRejected))
         }
     }
 
@@ -195,5 +255,322 @@ enum KernelWorkspaceClient {
         }
         connection.remoteObjectInterface = NSXPCInterface(with: remoteInterface)
         connection.resume()
+    }
+}
+
+final class KernelWorkspaceCommandHandle {
+    let identity: KernelWorkspaceRequestIdentity
+
+    private let connection: NSXPCConnection
+    private let invocationFrame: Data
+    private let snapshotBrokerEndpoint: NSXPCListenerEndpoint?
+    private let requestQueue = DispatchQueue(
+        label: "org.khaos.Seed.KernelWorkspaceCommand"
+    )
+    private let lock = NSLock()
+    private var started = false
+    private var completed = false
+    private var submitted = false
+    private var submittedAt: TimeInterval?
+    private var cancelledBeforeSubmission = false
+    private var brokerSetupAttemptID: UUID?
+    private var originalReply: Result<KernelWorkspaceXPC.Reply, KernelWorkspaceClientError>?
+    private var cancellationResult: KernelWorkspaceCancellationResult = .notRequested
+    private var completion: ((KernelWorkspaceCommandObservation) -> Void)?
+    private var cancellationAcknowledgement: ((KernelWorkspaceCancellationResult) -> Void)?
+
+    init(
+        connection: NSXPCConnection,
+        identity: KernelWorkspaceRequestIdentity,
+        invocationFrame: Data,
+        snapshotBrokerEndpoint: NSXPCListenerEndpoint?
+    ) {
+        self.connection = connection
+        self.identity = identity
+        self.invocationFrame = invocationFrame
+        self.snapshotBrokerEndpoint = snapshotBrokerEndpoint
+    }
+
+    func start(completion: @escaping (KernelWorkspaceCommandObservation) -> Void) {
+        lock.lock()
+        guard !started, !completed else {
+            lock.unlock()
+            completion(KernelWorkspaceCommandObservation(
+                reply: .failure(.requestFailed),
+                cancellation: .notRequested,
+                submitted: false,
+                submittedAt: nil
+            ))
+            return
+        }
+        started = true
+        self.completion = completion
+        let hasPendingCancellation = cancellationAcknowledgement != nil
+        lock.unlock()
+
+        requestQueue.async { [weak self] in
+            self?.beginSubmission()
+        }
+        if hasPendingCancellation {
+            scheduleCancellation()
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 90) { [weak self] in
+            self?.finishOriginal(.failure(.timedOut))
+        }
+    }
+
+    func requestCancellation(
+        matching requestedIdentity: KernelWorkspaceRequestIdentity,
+        acknowledgement: @escaping (KernelWorkspaceCancellationResult) -> Void
+    ) {
+        lock.lock()
+        guard requestedIdentity == identity else {
+            lock.unlock()
+            acknowledgement(.staleIdentity)
+            return
+        }
+        guard !completed, originalReply == nil else {
+            lock.unlock()
+            acknowledgement(.notActive)
+            return
+        }
+        guard cancellationResult == .notRequested else {
+            lock.unlock()
+            acknowledgement(.alreadyRequested)
+            return
+        }
+        cancellationResult = .unavailable
+        cancellationAcknowledgement = acknowledgement
+        let shouldSchedule = started
+        if !submitted {
+            cancelledBeforeSubmission = true
+        }
+        lock.unlock()
+
+        if shouldSchedule {
+            scheduleCancellation()
+        }
+    }
+
+    private func beginSubmission() {
+        lock.lock()
+        let shouldContinue = !completed && !cancelledBeforeSubmission
+        lock.unlock()
+        guard shouldContinue else { return }
+        guard let snapshotBrokerEndpoint else {
+            submitFrozenInvocation()
+            return
+        }
+        let attemptID = UUID()
+        lock.lock()
+        guard !completed, !cancelledBeforeSubmission else {
+            lock.unlock()
+            return
+        }
+        brokerSetupAttemptID = attemptID
+        lock.unlock()
+
+        KernelWorkspaceClient.setSnapshotBrokerEndpoint(
+            snapshotBrokerEndpoint,
+            on: connection
+        ) { [weak self] result in
+            self?.requestQueue.async {
+                self?.finishBrokerSetup(
+                    attemptID: attemptID,
+                    result: result
+                )
+            }
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 15) { [weak self] in
+            self?.requestQueue.async {
+                self?.finishBrokerSetup(
+                    attemptID: attemptID,
+                    result: .failure(.timedOut)
+                )
+            }
+        }
+    }
+
+    private func finishBrokerSetup(
+        attemptID: UUID,
+        result: Result<Void, KernelWorkspaceClientError>
+    ) {
+        lock.lock()
+        guard !completed, brokerSetupAttemptID == attemptID else {
+            lock.unlock()
+            return
+        }
+        brokerSetupAttemptID = nil
+        let wasCancelled = cancelledBeforeSubmission
+        lock.unlock()
+        if wasCancelled {
+            finishCancellation(.notSubmitted)
+            finishOriginal(.failure(.cancelledBeforeSubmission))
+            return
+        }
+        switch result {
+        case .success:
+            submitFrozenInvocation()
+        case let .failure(error):
+            finishOriginal(.failure(error))
+        }
+    }
+
+    private func submitFrozenInvocation() {
+        lock.lock()
+        guard !completed, !cancelledBeforeSubmission, !submitted else {
+            lock.unlock()
+            return
+        }
+        // The serial request queue orders this invocation before any cancellation
+        // sent over the same authenticated connection.
+        submitted = true
+        submittedAt = ProcessInfo.processInfo.systemUptime
+        lock.unlock()
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ [weak self] _ in
+            self?.finishOriginal(.failure(.requestFailed))
+        }) as? KernelWorkspaceEndpoint else {
+            lock.lock()
+            submitted = false
+            submittedAt = nil
+            lock.unlock()
+            finishOriginal(.failure(.invalidWorkspaceProxy))
+            return
+        }
+        do {
+            try KernelWorkspaceXPC.submit(
+                proxy,
+                requestID: identity.requestID,
+                invocationFrame: invocationFrame
+            ) { [weak self] data in
+                guard let self,
+                      let reply = KernelWorkspaceXPC.decode(
+                        data,
+                        requestID: self.identity.requestID
+                      ),
+                      reply.cancellationAccepted == nil else {
+                    self?.finishOriginal(.failure(.invalidResponse))
+                    return
+                }
+                self.finishOriginal(.success(reply))
+            }
+        } catch {
+            lock.lock()
+            submitted = false
+            submittedAt = nil
+            lock.unlock()
+            finishOriginal(.failure(.requestFailed))
+        }
+    }
+
+    private func performCancellation() {
+        lock.lock()
+        guard !completed, cancellationAcknowledgement != nil else {
+            lock.unlock()
+            return
+        }
+        if originalReply != nil {
+            lock.unlock()
+            finishCancellation(.notActive)
+            return
+        }
+        guard submitted else {
+            cancelledBeforeSubmission = true
+            lock.unlock()
+            finishCancellation(.notSubmitted)
+            finishOriginal(.failure(.cancelledBeforeSubmission))
+            return
+        }
+        lock.unlock()
+
+        // The cancellation shares the original authenticated connection and is
+        // serialized after the original workspace.run invocation.
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ [weak self] _ in
+            self?.finishCancellation(.unavailable)
+        }) as? KernelWorkspaceEndpoint else {
+            finishCancellation(.unavailable)
+            return
+        }
+        proxy.cancelWorkspaceCommand(
+            KernelWorkspaceXPC.version,
+            requestIDHigh: identity.requestID.high,
+            requestIDLow: identity.requestID.low
+        ) { [weak self] data in
+            guard let self,
+                  let reply = KernelWorkspaceXPC.decode(
+                    data,
+                    requestID: self.identity.requestID
+                  ) else {
+                self?.finishCancellation(.unavailable)
+                return
+            }
+            if reply.cancellationAccepted == true {
+                self.finishCancellation(.accepted)
+            } else if let code = reply.errorCode {
+                self.finishCancellation(.rejected(code))
+            } else {
+                self.finishCancellation(.unavailable)
+            }
+        }
+    }
+
+    private func scheduleCancellation() {
+        requestQueue.async { [weak self] in
+            self?.performCancellation()
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.finishCancellation(.unavailable)
+        }
+    }
+
+    private func finishOriginal(
+        _ result: Result<KernelWorkspaceXPC.Reply, KernelWorkspaceClientError>
+    ) {
+        lock.lock()
+        guard originalReply == nil, !completed else {
+            lock.unlock()
+            return
+        }
+        originalReply = result
+        lock.unlock()
+        completeIfReady()
+    }
+
+    private func finishCancellation(_ result: KernelWorkspaceCancellationResult) {
+        lock.lock()
+        guard !completed,
+              cancellationAcknowledgement != nil,
+              cancellationResult == .unavailable else {
+            lock.unlock()
+            return
+        }
+        cancellationResult = result
+        let acknowledgement = cancellationAcknowledgement
+        cancellationAcknowledgement = nil
+        lock.unlock()
+        acknowledgement?(result)
+        completeIfReady()
+    }
+
+    private func completeIfReady() {
+        lock.lock()
+        guard !completed,
+              let originalReply,
+              cancellationAcknowledgement == nil else {
+            lock.unlock()
+            return
+        }
+        completed = true
+        let observation = KernelWorkspaceCommandObservation(
+            reply: originalReply,
+            cancellation: cancellationResult,
+            submitted: submitted,
+            submittedAt: submittedAt
+        )
+        let completion = self.completion
+        self.completion = nil
+        lock.unlock()
+        connection.invalidate()
+        completion?(observation)
     }
 }

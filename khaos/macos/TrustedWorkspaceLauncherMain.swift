@@ -78,6 +78,42 @@ private struct AgentToolOutcome {
     let returncode: Int?
     let executionSeconds: Double
     var stopReason: String? = nil
+    var taskCancelled: Bool = false
+    var workspaceRecord: AgentWorkspaceRequestRecord? = nil
+}
+
+private struct AgentWorkspaceRequestRecord {
+    let requestID: String
+    let workspaceSessionID: String
+    let connectionID: String?
+    let approvalSHA256: String
+    let readScope: [String]
+    let writeScope: [String]
+    let approval: String
+    let cancellationRequested: Bool
+    let cancellationResult: String
+    let kernelResult: String
+    let runnerExecution: String
+    let runnerReturnCode: Int?
+    let added: Int?
+    let modified: Int?
+    let deleted: Int?
+    let commitOutcome: String
+}
+
+private struct AgentWorkspaceRequest {
+    let requestID: KernelWorkspaceXPC.RequestID
+    let request: KernelWorkspaceXPC.WorkspaceRunRequest
+    let invocation: Data
+    let approvalSHA256: String
+    let workspaceSessionID: UUID
+    var connectionID: UUID?
+}
+
+private struct AgentHostTurnOutcome {
+    let reply: AgentHostReply?
+    let cancellationRequested: Bool
+    let error: Error?
 }
 
 @main
@@ -1044,8 +1080,6 @@ enum TrustedWorkspaceLauncherMain {
     }
 
     private static func runAgentSession() throws {
-        let host = AgentHostClient()
-        defer { host.stop() }
         let modelProvider = AgentModelProvider.from(bundle: .main)
         fputs(
             "Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.\n",
@@ -1053,6 +1087,8 @@ enum TrustedWorkspaceLauncherMain {
         )
 
         var workspace: TrustedWorkspaceSelection?
+        var host = AgentHostClient()
+        defer { host.stop() }
         while true {
             fputs("You: ", stdout)
             fflush(stdout)
@@ -1071,23 +1107,60 @@ enum TrustedWorkspaceLauncherMain {
                 writeAgentDiagnostic("remote-data=denied")
                 continue
             }
-            var reply: AgentHostReply
-            do {
-                reply = try host.sendUserTurn(
-                    prompt,
-                    activePlugin: currentAgentPluginMetadata()
-                )
-            } catch {
-                fputs("Local Agent request failed: \(failureCode(for: error))\n", stderr)
-                continue
-            }
-
+            let taskID = UUID()
             var awaitingNextUser = false
+            var resetHostAfterTask = false
             var taskToolCalls = 0
             var taskExecutionSeconds = 0.0
             var taskResultBytes = 0
             var commandReturnCodes: [Int] = []
+            var workspaceRequestRecords: [AgentWorkspaceRequestRecord] = []
             var taskStopReason: String?
+
+            let initialTurn = awaitAgentHostReply(
+                taskID: taskID,
+                host: host,
+                title: "Agent Host is processing this task",
+                message: "The Host receives untrusted task input. Cancel closes this task's Host connection; late replies are discarded."
+            ) { completion in
+                try host.sendUserTurnAsync(
+                    prompt,
+                    activePlugin: currentAgentPluginMetadata(),
+                    completion: completion
+                )
+            }
+            if initialTurn.cancellationRequested {
+                taskStopReason = "user cancelled while Agent Host was processing the task; its connection was invalidated and late replies are discarded"
+                fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
+                printAgentTaskRecord(
+                    taskID: taskID,
+                    toolCalls: taskToolCalls,
+                    executionSeconds: taskExecutionSeconds,
+                    resultBytes: taskResultBytes,
+                    returnCodes: commandReturnCodes,
+                    stopReason: taskStopReason,
+                    cancellationRequested: true,
+                    hostConnectionInvalidated: true,
+                    workspaceRequests: workspaceRequestRecords
+                )
+                fflush(stdout)
+                host.stop()
+                host = AgentHostClient()
+                continue
+            }
+            if let initialError = initialTurn.error {
+                fputs("Local Agent request failed: \(failureCode(for: initialError))\n", stderr)
+                host.stop()
+                host = AgentHostClient()
+                continue
+            }
+            guard let initialReply = initialTurn.reply else {
+                fputs("Local Agent request failed: invalid_response\n", stderr)
+                host.stop()
+                host = AgentHostClient()
+                continue
+            }
+            var reply = initialReply
             while !awaitingNextUser {
                 switch reply {
                 case let .text(text):
@@ -1096,21 +1169,23 @@ enum TrustedWorkspaceLauncherMain {
                         let status: String
                         if let taskStopReason {
                             status = "stopped: \(taskStopReason)"
-                        } else if let lastReturnCode = commandReturnCodes.last,
-                                  lastReturnCode != 0 {
-                            status = "failed: last executed command returned code \(lastReturnCode)"
                         } else {
-                            status = "finished: Agent Host returned a final response"
+                            status = terminalTaskStatus(
+                                lastReturnCode: commandReturnCodes.last,
+                                workspaceRequests: workspaceRequestRecords
+                            )
                         }
                         fputs("Launcher task status: \(status).\n", stdout)
                         taskStopReason = status
                     }
                     printAgentTaskRecord(
+                        taskID: taskID,
                         toolCalls: taskToolCalls,
                         executionSeconds: taskExecutionSeconds,
                         resultBytes: taskResultBytes,
                         returnCodes: commandReturnCodes,
-                        stopReason: taskStopReason
+                        stopReason: taskStopReason,
+                        workspaceRequests: workspaceRequestRecords
                     )
                     fflush(stdout)
                     awaitingNextUser = true
@@ -1155,6 +1230,7 @@ enum TrustedWorkspaceLauncherMain {
                         } else {
                             outcome = runAgentTool(
                                 proposal,
+                                taskID: taskID,
                                 directoryListing: directoryListing,
                                 workspace: &workspace,
                                 timeoutSeconds: min(
@@ -1173,6 +1249,30 @@ enum TrustedWorkspaceLauncherMain {
                     taskResultBytes += resultBytes
                     if let returncode = outcome.returncode {
                         commandReturnCodes.append(returncode)
+                    }
+                    if let workspaceRecord = outcome.workspaceRecord {
+                        workspaceRequestRecords.append(workspaceRecord)
+                    }
+                    if outcome.taskCancelled {
+                        resetHostAfterTask = true
+                        taskStopReason = cancellationTaskStatus(
+                            workspaceRequests: workspaceRequestRecords
+                        )
+                        fputs("Launcher task status: \(taskStopReason!).\n", stdout)
+                        printAgentTaskRecord(
+                            taskID: taskID,
+                            toolCalls: taskToolCalls,
+                            executionSeconds: taskExecutionSeconds,
+                            resultBytes: taskResultBytes,
+                            returnCodes: commandReturnCodes,
+                            stopReason: taskStopReason,
+                            cancellationRequested: true,
+                            hostConnectionInvalidated: true,
+                            workspaceRequests: workspaceRequestRecords
+                        )
+                        fflush(stdout)
+                        awaitingNextUser = true
+                        continue
                     }
                     let budgetExhausted = taskToolCalls
                             >= AgentHostProtocol.maximumToolCallsPerTask
@@ -1196,55 +1296,109 @@ enum TrustedWorkspaceLauncherMain {
                     writeAgentDiagnostic(
                         "tool-result kind=\(proposalKind) returncode=\(returnCode) output_bytes=\(resultBytes) can_continue=\(canContinue)"
                     )
-                    do {
-                        let nextReply = try host.sendToolResult(
+                    let hostTurn = awaitAgentHostReply(
+                        taskID: taskID,
+                        host: host,
+                        title: "Agent Host is processing the reviewed result",
+                        message: "Cancel ends this task. Any late Host response will be discarded."
+                    ) { completion in
+                        try host.sendToolResultAsync(
                             ok: outcome.ok,
                             canContinue: canContinue,
                             text: outcome.text,
-                            activePlugin: currentAgentPluginMetadata()
+                            activePlugin: currentAgentPluginMetadata(),
+                            completion: completion
                         )
-                        let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
-                            nextReply,
-                            canContinue: canContinue
-                        )
-                        let responseStatus = replyAllowed ? "accepted" : "rejected"
-                        writeAgentDiagnostic(
-                            "tool-response kind=\(proposalKind) status=\(responseStatus) can_continue=\(canContinue)"
-                        )
-                        if replyAllowed {
-                            reply = nextReply
-                        } else {
-                            writeAgentDiagnostic("task=disallowed_post_result_reply_ignored")
-                            taskStopReason = (taskStopReason ?? "tool result ended the task")
-                                + "; Launcher ignored a disallowed Agent Host action"
-                            reply = .text(outcome.text)
-                        }
-                    } catch {
+                    }
+                    if hostTurn.cancellationRequested {
+                        resetHostAfterTask = true
+                        taskStopReason = "user cancelled while Agent Host was processing the result; its connection was invalidated and late replies are discarded"
+                        fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
                         printAgentTaskRecord(
+                            taskID: taskID,
                             toolCalls: taskToolCalls,
                             executionSeconds: taskExecutionSeconds,
                             resultBytes: taskResultBytes,
                             returnCodes: commandReturnCodes,
-                            stopReason: "Agent Host failed while receiving a tool result"
+                            stopReason: taskStopReason,
+                            cancellationRequested: true,
+                            hostConnectionInvalidated: true,
+                            workspaceRequests: workspaceRequestRecords
                         )
+                        fflush(stdout)
+                        awaitingNextUser = true
+                        continue
+                    }
+                    if let error = hostTurn.error {
+                        resetHostAfterTask = true
+                        taskStopReason = "Agent Host failed while receiving a tool result"
                         fputs(
                             "Launcher task status: stopped: Agent Host failed while receiving a tool result (\(failureCode(for: error))).\n",
                             stdout
                         )
-                        return
+                        printAgentTaskRecord(
+                            taskID: taskID,
+                            toolCalls: taskToolCalls,
+                            executionSeconds: taskExecutionSeconds,
+                            resultBytes: taskResultBytes,
+                            returnCodes: commandReturnCodes,
+                            stopReason: taskStopReason,
+                            workspaceRequests: workspaceRequestRecords
+                        )
+                        fflush(stdout)
+                        awaitingNextUser = true
+                        continue
+                    }
+                    guard let nextReply = hostTurn.reply else {
+                        taskStopReason = "Agent Host returned no tool result reply"
+                        awaitingNextUser = true
+                        continue
+                    }
+                    let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
+                        nextReply,
+                        canContinue: canContinue
+                    )
+                    let responseStatus = replyAllowed ? "accepted" : "rejected"
+                    writeAgentDiagnostic(
+                        "tool-response kind=\(proposalKind) status=\(responseStatus) can_continue=\(canContinue)"
+                    )
+                    if replyAllowed {
+                        reply = nextReply
+                    } else {
+                        writeAgentDiagnostic("task=disallowed_post_result_reply_ignored")
+                        taskStopReason = (taskStopReason ?? "tool result ended the task")
+                            + "; Launcher ignored a disallowed Agent Host action"
+                        reply = .text(outcome.text)
                     }
                 case let .plugin(proposal):
                     if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
-                        do {
-                            reply = try host.sendToolResult(
+                        let hostTurn = awaitAgentHostReply(
+                            taskID: taskID,
+                            host: host,
+                            title: "Agent Host is processing a bounded result",
+                            message: "Cancel ends this task. Any late Host response will be discarded."
+                        ) { completion in
+                            try host.sendToolResultAsync(
                                 ok: false,
                                 canContinue: false,
                                 text: "Launcher stopped this proposal because the per-task tool-call budget is exhausted. It was not approved or executed.",
-                                activePlugin: currentAgentPluginMetadata()
+                                activePlugin: currentAgentPluginMetadata(),
+                                completion: completion
                             )
-                        } catch {
-                            fputs("Local Agent stopped: \(failureCode(for: error))\n", stderr)
-                            return
+                        }
+                        if hostTurn.cancellationRequested {
+                            resetHostAfterTask = true
+                            taskStopReason = "user cancelled while Agent Host was processing the result; its connection was invalidated and late replies are discarded"
+                            fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
+                            printAgentTaskRecord(taskID: taskID, toolCalls: taskToolCalls, executionSeconds: taskExecutionSeconds, resultBytes: taskResultBytes, returnCodes: commandReturnCodes, stopReason: taskStopReason, cancellationRequested: true, hostConnectionInvalidated: true, workspaceRequests: workspaceRequestRecords)
+                            fflush(stdout)
+                            awaitingNextUser = true
+                        } else if let nextReply = hostTurn.reply {
+                            reply = nextReply
+                        } else {
+                            resetHostAfterTask = true
+                            taskStopReason = "Agent Host failed while receiving a bounded result"
+                            awaitingNextUser = true
                         }
                         continue
                     }
@@ -1252,39 +1406,63 @@ enum TrustedWorkspaceLauncherMain {
                     let outcome = runAgentPlugin(proposal, workspace: &workspace)
                     taskResultBytes += outcome.text.utf8.count
                     taskStopReason = "Plugin operation ended the task"
-                    do {
-                        reply = try host.sendToolResult(
+                    let hostTurn = awaitAgentHostReply(
+                        taskID: taskID,
+                        host: host,
+                        title: "Agent Host is processing the Plugin result",
+                        message: "Cancel ends this task. Any late Host response will be discarded."
+                    ) { completion in
+                        try host.sendToolResultAsync(
                             ok: outcome.ok,
                             canContinue: false,
                             text: outcome.text,
-                            activePlugin: currentAgentPluginMetadata()
+                            activePlugin: currentAgentPluginMetadata(),
+                            completion: completion
                         )
-                    } catch {
-                        printAgentTaskRecord(
-                            toolCalls: taskToolCalls,
-                            executionSeconds: taskExecutionSeconds,
-                            resultBytes: taskResultBytes,
-                            returnCodes: commandReturnCodes,
-                            stopReason: "Agent Host failed while receiving a Plugin result"
-                        )
-                        fputs(
-                            "Local Agent stopped: \(failureCode(for: error))\n",
-                            stderr
-                        )
-                        return
+                    }
+                    if hostTurn.cancellationRequested {
+                        resetHostAfterTask = true
+                        taskStopReason = "user cancelled while Agent Host was processing the Plugin result; its connection was invalidated and late replies are discarded"
+                        fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
+                        printAgentTaskRecord(taskID: taskID, toolCalls: taskToolCalls, executionSeconds: taskExecutionSeconds, resultBytes: taskResultBytes, returnCodes: commandReturnCodes, stopReason: taskStopReason, cancellationRequested: true, hostConnectionInvalidated: true, workspaceRequests: workspaceRequestRecords)
+                        fflush(stdout)
+                        awaitingNextUser = true
+                    } else if let nextReply = hostTurn.reply {
+                        reply = nextReply
+                    } else {
+                        resetHostAfterTask = true
+                        fputs("Local Agent stopped: \(failureCode(for: hostTurn.error ?? AgentHostClientError.unavailable))\n", stderr)
+                        awaitingNextUser = true
                     }
                 case let .evolution(proposal):
                     if taskToolCalls >= AgentHostProtocol.maximumToolCallsPerTask {
-                        do {
-                            reply = try host.sendToolResult(
+                        let hostTurn = awaitAgentHostReply(
+                            taskID: taskID,
+                            host: host,
+                            title: "Agent Host is processing a bounded result",
+                            message: "Cancel ends this task. Any late Host response will be discarded."
+                        ) { completion in
+                            try host.sendToolResultAsync(
                                 ok: false,
                                 canContinue: false,
                                 text: "Launcher stopped this proposal because the per-task tool-call budget is exhausted. It was not approved or executed.",
-                                activePlugin: currentAgentPluginMetadata()
+                                activePlugin: currentAgentPluginMetadata(),
+                                completion: completion
                             )
-                        } catch {
-                            fputs("Local Agent stopped: \(failureCode(for: error))\n", stderr)
-                            return
+                        }
+                        if hostTurn.cancellationRequested {
+                            resetHostAfterTask = true
+                            taskStopReason = "user cancelled while Agent Host was processing the result; its connection was invalidated and late replies are discarded"
+                            fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
+                            printAgentTaskRecord(taskID: taskID, toolCalls: taskToolCalls, executionSeconds: taskExecutionSeconds, resultBytes: taskResultBytes, returnCodes: commandReturnCodes, stopReason: taskStopReason, cancellationRequested: true, hostConnectionInvalidated: true, workspaceRequests: workspaceRequestRecords)
+                            fflush(stdout)
+                            awaitingNextUser = true
+                        } else if let nextReply = hostTurn.reply {
+                            reply = nextReply
+                        } else {
+                            resetHostAfterTask = true
+                            taskStopReason = "Agent Host failed while receiving a bounded result"
+                            awaitingNextUser = true
                         }
                         continue
                     }
@@ -1296,28 +1474,36 @@ enum TrustedWorkspaceLauncherMain {
                     )
                     taskResultBytes += outcome.text.utf8.count
                     taskStopReason = "Candidate evolution operation ended the task"
-                    do {
-                        reply = try host.sendToolResult(
+                    let hostTurn = awaitAgentHostReply(
+                        taskID: taskID,
+                        host: host,
+                        title: "Agent Host is processing the evolution result",
+                        message: "Cancel ends this task. Any late Host response will be discarded."
+                    ) { completion in
+                        try host.sendToolResultAsync(
                             ok: outcome.ok,
                             canContinue: false,
                             text: outcome.text,
-                            activePlugin: currentAgentPluginMetadata()
+                            activePlugin: currentAgentPluginMetadata(),
+                            completion: completion
                         )
-                    } catch {
-                        printAgentTaskRecord(
-                            toolCalls: taskToolCalls,
-                            executionSeconds: taskExecutionSeconds,
-                            resultBytes: taskResultBytes,
-                            returnCodes: commandReturnCodes,
-                            stopReason: "Agent Host failed while receiving an evolution result"
-                        )
-                        fputs(
-                            "Local Agent stopped: \(failureCode(for: error))\n",
-                            stderr
-                        )
-                        return
+                    }
+                    if hostTurn.cancellationRequested {
+                        resetHostAfterTask = true
+                        taskStopReason = "user cancelled while Agent Host was processing the evolution result; its connection was invalidated and late replies are discarded"
+                        fputs("Launcher task status: cancelled: \(taskStopReason!).\n", stdout)
+                        printAgentTaskRecord(taskID: taskID, toolCalls: taskToolCalls, executionSeconds: taskExecutionSeconds, resultBytes: taskResultBytes, returnCodes: commandReturnCodes, stopReason: taskStopReason, cancellationRequested: true, hostConnectionInvalidated: true, workspaceRequests: workspaceRequestRecords)
+                        fflush(stdout)
+                        awaitingNextUser = true
+                    } else if let nextReply = hostTurn.reply {
+                        reply = nextReply
+                    } else {
+                        resetHostAfterTask = true
+                        fputs("Local Agent stopped: \(failureCode(for: hostTurn.error ?? AgentHostClientError.unavailable))\n", stderr)
+                        awaitingNextUser = true
                     }
                 case let .failure(code):
+                    resetHostAfterTask = true
                     fputs("Local Agent error: \(code)\n", stderr)
                     taskStopReason = taskStopReason
                         ?? "Agent Host or model failed: \(code)"
@@ -1325,25 +1511,36 @@ enum TrustedWorkspaceLauncherMain {
                         fputs("Launcher task status: stopped: \(taskStopReason!).\n", stdout)
                     }
                     printAgentTaskRecord(
+                        taskID: taskID,
                         toolCalls: taskToolCalls,
                         executionSeconds: taskExecutionSeconds,
                         resultBytes: taskResultBytes,
                         returnCodes: commandReturnCodes,
-                        stopReason: taskStopReason
+                        stopReason: taskStopReason,
+                        workspaceRequests: workspaceRequestRecords
                     )
+                    fflush(stdout)
                     awaitingNextUser = true
                 case .candidate(_), .evaluation(_):
+                    resetHostAfterTask = true
                     fputs("Local Agent error: unexpected_evolution_reply\n", stderr)
                     taskStopReason = "unexpected Agent Host reply"
                     printAgentTaskRecord(
+                        taskID: taskID,
                         toolCalls: taskToolCalls,
                         executionSeconds: taskExecutionSeconds,
                         resultBytes: taskResultBytes,
                         returnCodes: commandReturnCodes,
-                        stopReason: taskStopReason
+                        stopReason: taskStopReason,
+                        workspaceRequests: workspaceRequestRecords
                     )
+                    fflush(stdout)
                     awaitingNextUser = true
                 }
+            }
+            if resetHostAfterTask {
+                host.stop()
+                host = AgentHostClient()
             }
         }
     }
@@ -1379,19 +1576,141 @@ enum TrustedWorkspaceLauncherMain {
         return approved
     }
 
+    private static func awaitAgentHostReply(
+        taskID: UUID,
+        host: AgentHostClient,
+        title: String,
+        message: String,
+        start: @escaping (@escaping (Result<AgentHostReply, Error>) -> Void) throws -> Void
+    ) -> AgentHostTurnOutcome {
+        let progress = AgentTaskProgress<AgentHostReply>(
+            taskID: taskID,
+            title: title,
+            message: message,
+            cancelCompletesImmediately: true
+        )
+        let waited = progress.wait(start: { completion in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try start(completion)
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }, cancel: {
+            host.stop()
+        })
+        switch waited.result {
+        case let .success(reply):
+            return AgentHostTurnOutcome(
+                reply: reply,
+                cancellationRequested: waited.cancellationRequested,
+                error: nil
+            )
+        case let .failure(error):
+            return AgentHostTurnOutcome(
+                reply: nil,
+                cancellationRequested: waited.cancellationRequested,
+                error: error
+            )
+        }
+    }
+
+    private static func terminalTaskStatus(
+        lastReturnCode: Int?,
+        workspaceRequests: [AgentWorkspaceRequestRecord]
+    ) -> String {
+        guard let latest = workspaceRequests.last else {
+            if let lastReturnCode {
+                return "last Runner return code=\(lastReturnCode); no workspace.run outcome was recorded"
+            }
+            return "Agent Host returned final text; no workspace.run request was submitted"
+        }
+        switch latest.commitOutcome {
+        case "uncertain":
+            return "workspace outcome uncertain for request \(latest.requestID) (\(latest.kernelResult))"
+        case "rejected":
+            return "Kernel rejected the changeset for request \(latest.requestID) (\(latest.kernelResult))"
+        case "not_committed" where latest.kernelResult == "error:process_cancelled":
+            return "Kernel cancelled request \(latest.requestID) before commit; workspace changes were discarded"
+        case "not_committed" where latest.kernelResult.hasPrefix("not_submitted:"):
+            return "request \(latest.requestID) was cancelled before workspace.run submission; Runner did not start and no changes were committed"
+        case "committed":
+            let returnCode = latest.runnerReturnCode.map(String.init) ?? "unknown"
+            return "Kernel completed request \(latest.requestID), committed the accepted changeset, Runner return code=\(returnCode)"
+        default:
+            return "request \(latest.requestID) terminal result=\(latest.kernelResult); workspace outcome=\(latest.commitOutcome)"
+        }
+    }
+
+    private static func cancellationTaskStatus(
+        workspaceRequests: [AgentWorkspaceRequestRecord]
+    ) -> String {
+        guard let latest = workspaceRequests.last else {
+            return "user cancelled; no workspace.run request was submitted"
+        }
+        let outcome = terminalTaskStatus(
+            lastReturnCode: latest.runnerReturnCode,
+            workspaceRequests: workspaceRequests
+        )
+        if latest.cancellationRequested {
+            return "user cancellation requested; cancellation handling=\(latest.cancellationResult); \(outcome)"
+        }
+        return "user cancelled while Agent Host was processing; latest workspace result remains: \(outcome)"
+    }
+
     private static func printAgentTaskRecord(
+        taskID: UUID,
         toolCalls: Int,
         executionSeconds: Double,
         resultBytes: Int,
         returnCodes: [Int],
-        stopReason: String? = nil
+        stopReason: String? = nil,
+        cancellationRequested: Bool = false,
+        hostConnectionInvalidated: Bool = false,
+        workspaceRequests: [AgentWorkspaceRequestRecord] = []
     ) {
-        guard toolCalls > 0 else { return }
-        let values = returnCodes.map(String.init).joined(separator: ",")
-        fputs(
-            "Launcher task record: proposals=\(toolCalls); executed command return codes=[\(values)]; cumulative Runner time=\(String(format: "%.3f", executionSeconds))s; bounded result bytes=\(resultBytes); stop reason=\(stopReason ?? "Agent Host returned final text"). Only these command results are verified; broader test coverage is not inferred.\n",
-            stdout
-        )
+        let workspaceEntries: [[String: Any]] = workspaceRequests.map { request in
+            [
+                "request_id": request.requestID,
+                "workspace_session_id": request.workspaceSessionID,
+                "xpc_connection_id": request.connectionID as Any? ?? NSNull(),
+                "invocation_sha256": request.approvalSHA256,
+                "read_scope": request.readScope,
+                "write_scope": request.writeScope,
+                "approval": request.approval,
+                "cancellation_requested": request.cancellationRequested,
+                "cancellation_result": request.cancellationResult,
+                "kernel_result": request.kernelResult,
+                "runner_execution": request.runnerExecution,
+                "runner_return_code": request.runnerReturnCode.map { $0 as Any } ?? NSNull(),
+                "changeset": [
+                    "added": request.added.map { $0 as Any } ?? NSNull(),
+                    "modified": request.modified.map { $0 as Any } ?? NSNull(),
+                    "deleted": request.deleted.map { $0 as Any } ?? NSNull(),
+                ],
+                "commit_outcome": request.commitOutcome,
+            ]
+        }
+        let record: [String: Any] = [
+            "task_id": taskID.uuidString.lowercased(),
+            "proposals": toolCalls,
+            "executed_command_return_codes": returnCodes,
+            "cumulative_runner_seconds": String(format: "%.3f", executionSeconds),
+            "bounded_result_bytes": resultBytes,
+            "cancellation_requested": cancellationRequested,
+            "agent_host_connection_invalidated": hostConnectionInvalidated,
+            "stop_reason": stopReason ?? "Agent Host returned final text",
+            "workspace_requests": workspaceEntries,
+        ]
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: record,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ) else {
+            fputs("Launcher task record: encoding_failed task_id=\(taskID.uuidString.lowercased())\n", stdout)
+            return
+        }
+        fputs("Launcher task record: \(String(decoding: data, as: UTF8.self))\n", stdout)
     }
 
     private static func writeAgentDiagnostic(_ result: String) {
@@ -1915,6 +2234,7 @@ enum TrustedWorkspaceLauncherMain {
 
     private static func runAgentTool(
         _ proposal: AgentShellProposal,
+        taskID: UUID,
         directoryListing: Bool = false,
         workspace: inout TrustedWorkspaceSelection?,
         timeoutSeconds: Double,
@@ -1949,8 +2269,22 @@ enum TrustedWorkspaceLauncherMain {
                     paths: proposal.readScope,
                     maximumBytes: max(0, agentStreamLimit(maximumBytes: maximumResultBytes) - 1)
                 )
-                : agentRunnerSource(argv: proposal.argv)
+                : TrustedAgentRunnerSource.make(argv: proposal.argv)
         } catch {
+            if !directoryListing,
+               TrustedCandidateBPreview.isCandidateBLike(proposal.argv) {
+                let reason = "Candidate B Runner wrapper exceeds the supported request size."
+                TrustedCandidateBApproval.showIncomplete(reason)
+                writeAgentDiagnostic("tool=preview-incomplete")
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "PREVIEW_INCOMPLETE: \(reason) The request was not submitted.",
+                    returncode: nil,
+                    executionSeconds: 0,
+                    stopReason: "PREVIEW_INCOMPLETE: \(reason)"
+                )
+            }
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
@@ -1967,8 +2301,33 @@ enum TrustedWorkspaceLauncherMain {
             workspaceReadScope: proposal.readScope,
             workspaceWriteScope: proposal.writeScope
         )
+        let requestID = KernelWorkspaceXPC.newRequestID()
+        let candidatePreview: TrustedCandidateBPreviewResult
+        if directoryListing {
+            candidatePreview = .ordinaryRequest
+        } else {
+            candidatePreview = TrustedCandidateBPreview.parse(
+                runnerSource: source,
+                runnerSourceSHA256: request.runnerSourceSHA256,
+                readScope: request.workspaceReadScope,
+                writeScope: request.workspaceWriteScope
+            )
+        }
+        if case let .incomplete(reason) = candidatePreview {
+            TrustedCandidateBApproval.showIncomplete(reason)
+            writeAgentDiagnostic("tool=preview-incomplete")
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Launcher refused the Candidate B request because its trusted preview was incomplete. The request was not submitted.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "PREVIEW_INCOMPLETE: \(reason)"
+            )
+        }
+
         do {
-            _ = try request.encodeFrame(requestID: KernelWorkspaceXPC.newRequestID())
+            _ = try request.encodeFrame(requestID: requestID)
         } catch {
             return AgentToolOutcome(
                 ok: false,
@@ -2032,7 +2391,6 @@ enum TrustedWorkspaceLauncherMain {
             )
         }
 
-        let requestID = KernelWorkspaceXPC.newRequestID()
         let invocation: Data
         do {
             invocation = try KernelWorkspaceXPC.encodeInvocation(
@@ -2053,67 +2411,469 @@ enum TrustedWorkspaceLauncherMain {
         let command = directoryListing
             ? "Kernel fs.list: immediate entries of each requested directory; symlink targets are omitted."
             : "Proposed argv:\n" + proposal.argv.map { "  \($0)" }.joined(separator: "\n")
+        let approvalDigest = KernelWorkspaceXPC.sha256Hex(invocation)
+        var frozenRequest = AgentWorkspaceRequest(
+            requestID: requestID,
+            request: request,
+            invocation: invocation,
+            approvalSHA256: approvalDigest,
+            workspaceSessionID: selection.identity,
+            connectionID: nil
+        )
         writeAgentDiagnostic("tool=approval-presented")
-        guard approveReviewedRequest(
-            request,
-            title: "Approve this local Agent tool once?",
-            details: command,
-            workspace: selection.scopeURL,
-            digest: KernelWorkspaceXPC.sha256Hex(invocation)
-        ) else {
+        var approved = false
+        var previewFailure: String?
+        let approvalKind: String
+        switch candidatePreview {
+        case .ordinaryRequest:
+            approvalKind = "ordinary"
+            approved = approveReviewedRequest(
+                request,
+                title: "Approve this local Agent tool once?",
+                details: command,
+                workspace: selection.scopeURL,
+                digest: approvalDigest
+            )
+        case let .complete(edit):
+            approvalKind = "candidate_b_preview"
+            let decision = TrustedCandidateBApproval.present(
+                edit: edit,
+                workspacePath: selection.scopeURL.path,
+                requestID: requestID.token,
+                requestSHA256: approvalDigest,
+                runnerSourceSHA256: request.runnerSourceSHA256,
+                readScope: request.workspaceReadScope,
+                writeScope: request.workspaceWriteScope
+            )
+            switch decision {
+            case .approved:
+                approved = true
+            case .denied:
+                approved = false
+            case let .incomplete(reason):
+                previewFailure = reason
+            }
+        case .incomplete:
+            // The incomplete case is handled before workspace selection and cannot reach approval.
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "Launcher refused the Candidate B request because its trusted preview was incomplete. The request was not submitted.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "PREVIEW_INCOMPLETE"
+            )
+        }
+        if let previewFailure {
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "preview_incomplete",
+                cancellationRequested: false,
+                cancellationResult: "not_requested",
+                kernelResult: "not_submitted",
+                runnerExecution: "not_started",
+                workspaceResult: nil,
+                commitOutcome: "not_committed"
+            )
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "PREVIEW_INCOMPLETE: \(previewFailure). The request was not submitted.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "PREVIEW_INCOMPLETE: \(previewFailure)",
+                workspaceRecord: record
+            )
+        }
+        guard approved else {
             writeAgentDiagnostic("tool=approval-denied")
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "denied",
+                cancellationRequested: false,
+                cancellationResult: "not_requested",
+                kernelResult: "not_submitted",
+                runnerExecution: "not_started",
+                workspaceResult: nil,
+                commitOutcome: "not_committed"
+            )
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
                 text: "The user denied this tool request. This task stopped; the command was not executed. Do not retry or restate it.",
                 returncode: nil,
                 executionSeconds: 0,
-                stopReason: "user denied the proposed operation; it was not executed"
+                stopReason: "user denied the proposed operation; it was not executed",
+                workspaceRecord: record
             )
         }
 
-        writeAgentDiagnostic("tool=approved")
-        let startedAt = ProcessInfo.processInfo.systemUptime
-        do {
-            let output = try runInKernel(
-                bundleID: bundleID,
-                selection: selection,
-                requestID: requestID,
-                request: request
+        writeAgentDiagnostic("tool=approved kind=\(approvalKind)")
+        let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
+            taskID: taskID,
+            title: "Preparing the approved workspace operation",
+            message: "Cancel remains available while Khaos establishes the authenticated Kernel path. It will stop this request before workspace.run is submitted."
+        )
+        let handleLock = NSLock()
+        var commandHandle: KernelWorkspaceCommandHandle?
+        var cancellationBeforeHandle = false
+        let sendCancellation: (KernelWorkspaceCommandHandle) -> Void = { handle in
+            handle.requestCancellation(matching: handle.identity) { cancellation in
+                let status = cancellation == .notSubmitted
+                    ? "Cancellation stopped workspace.run before submission. Runner did not start; recording this request's terminal result."
+                    : "Kernel cancellation result: \(cancellationLabel(cancellation)). Waiting for the original workspace.run result."
+                progress.updateStatus(status)
+            }
+        }
+        let waited = progress.wait(start: { completion in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let target = try connectKernel(bundleID: bundleID)
+                    let snapshotBrokerEndpoint = try KernelSnapshotBrokerBootstrapClient.endpoint()
+                    let handle = try KernelWorkspaceClient.workspaceCommand(
+                        target,
+                        taskID: taskID,
+                        workspaceSessionID: selection.identity,
+                        requestID: requestID,
+                        invocationFrame: frozenRequest.invocation,
+                        snapshotBrokerEndpoint: snapshotBrokerEndpoint
+                    )
+                    handleLock.lock()
+                    commandHandle = handle
+                    let cancelBeforeSubmission = cancellationBeforeHandle
+                    handleLock.unlock()
+                    if cancelBeforeSubmission {
+                        sendCancellation(handle)
+                    }
+                    progress.updateStatus(
+                        cancelBeforeSubmission
+                            ? "Cancellation was recorded before workspace.run submission. Waiting for the request's terminal record."
+                            : "Approved workspace operation is running. Cancel uses this request's authenticated connection and waits for its final Kernel result."
+                    )
+                    handle.start { observation in
+                        completion(.success(observation))
+                    }
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }, cancel: {
+            handleLock.lock()
+            let handle = commandHandle
+            if handle == nil {
+                cancellationBeforeHandle = true
+            }
+            handleLock.unlock()
+            if let handle {
+                sendCancellation(handle)
+            } else {
+                progress.updateStatus(
+                    "Cancellation requested while preparing the Kernel path. workspace.run will be stopped before submission."
+                )
+            }
+        })
+        handleLock.lock()
+        let handle = commandHandle
+        handleLock.unlock()
+        if let handle {
+            frozenRequest.connectionID = handle.identity.connectionID
+        }
+        let observation: KernelWorkspaceCommandObservation
+        switch waited.result {
+        case let .success(value):
+            observation = value
+        case let .failure(error):
+            let code = failureCode(for: error)
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "approved_\(approvalKind)",
+                cancellationRequested: waited.cancellationRequested,
+                cancellationResult: waited.cancellationRequested
+                    ? "not_submitted"
+                    : "not_requested",
+                kernelResult: "not_submitted:\(code)",
+                runnerExecution: "not_started",
+                workspaceResult: nil,
+                commitOutcome: "not_committed"
             )
-            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
-            let result = try parseWorkspaceResult(output)
-            let bounded = try agentResult(result, maximumBytes: maximumResultBytes)
-            writeAgentDiagnostic("tool=executed returncode=\(result.returncode)")
-            return AgentToolOutcome(
-                ok: result.returncode == 0,
-                canContinue: true,
-                text: bounded.text,
-                returncode: result.returncode,
-                executionSeconds: elapsed
-            )
-        } catch let LauncherError.operationRejected(code) {
-            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
-            writeAgentDiagnostic("tool=stopped code=\(code)")
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
-                text: "Kernel rejected or failed the request: \(code). This task stopped without retrying.",
+                text: waited.cancellationRequested
+                    ? "Task cancelled before workspace.run submission (\(code)). Runner did not start and no workspace changes were committed."
+                    : "Launcher could not establish the authenticated Kernel request path (\(code)). workspace.run was not submitted; Runner did not start.",
                 returncode: nil,
-                executionSeconds: elapsed,
-                stopReason: "Kernel rejected or failed the request: \(code)"
+                executionSeconds: 0,
+                stopReason: waited.cancellationRequested
+                    ? "cancelled before workspace.run submission; Runner did not start"
+                    : "Kernel request was not submitted: \(code)",
+                taskCancelled: waited.cancellationRequested,
+                workspaceRecord: record
             )
-        } catch {
-            let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
-            writeAgentDiagnostic("tool=stopped code=kernel_request_failed")
+        }
+
+        let elapsed = observation.submittedAt.map {
+            max(0, ProcessInfo.processInfo.systemUptime - $0)
+        } ?? 0
+        if observation.submitted {
+            writeAgentDiagnostic("tool=submitted request_id=\(requestID.token)")
+        }
+        let cancellationResult = cancellationLabel(observation.cancellation)
+        switch observation.reply {
+        case let .failure(error):
+            let code = failureCode(for: error)
+            let submitted = observation.submitted
+            let kernelResult = submitted
+                ? "reply_unavailable:\(code)"
+                : "not_submitted:\(code)"
+            let commitOutcome = submitted ? "unknown" : "not_committed"
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "approved_\(approvalKind)",
+                cancellationRequested: waited.cancellationRequested,
+                cancellationResult: cancellationResult,
+                kernelResult: kernelResult,
+                runnerExecution: submitted ? "unknown" : "not_started",
+                workspaceResult: nil,
+                commitOutcome: commitOutcome
+            )
+            writeAgentDiagnostic("tool=reply-unavailable code=\(code)")
+            let text = submitted
+                ? "The original Kernel result is unavailable (\(code)); workspace outcome is unknown. Khaos did not retry the request."
+                : "The workspace.run request was not submitted (\(code)); Runner did not start and no workspace changes were committed."
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
-                text: "Kernel request failed closed. This task stopped without retrying.",
+                text: text,
                 returncode: nil,
                 executionSeconds: elapsed,
-                stopReason: "Kernel request failed closed"
+                stopReason: waited.cancellationRequested
+                    ? cancellationTaskStatus(workspaceRequests: [record])
+                    : submitted
+                        ? "Kernel result unavailable; workspace outcome unknown"
+                        : "workspace.run was not submitted; Runner did not start",
+                taskCancelled: waited.cancellationRequested,
+                workspaceRecord: record
             )
+        case let .success(reply):
+            if let errorCode = reply.errorCode {
+                let code = safeWorkspaceErrorCode(errorCode)
+                let commitOutcome: String
+                switch code {
+                case "process_cancelled": commitOutcome = "not_committed"
+                case "commit_rejected": commitOutcome = "rejected"
+                case "commit_outcome_uncertain": commitOutcome = "uncertain"
+                default: commitOutcome = "unknown"
+                }
+                let runnerExecution: String
+                switch code {
+                case "commit_rejected", "commit_outcome_uncertain":
+                    runnerExecution = "completed"
+                case "runner_failed":
+                    runnerExecution = "attempted"
+                default:
+                    runnerExecution = "unknown"
+                }
+                let record = agentWorkspaceRequestRecord(
+                    frozenRequest,
+                    approval: "approved_\(approvalKind)",
+                    cancellationRequested: waited.cancellationRequested,
+                    cancellationResult: cancellationResult,
+                    kernelResult: "error:\(code)",
+                    runnerExecution: runnerExecution,
+                    workspaceResult: nil,
+                    commitOutcome: commitOutcome
+                )
+                let text: String
+                if code == "commit_outcome_uncertain" {
+                    text = "Kernel returned commit_outcome_uncertain. Workspace outcome is uncertain; Khaos did not retry."
+                } else if code == "commit_rejected" {
+                    text = "Kernel returned commit_rejected. The requested changeset was rejected; Khaos did not retry."
+                } else if code == "process_cancelled" {
+                    text = "Kernel returned process_cancelled after cancelling the workspace operation. The snapshot was not committed."
+                } else {
+                    text = "Kernel rejected or failed the workspace request: \(code). No retry was made; workspace outcome is \(commitOutcome)."
+                }
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: text,
+                    returncode: nil,
+                    executionSeconds: elapsed,
+                    stopReason: waited.cancellationRequested
+                        ? cancellationTaskStatus(workspaceRequests: [record])
+                        : "Kernel returned \(code); workspace outcome=\(commitOutcome)",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            }
+            guard let output = reply.output else {
+                let record = agentWorkspaceRequestRecord(
+                    frozenRequest,
+                    approval: "approved_\(approvalKind)",
+                    cancellationRequested: waited.cancellationRequested,
+                    cancellationResult: cancellationResult,
+                    kernelResult: "invalid_final_reply",
+                    runnerExecution: "unknown",
+                    workspaceResult: nil,
+                    commitOutcome: "unknown"
+                )
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Kernel returned no final workspace result. Workspace outcome is unknown; Khaos did not retry.",
+                    returncode: nil,
+                    executionSeconds: elapsed,
+                    stopReason: "Kernel final result missing; workspace outcome unknown",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            }
+            let result: WorkspaceResult
+            do {
+                result = try parseWorkspaceResult(output)
+            } catch let LauncherError.operationRejected(code) {
+                let record = agentWorkspaceRequestRecord(
+                    frozenRequest,
+                    approval: "approved_\(approvalKind)",
+                    cancellationRequested: waited.cancellationRequested,
+                    cancellationResult: cancellationResult,
+                    kernelResult: "invalid_runner_output:\(code)",
+                    runnerExecution: "completed",
+                    workspaceResult: nil,
+                    commitOutcome: "committed"
+                )
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Kernel returned a completed workspace result, so its commit was accepted, but Launcher could not parse Runner output (\(code)); the changeset details are unavailable.",
+                    returncode: nil,
+                    executionSeconds: elapsed,
+                    stopReason: "Kernel completed the request; Runner result could not be parsed",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            } catch {
+                let record = agentWorkspaceRequestRecord(
+                    frozenRequest,
+                    approval: "approved_\(approvalKind)",
+                    cancellationRequested: waited.cancellationRequested,
+                    cancellationResult: cancellationResult,
+                    kernelResult: "invalid_runner_output",
+                    runnerExecution: "completed",
+                    workspaceResult: nil,
+                    commitOutcome: "committed"
+                )
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Kernel returned a completed workspace result, so its commit was accepted, but Launcher could not parse Runner output; the changeset details are unavailable.",
+                    returncode: nil,
+                    executionSeconds: elapsed,
+                    stopReason: "Kernel completed the request; Runner result could not be parsed",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            }
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "approved_\(approvalKind)",
+                cancellationRequested: waited.cancellationRequested,
+                cancellationResult: cancellationResult,
+                kernelResult: "output",
+                runnerExecution: "completed",
+                workspaceResult: result,
+                commitOutcome: "committed"
+            )
+            do {
+                let bounded = try agentResult(result, maximumBytes: maximumResultBytes)
+                writeAgentDiagnostic("tool=executed returncode=\(result.returncode)")
+                let text = waited.cancellationRequested
+                    ? "Cancellation was requested, but the original Kernel operation completed first. Its changeset was committed. Runner return code=\(result.returncode).\n\(bounded.text)"
+                    : bounded.text
+                return AgentToolOutcome(
+                    ok: result.returncode == 0,
+                    canContinue: !waited.cancellationRequested,
+                    text: text,
+                    returncode: result.returncode,
+                    executionSeconds: elapsed,
+                    stopReason: waited.cancellationRequested
+                        ? terminalTaskStatus(
+                            lastReturnCode: result.returncode,
+                            workspaceRequests: [record]
+                        )
+                        : nil,
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            } catch let LauncherError.operationRejected(code) {
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Kernel committed the completed workspace result, but Launcher could not bound the result for the Agent Host (\(code)).",
+                    returncode: result.returncode,
+                    executionSeconds: elapsed,
+                    stopReason: "Kernel committed the request; bounded result preparation failed",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            } catch {
+                return AgentToolOutcome(
+                    ok: false,
+                    canContinue: false,
+                    text: "Kernel committed the completed workspace result, but Launcher could not prepare the bounded Agent Host result.",
+                    returncode: result.returncode,
+                    executionSeconds: elapsed,
+                    stopReason: "Kernel committed the request; result preparation failed",
+                    taskCancelled: waited.cancellationRequested,
+                    workspaceRecord: record
+                )
+            }
+        }
+    }
+
+    private static func agentWorkspaceRequestRecord(
+        _ request: AgentWorkspaceRequest,
+        approval: String,
+        cancellationRequested: Bool,
+        cancellationResult: String,
+        kernelResult: String,
+        runnerExecution: String,
+        workspaceResult: WorkspaceResult?,
+        commitOutcome: String
+    ) -> AgentWorkspaceRequestRecord {
+        AgentWorkspaceRequestRecord(
+            requestID: request.requestID.token,
+            workspaceSessionID: request.workspaceSessionID.uuidString.lowercased(),
+            connectionID: request.connectionID?.uuidString.lowercased(),
+            approvalSHA256: request.approvalSHA256,
+            readScope: request.request.workspaceReadScope,
+            writeScope: request.request.workspaceWriteScope,
+            approval: approval,
+            cancellationRequested: cancellationRequested,
+            cancellationResult: cancellationResult,
+            kernelResult: kernelResult,
+            runnerExecution: runnerExecution,
+            runnerReturnCode: workspaceResult?.returncode,
+            added: workspaceResult?.added,
+            modified: workspaceResult?.modified,
+            deleted: workspaceResult?.deleted,
+            commitOutcome: commitOutcome
+        )
+    }
+
+    private static func cancellationLabel(
+        _ result: KernelWorkspaceCancellationResult
+    ) -> String {
+        switch result {
+        case .notRequested: return "not_requested"
+        case .notSubmitted: return "not_sent_before_submission"
+        case .accepted: return "cancel_accepted"
+        case let .rejected(code): return "rejected:\(code)"
+        case .unavailable: return "unavailable"
+        case .notActive: return "not_active"
+        case .staleIdentity: return "stale_identity"
+        case .alreadyRequested: return "already_requested"
         }
     }
 
@@ -2154,26 +2914,6 @@ enum TrustedWorkspaceLauncherMain {
             }
             streamLimit /= 2
         }
-    }
-
-    private static func agentRunnerSource(argv: [String]) throws -> String {
-        let encodedArgv = try JSONSerialization.data(
-            withJSONObject: argv,
-            options: [.sortedKeys, .withoutEscapingSlashes]
-        ).base64EncodedString()
-        let source = """
-            import base64, json
-            from khaos.runner_sdk import process_exec, workspace_commit
-
-            ARGV = json.loads(base64.b64decode(\(String(reflecting: encodedArgv))))
-
-            def run():
-                process_exec(tuple(ARGV))
-                # A normal nonzero command result still needs the Kernel's scoped commit frame.
-                workspace_commit()
-                return 0
-            """
-        return try boundedAgentRunnerSource(source)
     }
 
     private static func agentStreamLimit(maximumBytes: Int) -> Int {
@@ -2695,6 +3435,8 @@ enum TrustedWorkspaceLauncherMain {
             return "invalid_kernel_response"
         case KernelWorkspaceClientError.timedOut:
             return "kernel_request_timeout"
+        case KernelWorkspaceClientError.cancelledBeforeSubmission:
+            return "cancelled_before_runner_submission"
         case KernelSnapshotBrokerBootstrapError.notConfigured:
             return "snapshot_broker_not_configured"
         case KernelSnapshotBrokerBootstrapError.connectionFailed:
