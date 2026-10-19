@@ -1,19 +1,23 @@
 {
-  "base": "dee62b20dc1acbd64b009d47c29dc3f42ba9fdde",
+  "base": "707395146bbaf6be9ac6f58ae1f538e443b064a8",
   "files": [
-    "khaos/kernel/broker.py",
-    "khaos/kernel/macos_disk_image.py",
-    "khaos/launcher.py",
-    "khaos/macos/KernelWorkspaceXPC.swift",
+    "AGENTS.md",
+    "docs/KERNEL_ABI.md",
+    "docs/Khaos vNext 架构设计文档.md",
+    "khaos/macos/TrustedWorkspaceLauncherMain.swift",
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/test_macos_xpc_sandbox.py"
+    "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
+    "tests/run_signed_cancellation_acceptance.py",
+    "tests/signed_cancellation_fixture.py",
+    "tests/test_broker.py",
+    "tests/test_signed_cancellation_fixture.py"
   ],
-  "motivation": "M8.7 Batch A: consolidate untrusted BigModel decoding diagnostics using the existing BigModelError stage map. Add a synthetic Swift regression probe that checks four error classes, success, and payload-free diagnostics; no provider request is made. Separate trusted cleanup: remove the unused 11-line Swift-only decodeRunRequest convenience wrapper; production readInvocation already calls decodeInvocationRequest directly. Final AST/import-consumer audit also removes four unused imports: Runner SDK MAX_PLUGIN_INPUT_BYTES, launcher _open_absolute_directory, Broker hashlib, development APFS uuid. No module-level consumer, test monkeypatch, dynamic attribute lookup or packaging consumer was found.",
-  "invariants": "The removed method is not @objc, not an XPC interface selector, not serialized ABI, and has no static or dynamic consumer in the closed compile source lists, tests, or packaging. decodeInvocationRequest, decodeEnvelope, decodeWorkspaceRequest, request binding, XPC protocols, parser behavior, and cancellation are unchanged. Cross-boundary validation remains on each side. Synthetic test sink redirection remains test-only. Three product import lines and one development-only import line are removed; no import of an enforcement function used by code is removed and no validation, process, FD, scope or cleanup expression is changed.",
-  "authority_delta": "0 Kernel/ABI/workspace-scope authority delta. No trusted code is added. All remaining parser and enforcement code is byte-identical.",
-  "real_os_tests": "Preliminary 398-test suite passed in 824.271s; focused five-case decoder probe passed. The earlier 399-test run overlaps final unused-import cleanup and is not final immutable-tree evidence. A fresh full canonical macOS suite is required after all imports are removed. No interactive signed UI acceptance claim; B32/B34/B39 remain NOT_PROVEN.",
-  "trusted_delta": "Runtime TCB -13 LOC: 11-line uncalled Swift wrapper plus two unused trusted import lines. Untrusted product code -18 LOC, total shipped source -31 LOC. Development-only APFS backend -1 LOC, separately accounted. No new enforcement code, processes, IPC, dependencies or state. One governance regression test +73 LOC.",
-  "baseline_decision": "Exact base remains PR #39 HEAD dee62b20dc1acbd64b009d47c29dc3f42ba9fdde. Reviewed the wrapper deletion and test source before updating their manifest hashes and dependent manifest digest. Preserve previous baseline description/history, pending Owner Review and independent Code Owner gap. No normative decision changes. Review also verified each unused import against AST name loads, import consumers, dynamic attribute and test patch references before updating only affected source digests."
+  "motivation": "M8.5.2A.7 deterministic signed B32/B34/B39 acceptance. Add build-snapshot-only stage barriers and observers; no runtime test switch. Audit found cancelled outcomes bypassed Host result delivery; use existing terminal tool_result before closing session. Correct the test-only Host receipt assertion to verify exact terminal bytes as the prefix of the bounded Host response. Bind B34 barriers and evidence to the original workspace request identity, log the XPC-to-Broker ID bridge and private snapshot digest, and release the pre-commit barrier only after the matching workspace.cancel frame is written to the original Kernel worker.",
+  "invariants": "Original request identity, same XPC cancellation, frozen invocation, approval, read/write scopes, READY/ACCEPT, full changeset and OS sandbox remain unchanged. Host can_continue=false and all replies ignored after cancellation. Missing Host delivery remains unconfirmed and never alters Kernel truth. Test events observe authenticated requests and staged digests only; they do not write protocol responses or choose outcomes.",
+  "authority_delta": "0 Kernel authority, 0 Kernel/Host wire schema, 0 workspace scope authority. No production source changed in either test-evidence correction.",
+  "real_os_tests": "B32 signed attempt 6 reached POST_APPROVAL_PRE_SUBMIT; the original XPC task was cancelled before workspace.run submission, Runner count was zero, workspace hashes matched, and exact terminal bytes were reconciled in the Host receipt. B34 pre-commit attempts 2 and 3 remain NOT_PROVEN: attempt 2 lacked authenticated Runner/private-change evidence and expected the wrong Kernel error; attempt 3 cancelled the Seatbelt readiness probe. Pre-commit attempt 5 had correct Kernel cancellation but incomplete request/digest binding. Attempt 6 used a real signed app and maintainer-authorized agent UI cancellation at the actual pre-accept barrier; cancel_accepted arrived before forwarding, the harness released too early, and the Kernel committed. This is preserved as FAILED_ATTEMPT with a consistent committed Task Record and Host receipt. Corrected pre-commit attempt 7 used a test-only forwarded-frame observer and request-ID bridge before barrier release. Real signed operation returned process_cancelled, private staged change was discarded, live hashes matched, and Task Record/Host receipt agreed. Real signed post-commit attempt 2 cancelled after COMMIT_APPLIED; the original Kernel output, Runner rc=0, committed Task Record, Host receipt and final workspace hash all agreed. B34 pre/post and B39 cancellation terminal consistency are PASS_L4. Production test-hook isolation passed in both final signed build receipts. UI operations were authorized by the maintainer and executed by the agent; reports do not call them owner-personal clicks.",
+  "trusted_delta": "No production Trusted Code change in these test assertion/observer corrections; prior M8.5.2A.7 Launcher terminal-delivery delta remains +28/-2 lines. Test-only parser, request-ID observers, cancellation-forwarding observer, and regression tests changed; no new trusted process, IPC operation, dependency or product state.",
+  "baseline_decision": "Reviewed the production cancellation diff and test-only evidence corrections. Preserve the existing runtime baseline; refresh reviewed build-governance hashes only. PR base remains PR40 exact HEAD. Owner Review remains PENDING."
 }

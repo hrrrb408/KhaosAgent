@@ -718,6 +718,14 @@ namespace/path, capability, approval, or lifecycle operation names. Metadata
 values identify a proposal and describe business input only; they do not grant
 authority.
 
+After active workspace cancellation, Launcher preserves the original Kernel
+outcome and sends that bounded result through the existing `tool_result` channel
+with `can_continue=false` before invalidating the Host connection. No returned
+Host action is dispatched. The Task Record marks terminal delivery `delivered`
+only after a text reply; missing/error/cancelled delivery is `unconfirmed` and
+cannot alter the authoritative Kernel/commit result. This is result delivery,
+not retry or approval; the wire schema and Kernel cancellation ABI are unchanged.
+
 Each `tool_result` also carries a strict Boolean `can_continue` written by the
 trusted Launcher. `true` permits only one next `list` or `shell` proposal or a
 final `text` reply; `plugin` and Candidate evolution proposals are rejected in

@@ -933,6 +933,12 @@ AgentLoop 也不能把模型输出当作授权。模型只能提出 Tool request
 
 ## 11.1 Seed bounded coding iteration
 
+主动取消 workspace 操作后，Launcher 仍以原始 Kernel 终态为准；通过现有
+`tool_result`、`can_continue=false` 将有界终态交给 Host，再关闭该任务的 Host 连接。
+Host 返回的文本或建议均不能引发下一次执行。Task Record 单独记录终态传递是否已确认；
+传递失败或用户取消传递不会覆盖已确定的 commit、拒绝或不确定结果，也不会自动重试。
+测试阶段同步只能存在于验收构建的私有源码快照，正式构建不得提供运行时启用入口。
+
 一个用户任务可在同一 Agent Host session 中包含多次 workspace 操作。Agent Host
 根据最近一次结果建议下一步；只有 Trusted Launcher 写入的严格布尔
 `tool_result.can_continue` 能允许继续。`true` 只允许再提出一个 `list` / `shell` 建议或返回最终文本；

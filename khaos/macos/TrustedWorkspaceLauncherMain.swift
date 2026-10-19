@@ -1254,6 +1254,29 @@ enum TrustedWorkspaceLauncherMain {
                         workspaceRequestRecords.append(workspaceRecord)
                     }
                     if outcome.taskCancelled {
+                        // Deliver the original outcome as terminal data, never as a
+                        // new approval. Ignore every Host reply, including proposals.
+                        let terminalDelivery = awaitAgentHostReply(
+                            taskID: taskID,
+                            host: host,
+                            title: "Recording the cancelled operation's actual result",
+                            message: "The Kernel result is final. The Host cannot continue this task; Cancel ends result delivery."
+                        ) { completion in
+                            try host.sendToolResultAsync(
+                                ok: outcome.ok,
+                                canContinue: false,
+                                text: outcome.text,
+                                activePlugin: currentAgentPluginMetadata(),
+                                completion: completion
+                            )
+                        }
+                        let deliveryStatus: String
+                        if case .text = terminalDelivery.reply {
+                            deliveryStatus = "delivered"
+                        } else {
+                            deliveryStatus = "unconfirmed"
+                        }
+                        writeAgentDiagnostic("task=cancelled-terminal-delivery status=\(deliveryStatus)")
                         resetHostAfterTask = true
                         taskStopReason = cancellationTaskStatus(
                             workspaceRequests: workspaceRequestRecords
@@ -1268,7 +1291,8 @@ enum TrustedWorkspaceLauncherMain {
                             stopReason: taskStopReason,
                             cancellationRequested: true,
                             hostConnectionInvalidated: true,
-                            workspaceRequests: workspaceRequestRecords
+                            workspaceRequests: workspaceRequestRecords,
+                            terminalResultDelivery: deliveryStatus
                         )
                         fflush(stdout)
                         awaitingNextUser = true
@@ -1668,7 +1692,8 @@ enum TrustedWorkspaceLauncherMain {
         stopReason: String? = nil,
         cancellationRequested: Bool = false,
         hostConnectionInvalidated: Bool = false,
-        workspaceRequests: [AgentWorkspaceRequestRecord] = []
+        workspaceRequests: [AgentWorkspaceRequestRecord] = [],
+        terminalResultDelivery: String = "not_applicable"
     ) {
         let workspaceEntries: [[String: Any]] = workspaceRequests.map { request in
             [
@@ -1702,6 +1727,7 @@ enum TrustedWorkspaceLauncherMain {
             "agent_host_connection_invalidated": hostConnectionInvalidated,
             "stop_reason": stopReason ?? "Agent Host returned final text",
             "workspace_requests": workspaceEntries,
+            "terminal_result_delivery": terminalResultDelivery,
         ]
         guard let data = try? JSONSerialization.data(
             withJSONObject: record,
