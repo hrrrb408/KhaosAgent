@@ -51,7 +51,7 @@
     {
       "path": "AGENTS.md",
       "role": "build-governance",
-      "sha256": "3d8d0e124d9d0074417456ffe5b0182b195ec9f40b49de0ffbdc4f3404136126",
+      "sha256": "4291607fcdc2dfaf522f3263ce0f23d2d4ec4c3deb499a3694c5aec386da3414",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -73,7 +73,7 @@
     {
       "path": "docs/KERNEL_ABI.md",
       "role": "build-governance",
-      "sha256": "02deec4ed285b65832c4f0bdfd30df0042e48c4026d3035ec561518c26569f2c",
+      "sha256": "fef6648294d6f73b42e340c073235635f8f14783a8a36850655922612b05dce8",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -82,14 +82,14 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext 架构设计文档.md",
+      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
         "python3 tools/check_security_freeze.py",
         "tests/test_security_freeze.py"
       ],
-      "sha256": "2b0648937acddf73bf7f5d8cdec6af1792785154498229fb39cb2128f412d3ad",
+      "sha256": "cf2e392da0b19db9d8879a4b5360f5ba4988571c6e717dd0cb6ef102fc5d8375",
       "source_mode": "0o644"
     },
     {
@@ -506,7 +506,7 @@
     {
       "path": "khaos/macos/TrustedWorkspaceLauncherMain.swift",
       "role": "runtime-tcb",
-      "sha256": "214e6f13888f9be1b6b46e8838e99215a0b89daba64e93cc33fdaeedff1e39de",
+      "sha256": "122ef38381bed4584f6388bcd3b2452cfd84caa6ac7f004b59c307273657145a",
       "source_mode": "0o644",
       "boundary": "launcher_binary: trusted request admission, OS enforcement, scoped snapshot/commit or lifecycle integrity; never imports Plugin code",
       "tests": [
@@ -603,7 +603,7 @@
     {
       "path": "tests/macos_xpc_probe/AgentHostSandboxModelProbe.swift",
       "role": "build-governance",
-      "sha256": "25f2163d573bd41a3029504121d5d07d0258993e9ced9cf484a78371dc91d428",
+      "sha256": "7c50c9c26d7ba64a29f4f0bc3c1bddb2c5789db5a64c8985b181de5e8c6878b5",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -937,6 +937,28 @@
       ]
     },
     {
+      "path": "tests/run_signed_cancellation_acceptance.py",
+      "role": "build-governance",
+      "source_mode": "0o644",
+      "boundary": "test-only signed acceptance build overlay/controller; absent production runtime",
+      "tests": [
+        "tests/test_signed_cancellation_fixture.py",
+        "python3 tools/check_security_freeze.py"
+      ],
+      "sha256": "4df7135b890f85fd13f9f3e8f09a34afc1b0bd7b608d639878994ea7cf74d9d9"
+    },
+    {
+      "path": "tests/signed_cancellation_fixture.py",
+      "role": "build-governance",
+      "source_mode": "0o644",
+      "boundary": "test-only signed acceptance build overlay/controller; absent production runtime",
+      "tests": [
+        "tests/test_signed_cancellation_fixture.py",
+        "python3 tools/check_security_freeze.py"
+      ],
+      "sha256": "a463b121f816f1d14820f0736eebd1331edc4d4e89a4b6a901b730a2cd4298a6"
+    },
+    {
       "path": "tests/test_agent_terminal_capture.py",
       "role": "build-governance",
       "sha256": "48de1d655dcb9be47e3e09c58ff7c4efda1f9890f86df18d91265d3c376aeff6",
@@ -950,7 +972,7 @@
     {
       "path": "tests/test_broker.py",
       "role": "build-governance",
-      "sha256": "aaa99fb79a6cd08ed8b95f540969c219f3f661e2603fbad06801ec08ef5d5ccc",
+      "sha256": "a4938688563bb77fc1686b3dc355e7c6a8e671df93f50cf203cc1fb22d8b6b4b",
       "source_mode": "0o644",
       "boundary": "reviewed build, test or governance input; not runtime authority",
       "tests": [
@@ -1111,6 +1133,17 @@
         "tests/test_security_freeze.py",
         "python3 tools/check_security_freeze.py"
       ]
+    },
+    {
+      "path": "tests/test_signed_cancellation_fixture.py",
+      "role": "build-governance",
+      "source_mode": "0o644",
+      "boundary": "test-only signed acceptance build overlay/controller; absent production runtime",
+      "tests": [
+        "tests/test_signed_cancellation_fixture.py",
+        "python3 tools/check_security_freeze.py"
+      ],
+      "sha256": "455b84ab32eb0ee19c9458c49918bb37be1a3c23bb3481edb21bce24728d33dd"
     },
     {
       "path": "tests/test_snapshot_broker_process.py",

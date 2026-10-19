@@ -613,6 +613,22 @@ workspace interaction consolidated in the documented signed-product acceptance c
 above;
 lower-level real-OS Runner and cancellation attacks remain in the canonical suite.
 
+Prepare deterministic signed cancellation acceptance separately from production:
+
+```bash
+python3 tests/run_signed_cancellation_acceptance.py --prepare --case b32 \
+  --directory NEW_ABSOLUTE_PATH --signing-identity ID
+python3 tests/run_signed_cancellation_acceptance.py --run --directory SAME_ABSOLUTE_PATH
+```
+
+Cases are `b32`, `pre-commit`, and `post-commit`, each in a new directory. Preparation
+builds and verifies an ordinary production app plus a separately signed private
+source-overlay app and records actual input/binary hashes. `--run` requires the
+owner to select its disposable workspace, click Run Once, and click Cancel task
+at the printed stage within 55 seconds. The harness never approves or clicks.
+It retains attempts and rejects reuse/overwrite. Do not launch it with another
+Picker pending. These hooks are absent from the production builder and sources.
+
 Discover any future build, lint, formatting, packaging, or release commands from repository
 files; do not guess them.
 

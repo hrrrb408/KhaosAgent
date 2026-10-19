@@ -1349,6 +1349,39 @@ Path("finished.txt").write_text("finished")
             self.assertEqual(target.read_text(encoding="utf-8"), "before")
             self.assertEqual(outside.read_text(encoding="utf-8"), "protected")
 
+    @unittest.skipUnless(sys.platform == "darwin", "requires the real macOS commit child")
+    def test_unscoped_private_deletion_rejects_the_complete_changeset(self) -> None:
+        # Inject the private result directly: a Runner OS denial alone cannot
+        # prove the Kernel validator rejects a deleted out-of-scope entry.
+        with tempfile.TemporaryDirectory() as value:
+            source = Path(value) / "workspace"
+            source.mkdir()
+            target = source / "tags.py"
+            sibling = source / "unscoped.txt"
+            target.write_bytes(b"original target\n")
+            sibling.write_bytes(b"preserve sibling\n")
+            with workspace_snapshot(source) as snapshot:
+                (snapshot.path / target.name).write_bytes(b"private replacement\n")
+                (snapshot.path / sibling.name).unlink()
+                with _pipe_pair() as (request_read, request_write, response_read, response_write):
+                    send_frame(request_write, {
+                        "version": PROTOCOL_VERSION,
+                        "request_id": "d" * 32,
+                        "operation": "workspace.commit",
+                        "payload": {},
+                    })
+                    with self.assertRaises(WorkspaceCommitError):
+                        _serve_workspace_commit(
+                            request_read, response_write, snapshot,
+                            workspace_write_scope=(target.name,),
+                        )
+                    response = receive_frame(response_read)
+            self.assertFalse(response["ok"])
+            self.assertEqual(response["error"], {"code": "commit_rejected"})
+            self.assertEqual(target.read_bytes(), b"original target\n")
+            self.assertEqual(sibling.read_bytes(), b"preserve sibling\n")
+            self.assertEqual(sorted(p.name for p in source.iterdir()), ["tags.py", "unscoped.txt"])
+
     def test_invalid_trusted_write_scope_returns_protocol_error(self) -> None:
         with tempfile.TemporaryDirectory() as value:
             source = Path(value) / "workspace"
