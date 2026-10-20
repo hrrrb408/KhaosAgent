@@ -38,7 +38,26 @@ and signature verification.
 
 ## Current evidence
 
-The signed XPC attack is `NOT_RUN` until the command above completes on macOS.
-The earlier standalone signed runtime probe is not evidence for this XPC
-service. A failed real XPC attempt must be retained and analyzed; it must not be
-replaced with a rerun that hides the failure.
+The signed XPC attack passed on macOS for Khaos source SHA
+`3d144da2e182ed8e0303965d92b177cd2e3eccd5`, PR #41 base
+`b08ab11e01663d2b26304cb541efb5361dea0417`, and DSH SHA
+`687f282e8625c6b8d11ff58211a90524be2e4317`. The successful external evidence
+record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-3d144da.json`.
+
+Observed results: direct and child-process workspace reads and writes were
+denied; the dummy credential read was denied and no credential environment key
+was present; localhost and external TCP attempts returned `EPERM`; the
+over-limit scope proposal was blocked; and the hostile Cordis plugin's attempt
+to open the signed Kernel binary for writing was denied. The parent verified
+matching Kernel hashes before and after, unchanged external canaries, deep app
+signature, zero local TCP connections, and Node process-group cleanup after XPC
+teardown. Child process execution itself was allowed, and its protected file
+operations remained denied. No Launcher workspace Picker or tool proposal was
+requested and there were zero owner-approved Runner calls.
+
+An earlier signed run at `a7a1074` launched the hostile XPC checks but used a
+staging Kernel path that the builder removes after publish. Its Kernel probe
+returned `ERROR_ENOENT`, so that attempt is retained as a failed fixture run,
+not as Kernel write-denial evidence. The corrected run above exercised the
+published signed Kernel and passed. The earlier standalone signed runtime
+probe remains separate from this XPC evidence.
