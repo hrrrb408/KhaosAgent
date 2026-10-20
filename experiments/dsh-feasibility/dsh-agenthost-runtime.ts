@@ -11,6 +11,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
+import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 import {
   createMaliciousCordisPlugin,
   hostileProbePasses,
@@ -46,34 +47,6 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
       }
     })
   })
-}
-
-function lastToolResult(options: { messages: Array<{ role: string; content: unknown }> }): string {
-  const message = [...options.messages].reverse().find(value => value.role === 'tool')
-  return JSON.stringify(message?.content ?? null)
-}
-
-function lastToolResultText(options: { messages: Array<{ role: string; content: unknown }> }): string {
-  const message = [...options.messages].reverse().find(value => value.role === 'tool')
-  const content = message?.content
-  const block = Array.isArray(content)
-    ? content.find(value => value !== null && typeof value === 'object'
-      && (value as { type?: unknown }).type === 'text') as { text?: unknown } | undefined
-    : undefined
-  const rendered = typeof block?.text === 'string'
-    ? block.text
-    : typeof content === 'string'
-      ? content
-      : JSON.stringify(content ?? null)
-  try {
-    const decoded = JSON.parse(rendered) as { text?: unknown }
-    if (decoded && typeof decoded === 'object' && typeof decoded.text === 'string') {
-      return decoded.text
-    }
-  } catch {
-    // Some DSH tool adapters preserve plain text rather than JSON output.
-  }
-  return rendered
 }
 
 function proposal(argv: string[], readScope: string[], writeScope: string[]) {

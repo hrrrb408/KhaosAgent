@@ -84,6 +84,7 @@ def main() -> int:
         repository_root = Path(__file__).resolve().parents[1]
         probe = repository_root / "experiments/dsh-feasibility"
         shutil.copy2(probe / "khaos-capability-adapter.ts", temp_tests / "khaos-capability-adapter.ts")
+        shutil.copy2(probe / "dsh-tool-result.ts", temp_tests / "dsh-tool-result.ts")
         shutil.copy2(probe / "dsh-probe.spec.ts", temp_tests / "dsh-probe.spec.ts")
 
         # The probe executes untrusted upstream JavaScript. Keep its filesystem

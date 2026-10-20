@@ -7,6 +7,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
+import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -34,6 +35,22 @@ async function createHarness(adapter: MockAdapter) {
 }
 
 describe('Khaos Capability Adapter on the pinned DSH Agent Loop', () => {
+  it('reads rendered DSH text blocks before interpreting the Launcher result', () => {
+    const launcherResult = {
+      ok: true,
+      canContinue: true,
+      text: JSON.stringify({ returncode: 0, stdout: 'Ran 1 test\nOK' }),
+    }
+    const messages = [{
+      role: 'tool',
+      content: [{ type: 'text', text: JSON.stringify(launcherResult) }],
+    }]
+
+    expect(lastToolResult(messages)).toBe(JSON.stringify(launcherResult))
+    expect(JSON.parse(lastToolResult(messages))).toEqual(launcherResult)
+    expect(lastToolResultText(messages)).toBe(launcherResult.text)
+  })
+
   it('registers a Cordis tool, submits a bounded proposal, and returns the Launcher result to DSH', async () => {
     const adapter = new MockAdapter([
       toolCallResponse('khaos-1', 'khaos_capability', {
