@@ -91,3 +91,12 @@ failed result is preserved at
 now places only those bounded counters and error type names in its empty-reply
 text so the next run can expose where the DSH turn stopped. No hostile-plugin
 checks passed on this SHA.
+
+On source SHA `87b75409c429210c6e7bfd49a50f8724c405ed9f`, the fallback text
+showed two adapter requests, one assistant tool-call block, zero Launcher
+proposals, and one `LlmError`. This narrows the failure to the DSH turn after
+the tool-call response, before Launcher submission, but does not identify the
+error or establish a security outcome. The failure is preserved at
+`failed_attempts/signed-xpc-attack-87b7540-no-result.failed.json`. The fixture
+now also captures bounded error code/message text and the final session message
+shape; another signed run is needed to diagnose the LLM failure.

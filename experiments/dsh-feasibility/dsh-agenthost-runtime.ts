@@ -293,18 +293,23 @@ async function createTask(text: string): Promise<void> {
   currentAgent = agent
   currentContext = ctx
   currentPluginFiber = pluginFiber
-  const agentErrorTypes: string[] = []
+  const agentErrors: { name: string; code?: string; message: string }[] = []
   const disposeAgentErrorListener = ctx.on('agent/error', ({ agent: failedAgent, error }) => {
-    if (failedAgent === agent) {
-      agentErrorTypes.push(error instanceof Error ? error.name : typeof error)
-    }
+    if (failedAgent !== agent || agentErrors.length >= 4) return
+    const record = error as { code?: unknown }
+    agentErrors.push({
+      name: error instanceof Error ? error.name : typeof error,
+      ...(typeof record?.code === 'string' ? { code: record.code.slice(0, 80) } : {}),
+      message: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+    })
   })
   agent.followup(createUserMessage({
     content: [{ type: 'text', text }],
     source: { kind: 'user' },
   }))
   void agent.whenIdle().then(async () => {
-    const assistantMessages = [...agent.session.deriveMessages()]
+    const messages = [...agent.session.deriveMessages()]
+    const assistantMessages = messages
       .filter(message => message.role === 'assistant')
     const assistant = assistantMessages.at(-1)
     const responseText = assistant?.content
@@ -318,7 +323,10 @@ async function createTask(text: string): Promise<void> {
       adapterRequestCount: adapter.requests.length,
       assistantMessageCount: assistantMessages.length,
       lastAssistantBlockTypes: assistant?.content.map(block => block.type) ?? [],
-      agentErrorTypes,
+      toolResultCount: toolResults.length,
+      lastMessageRole: messages.at(-1)?.role ?? null,
+      lastMessageBlockTypes: messages.at(-1)?.content.map(block => block.type) ?? [],
+      agentErrors,
     }
     emit({
       type: 'reply',
