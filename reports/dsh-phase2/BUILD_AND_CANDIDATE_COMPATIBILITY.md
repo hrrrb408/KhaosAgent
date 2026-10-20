@@ -79,9 +79,10 @@ boundaries.
 - A signed XPC app built successfully on Khaos source SHA
   `ddf41dae96ff1f5d5547d021d77fa68be64afc5b`. It bundles the DSH runtime with
   SHA-256 `316ff95decb95c706693c9d42bff8d48ade793d935dfbdfd889281a760c04ace`
-  and is 198,802,153 bytes. The coding acceptance is currently waiting at its
-  real workspace Picker; its three Runner operations have not yet been
-  approved or submitted.
+  and is 198,802,153 bytes. Its coding acceptance timed out at the real
+  workspace Picker before a workspace selection reached the app; no Runner
+  operation was submitted. The failed attempt is preserved under
+  `reports/dsh-phase2/failed_attempts/`.
 - The signed XPC hostile-plugin attack passed at the earlier exact source SHA
   `efadf67a35bb70e0441f737af457a619e7c8aae3`; it has not yet been rerun on
   `ddf41da`. The run record is described in `SECURITY_ACCEPTANCE.md`.

@@ -46,17 +46,22 @@ The result reader now extracts text blocks before interpreting the Launcher
 JSON. A focused regression test passes in the 8/8 pinned DSH suite. Commit
 `ddf41dae96ff1f5d5547d021d77fa68be64afc5b` also stages the helper in the
 temporary signed runtime build. The signed app built successfully at that SHA
-and is waiting at the workspace Picker. Its current disposable workspace is
+but no workspace selection reached the app before the acceptance timed out.
+The run record is `failed_attempts/coding-ddf41da-picker-timeout.failed.json`.
+It remains `FAILED_ATTEMPT`, not an approval denial or a completed workflow.
+Its disposable workspace was
 `/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-ajumqdsy/coding-workspace`.
-The owner must select it and separately approve the displayed Read, Edit, and
-Test operations. The live Launcher log currently contains only the initial
-tool proposal and Picker request; no operation has been submitted yet.
+The preserved Launcher log contains only the initial tool proposal and Picker
+request; no Runner operation was submitted.
 
-Two subsequent pre-acceptance failures are also preserved under
+Three subsequent pre-acceptance failures are also preserved under
 `failed_attempts/`: the first exposed the missing helper copy in the bundle
-stager, and the second was caused by an untracked failure record making the
-builder's required clean-worktree check fail. The failure record was moved out
-of the checkout before the successful build.
+stager, the second was caused by an untracked failure record making the
+builder's required clean-worktree check fail, and the third timed out at the
+workspace Picker before any operation was submitted. The earlier failure
+record was moved out of the checkout before the successful build. The stale
+app process from the first signed attempt was terminated after confirming its
+binary path was inside that attempt's private scratch directory.
 
 Fake-result UI acceptance and the completed signed Read → Edit → Test flow
 remain incomplete. The DSH protocol unit tests do not substitute for those

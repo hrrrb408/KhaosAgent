@@ -15,11 +15,14 @@ standalone Node/DSH packaging smoke passed at 111,028,546 app bytes and
 entitlements. The real signed AgentHost XPC hostile-plugin attack also passed
 at source SHA `efadf67a35bb70e0441f737af457a619e7c8aae3`; its external evidence
 record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-efadf67.json`. That attack
-has not yet been rerun at the coding acceptance source SHA `ddf41da`. The signed coding app
-build succeeded at `ddf41da` and is waiting at its Picker; the workflow itself
-is not complete. The canonical Khaos suite passed 404 tests at that head, both
-local Security Freeze checks passed, and PR #43 `security-tests` and
-`security-freeze` checks passed.
+has not yet been rerun at the coding acceptance source SHA `ddf41da`. The
+signed coding app built successfully at `ddf41da`, but its UI acceptance
+timed out at the Picker before a workspace selection reached the app; no
+Runner operation was submitted. The canonical Khaos suite passed 404 tests
+at `ddf41da` and both local Security Freeze checks passed. PR #43
+`security-tests` and `security-freeze` checks passed at `ddf41da`; after the
+evidence-report commit `15ac0e4`, the Freeze check passed and `security-tests`
+was still pending at the latest poll.
 
 ## Evidence still required
 
