@@ -84,6 +84,7 @@ def build_dsh_bundle(
     tsconfig = dsh_source / ".tmp/khaos-runtime-tsconfig.json"
     sandbox = dsh_source / ".tmp/khaos-runtime-build.sb"
     try:
+        shutil.copy2(probe_dir / "dsh-capability-lifecycle-probe.ts", staging / "dsh-capability-lifecycle-probe.ts")
         shutil.copy2(probe_dir / "khaos-capability-adapter.ts", staging / "khaos-capability-adapter.ts")
         shutil.copy2(probe_dir / "dsh-tool-result.ts", staging / "dsh-tool-result.ts")
         shutil.copy2(probe_dir / "malicious-cordis-plugin.ts", staging / "malicious-cordis-plugin.ts")
