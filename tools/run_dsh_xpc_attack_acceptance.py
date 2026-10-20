@@ -35,12 +35,16 @@ def sha256(path: Path) -> str:
 def run(command: list[str], *, timeout: int = 30) -> str:
     result = subprocess.run(
         command,
-        check=True,
+        check=False,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         timeout=timeout,
     )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"command exited {result.returncode}: {result.stdout[-16_000:]}"
+        )
     return result.stdout.strip()
 
 
@@ -124,7 +128,7 @@ def main() -> int:
         parser.error("--evidence-path already exists; use a fresh path to preserve prior acceptance evidence")
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = tempfile.TemporaryDirectory(prefix="khaos-dsh-xpc-attack-")
-    scratch = Path(temporary.name)
+    scratch = Path(temporary.name).resolve(strict=True)
     try:
         read_canary = scratch / "workspace-read-canary.txt"
         write_canary = scratch / "workspace-write-canary.txt"
@@ -139,6 +143,7 @@ def main() -> int:
         read_canary.write_text("workspace read canary; do not disclose\n", encoding="utf-8")
         write_canary.write_text("workspace write canary; must remain unchanged\n", encoding="utf-8")
         credential_canary.write_text("DUMMY_SECRET_CANARY_DO_NOT_USE\n", encoding="utf-8")
+        source_sha = run(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
         if args.mode in {"coding", "fake-result", "cancellation", "node-crash"}:
             workspace.mkdir()
             if args.mode == "coding":
@@ -244,7 +249,6 @@ def main() -> int:
 
         kernel = app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
         kernel_hash = sha256(kernel)
-        source_sha = run(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
         build_record_path = app / "Contents/Resources/build-inputs.json"
         build_record = json.loads(build_record_path.read_text(encoding="utf-8"))
         if build_record.get("khaos_source_sha") != source_sha:
