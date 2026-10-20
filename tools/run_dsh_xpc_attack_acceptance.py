@@ -138,6 +138,14 @@ def stop_nodes_for_app(app: Path) -> None:
             pass
 
 
+def team_identifier(path: Path) -> str:
+    details = run(["/usr/bin/codesign", "--display", "--verbose=4", str(path)])
+    match = re.search(r"^TeamIdentifier=(.+)$", details, re.MULTILINE)
+    if match is None or match.group(1) == "-":
+        raise RuntimeError(f"signed bundle has no Team ID: {path}")
+    return match.group(1)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -752,6 +760,17 @@ def main() -> int:
                 and ("workspace-picker-requested" in stderr or "tool-proposal" in stderr):
             raise RuntimeError("the hostile-plugin-only task unexpectedly requested workspace authority")
         codesign = run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
+        signed_components = {
+            "app": app,
+            "agent_host_xpc": app / "Contents/XPCServices/KhaosAgentHost.xpc",
+            "kernel_xpc": app / "Contents/XPCServices/KernelProduction.xpc",
+            "snapshot_broker_xpc": app / "Contents/XPCServices/KernelSnapshotBroker.xpc",
+        }
+        team_identifiers = {
+            name: team_identifier(path) for name, path in signed_components.items()
+        }
+        if len(set(team_identifiers.values())) != 1:
+            raise RuntimeError(f"signed components do not share one Team ID: {team_identifiers}")
 
         report = {
             "schema": 1,
@@ -796,6 +815,8 @@ def main() -> int:
             "dsh_terminal_preserved_original_result": args.mode == "cancellation",
             "node_runtime_spawned_count": len(re.findall(r"dsh-runtime=spawned pid=", stderr)),
             "node_runtime_stopped_count": len(re.findall(r"dsh-runtime=stopped pid=", stderr)),
+            "signing_certificate_sha1": build_record.get("certificate_sha1"),
+            "team_identifiers": team_identifiers,
         }
         evidence_path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, sort_keys=True, indent=2))
