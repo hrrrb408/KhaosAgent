@@ -14,10 +14,12 @@ The real signed AgentHost XPC hostile-plugin attack passed at exact source SHA
 denials, credential and network denial, scope rejection, deep signature
 validity, unchanged canaries, and Node process-group cleanup. The bounded DSH
 adapter regression suite passed 8/8 after the result-message callback fix.
-The current-head and PR #41 base Security Freeze checks passed with zero
-sensitive changes at `a276538`. The canonical suite passed at that source SHA:
-404 tests in 807.939 seconds. Final PR #43 CI and Security Freeze checks after
-the report commit remain pending.
+The canonical suite passed at source SHA `a276538`: 404 tests in 807.939
+seconds. Security Freeze passed against the exact PR #41 base with zero
+sensitive changes. Seed CI and Security Freeze also passed on report commit
+`0e3f51de7fb8b6cd72b86eaf1a7796d2b11331bd`; Seed CI took 16m39s. These results
+are SHA-bound. Check the live PR #43 status for results on any later
+documentation commit.
 
 The signed Read → Edit → Test acceptance app built at `a276538` but waited at
 the workspace Picker because the owner was unavailable to perform the required
@@ -33,7 +35,6 @@ attempt, not a pass, approval denial, or cancellation.
   task.
 - Signed deterministic Read → Edit → Test completion and fake-result
   acceptance.
-- PR #43 Seed CI and Security Freeze checks after the final report commit.
 - Independent Code Owner review; `NOT_PROVEN` in single-maintainer mode.
 
 Until those checks are complete, Phase 2 is not a GO for formal Harness
