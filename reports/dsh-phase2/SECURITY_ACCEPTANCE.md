@@ -81,3 +81,13 @@ at `failed_attempts/signed-xpc-attack-8544e29-clean-tree-preflight.failed.json`.
 The experimental runtime fixture now waits on DSH's `Agent.whenIdle()` contract
 and reports bounded request, message, and error-type counts. That adjustment
 has not yet produced a new signed attack result.
+
+The first clean diagnostic build on source SHA
+`d1848f66756b4f918b1e6bc70194e1116d1addc4` again returned no final DSH text and
+zero Launcher proposals. Its diagnostic object was discarded at the Swift
+Host boundary because the reply protocol forwards only the `text` field. The
+failed result is preserved at
+`failed_attempts/signed-xpc-attack-d1848f6-no-result.failed.json`. The fixture
+now places only those bounded counters and error type names in its empty-reply
+text so the next run can expose where the DSH turn stopped. No hostile-plugin
+checks passed on this SHA.

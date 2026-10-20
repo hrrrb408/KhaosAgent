@@ -314,16 +314,16 @@ async function createTask(text: string): Promise<void> {
     const toolResults = adapter.requests.flatMap(request => request.messages
       .filter(message => message.role === 'tool')
       .map(message => message.content))
+    const diagnostics = {
+      adapterRequestCount: adapter.requests.length,
+      assistantMessageCount: assistantMessages.length,
+      lastAssistantBlockTypes: assistant?.content.map(block => block.type) ?? [],
+      agentErrorTypes,
+    }
     emit({
       type: 'reply',
-      text: responseText || 'DSH produced no final text response.',
+      text: responseText || `DSH produced no final text response. diagnostics=${JSON.stringify(diagnostics)}`,
       toolResults,
-      diagnostics: {
-        adapterRequestCount: adapter.requests.length,
-        assistantMessageCount: assistantMessages.length,
-        lastAssistantBlockTypes: assistant?.content.map(block => block.type) ?? [],
-        agentErrorTypes,
-      },
     })
     disposeAgentErrorListener()
     currentAgent = undefined
