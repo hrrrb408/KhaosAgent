@@ -241,7 +241,7 @@ def main() -> int:
         for key, path in probe_paths.items():
             host_info[key] = str(path)
         host_info["KhaosDSHProbeKernelPath"] = str(
-            app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
+            output_app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
         )
         host_info["KhaosDSHProbeLocalPort"] = str(args.probe_local_port)
         if fixed_script_argument is not None:
