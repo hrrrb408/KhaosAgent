@@ -26,13 +26,15 @@ and does not prove workspace-operation or XPC crash/recovery behavior.
 The canonical Khaos suite passed at source SHA `6962a073`: 404 tests in
 844.086 seconds. Both `python3 tools/check_security_freeze.py` and the check
 against exact PR #41 base `b08ab11e01663d2b26304cb541efb5361dea0417` passed with
-zero sensitive changes. These local results are SHA-bound. PR #43 integration
-head `8d920ca7971826072df3fd077e7ca8640e39a4b9` also passed exact-head GitHub
-Seed CI ([run 39392010175](https://github.com/hrrrb408/KhaosAgent/actions/runs/39392010175),
-17m32s) and Security Freeze
-([run 39392010227](https://github.com/hrrrb408/KhaosAgent/actions/runs/39392010227)).
-Those runs validate the code and report head before this status annotation;
-any later commit still needs checks on its own SHA.
+zero sensitive changes. These local results are SHA-bound. Before this
+report-only revision, PR #43 head `56744ef9bcd5385df37a96c2b158de819765bdf4`
+passed exact-head GitHub Seed CI
+([run 39394236276](https://github.com/hrrrb408/KhaosAgent/actions/runs/39394236276),
+16m57s) and Security Freeze
+([run 39394236305](https://github.com/hrrrb408/KhaosAgent/actions/runs/39394236305)).
+The earlier checks on `8d920ca7971826072df3fd077e7ca8640e39a4b9` are
+historical. This report-only commit also requires exact-head checks; PR #43's
+description records the current head and its check runs after they complete.
 
 The signed Read → Edit → Test acceptance app built at `a276538` but waited at
 the workspace Picker because the owner was unavailable to perform the required
