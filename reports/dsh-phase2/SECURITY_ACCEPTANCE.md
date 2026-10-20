@@ -100,3 +100,14 @@ error or establish a security outcome. The failure is preserved at
 `failed_attempts/signed-xpc-attack-87b7540-no-result.failed.json`. The fixture
 now also captures bounded error code/message text and the final session message
 shape; another signed run is needed to diagnose the LLM failure.
+
+The next clean signed attempt on `f971d7fb0d42092ea993229ef8a8dba5c096bc94`
+captured `LlmError` code `UNKNOWN` with message `messages is not iterable`.
+The attack fixture callbacks passed the whole DSH request object to
+`lastToolResult`, whose contract takes the request's `messages` array. This was
+introduced when the helper changed from accepting a request object to accepting
+messages. No Launcher proposal was submitted and no hostile-plugin assertion
+ran. The attempt is retained at
+`failed_attempts/signed-xpc-attack-f971d7f-no-result.failed.json`. All affected
+fixture callbacks now pass `options.messages`, and the roundtrip test exercises
+that callback shape. The fix still needs a clean signed XPC run.

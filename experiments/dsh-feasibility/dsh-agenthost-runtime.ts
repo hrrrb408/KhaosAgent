@@ -53,7 +53,7 @@ function codingResponses() {
       [],
     )),
     options => {
-      const observed = lastToolResult(options)
+      const observed = lastToolResult(options.messages)
       if (!observed.includes('return 100') || !observed.includes('test_answer')) {
         return textResponse(`The actual read result was incomplete: ${observed}`)
       }
@@ -67,7 +67,7 @@ function codingResponses() {
       ))
     },
     options => {
-      const observed = lastToolResult(options)
+      const observed = lastToolResult(options.messages)
       if (!observed.includes('"ok":true')) {
         return textResponse(`The edit result was not successful: ${observed}`)
       }
@@ -81,7 +81,7 @@ function codingResponses() {
       ))
     },
     options => {
-      const observed = lastToolResult(options)
+      const observed = lastToolResult(options.messages)
       if (observed.includes('"ok":true') && observed.includes('Ran 1 test') && observed.includes('OK')) {
         return textResponse(`DSH consumed the actual passing test result: ${observed}`)
       }
@@ -102,7 +102,7 @@ function scopeAttackResponses() {
       [],
       [],
     )),
-    options => textResponse(`DSH observed terminal scope denial: ${lastToolResult(options)}`),
+    options => textResponse(`DSH observed terminal scope denial: ${lastToolResult(options.messages)}`),
   ]
 }
 
@@ -118,7 +118,7 @@ function oversizedScopeResponses() {
   return [
     oversizedScopeProposal(),
     options => {
-      const observed = lastToolResult(options)
+      const observed = lastToolResult(options.messages)
       const blocked = observed.includes('invalid readScope')
       return textResponse(`KHAOS_DSH_OVERSIZED_SCOPE_RESULT ${JSON.stringify({ blocked, observed })}`)
     },
@@ -136,7 +136,7 @@ function fakeResultResponses() {
       [],
     )),
     options => {
-      const observed = lastToolResult(options)
+      const observed = lastToolResult(options.messages)
       const actualFailure = observed.includes('"ok":false')
       const fakeSuccessOutput = observed.includes('Ran 1 test') && observed.includes('OK')
       return textResponse(`KHAOS_DSH_FAKE_RESULT_CHECK ${JSON.stringify({
@@ -166,7 +166,7 @@ function cancellationResponses() {
       ['tags.py'],
     )),
     options => textResponse(
-      `CANCELLATION_RECEIPT_BASE64 ${Buffer.from(lastToolResultText(options), 'utf8').toString('base64')}`,
+      `CANCELLATION_RECEIPT_BASE64 ${Buffer.from(lastToolResultText(options.messages), 'utf8').toString('base64')}`,
     ),
   ]
 }
@@ -210,7 +210,7 @@ async function createTask(text: string): Promise<void> {
   const adapter = new MockAdapter(attackMode
     ? [oversizedScopeProposal(), options => {
       const evidence = hostileEvidence
-      const oversizedScopeBlocked = lastToolResult(options).includes('invalid readScope')
+      const oversizedScopeBlocked = lastToolResult(options.messages).includes('invalid readScope')
       const result = evidence ? {
         status: hostileProbePasses(evidence) && oversizedScopeBlocked ? 'PASS' : 'FAIL',
         oversizedScopeBlocked,
@@ -234,7 +234,7 @@ async function createTask(text: string): Promise<void> {
             ['fixture.txt'],
             [],
           )),
-          options => textResponse(`KHAOS_DSH_RECOVERY_TASK_RESULT ${lastToolResult(options)}`),
+          options => textResponse(`KHAOS_DSH_RECOVERY_TASK_RESULT ${lastToolResult(options.messages)}`),
         ]
       : scopeAttack
         ? scopeAttackResponses()
@@ -249,7 +249,7 @@ async function createTask(text: string): Promise<void> {
             ['fixture.txt'],
             [],
           )),
-          options => textResponse(`DSH observed the actual Khaos tool result: ${lastToolResult(options)}`),
+          options => textResponse(`DSH observed the actual Khaos tool result: ${lastToolResult(options.messages)}`),
         ])
 
   await ctx.plugin(LlmRuntime)

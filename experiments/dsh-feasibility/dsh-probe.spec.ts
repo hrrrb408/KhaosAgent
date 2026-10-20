@@ -52,13 +52,17 @@ describe('Khaos Capability Adapter on the pinned DSH Agent Loop', () => {
   })
 
   it('registers a Cordis tool, submits a bounded proposal, and returns the Launcher result to DSH', async () => {
+    let callbackToolResult = ''
     const adapter = new MockAdapter([
       toolCallResponse('khaos-1', 'khaos_capability', {
         argv: ['python3', '-c', 'print("fixture-ok")'],
         readScope: ['fixture.py'],
         writeScope: [],
       }),
-      textResponse('The Launcher returned fixture-ok.'),
+      options => {
+        callbackToolResult = lastToolResult(options.messages)
+        return textResponse('The Launcher returned fixture-ok.')
+      },
     ])
     const ctx = await createHarness(adapter)
     const submitted: unknown[] = []
@@ -95,6 +99,7 @@ describe('Khaos Capability Adapter on the pinned DSH Agent Loop', () => {
       }])
       expect(adapter.requests).toHaveLength(2)
       expect(adapter.requests[0]?.tools?.some(tool => tool.name === 'khaos_capability')).toBe(true)
+      expect(callbackToolResult).toBe(JSON.stringify(launcherResult))
       const toolResult = adapter.requests[1]?.messages.find(message => message.role === 'tool')
       expect(toolResult?.content).toEqual([{ type: 'text', text: JSON.stringify(launcherResult) }])
       expect(agent.session.deriveMessages().at(-1)?.content).toContainEqual({
