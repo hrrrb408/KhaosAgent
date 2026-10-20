@@ -1,0 +1,20 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "6c6a5f15470e9ec27f5bf23e5d817822a5bf4a0b300ccfa99dac1c9f25370655",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "1b17ab0f358d20c7422295f4192c82a05bb4f3efee795409a4b7cc137dc09ac1",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "84310dfbb7828b076b02b098c3ef15a074fd031a345b9eef88328389be846125",
+    "stdout_path": "70cc9312caf30b33afba58f2057eb1ae10c6d3ff3dc3a60f010810604dbc11dc",
+    "task_path": "eff21a06159b79d27870fc2f56d00622697c2e079dddd49595c283eb81856a3a",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: the signed deterministic DSH coding loop did not consume the actual passing test result; launcher stderr tail='agent-session=tool-proposal kind=shell\\nagent-session=tool=workspace-picker-requested\\nagent-session=tool=approval-presented\\nagent-session=tool=approved kind=ordinary\\nagent-session=tool=submitted request_id=957e64bfd9df4bb89fcd0b4fb7987ab6\\nagent-session=tool=executed returncode=0\\nagent-session=tool-result kind=shell returncode=0 output_bytes=368 can_continue=true\\nagent-session=tool-response kind=shell status=accepted can_continue=true\\nagent-session=tool-proposal kind=shell\\nagent-session=tool=approval-presented\\nagent-session=tool=approved kind=ordinary\\nagent-session=tool=submitted request_id=cf5fa95a9ecf4cd9b37ed6f4da4db158\\nagent-session=tool=executed returncode=0\\nagent-session=tool-result kind=shell returncode=0 output_bytes=125 can_continue=true\\nagent-session=tool-response kind=shell status=accepted can_continue=true\\n'",
+  "mode": "coding",
+  "result": "FAILED_ATTEMPT",
+  "schema": 1,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-gsk6a_kh",
+  "source_sha": "efadf67a35bb70e0441f737af457a619e7c8aae3"
+}

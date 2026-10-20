@@ -33,6 +33,31 @@ It is a separate signed run and should have its own evidence file.
 
 ## Current evidence
 
-The signed multi-step workflow and fake-result UI acceptance are `NOT_RUN`
-until their owner approvals occur. The DSH protocol unit tests do not substitute
-for these signed product runs.
+The first signed coding attempt at source SHA
+`efadf67a35bb70e0441f737af457a619e7c8aae3` completed two real, separately
+approved operations: scoped Read and Edit. The edit committed only
+`example.py`. The DSH fixture then stopped before proposing Test because it
+stringified the outer `ContentBlock[]`, escaping the structured Launcher
+result's quotes before checking `ok`. The original failure record is retained
+at `failed_attempts/coding-efadf67.failed.json`; it is a failed attempt, not a
+workflow pass.
+
+The result reader now extracts text blocks before interpreting the Launcher
+JSON. A focused regression test passes in the 8/8 pinned DSH suite. Commit
+`ddf41dae96ff1f5d5547d021d77fa68be64afc5b` also stages the helper in the
+temporary signed runtime build. The signed app built successfully at that SHA
+and is waiting at the workspace Picker. Its current disposable workspace is
+`/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-ajumqdsy/coding-workspace`.
+The owner must select it and separately approve the displayed Read, Edit, and
+Test operations. The live Launcher log currently contains only the initial
+tool proposal and Picker request; no operation has been submitted yet.
+
+Two subsequent pre-acceptance failures are also preserved under
+`failed_attempts/`: the first exposed the missing helper copy in the bundle
+stager, and the second was caused by an untracked failure record making the
+builder's required clean-worktree check fail. The failure record was moved out
+of the checkout before the successful build.
+
+Fake-result UI acceptance and the completed signed Read → Edit → Test flow
+remain incomplete. The DSH protocol unit tests do not substitute for those
+signed product runs.

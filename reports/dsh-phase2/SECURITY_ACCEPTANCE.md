@@ -39,10 +39,10 @@ and signature verification.
 ## Current evidence
 
 The signed XPC attack passed on macOS for Khaos source SHA
-`3d144da2e182ed8e0303965d92b177cd2e3eccd5`, PR #41 base
+`efadf67a35bb70e0441f737af457a619e7c8aae3`, PR #41 base
 `b08ab11e01663d2b26304cb541efb5361dea0417`, and DSH SHA
 `687f282e8625c6b8d11ff58211a90524be2e4317`. The successful external evidence
-record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-3d144da.json`.
+record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-efadf67.json`.
 
 Observed results: direct and child-process workspace reads and writes were
 denied; the dummy credential read was denied and no credential environment key
@@ -54,6 +54,13 @@ signature, zero local TCP connections, and Node process-group cleanup after XPC
 teardown. Child process execution itself was allowed, and its protected file
 operations remained denied. No Launcher workspace Picker or tool proposal was
 requested and there were zero owner-approved Runner calls.
+
+This attack is bound to `efadf67`, not the later coding acceptance source SHA
+`ddf41da`. The
+later commits add result-block extraction to the untrusted DSH fixture and copy
+that helper into the experimental build staging directory. No trusted code,
+Kernel ABI, scope, or production build path changed. A signed attack on
+`ddf41da` remains required before treating it as current-head evidence.
 
 An earlier signed run at `a7a1074` launched the hostile XPC checks but used a
 staging Kernel path that the builder removes after publish. Its Kernel probe

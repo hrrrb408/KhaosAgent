@@ -63,7 +63,10 @@ boundaries.
 
 ## Evidence state
 
-- Pinned DSH adapter tests: 7/7 passed on the pinned source tree.
+- Pinned DSH adapter tests: 8/8 passed on DSH SHA
+  `687f282e8625c6b8d11ff58211a90524be2e4317`. The regression test confirms
+  DSH's tool `ContentBlock[]` is unwrapped before the fixture inspects the
+  structured Launcher result.
 - DSH AgentHost runtime bundling: passed; output has no retained non-Node
   imports. Bundle SHA-256 is recorded by the build script at each signed run.
 - Signed standalone runtime packaging smoke: `PASS`; app size 111,028,546
@@ -73,9 +76,19 @@ boundaries.
   app completed a real DSH adapter roundtrip and an intentional child
   termination. Its hostile OS probe was deliberately removed; this smoke test
   is not XPC isolation evidence.
-- Signed XPC attack, cancellation, Node crash/recovery, and coding acceptance:
-  `NOT_RUN` until their individual signed acceptance commands complete. The
-  coding and lifecycle commands require actual user Picker and approval
-  actions; no click is simulated by these scripts.
+- A signed XPC app built successfully on Khaos source SHA
+  `ddf41dae96ff1f5d5547d021d77fa68be64afc5b`. It bundles the DSH runtime with
+  SHA-256 `316ff95decb95c706693c9d42bff8d48ade793d935dfbdfd889281a760c04ace`
+  and is 198,802,153 bytes. The coding acceptance is currently waiting at its
+  real workspace Picker; its three Runner operations have not yet been
+  approved or submitted.
+- The signed XPC hostile-plugin attack passed at the earlier exact source SHA
+  `efadf67a35bb70e0441f737af457a619e7c8aae3`; it has not yet been rerun on
+  `ddf41da`. The run record is described in `SECURITY_ACCEPTANCE.md`.
+- Signed cancellation, Node crash/recovery, coding completion, and fake-result
+  acceptance remain incomplete. The coding and lifecycle commands require
+  actual user Picker and approval actions; no click is simulated by these
+  scripts. Preserved failed coding attempts are under
+  `reports/dsh-phase2/failed_attempts/`.
 - Production build separation is source-checked and will be rechecked in the
   final diff and Security Freeze report.

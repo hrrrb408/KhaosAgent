@@ -8,22 +8,29 @@ Date: 2026-10-20
 approval to replace the production AgentHost or to begin a production migration.
 
 The pinned DSH adapter has a bounded proposal/result path through the existing
-Launcher interface, and its seven deterministic adapter tests pass. The
+Launcher interface, and its eight deterministic adapter tests pass. The
 signed runtime bundle compiles with dependencies bundled. The signed
 standalone Node/DSH packaging smoke passed at 111,028,546 app bytes and
 55,590,912 Node RSS bytes, with matching Team IDs and the expected sandbox
 entitlements. The real signed AgentHost XPC hostile-plugin attack also passed
-at source SHA `3d144da2e182ed8e0303965d92b177cd2e3eccd5`; its external evidence
-record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-3d144da.json`. These checks
-do not prove the signed lifecycle acceptance or coding UI workflow.
+at source SHA `efadf67a35bb70e0441f737af457a619e7c8aae3`; its external evidence
+record is `/tmp/khaos-dsh-phase2/signed-xpc-attack-efadf67.json`. That attack
+has not yet been rerun at the coding acceptance source SHA `ddf41da`. The signed coding app
+build succeeded at `ddf41da` and is waiting at its Picker; the workflow itself
+is not complete. The canonical Khaos suite passed 404 tests at that head, both
+local Security Freeze checks passed, and PR #43 `security-tests` and
+`security-freeze` checks passed.
 
 ## Evidence still required
 
 - Signed B32, pre-commit, and post-commit cancellation with owner UI actions.
 - Signed Node crash/recovery acceptance with a later independently approved
   task.
-- Signed deterministic Read → Edit → Test and fake-result acceptance.
-- Successful Seed CI for the exact Draft PR head.
+- Signed deterministic Read → Edit → Test completion and fake-result
+  acceptance.
+- A signed XPC hostile-plugin attack on the current integration source head.
+- Final Seed CI and Security Freeze checks after the final evidence/document
+  commit.
 - Independent Code Owner review; `NOT_PROVEN` in single-maintainer mode.
 
 Until those checks are complete, Phase 2 is not a GO for formal Harness
