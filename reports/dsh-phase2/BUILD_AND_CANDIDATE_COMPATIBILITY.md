@@ -50,8 +50,9 @@ Ordinary DSH/Cordis tools can be registered and removed inside the untrusted
 AgentHost runtime. `ctx.plugin()` is only a Cordis registration event; it is
 not Khaos admission, evaluation, owner approval, or activation. Unloading the
 capability adapter unregisters its tool and prevents later submissions from
-that tool instance. It cannot undo a Kernel operation that was already
-approved and committed.
+that tool instance. The adapter also checks its closed state after an awaited
+Launcher result, so an in-flight late result is rejected after unload. Unload
+cannot undo a Kernel operation that was already approved or committed.
 
 The current Khaos Candidate ABI does not host a complete DSH Plugin runtime.
 Any generated plugin that needs Khaos capabilities must continue through
@@ -63,10 +64,20 @@ boundaries.
 
 ## Evidence state
 
-- Pinned DSH adapter tests: 8/8 passed on DSH SHA
+- Pinned DSH adapter tests: 9/9 passed on DSH SHA
   `687f282e8625c6b8d11ff58211a90524be2e4317`. The regression test confirms
   DSH's tool `ContentBlock[]` is unwrapped before the fixture inspects the
-  structured Launcher result.
+  structured Launcher result. The added Cordis lifecycle test confirms
+  duplicate registration, unload, late-result, post-unload, and terminal-task
+  behavior against the real pinned `ToolRuntime`.
+- Signed Cordis lifecycle acceptance passed at Khaos source SHA
+  `81923b77e0c632291cdc317e396a62edca75fba1`; see
+  `cordis-plugin-lifecycle-81923b7.json`. The app, AgentHost XPC, Kernel XPC,
+  and Snapshot Broker shared Team ID `UBAP6LN5AM` and certificate SHA-1
+  `81E5B3D53290732C30A9D823874EBAB6E947AB55`. Deep signature verification and
+  Node process-group cleanup passed. The check requested no Picker, proposal,
+  or Runner approval, so it does not establish workspace-operation or XPC
+  recovery behavior.
 - DSH AgentHost runtime bundling: passed; output has no retained non-Node
   imports. Bundle SHA-256 is recorded by the build script at each signed run.
 - Signed standalone runtime packaging smoke: `PASS`; app size 111,028,546
@@ -88,10 +99,12 @@ boundaries.
   request. It is preserved as
   `failed_attempts/coding-read-edit-test-a276538.failed.json`, not as a
   completed workflow.
-- Signed cancellation, Node crash/recovery, coding completion, and fake-result
-  acceptance remain incomplete. The coding and lifecycle commands require
-  actual user Picker and approval actions; no click is simulated by these
-  scripts. Preserved failed coding attempts are under
+- Signed cancellation, Node crash/recovery, AgentHost XPC crash/recovery,
+  coding completion, and fake-result acceptance remain incomplete. The
+  workspace and crash-recovery commands require actual user Picker and
+  approval actions; no click is simulated by these scripts. Cordis
+  `plugin-lifecycle` is a separate non-interactive signed check. Preserved
+  failed attempts are under
   `reports/dsh-phase2/failed_attempts/`.
 - Production build separation is source-checked and will be rechecked in the
   final diff and Security Freeze report.

@@ -43,7 +43,7 @@ at `failed_attempts/coding-efadf67.failed.json`; it is a failed attempt, not a
 workflow pass.
 
 The result reader now extracts text blocks before interpreting the Launcher
-JSON. A focused regression test passes in the 8/8 pinned DSH suite. Commit
+JSON. A focused regression test passes in the 9/9 pinned DSH suite. Commit
 `ddf41dae96ff1f5d5547d021d77fa68be64afc5b` also stages the helper in the
 temporary signed runtime build. The signed app built successfully at that SHA
 but no workspace selection reached the app before the acceptance timed out.
