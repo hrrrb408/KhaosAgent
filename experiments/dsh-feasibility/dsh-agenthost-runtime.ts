@@ -38,17 +38,6 @@ function emit(value: object): void {
   process.stdout.write(`${JSON.stringify(value)}\n`)
 }
 
-function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
-    const dispose = ctx.on('agent/status', ({ agent: current, status }) => {
-      if (current === agent && status === 'idle') {
-        dispose()
-        resolve()
-      }
-    })
-  })
-}
-
 function proposal(argv: string[], readScope: string[], writeScope: string[]) {
   return { argv, readScope, writeScope }
 }
@@ -304,14 +293,20 @@ async function createTask(text: string): Promise<void> {
   currentAgent = agent
   currentContext = ctx
   currentPluginFiber = pluginFiber
-  const idle = waitForIdle(ctx, agent)
+  const agentErrorTypes: string[] = []
+  const disposeAgentErrorListener = ctx.on('agent/error', ({ agent: failedAgent, error }) => {
+    if (failedAgent === agent) {
+      agentErrorTypes.push(error instanceof Error ? error.name : typeof error)
+    }
+  })
   agent.followup(createUserMessage({
     content: [{ type: 'text', text }],
     source: { kind: 'user' },
   }))
-  void idle.then(async () => {
-    const assistant = [...agent.session.deriveMessages()].reverse()
-      .find(message => message.role === 'assistant')
+  void agent.whenIdle().then(async () => {
+    const assistantMessages = [...agent.session.deriveMessages()]
+      .filter(message => message.role === 'assistant')
+    const assistant = assistantMessages.at(-1)
     const responseText = assistant?.content
       .filter(block => block.type === 'text')
       .map(block => block.text)
@@ -319,13 +314,25 @@ async function createTask(text: string): Promise<void> {
     const toolResults = adapter.requests.flatMap(request => request.messages
       .filter(message => message.role === 'tool')
       .map(message => message.content))
-    emit({ type: 'reply', text: responseText || 'DSH produced no final text response.', toolResults })
+    emit({
+      type: 'reply',
+      text: responseText || 'DSH produced no final text response.',
+      toolResults,
+      diagnostics: {
+        adapterRequestCount: adapter.requests.length,
+        assistantMessageCount: assistantMessages.length,
+        lastAssistantBlockTypes: assistant?.content.map(block => block.type) ?? [],
+        agentErrorTypes,
+      },
+    })
+    disposeAgentErrorListener()
     currentAgent = undefined
     currentContext = undefined
     currentPluginFiber = undefined
     await pluginFiber.dispose()
     await ctx.fiber.dispose()
   }).catch(() => {
+    disposeAgentErrorListener()
     emit({ type: 'error', code: 'dsh_agent_failed' })
   })
 }

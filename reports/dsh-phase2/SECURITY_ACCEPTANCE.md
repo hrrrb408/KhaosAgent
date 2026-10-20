@@ -68,3 +68,16 @@ returned `ERROR_ENOENT`, so that attempt is retained as a failed fixture run,
 not as Kernel write-denial evidence. The corrected run above exercised the
 published signed Kernel and passed. The earlier standalone signed runtime
 probe remains separate from this XPC evidence.
+
+A later signed attempt on source SHA `8544e29cb351af7b6071a725afdf2d7c013145fa`
+built and launched but returned the fixture fallback `DSH produced no final
+text response`; the Launcher recorded zero proposals, so the hostile-plugin
+checks did not run. It is preserved at
+`failed_attempts/signed-xpc-attack-8544e29-no-result.failed.json` and is a
+`FAILED_ATTEMPT`, not XPC enforcement evidence. A diagnostic retry was then
+stopped by the builder's clean-worktree preflight before signing because a
+test-only diagnostic edit was still uncommitted; that is separately recorded
+at `failed_attempts/signed-xpc-attack-8544e29-clean-tree-preflight.failed.json`.
+The experimental runtime fixture now waits on DSH's `Agent.whenIdle()` contract
+and reports bounded request, message, and error-type counts. That adjustment
+has not yet produced a new signed attack result.
