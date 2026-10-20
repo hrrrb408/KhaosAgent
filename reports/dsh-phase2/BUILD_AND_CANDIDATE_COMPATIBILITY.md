@@ -88,11 +88,12 @@ boundaries.
   termination. Its hostile OS probe was deliberately removed; this smoke test
   is not XPC isolation evidence.
 - The real signed AgentHost XPC hostile-plugin attack passed on exact Khaos
-  source SHA `a2765389989d7c4290eb754b459f2a516990d155`. Its record is
-  `signed-xpc-attack-a276538.json`; it bundles the DSH runtime and Node
-  `v22.19.0`, verifies deep signature, and records the measured app size and
-  Node RSS. The attack's OS-enforcement results are detailed in
-  `SECURITY_ACCEPTANCE.md`.
+  source SHA `6962a07338da4c5ce1ddc5fa5eb3c68a62aab826`. Its record is
+  `signed-xpc-attack-6962a07.json`; it bundles the pinned DSH runtime and Node
+  `v22.19.0`, verifies deep signature and matching Team IDs, and records the
+  measured app size and Node RSS. The attack's OS-enforcement results are
+  detailed in `SECURITY_ACCEPTANCE.md`; the earlier `a276538` result remains
+  historical evidence for that SHA.
 - The signed Read → Edit → Test app also built at exact source SHA `a276538`,
   but the owner could not select the disposable workspace. The run reached the
   Picker and timed out after 600 seconds with no workspace selection or Runner

@@ -8,18 +8,27 @@ Date: 2026-10-20
 authorize replacing the production AgentHost or starting a production
 migration.
 
-The real signed AgentHost XPC hostile-plugin attack passed at exact source SHA
-`a2765389989d7c4290eb754b459f2a516990d155`; its evidence is
-`signed-xpc-attack-a276538.json`. It verified workspace and Kernel access
-denials, credential and network denial, scope rejection, deep signature
-validity, unchanged canaries, and Node process-group cleanup. The bounded DSH
-adapter regression suite passed 8/8 after the result-message callback fix.
-The canonical suite passed at source SHA `a276538`: 404 tests in 807.939
-seconds. Security Freeze passed against the exact PR #41 base with zero
-sensitive changes. Seed CI and Security Freeze also passed on report commit
-`0e3f51de7fb8b6cd72b86eaf1a7796d2b11331bd`; Seed CI took 16m39s. These results
-are SHA-bound. Check the live PR #43 status for results on any later
-documentation commit.
+The latest real signed AgentHost XPC hostile-plugin attack passed at source
+SHA `6962a07338da4c5ce1ddc5fa5eb3c68a62aab826`; its evidence is
+`signed-xpc-attack-6962a07.json`. It verified direct and child-process
+workspace denials, credential denial, localhost and external network denial,
+Kernel write denial, oversized-scope rejection, unchanged canaries and Kernel
+hash, deep signature validity, and Node process-group cleanup. The bounded DSH
+adapter and Cordis lifecycle suite passed 9/9 on pinned DSH SHA
+`687f282e8625c6b8d11ff58211a90524be2e4317`.
+
+The signed Cordis lifecycle acceptance passed at source SHA
+`81923b77e0c632291cdc317e396a62edca75fba1`; its evidence is
+`cordis-plugin-lifecycle-81923b7.json`. The signed app and all three XPC
+components reported the same Team ID. It required no Picker or Runner approval
+and does not prove workspace-operation or XPC crash/recovery behavior.
+
+The canonical Khaos suite passed at source SHA `6962a073`: 404 tests in
+844.086 seconds. Both `python3 tools/check_security_freeze.py` and the check
+against exact PR #41 base `b08ab11e01663d2b26304cb541efb5361dea0417` passed with
+zero sensitive changes. These local results are SHA-bound. The last observed
+PR #43 checks are green only on older SHA `19509d7`; final-head GitHub CI and
+Security Freeze must be checked after pushing the report update.
 
 The signed Read → Edit → Test acceptance app built at `a276538` but waited at
 the workspace Picker because the owner was unavailable to perform the required
@@ -31,8 +40,8 @@ attempt, not a pass, approval denial, or cancellation.
 ## Evidence still required
 
 - Signed B32, pre-commit, and post-commit cancellation with owner UI actions.
-- Signed Node crash/recovery acceptance with a later independently approved
-  task.
+- Signed Node child-crash/recovery and AgentHost XPC crash/recovery, each with
+  the later independently approved task.
 - Signed deterministic Read → Edit → Test completion and fake-result
   acceptance.
 - Independent Code Owner review; `NOT_PROVEN` in single-maintainer mode.

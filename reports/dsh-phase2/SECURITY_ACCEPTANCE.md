@@ -134,6 +134,22 @@ to the published Kernel binary, blocked oversized scope, unchanged canaries
 and Kernel hash, valid deep signature, zero local TCP connections, and clean
 Node process-group teardown. Node RSS was 53,035,008 bytes; the signed app
 bundle remained 198,803,064 bytes. No Picker or tool proposal was requested,
-and no Runner call was approved. This is the current signed XPC attack
-evidence; it does not prove owner-approved coding, cancellation, or crash and
+and no Runner call was approved. That result is historical evidence for
+`a276538`, not the latest integration SHA.
+
+The latest signed XPC attack passed on source SHA
+`6962a07338da4c5ce1ddc5fa5eb3c68a62aab826`. Its tracked record is
+`signed-xpc-attack-6962a07.json`. Direct and child-process workspace reads and
+writes were denied; the dummy credential read and signed Kernel write were
+denied; no credential-like environment key was present; localhost and external
+TCP attempts returned `EPERM`; and the oversized scope was blocked. The parent
+verified unchanged canaries and Kernel hash, zero local TCP connections, deep
+bundle signature validity, and clean Node process-group teardown. Child process
+execution itself was allowed while protected operations remained denied. Node
+RSS was 52,428,800 bytes and the signed app bundle was 198,808,766 bytes. The
+app, AgentHost XPC, Kernel XPC, and Snapshot Broker all reported Team ID
+`UBAP6LN5AM` under signing certificate SHA-1
+`81E5B3D53290732C30A9D823874EBAB6E947AB55`. No Picker or tool proposal was
+requested and no Runner call was approved. This refreshes Phase 1 evidence at
+`6962a07`; it does not prove owner-approved coding, cancellation, or crash and
 recovery behavior.
