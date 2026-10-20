@@ -55,12 +55,12 @@ teardown. Child process execution itself was allowed, and its protected file
 operations remained denied. No Launcher workspace Picker or tool proposal was
 requested and there were zero owner-approved Runner calls.
 
-This attack is bound to `efadf67`, not the later coding acceptance source SHA
-`ddf41da`. The
-later commits add result-block extraction to the untrusted DSH fixture and copy
-that helper into the experimental build staging directory. No trusted code,
-Kernel ABI, scope, or production build path changed. A signed attack on
-`ddf41da` remains required before treating it as current-head evidence.
+The initial successful attack is bound to `efadf67` and remains historical.
+Later fixture changes added result-block extraction and staged that helper into
+the signed runtime. A subsequent clean signed run passed at
+`b9414dfa2b0f777d8e6b8279ad9563231c52093b`, after correcting fixture callbacks
+to read `options.messages`. No trusted code, Kernel ABI, scope, or production
+build path changed.
 
 An earlier signed run at `a7a1074` launched the hostile XPC checks but used a
 staging Kernel path that the builder removes after publish. Its Kernel probe
@@ -110,4 +110,18 @@ messages. No Launcher proposal was submitted and no hostile-plugin assertion
 ran. The attempt is retained at
 `failed_attempts/signed-xpc-attack-f971d7f-no-result.failed.json`. All affected
 fixture callbacks now pass `options.messages`, and the roundtrip test exercises
-that callback shape. The fix still needs a clean signed XPC run.
+that callback shape. The clean signed rerun passed at source SHA
+`b9414dfa2b0f777d8e6b8279ad9563231c52093b`; its evidence record is
+`signed-xpc-attack-b9414df.json`.
+
+On that SHA, direct and child-process workspace reads and writes were denied;
+the dummy credential read was denied with zero credential-like environment
+keys; localhost and external TCP attempts returned `EPERM`; and the published
+Kernel binary write attempt was denied. The over-limit scope proposal was
+rejected before reaching Launcher. The parent verified unchanged canaries and
+Kernel hash, deep bundle signature, zero local TCP connections, and cleanup of
+the Node process group. Child process execution itself was allowed while its
+protected operations remained denied. Node RSS was 52,625,408 bytes and the
+signed app bundle was 198,803,064 bytes. This run requested no Picker and made
+no owner-approved Runner calls. Final-head rerun remains required after the
+remaining report and evidence updates.
