@@ -11,6 +11,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
+import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
 import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 import {
   createMaliciousCordisPlugin,
@@ -171,6 +172,36 @@ function cancellationResponses() {
   ]
 }
 
+function xpcCrashResponses() {
+  const oldText = 'def parse_tags(value):\n    return value.split(",")\n'
+  const newText = 'def parse_tags(value):\n    return [part.strip() for part in value.split(",") if part.strip()]\n'
+  return [
+    toolCallResponse('dsh-xpc-crash-edit', 'khaos_capability', proposal(
+      [
+        'python3', '-I', '-B', '-c',
+        "from pathlib import Path; p=Path('tags.py'); old='def parse_tags(value):\\n    return value.split(\\\",\\\")\\n'; new='def parse_tags(value):\\n    return [part.strip() for part in value.split(\\\",\\\") if part.strip()]\\n'; assert p.read_text()==old; p.write_text(new)",
+      ],
+      ['tags.py'],
+      ['tags.py'],
+    )),
+    options => textResponse(`KHAOS_DSH_XPC_CRASH_TASK_RESULT ${lastToolResult(options.messages)}`),
+  ]
+}
+
+function xpcRecoveryResponses() {
+  return [
+    toolCallResponse('dsh-xpc-recovery-read', 'khaos_capability', proposal(
+      [
+        'python3', '-I', '-B', '-c',
+        "from pathlib import Path; print(Path('tags.py').read_text())",
+      ],
+      ['tags.py'],
+      [],
+    )),
+    options => textResponse(`KHAOS_DSH_XPC_RECOVERY_TASK_RESULT ${lastToolResult(options.messages)}`),
+  ]
+}
+
 function probePaths(): HostileProbePaths | undefined {
   const workspaceRead = process.env.KHAOS_DSH_WORKSPACE_READ_PATH
   const workspaceWrite = process.env.KHAOS_DSH_WORKSPACE_WRITE_PATH
@@ -188,12 +219,15 @@ function probePaths(): HostileProbePaths | undefined {
 
 async function createTask(text: string): Promise<void> {
   if (currentAgent || pendingResult) throw new Error('task already active')
+  const pluginLifecycleMode = text.includes('KHAOS_DSH_PLUGIN_LIFECYCLE')
   const attackMode = text.includes('KHAOS_DSH_XPC_ATTACK')
   const scopeAttack = text.includes('KHAOS_DSH_SCOPE_ATTACK')
   const oversizedScope = text.includes('KHAOS_DSH_OVERSIZED_SCOPE')
   const codingMode = text.includes('KHAOS_DSH_CODING_LOOP')
   const fakeResultMode = text.includes('KHAOS_DSH_FAKE_RESULT')
   const cancellationMode = text.includes('KHAOS_DSH_CANCELLATION_')
+  const xpcCrashMode = text.includes('KHAOS_DSH_AGENTHOST_CRASH_ON_TOOL_RESULT')
+  const xpcRecoveryMode = text.includes('KHAOS_DSH_XPC_RECOVERY_NEW_TASK')
   crashOnNextToolResult = text.includes('KHAOS_DSH_NODE_CRASH_ON_RESULT')
   const recoveryMode = text.includes('KHAOS_DSH_RECOVERY_NEW_TASK')
   const ctx = new Context()
@@ -224,6 +258,8 @@ async function createTask(text: string): Promise<void> {
         ? fakeResultResponses()
       : cancellationMode
         ? cancellationResponses()
+      : xpcCrashMode
+        ? xpcCrashResponses()
       : recoveryMode
         ? [
           toolCallResponse('dsh-recovery-read', 'khaos_capability', proposal(
@@ -236,6 +272,8 @@ async function createTask(text: string): Promise<void> {
           )),
           options => textResponse(`KHAOS_DSH_RECOVERY_TASK_RESULT ${lastToolResult(options.messages)}`),
         ]
+      : xpcRecoveryMode
+        ? xpcRecoveryResponses()
       : scopeAttack
         ? scopeAttackResponses()
         : oversizedScope
@@ -260,6 +298,19 @@ async function createTask(text: string): Promise<void> {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['khaos-fixture'], adapter)
+  if (pluginLifecycleMode) {
+    await ctx.agentLoop.create(SessionId(`khaos-lifecycle-${randomUUID()}`), {
+      provider: 'khaos-fixture',
+      model: 'deterministic-lifecycle-probe',
+    })
+    const evidence = await runCapabilityLifecycleProbe(ctx)
+    emit({
+      type: 'reply',
+      text: `KHAOS_DSH_PLUGIN_LIFECYCLE_RESULT ${JSON.stringify({ ...evidence, nodePid: process.pid })}`,
+    })
+    await ctx.fiber.dispose()
+    return
+  }
   const pluginFiber = await ctx.plugin(createKhaosCapabilityPlugin({
     submitProposal(proposalValue, signal) {
       if (pendingResult) throw new Error('one Khaos operation may be pending at a time')
@@ -381,6 +432,19 @@ async function handle(input: HostInput): Promise<void> {
 }
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity })
+lines.on('close', () => {
+  const agent = currentAgent
+  agent?.cancel({ kind: 'user' })
+  pendingResult = undefined
+  void (async () => {
+    await agent?.whenIdle()
+    await currentPluginFiber?.dispose()
+    await currentContext?.fiber.dispose()
+  })().then(
+    () => process.exit(0),
+    () => process.exit(1),
+  )
+})
 lines.on('line', line => {
   if (Buffer.byteLength(line, 'utf8') > 64 * 1024) {
     emit({ type: 'error', code: 'host_frame_too_large' })

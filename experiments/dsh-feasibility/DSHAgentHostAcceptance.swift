@@ -228,6 +228,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
     private var runtime: DSHRuntimeProcess?
     private var handlingRequest = false
     private var awaitingToolResult = false
+    private var crashAfterToolResult = false
 
     override init() {
         runtime = try? DSHRuntimeProcess()
@@ -283,6 +284,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                       let text = frame["text"] as? String else {
                     return response(.failure("invalid_request"))
                 }
+                crashAfterToolResult = text.contains("KHAOS_DSH_AGENTHOST_CRASH_ON_TOOL_RESULT")
                 let event = try runtime.exchange(["operation": "user", "text": text])
                 return try encodeAgentAction(event, activePlugin: AgentHostProtocol.activePlugin(in: frame))
             case "tool_result":
@@ -291,6 +293,10 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                       let canContinue = frame["can_continue"] as? Bool,
                       let text = frame["text"] as? String else {
                     return response(.failure("invalid_request"))
+                }
+                if crashAfterToolResult {
+                    crashAfterToolResult = false
+                    exit(86)
                 }
                 let event = try runtime.exchange([
                     "operation": "tool_result",

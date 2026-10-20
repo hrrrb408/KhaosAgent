@@ -118,6 +118,7 @@ def main() -> int:
     test_inputs = (
         override,
         probe_dir / "dsh-agenthost-runtime.ts",
+        probe_dir / "dsh-capability-lifecycle-probe.ts",
         probe_dir / "dsh-tool-result.ts",
         probe_dir / "khaos-capability-adapter.ts",
         probe_dir / "malicious-cordis-plugin.ts",

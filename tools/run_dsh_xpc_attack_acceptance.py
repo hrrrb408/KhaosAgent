@@ -98,6 +98,46 @@ def wait_for_group_exit(group_id: int, timeout_seconds: float) -> bool:
     return not group_members(group_id)
 
 
+def running_nodes_for_app(app: Path) -> list[tuple[int, int]]:
+    expected_node = str(app / "Contents/Resources/node")
+    expected_script = str(app / "Contents/Resources/dsh/agenthost-runtime.mjs")
+    result = subprocess.run(
+        ["/bin/ps", "-axo", "pid=,pgid=,command="],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    processes: list[tuple[int, int]] = []
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(maxsplit=2)
+        if len(fields) != 3 or expected_node not in fields[2] or expected_script not in fields[2]:
+            continue
+        try:
+            processes.append((int(fields[0]), int(fields[1])))
+        except ValueError:
+            continue
+    return processes
+
+
+def stop_nodes_for_app(app: Path) -> None:
+    for _, group_id in running_nodes_for_app(app):
+        try:
+            os.killpg(group_id, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if not running_nodes_for_app(app):
+            return
+        time.sleep(0.05)
+    for _, group_id in running_nodes_for_app(app):
+        try:
+            os.killpg(group_id, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -108,7 +148,7 @@ def main() -> int:
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     parser.add_argument(
         "--mode",
-        choices=("attack", "coding", "fake-result", "cancellation", "node-crash"),
+        choices=("attack", "coding", "fake-result", "cancellation", "node-crash", "plugin-lifecycle", "xpc-crash"),
         default="attack",
     )
     parser.add_argument("--cancellation-case", choices=("b32", "pre-commit", "post-commit"))
@@ -144,7 +184,7 @@ def main() -> int:
         write_canary.write_text("workspace write canary; must remain unchanged\n", encoding="utf-8")
         credential_canary.write_text("DUMMY_SECRET_CANARY_DO_NOT_USE\n", encoding="utf-8")
         source_sha = run(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
-        if args.mode in {"coding", "fake-result", "cancellation", "node-crash"}:
+        if args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"}:
             workspace.mkdir()
             if args.mode == "coding":
                 (workspace / "example.py").write_text(
@@ -189,8 +229,24 @@ def main() -> int:
                     "KHAOS_DSH_NODE_CRASH_ON_RESULT\nKHAOS_DSH_RECOVERY_NEW_TASK\n",
                     encoding="utf-8",
                 )
+            elif args.mode == "xpc-crash":
+                (workspace / "tags.py").write_text(
+                    'def parse_tags(value):\n    return value.split(",")\n',
+                    encoding="utf-8",
+                )
+                (workspace / "unscoped-canary.txt").write_text(
+                    "AgentHost XPC crash sibling canary\n",
+                    encoding="utf-8",
+                )
+                task_path.write_text(
+                    "KHAOS_DSH_AGENTHOST_CRASH_ON_TOOL_RESULT\n"
+                    "KHAOS_DSH_XPC_RECOVERY_NEW_TASK\n",
+                    encoding="utf-8",
+                )
             else:
                 task_path.write_text("KHAOS_DSH_FAKE_RESULT\n", encoding="utf-8")
+        elif args.mode == "plugin-lifecycle":
+            task_path.write_text("KHAOS_DSH_PLUGIN_LIFECYCLE\n", encoding="utf-8")
         else:
             task_path.write_text("KHAOS_DSH_XPC_ATTACK\n", encoding="utf-8")
         initial_hashes = {
@@ -200,7 +256,7 @@ def main() -> int:
         }
         workspace_initial_hashes = {
             path.name: sha256(path) for path in workspace.iterdir() if path.is_file()
-        } if args.mode in {"coding", "cancellation", "node-crash"} else {}
+        } if args.mode in {"coding", "cancellation", "node-crash", "xpc-crash"} else {}
 
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -246,6 +302,10 @@ def main() -> int:
             print(f"Select this disposable workspace in the signed app Picker: {workspace}", flush=True)
             print("Approve the first fixture read; DSH Node exits while receiving that real result.", flush=True)
             print("Then approve the second fixture read for the new task after the XPC Host reconnects.", flush=True)
+        elif args.mode == "xpc-crash":
+            print(f"Select this disposable workspace in the signed app Picker: {workspace}", flush=True)
+            print("Approve the scoped tags.py edit; the test Host XPC will terminate after receiving the committed Kernel result.", flush=True)
+            print("Then approve the second task's tags.py read after the Launcher reconnects to a fresh AgentHost XPC.", flush=True)
 
         kernel = app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
         kernel_hash = sha256(kernel)
@@ -355,6 +415,8 @@ def main() -> int:
         stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
         stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
         attack = None
+        lifecycle = None
+        xpc_recovery = None
         node_pid = None
         descendant_pid = None
         descendant_group_clean = None
@@ -378,6 +440,92 @@ def main() -> int:
                 members = group_members(node_pid)
                 _ = os.killpg(node_pid, signal.SIGKILL)
                 raise RuntimeError(f"AgentHost XPC teardown left Node process-group members running: {members}")
+        elif args.mode == "plugin-lifecycle":
+            marker = "Khaos: KHAOS_DSH_PLUGIN_LIFECYCLE_RESULT "
+            result_lines = [line.partition(marker)[2] for line in stdout.splitlines() if marker in line]
+            if len(result_lines) != 1:
+                raise RuntimeError("signed AgentHost XPC omitted its Cordis Plugin lifecycle result")
+            lifecycle = json.loads(result_lines[0])
+            expected_checks = (
+                "registeredOnce",
+                "duplicateRegistrationRejected",
+                "duplicateDidNotAddTool",
+                "unloadRemovedTool",
+                "inFlightLateResultRejected",
+                "postUnloadCallRejected",
+                "terminalTaskCallRejected",
+            )
+            if lifecycle.get("status") != "PASS" \
+                    or any(lifecycle.get(check) is not True for check in expected_checks) \
+                    or lifecycle.get("probePortCalls") != 2:
+                raise RuntimeError(f"signed AgentHost XPC Cordis lifecycle checks failed: {lifecycle}")
+            node_pid = lifecycle.get("nodePid")
+            if not isinstance(node_pid, int) or node_pid <= 0:
+                raise RuntimeError("Cordis lifecycle result omitted the signed XPC Node process identity")
+            descendant_group_clean = wait_for_group_exit(node_pid, 15)
+            if not descendant_group_clean:
+                members = group_members(node_pid)
+                _ = os.killpg(node_pid, signal.SIGKILL)
+                raise RuntimeError(f"Cordis lifecycle Node process group survived XPC teardown: {members}")
+        elif args.mode == "xpc-crash":
+            failure_marker = "Agent Host failed while receiving a tool result (xpc_transport_failure)"
+            if stdout.count(failure_marker) != 1:
+                raise RuntimeError("the Launcher did not surface exactly one AgentHost XPC transport failure")
+            if "Khaos: KHAOS_DSH_XPC_RECOVERY_TASK_RESULT" not in stdout:
+                raise RuntimeError("a fresh AgentHost XPC did not complete the later independent task")
+            if stderr.count("agent-session=tool=approval-presented") != 2 \
+                    or stderr.count("agent-session=tool=approved kind=ordinary") != 2:
+                raise RuntimeError("the XPC failure workflow did not receive two independent Runner approvals")
+            records = [
+                json.loads(line.partition("Launcher task record: ")[2])
+                for line in stdout.splitlines()
+                if "Launcher task record: " in line
+            ]
+            if len(records) != 2:
+                raise RuntimeError("the XPC failure workflow did not preserve two separate task records")
+            task_ids = [record.get("task_id") for record in records]
+            if not all(isinstance(task_id, str) for task_id in task_ids) or len(set(task_ids)) != 2:
+                raise RuntimeError("the later task reused the failed XPC task identity")
+            requests = [request for record in records for request in record.get("workspace_requests", [])]
+            request_ids = [request.get("request_id") for request in requests]
+            if len(requests) != 2 or len(set(request_ids)) != 2:
+                raise RuntimeError("the XPC failure caused an operation retry or reused its request identity")
+            first_request, second_request = requests
+            if first_request.get("kernel_result") != "output" \
+                    or first_request.get("commit_outcome") != "committed" \
+                    or first_request.get("runner_return_code") != 0:
+                raise RuntimeError("the first task lost the committed original Kernel result")
+            if second_request.get("kernel_result") != "output" \
+                    or second_request.get("commit_outcome") != "committed" \
+                    or second_request.get("runner_return_code") != 0:
+                raise RuntimeError("the recovered task did not retain its own successful Kernel result")
+            expected_tags = (
+                'def parse_tags(value):\n'
+                '    return [part.strip() for part in value.split(",") if part.strip()]\n'
+            )
+            if (workspace / "tags.py").read_text(encoding="utf-8") != expected_tags:
+                raise RuntimeError("the first committed edit was lost during AgentHost XPC recovery")
+            if sha256(workspace / "unscoped-canary.txt") != workspace_initial_hashes["unscoped-canary.txt"] \
+                    or {path.name for path in workspace.iterdir()} != set(workspace_initial_hashes):
+                raise RuntimeError("AgentHost XPC recovery changed an unscoped path or left a temporary file")
+            if "Agent Host failed while receiving a tool result" not in records[0].get("stop_reason", ""):
+                raise RuntimeError("the first task did not preserve its XPC failure stop reason")
+            node_paths = running_nodes_for_app(app)
+            if node_paths:
+                stop_nodes_for_app(app)
+                raise RuntimeError(f"AgentHost XPC teardown left Node process(es) running: {node_paths}")
+            descendant_group_clean = True
+            xpc_recovery = {
+                "transport_failures": 1,
+                "task_ids_unique": True,
+                "request_ids_unique": True,
+                "first_kernel_result": first_request.get("kernel_result"),
+                "first_commit_outcome": first_request.get("commit_outcome"),
+                "second_kernel_result": second_request.get("kernel_result"),
+                "second_commit_outcome": second_request.get("commit_outcome"),
+                "unscoped_canary_unchanged": True,
+                "node_processes_after_xpc_teardown": 0,
+            }
         elif args.mode == "coding":
             expected = "Khaos: DSH consumed the actual passing test result:"
             if expected not in stdout:
@@ -600,7 +748,8 @@ def main() -> int:
             raise RuntimeError("the signed Kernel binary changed during the hostile XPC run")
         if local_connections != 0:
             raise RuntimeError(f"the hostile Node child reached the local TCP listener {local_connections} time(s)")
-        if "workspace-picker-requested" in stderr or "tool-proposal" in stderr:
+        if args.mode in {"attack", "plugin-lifecycle"} \
+                and ("workspace-picker-requested" in stderr or "tool-proposal" in stderr):
             raise RuntimeError("the hostile-plugin-only task unexpectedly requested workspace authority")
         codesign = run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
 
@@ -626,16 +775,18 @@ def main() -> int:
             "node_process_group_clean_after_xpc_teardown": descendant_group_clean,
             "mode": args.mode,
             "hostile_cordis_plugin": attack,
+            "cordis_plugin_lifecycle": lifecycle,
+            "agenthost_xpc_recovery": xpc_recovery,
             "owner_approved_runner_calls": (
                 3 if args.mode == "coding" else
-                2 if args.mode == "node-crash" else
+                2 if args.mode in {"node-crash", "xpc-crash"} else
                 1 if args.mode == "fake-result" else
                 1 if args.mode == "cancellation" and args.cancellation_case != "b32" else
                 0
             ),
             "deep_code_signature_verified": True,
-            "launcher_workspace_picker_requested": args.mode != "attack",
-            "launcher_tool_proposal_requested": args.mode != "attack",
+            "launcher_workspace_picker_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"},
+            "launcher_tool_proposal_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"},
             "cancellation_case": args.cancellation_case,
             "cancellation_barrier_reached": cancellation_barrier_seen if args.mode == "cancellation" else None,
             "cancellation_acknowledged": cancellation_ack_seen if args.mode == "cancellation" else None,
@@ -653,6 +804,9 @@ def main() -> int:
         temporary.cleanup()
         return 0
     except BaseException as error:
+        failed_app = locals().get("app")
+        if isinstance(failed_app, Path) and failed_app.exists():
+            stop_nodes_for_app(failed_app)
         failure_path = evidence_path.with_name(f"{evidence_path.stem}.failed.json")
         if failure_path.exists():
             failure_path = evidence_path.with_name(

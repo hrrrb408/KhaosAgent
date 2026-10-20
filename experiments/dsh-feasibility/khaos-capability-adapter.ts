@@ -132,7 +132,9 @@ export function createKhaosCapabilityPlugin(port: KhaosLauncherPort) {
         if (closed) throw new Error('Launcher ended this capability session')
         const proposal = parseProposal(args)
         try {
-          const result = parseResult(await port.submitProposal(proposal, execution.signal))
+          const value = await port.submitProposal(proposal, execution.signal)
+          if (closed) throw new Error('Launcher ended this capability session')
+          const result = parseResult(value)
           if (!result.canContinue) closed = true
           return result
         } catch (error) {

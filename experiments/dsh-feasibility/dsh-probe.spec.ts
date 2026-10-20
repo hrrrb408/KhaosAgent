@@ -6,6 +6,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
+import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
 import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 
@@ -351,6 +352,32 @@ describe('Khaos Capability Adapter on the pinned DSH Agent Loop', () => {
 
       expect(result.isError).toBe(true)
       expect(submissions).toBe(0)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('rejects duplicate capability registration and late results after unload in real Cordis Tools', async () => {
+    const ctx = await createHarness(new MockAdapter([]))
+
+    try {
+      await ctx.agentLoop.create(SessionId('khaos-capability-lifecycle'), {
+        provider: 'mock',
+        model: 'mock',
+      })
+      const evidence = await runCapabilityLifecycleProbe(ctx)
+
+      expect(evidence).toEqual({
+        status: 'PASS',
+        registeredOnce: true,
+        duplicateRegistrationRejected: true,
+        duplicateDidNotAddTool: true,
+        unloadRemovedTool: true,
+        inFlightLateResultRejected: true,
+        postUnloadCallRejected: true,
+        terminalTaskCallRejected: true,
+        probePortCalls: 2,
+      })
     } finally {
       await ctx.fiber.dispose()
     }
