@@ -85,6 +85,7 @@ def build_dsh_bundle(
     sandbox = dsh_source / ".tmp/khaos-runtime-build.sb"
     try:
         shutil.copy2(probe_dir / "khaos-capability-adapter.ts", staging / "khaos-capability-adapter.ts")
+        shutil.copy2(probe_dir / "dsh-tool-result.ts", staging / "dsh-tool-result.ts")
         shutil.copy2(probe_dir / "malicious-cordis-plugin.ts", staging / "malicious-cordis-plugin.ts")
         shutil.copy2(probe_dir / runtime_entry, staging / runtime_entry)
         tsconfig.write_text(
