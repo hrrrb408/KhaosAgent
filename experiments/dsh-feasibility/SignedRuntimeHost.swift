@@ -28,42 +28,23 @@ enum SignedRuntimeHost {
         }
     }
 
-    static func statusValue(_ value: Any?) -> Any {
-        guard let value = value as? String,
-              value.utf8.count <= 64,
-              value.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "_-:".contains($0)) }) else {
-            return "INVALID"
-        }
-        return value
-    }
-
     static func sanitizedProbeEvidence(_ stdout: String) -> [String: Any] {
         let payloads = stdout.split(separator: "\n").compactMap { line -> [String: Any]? in
             guard let data = line.data(using: .utf8),
                   let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  value["signedRuntime"] as? String == "PASS" else {
+                  value["signedRuntime"] as? String == "PASS",
+                  value["dshToolRoundTrip"] as? String == "PASS" else {
                 return nil
             }
             return value
         }
-        guard payloads.count == 1,
-              let hostile = payloads[0]["hostilePlugin"] as? [String: Any] else {
+        guard payloads.count == 1 else {
             return ["evidenceDecode": "FAILED"]
         }
-        let credentialCount = hostile["credentialEnvironmentKeys"] as? Int ?? -1
         let rssBytes = payloads[0]["runtimeRssBytes"] as? Int ?? -1
         return [
-            "dshToolRoundTrip": statusValue(payloads[0]["dshToolRoundTrip"]),
+            "dshToolRoundTrip": "PASS",
             "nodeRssBytes": rssBytes,
-            "hostilePlugin": [
-                "fileRead": statusValue(hostile["fileRead"]),
-                "fileWrite": statusValue(hostile["fileWrite"]),
-                "childProcessExecute": statusValue(hostile["childProcessExecute"]),
-                "childProcessRead": statusValue(hostile["childProcessRead"]),
-                "childProcessWrite": statusValue(hostile["childProcessWrite"]),
-                "network": statusValue(hostile["network"]),
-                "credentialEnvironmentKeys": credentialCount,
-            ],
         ]
     }
 
@@ -94,8 +75,8 @@ enum SignedRuntimeHost {
     }
 
     static func main() {
-        guard CommandLine.arguments.count == 3 else {
-            fputs("expected protected read and write paths\n", stderr)
+        guard CommandLine.arguments.count == 1 else {
+            fputs("expected no probe arguments\n", stderr)
             exit(64)
         }
 
@@ -107,8 +88,6 @@ enum SignedRuntimeHost {
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
             "HOME": NSHomeDirectory(),
             "TMPDIR": NSTemporaryDirectory(),
-            "KHAOS_PROTECTED_READ_PATH": CommandLine.arguments[1],
-            "KHAOS_PROTECTED_WRITE_PATH": CommandLine.arguments[2],
         ]
         do {
             let crashedChild = try runChild(
@@ -127,7 +106,7 @@ enum SignedRuntimeHost {
             let evidence = [
                 "firstChildTermination": crashedChild.termination,
                 "firstChildStatus": crashedChild.status,
-                "childRestartAfterCrash": crashIsolation ? "PASS" : "FAILED",
+                "intentionalChildTermination": crashIsolation ? "PASS" : "FAILED",
                 "childExitStatus": runtimeChild.status,
                 "childTerminationReason": runtimeChild.termination,
                 "childStderrBytes": runtimeChild.stderrBytes,
@@ -135,7 +114,8 @@ enum SignedRuntimeHost {
             persistEvidence(evidence.merging(probe) { _, new in new })
             guard crashIsolation,
                   runtimeChild.termination == "exit",
-                  runtimeChild.status == 0 else {
+                  runtimeChild.status == 0,
+                  probe["dshToolRoundTrip"] as? String == "PASS" else {
                 exit(2)
             }
             exit(0)

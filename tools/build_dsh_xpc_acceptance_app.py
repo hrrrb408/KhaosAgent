@@ -32,7 +32,7 @@ from run_dsh_signed_runtime_probe import (  # noqa: E402
 )
 
 
-KHAOS_BASE_SHA = "707395146bbaf6be9ac6f58ae1f538e443b064a8"
+KHAOS_BASE_SHA = "b08ab11e01663d2b26304cb541efb5361dea0417"
 REPLACED_SOURCE = "khaos/macos/AgentHost.swift"
 
 
@@ -53,6 +53,12 @@ def main() -> int:
     parser.add_argument("--node-archive", type=Path, required=True)
     parser.add_argument("--signing-identity", required=True)
     parser.add_argument("--output-app", type=Path, required=True)
+    parser.add_argument("--probe-workspace-read-path", type=Path, required=True)
+    parser.add_argument("--probe-workspace-write-path", type=Path, required=True)
+    parser.add_argument("--probe-credential-path", type=Path, required=True)
+    parser.add_argument("--probe-local-port", type=int, required=True)
+    parser.add_argument("--cancellation-case", choices=("b32", "pre-commit", "post-commit"))
+    parser.add_argument("--cancellation-control-path", type=Path)
     parser.add_argument("--pnpm", default="pnpm")
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
@@ -60,8 +66,18 @@ def main() -> int:
 
     if platform.system() != "Darwin":
         parser.error("the signed XPC acceptance app requires macOS")
-    if output(["git", "rev-parse", "HEAD"], cwd=ROOT) != KHAOS_BASE_SHA:
-        parser.error(f"Khaos must be based on pinned PR #40 head {KHAOS_BASE_SHA}")
+    source_sha = output(["git", "rev-parse", "HEAD"], cwd=ROOT)
+    if subprocess.run(
+        ["git", "merge-base", "--is-ancestor", KHAOS_BASE_SHA, "HEAD"],
+        cwd=ROOT,
+        check=False,
+    ).returncode != 0:
+        parser.error(f"Khaos HEAD must descend from verified PR #41 head {KHAOS_BASE_SHA}")
+    merges = output(["git", "rev-list", "--merges", f"{KHAOS_BASE_SHA}..HEAD"], cwd=ROOT)
+    if merges:
+        parser.error("integration commits after PR #41 must not contain merge commits")
+    if output(["git", "status", "--porcelain", "--untracked-files=normal"], cwd=ROOT):
+        parser.error("Khaos integration worktree must be clean so the build binds to its exact source SHA")
     dsh_source = args.dsh_source.resolve(strict=True)
     if output(["git", "rev-parse", "HEAD"], cwd=dsh_source) != PINNED_DSH_SHA:
         parser.error(f"DSH must be pinned at {PINNED_DSH_SHA}")
@@ -78,6 +94,24 @@ def main() -> int:
     if output_app.suffix != ".app" or os.path.lexists(output_app):
         parser.error("--output-app must be a new .app path")
     output_app.parent.mkdir(parents=True, exist_ok=True)
+    probe_paths = {
+        "KhaosDSHProbeWorkspaceReadPath": args.probe_workspace_read_path.resolve(strict=True),
+        "KhaosDSHProbeWorkspaceWritePath": args.probe_workspace_write_path.resolve(strict=True),
+        "KhaosDSHProbeCredentialPath": args.probe_credential_path.resolve(strict=True),
+    }
+    if not all(path.is_file() for path in probe_paths.values()):
+        parser.error("DSH attack probe read, write, and credential canaries must be regular files")
+    if not (1 <= args.probe_local_port <= 65_535):
+        parser.error("--probe-local-port must be a valid TCP port")
+    if (args.cancellation_case is None) != (args.cancellation_control_path is None):
+        parser.error("--cancellation-case and --cancellation-control-path must be supplied together")
+    cancellation_control = None
+    if args.cancellation_control_path is not None:
+        cancellation_control = args.cancellation_control_path.resolve(strict=True)
+        if not cancellation_control.is_dir() \
+                or not (cancellation_control / "kernel-events.jsonl").is_file() \
+                or (cancellation_control / "release").exists():
+            parser.error("cancellation control must contain an empty event file and no release marker")
 
     probe_dir = ROOT / "experiments/dsh-feasibility"
     override = probe_dir / "DSHAgentHostAcceptance.swift"
@@ -85,14 +119,30 @@ def main() -> int:
         override,
         probe_dir / "dsh-agenthost-runtime.ts",
         probe_dir / "khaos-capability-adapter.ts",
+        probe_dir / "malicious-cordis-plugin.ts",
         ROOT / "tools/build_dsh_xpc_acceptance_app.py",
+        ROOT / "tools/run_dsh_xpc_attack_acceptance.py",
         ROOT / "tools/run_dsh_signed_runtime_probe.py",
+        ROOT / "tools/run_dsh_feasibility_probe.py",
+        ROOT / "tests/signed_cancellation_fixture.py",
+        ROOT / "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift",
     )
     temporary = Path(tempfile.mkdtemp(prefix="khaos-dsh-xpc-acceptance-", dir=output_app.parent))
     completed = False
     try:
         source_root = temporary / "inputs"
         source_hashes = seed_builder._snapshot_sources(source_root, None)
+        cancellation_overlay_hashes: dict[str, str] = {}
+        if args.cancellation_case is not None and cancellation_control is not None:
+            sys.path.insert(0, str(ROOT / "tests"))
+            import signed_cancellation_fixture  # noqa: E402
+
+            cancellation_overlay_hashes = signed_cancellation_fixture.overlay(
+                source_root,
+                cancellation_control,
+                args.cancellation_case,
+            )
+            source_hashes.update(cancellation_overlay_hashes)
         replacement_hash = digest(override)
         replacement_target = source_root / REPLACED_SOURCE
         shutil.copy2(override, replacement_target)
@@ -121,6 +171,21 @@ def main() -> int:
         install_name_tool = output(["xcrun", "--find", "install_name_tool"])
         python = seed_builder._python_framework(args.python_executable.resolve(strict=True))
         test_sources = {str(path.relative_to(ROOT)): digest(path) for path in test_inputs}
+        fixed_script_argument = None
+        if args.cancellation_case is not None:
+            candidate_probe = temporary / "TrustedEditApprovalProbe"
+            run([
+                swiftc,
+                "-sdk", sdk,
+                "-target", f"{platform.machine()}-apple-macosx26.0",
+                str(source_root / "khaos/macos/KernelWorkspaceXPC.swift"),
+                str(source_root / "khaos/macos/AgentHostProtocol.swift"),
+                str(source_root / "khaos/macos/TrustedEditApproval.swift"),
+                str(ROOT / "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift"),
+                "-o", str(candidate_probe),
+            ])
+            fixed_script = json.loads(run([str(candidate_probe), "--fixed-script-json"]))["fixed_script"]
+            fixed_script_argument = "exec(" + json.dumps(fixed_script, separators=(",", ":")) + ")"
         build_record = {
             "schema": 1,
             "source_sha256": source_hashes,
@@ -133,11 +198,22 @@ def main() -> int:
             "sdk": output(["xcrun", "--sdk", "macosx", "--show-sdk-version"]),
             "python_version": output([str(args.python_executable), "-I", "-S", "-c", "import sys; print(sys.version)"]),
             "input_policy": "dsh-test-agenthost-override",
+            "khaos_experiment_base_sha": KHAOS_BASE_SHA,
+            "khaos_source_sha": source_sha,
             "agent_action_diagnostics": False,
             "test_only_sources_sha256": test_sources,
+            "probe_fixture_sha256": {
+                key: digest(path) for key, path in probe_paths.items()
+            },
+            "probe_local_port": args.probe_local_port,
+            "cancellation_case": args.cancellation_case,
+            "cancellation_overlay_sha256": cancellation_overlay_hashes,
             "dsh_sha": PINNED_DSH_SHA,
+            "dsh_license_sha256": digest(dsh_source / "LICENSE"),
+            "dsh_third_party_notices_sha256": digest(dsh_source / "THIRD_PARTY_NOTICES.md"),
             "node_version": PINNED_NODE_VERSION,
             "node_archive_sha256": PINNED_NODE_ARCHIVE_SHA256,
+            "node_license_sha256": digest(node_dir / "LICENSE"),
             "dsh_runtime_bundle_sha256": runtime_hash,
         }
         seed_builder._assemble_app(
@@ -159,6 +235,19 @@ def main() -> int:
 
         host = app / "Contents/XPCServices/KhaosAgentHost.xpc"
         host_resources = host / "Contents/Resources"
+        host_info_path = host / "Contents/Info.plist"
+        with host_info_path.open("rb") as stream:
+            host_info = plistlib.load(stream)
+        for key, path in probe_paths.items():
+            host_info[key] = str(path)
+        host_info["KhaosDSHProbeKernelPath"] = str(
+            app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
+        )
+        host_info["KhaosDSHProbeLocalPort"] = str(args.probe_local_port)
+        if fixed_script_argument is not None:
+            host_info["KhaosDSHCandidateBFixedScriptArgument"] = fixed_script_argument
+        with host_info_path.open("wb") as stream:
+            plistlib.dump(host_info, stream, sort_keys=True)
         dsh_resources = host_resources / "dsh"
         dsh_resources.mkdir(parents=True)
         node = host_resources / "node"
@@ -166,6 +255,7 @@ def main() -> int:
         shutil.copy2(runtime_bundle, dsh_resources / "agenthost-runtime.mjs")
         shutil.copy2(node_dir / "LICENSE", host_resources / "NODE_LICENSE")
         shutil.copy2(dsh_source / "LICENSE", host_resources / "DSH_LICENSE")
+        shutil.copy2(dsh_source / "THIRD_PARTY_NOTICES.md", host_resources / "DSH_THIRD_PARTY_NOTICES.md")
         (host_resources / "package.json").write_text(
             json.dumps({"name": "khaos-dsh-xpc-acceptance", "version": "0.2.1-rc.2"}) + "\n",
             encoding="utf-8",
@@ -204,6 +294,7 @@ def main() -> int:
         kernel_binary = output_app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
         print("signed_xpc_acceptance_build=PASS")
         print(f"khaos_base_sha={KHAOS_BASE_SHA}")
+        print(f"khaos_source_sha={source_sha}")
         print(f"dsh_sha={PINNED_DSH_SHA}")
         print(f"host_source_override_sha256={replacement_hash}")
         print(f"node_sha256={digest(output_app / 'Contents/XPCServices/KhaosAgentHost.xpc/Contents/Resources/node')}")

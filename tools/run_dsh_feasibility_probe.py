@@ -128,13 +128,15 @@ def main() -> int:
             "npm_config_globalconfig": "/dev/null",
         }
         (temp_root / "cache").mkdir(exist_ok=True)
+        vitest = source / "node_modules/vitest/vitest.mjs"
+        if not vitest.is_file():
+            parser.error("the pinned DSH checkout is missing its installed Vitest CLI")
         command = [
             "/usr/bin/sandbox-exec",
             "-f",
             str(sandbox_profile),
-            pnpm,
-            "exec",
-            "vitest",
+            node,
+            str(vitest),
             "run",
             "--reporter=dot",
             str((temp_tests / "dsh-probe.spec.ts").relative_to(source)),
@@ -143,7 +145,7 @@ def main() -> int:
         print(f"Node.js={node_version}")
         print(f"pnpm={pnpm_version}")
         print("Test sandbox: no /Users reads, no external network, writes confined to DSH checkout")
-        print("Command: pnpm exec vitest run --reporter=dot <temporary Khaos probe>")
+        print("Command: Node runs the installed Vitest CLI inside the temporary sandbox")
         result = subprocess.run(command, cwd=source, env=temp_env, text=True)
         return result.returncode
     finally:

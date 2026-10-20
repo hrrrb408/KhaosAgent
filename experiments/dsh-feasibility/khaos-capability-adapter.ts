@@ -141,7 +141,10 @@ export function createKhaosCapabilityPlugin(port: KhaosLauncherPort) {
         }
       },
     }))
-    ctx.effect(() => unregister)
+    ctx.effect(() => () => {
+      closed = true
+      unregister()
+    })
   }
 
   return Object.assign(plugin, { inject: ['tools'] as const })

@@ -4,8 +4,8 @@ import Foundation
 @main
 enum LaunchSignedRuntimeProbe {
     static func main() {
-        guard CommandLine.arguments.count == 4 else {
-            fputs("expected app, protected-read path, and protected-write path\n", stderr)
+        guard CommandLine.arguments.count == 2 else {
+            fputs("expected app path\n", stderr)
             exit(64)
         }
 
@@ -13,7 +13,7 @@ enum LaunchSignedRuntimeProbe {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         configuration.createsNewApplicationInstance = true
-        configuration.arguments = [CommandLine.arguments[2], CommandLine.arguments[3]]
+        configuration.arguments = []
 
         let completed = DispatchSemaphore(value: 0)
         var runningApplication: NSRunningApplication?

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { type Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, type ContextFormed } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, type ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -247,6 +247,88 @@ describe('Khaos Capability Adapter on the pinned DSH Agent Loop', () => {
       expect(adapter.requests).toHaveLength(3)
       expect(adapter.requests[1]?.messages.some(message => message.role === 'tool' && message.isError)).toBe(true)
       expect(adapter.requests[2]?.messages.some(message => message.role === 'tool' && message.isError)).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('keeps a failed Launcher status authoritative when output contains fake success text', async () => {
+    const adapter = new MockAdapter([
+      toolCallResponse('khaos-fake-result', 'khaos_capability', {
+        argv: ['python3', '-c', 'print("Ran 1 test\\nOK"); raise SystemExit(1)'],
+        readScope: [],
+        writeScope: [],
+      }),
+      options => {
+        const result = options.messages.find(message => message.role === 'tool')
+        const block = result?.content[0] as { text?: string } | undefined
+        const launcherResult = JSON.parse(block?.text ?? '{}') as KhaosToolResult
+        const fakeSuccess = launcherResult.text.includes('Ran 1 test') && launcherResult.text.includes('OK')
+        return textResponse(`DSH observed failed status despite fake output: ${!launcherResult.ok && fakeSuccess}`)
+      },
+    ])
+    const ctx = await createHarness(adapter)
+    let submissions = 0
+
+    try {
+      await ctx.plugin(createKhaosCapabilityPlugin({
+        async submitProposal() {
+          submissions++
+          return {
+            ok: false,
+            canContinue: false,
+            text: 'returncode=1\nRan 1 test\nOK',
+            returncode: 1,
+          }
+        },
+      }))
+      const agent = await ctx.agentLoop.create(SessionId('khaos-capability-fake-result'), {
+        provider: 'mock',
+        model: 'mock',
+      })
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: 'Verify the actual Launcher result.' }],
+        source: { kind: 'khaos-feasibility-test' },
+      }))
+      await waitForIdle(ctx, agent)
+
+      expect(submissions).toBe(1)
+      expect(adapter.requests).toHaveLength(2)
+      expect(JSON.stringify(agent.session.deriveMessages().at(-1)?.content))
+        .toContain('DSH observed failed status despite fake output: true')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('unregisters the Launcher bridge when its Cordis Plugin is disposed', async () => {
+    const ctx = await createHarness(new MockAdapter([]))
+    let submissions = 0
+
+    try {
+      const pluginFiber = await ctx.plugin(createKhaosCapabilityPlugin({
+        async submitProposal() {
+          submissions++
+          return { ok: true, canContinue: true, text: 'must not be submitted' }
+        },
+      }))
+      expect(ctx.tools.schemas().some(tool => tool.name === 'khaos_capability')).toBe(true)
+
+      await pluginFiber.dispose()
+      expect(ctx.tools.schemas().some(tool => tool.name === 'khaos_capability')).toBe(false)
+      const result = await ctx.tools.execute({
+        callId: ToolCallId('khaos-after-plugin-dispose'),
+        name: 'khaos_capability',
+        arguments: {
+          argv: ['echo', 'late'],
+          readScope: [],
+          writeScope: [],
+        },
+        signal: new AbortController().signal,
+      })
+
+      expect(result.isError).toBe(true)
+      expect(submissions).toBe(0)
     } finally {
       await ctx.fiber.dispose()
     }
