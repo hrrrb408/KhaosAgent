@@ -66,3 +66,13 @@ binary path was inside that attempt's private scratch directory.
 Fake-result UI acceptance and the completed signed Read → Edit → Test flow
 remain incomplete. The DSH protocol unit tests do not substitute for those
 signed product runs.
+
+The latest signed coding run was built from exact source SHA
+`a2765389989d7c4290eb754b459f2a516990d155`. The owner was unavailable to
+select the disposable workspace, so the run remained at the Picker until its
+600-second timeout. The retained record is
+`failed_attempts/coding-read-edit-test-a276538.failed.json` and is
+`FAILED_ATTEMPT`. Its Launcher log shows the initial shell proposal and
+workspace-Picker request only. No workspace was selected and no Runner request,
+read, edit, test, approval denial, or cancellation occurred. The acceptance
+runner and signed app processes were gone after timeout.

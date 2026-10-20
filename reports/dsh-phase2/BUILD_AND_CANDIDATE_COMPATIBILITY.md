@@ -76,16 +76,18 @@ boundaries.
   app completed a real DSH adapter roundtrip and an intentional child
   termination. Its hostile OS probe was deliberately removed; this smoke test
   is not XPC isolation evidence.
-- A signed XPC app built successfully on Khaos source SHA
-  `ddf41dae96ff1f5d5547d021d77fa68be64afc5b`. It bundles the DSH runtime with
-  SHA-256 `316ff95decb95c706693c9d42bff8d48ade793d935dfbdfd889281a760c04ace`
-  and is 198,802,153 bytes. Its coding acceptance timed out at the real
-  workspace Picker before a workspace selection reached the app; no Runner
-  operation was submitted. The failed attempt is preserved under
-  `reports/dsh-phase2/failed_attempts/`.
-- The signed XPC hostile-plugin attack passed at the earlier exact source SHA
-  `efadf67a35bb70e0441f737af457a619e7c8aae3`; it has not yet been rerun on
-  `ddf41da`. The run record is described in `SECURITY_ACCEPTANCE.md`.
+- The real signed AgentHost XPC hostile-plugin attack passed on exact Khaos
+  source SHA `a2765389989d7c4290eb754b459f2a516990d155`. Its record is
+  `signed-xpc-attack-a276538.json`; it bundles the DSH runtime and Node
+  `v22.19.0`, verifies deep signature, and records the measured app size and
+  Node RSS. The attack's OS-enforcement results are detailed in
+  `SECURITY_ACCEPTANCE.md`.
+- The signed Read → Edit → Test app also built at exact source SHA `a276538`,
+  but the owner could not select the disposable workspace. The run reached the
+  Picker and timed out after 600 seconds with no workspace selection or Runner
+  request. It is preserved as
+  `failed_attempts/coding-read-edit-test-a276538.failed.json`, not as a
+  completed workflow.
 - Signed cancellation, Node crash/recovery, coding completion, and fake-result
   acceptance remain incomplete. The coding and lifecycle commands require
   actual user Picker and approval actions; no click is simulated by these

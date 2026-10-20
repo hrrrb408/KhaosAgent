@@ -123,5 +123,17 @@ Kernel hash, deep bundle signature, zero local TCP connections, and cleanup of
 the Node process group. Child process execution itself was allowed while its
 protected operations remained denied. Node RSS was 52,625,408 bytes and the
 signed app bundle was 198,803,064 bytes. This run requested no Picker and made
-no owner-approved Runner calls. Final-head rerun remains required after the
-remaining report and evidence updates.
+no owner-approved Runner calls.
+
+A clean signed rerun on exact source SHA
+`a2765389989d7c4290eb754b459f2a516990d155` also passed. Its tracked evidence
+is `signed-xpc-attack-a276538.json`. It records the same direct and child
+process workspace denials, dummy credential denial, zero credential-like
+environment keys, `EPERM` for localhost and external networking, denied write
+to the published Kernel binary, blocked oversized scope, unchanged canaries
+and Kernel hash, valid deep signature, zero local TCP connections, and clean
+Node process-group teardown. Node RSS was 53,035,008 bytes; the signed app
+bundle remained 198,803,064 bytes. No Picker or tool proposal was requested,
+and no Runner call was approved. This is the current signed XPC attack
+evidence; it does not prove owner-approved coding, cancellation, or crash and
+recovery behavior.
