@@ -89,12 +89,27 @@ def apply_experimental_model_disclosure(source_root: Path) -> dict[str, str]:
     )
     if original.count(old) != 1:
         raise RuntimeError("expected one remote model disclosure string in the Launcher source")
-    path.write_text(original.replace(old, replacement), encoding="utf-8")
+    no_remote_attack_consent = (
+        "            if modelProvider.isRemote,\n"
+        "               !approveRemoteModelData(\n"
+    )
+    test_only_no_remote_attack_consent = (
+        "            if modelProvider.isRemote,\n"
+        "               prompt != \"KHAOS_DSH_XPC_ATTACK\",\n"
+        "               !approveRemoteModelData(\n"
+    )
+    if original.count(no_remote_attack_consent) != 1:
+        raise RuntimeError("expected one Launcher remote-data consent gate")
+    transformed = original.replace(old, replacement).replace(
+        no_remote_attack_consent,
+        test_only_no_remote_attack_consent,
+    )
+    path.write_text(transformed, encoding="utf-8")
     return {
         "path": REMOTE_MODEL_DISCLOSURE_SOURCE,
         "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
         "experimental_sha256": digest(path),
-        "reason": "show the exact fixed glm-5.3 model id in the disposable signed experiment app",
+        "reason": "show the fixed model id and bypass remote consent only for the exact deterministic hostile-XPC marker, which uses the MockAdapter and sends no task data",
     }
 
 
@@ -460,7 +475,7 @@ def main() -> int:
                 + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (
-                "synthetic disposable benchmark data only; Launcher task-scoped consent"
+                "synthetic benchmark data only; Launcher task-scoped consent; exact hostile-XPC marker uses MockAdapter and skips provider data flow"
                 if args.model_provider != "local" else "no remote model"
             ),
             "dsh_model_limits": (

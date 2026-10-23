@@ -1,0 +1,23 @@
+{
+  "actions": [
+    "denied outbound task data",
+    "attempted Cancel and Escape on the unrelated Picker",
+    "made no workspace selection or Run Once approval"
+  ],
+  "agent_host_task_result": "NOT_RUN",
+  "api_key_present": false,
+  "approval_operator": "codex_agent",
+  "attribution": "The Picker being a no-argument smoke relaunch is an inference; no current-run Runner request or workspace selection was observed.",
+  "authorization": "Owner-delegated disposable experiment",
+  "model_http_requests": 0,
+  "observation": "After denying BigModel consent, CUA showed the generic writeback-smoke Picker and a previously used disposable coding-workspace. This was not a task operation: the signed runner log records only consent denied and no hostile-plugin result. The UI was stale/unresponsive during dismissal; a later UI action returned Launch Services procNotFound, and a subsequent process inventory showed no KhaosSeed or DSHModelBridge process.",
+  "owner_personally_clicked": false,
+  "raw_failure_evidence": "signed-model-bridge-peer-attack-01.failed-1792752248732074000.json",
+  "remote_data_consent": "DENIED",
+  "run_id": "signed-model-bridge-peer-attack-01",
+  "runner_operations": 0,
+  "schema": 1,
+  "source_sha": "2f887fb32dde36778866572ba05ed738c900a473",
+  "workspace_mutation_attributable_to_run": 0,
+  "workspace_selected": false
+}

@@ -1,5 +1,7 @@
 import sys
 from pathlib import Path
+import shutil
+import tempfile
 import unittest
 
 
@@ -8,6 +10,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from benchmark import TASKS  # noqa: E402
 import run_dsh_xpc_attack_acceptance as acceptance  # noqa: E402
+import build_dsh_xpc_acceptance_app as app_builder  # noqa: E402
 
 
 class RealModelAcceptancePolicyTests(unittest.TestCase):
@@ -117,6 +120,20 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         self.assertTrue(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_NOT_VISIBLE"))
         self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_UNAVAILABLE"))
         self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_PEER_ACCEPTED"))
+
+    def test_only_fixed_mock_attack_marker_skips_remote_data_consent(self):
+        source = ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+        with tempfile.TemporaryDirectory(prefix="khaos-phase3-launcher-policy-") as directory:
+            source_root = Path(directory)
+            target = source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+            target.parent.mkdir(parents=True)
+            shutil.copy2(source, target)
+            app_builder.apply_experimental_model_disclosure(source_root)
+            transformed = target.read_text(encoding="utf-8")
+
+        self.assertEqual(transformed.count('prompt != "KHAOS_DSH_XPC_ATTACK"'), 1)
+        self.assertIn('!approveRemoteModelData(', transformed)
+        self.assertIn('model id: glm-5.3', transformed)
 
 
 if __name__ == "__main__":
