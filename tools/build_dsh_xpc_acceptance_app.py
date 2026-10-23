@@ -294,6 +294,11 @@ def main() -> int:
     )
     parser.add_argument("--cancellation-case", choices=("b32", "pre-commit", "post-commit"))
     parser.add_argument("--cancellation-control-path", type=Path)
+    parser.add_argument(
+        "--semantic-tools",
+        action="store_true",
+        help="embed the test-only fixed Candidate B script used by semantic coding tools",
+    )
     parser.add_argument("--pnpm", default="pnpm")
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--local-model-app", type=Path,
@@ -364,8 +369,11 @@ def main() -> int:
         model_bridge_service_source,
         model_bridge_probe_source,
         probe_dir / "dsh-agenthost-runtime.ts",
+        probe_dir / "dsh-agent-telemetry.ts",
         probe_dir / "khaos-model-bridge.ts",
         probe_dir / "khaos-local-model.ts",
+        probe_dir / "khaos-semantic-tools.ts",
+        probe_dir / "khaos-semantic-tools.spec.ts",
         probe_dir / "dsh-capability-lifecycle-probe.ts",
         probe_dir / "dsh-tool-result.ts",
         probe_dir / "khaos-capability-adapter.ts",
@@ -477,7 +485,7 @@ def main() -> int:
         python = seed_builder._python_framework(args.python_executable.resolve(strict=True))
         test_sources = {str(path.relative_to(ROOT)): digest(path) for path in test_inputs}
         fixed_script_argument = None
-        if args.cancellation_case is not None:
+        if args.cancellation_case is not None or args.semantic_tools:
             candidate_probe = temporary / "TrustedEditApprovalProbe"
             run([
                 swiftc,
@@ -513,6 +521,7 @@ def main() -> int:
             "probe_local_port": args.probe_local_port,
             "cancellation_case": args.cancellation_case,
             "cancellation_overlay_sha256": cancellation_overlay_hashes,
+            "semantic_tools": args.semantic_tools,
             "dsh_model_provider": args.model_provider,
             "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local"
                 else (LOCAL_MODEL_ID if local_model is not None else None),

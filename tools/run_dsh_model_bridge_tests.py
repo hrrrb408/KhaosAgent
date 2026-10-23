@@ -36,6 +36,7 @@ def main() -> int:
     try:
         shutil.copy2(source / "khaos-model-bridge.ts", staging / "khaos-model-bridge.ts")
         shutil.copy2(source / "khaos-local-model.ts", staging / "khaos-local-model.ts")
+        shutil.copy2(source / "dsh-agent-telemetry.ts", staging / "dsh-agent-telemetry.ts")
         shutil.copy2(source / "khaos-model-bridge.test.ts", staging / "khaos-model-bridge.test.ts")
         result = subprocess.run(
             [str(node), "--import", "tsx", "--test", str(staging / "khaos-model-bridge.test.ts")],

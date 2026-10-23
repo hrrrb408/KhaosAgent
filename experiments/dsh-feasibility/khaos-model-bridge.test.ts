@@ -4,6 +4,7 @@ import { KhaosDshModelAdapter } from './khaos-model-bridge.ts'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import type { KhaosModelCall } from './khaos-model-bridge.ts'
 import { localModelTestSupport } from './khaos-local-model.ts'
+import { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 
 const completion = (message: Record<string, unknown>, finishReason: unknown = 'stop') => ({
   choices: [{ message, finish_reason: finishReason }],
@@ -32,6 +33,19 @@ function newAdapter(complete: KhaosModelCall): KhaosDshModelAdapter {
     contextWindow: 32_768,
     complete,
   })
+}
+
+function semanticOptions(overrides: Partial<GenerateOptions> = {}): GenerateOptions {
+  return options({
+    provider: 'khaos-local',
+    model: 'bundled-cpu',
+    tools: [{
+      name: 'read_file',
+      description: 'Read one allowlisted file',
+      parameters: { type: 'object', properties: { path: { type: 'string' } } },
+    }],
+    ...overrides,
+  } as Partial<GenerateOptions>)
 }
 
 async function chunks(adapter: KhaosDshModelAdapter, request: GenerateOptions): Promise<unknown[]> {
@@ -201,6 +215,127 @@ test('does not submit a pre-cancelled request', async () => {
   controller.abort()
   await assert.rejects(chunks(adapter, options({ signal: controller.signal })))
   assert.equal(calls, 0)
+})
+
+test('maps a semantic Cordis tool call without accepting model-owned scope fields', async () => {
+  let captured: Record<string, unknown> | undefined
+  const events: Readonly<Record<string, unknown>>[] = []
+  const telemetry = new DshAgentTelemetry('trial-semantic', 'session-semantic', 'A', record => events.push(record))
+  const adapter = new KhaosDshModelAdapter({
+    provider: 'khaos-local', model: 'bundled-cpu', name: 'CPU model', contextWindow: 8_192,
+    complete: async request => {
+      captured = request.body as Record<string, unknown>
+      return {
+        completion: completion({
+          role: 'assistant', content: null,
+          tool_calls: [{
+            id: 'semantic-read-1', type: 'function',
+            function: { name: 'read_file', arguments: '{"path":"fee.py"}' },
+          }],
+        }, 'tool_calls'),
+        elapsed_ms: 8,
+      }
+    },
+  }, telemetry)
+  const result = await chunks(adapter, semanticOptions())
+  const toolDelta = result.find(item => (item as { type?: string }).type === 'tool-call-delta') as {
+    name: string; argumentsDelta: string
+  } | undefined
+  assert.equal(toolDelta?.name, 'read_file')
+  assert.equal(toolDelta?.argumentsDelta, '{"path":"fee.py"}')
+  assert.deepEqual((captured?.tools as Array<{ function: { name: string } }>).map(tool => tool.function.name), ['read_file'])
+  assert.ok(events.some(event => event.event === 'MODEL_TOOL_CALL_OUTPUT_ACCEPTED'
+    && event.tool_name === 'read_file' && event.argument_bytes === Buffer.byteLength('{"path":"fee.py"}')))
+})
+
+test('supports final responses with no visible tools and rejects stale tool calls', async () => {
+  let captured: Record<string, unknown> | undefined
+  const final = new KhaosDshModelAdapter({
+    provider: 'khaos-local', model: 'bundled-cpu', name: 'CPU model', contextWindow: 8_192,
+    complete: async request => {
+      captured = request.body as Record<string, unknown>
+      return { completion: completion({ role: 'assistant', content: 'verification is complete' }), elapsed_ms: 3 }
+    },
+  })
+  await chunks(final, semanticOptions({ tools: [] }))
+  assert.equal(Object.hasOwn(captured ?? {}, 'tools'), false)
+
+  const staleTool = new KhaosDshModelAdapter({
+    provider: 'khaos-local', model: 'bundled-cpu', name: 'CPU model', contextWindow: 8_192,
+    complete: async () => ({
+      completion: completion({
+        role: 'assistant', content: null,
+        tool_calls: [{ id: 'stale-tool', type: 'function', function: { name: 'read_file', arguments: '{"path":"fee.py"}' } }],
+      }, 'tool_calls'),
+      elapsed_ms: 3,
+    }),
+  })
+  await assert.rejects(chunks(staleTool, semanticOptions({ tools: [] })), /unregistered tool/u)
+})
+
+test('fails closed when the DSH Session omits the exact delivered tool result', async () => {
+  let providerCalls = 0
+  const events: Readonly<Record<string, unknown>>[] = []
+  const telemetry = new DshAgentTelemetry('trial-a1', 'session-a1', 'A', record => events.push(record))
+  const adapter = new KhaosDshModelAdapter({
+    provider: 'khaos-local', model: 'bundled-cpu', name: 'CPU model', contextWindow: 8_192,
+    complete: async () => {
+      providerCalls += 1
+      return {
+        completion: completion({
+          role: 'assistant', content: null,
+          tool_calls: [{
+            id: 'semantic-missing-result', type: 'function',
+            function: { name: 'read_file', arguments: '{"path":"fee.py"}' },
+          }],
+        }, 'tool_calls'),
+        elapsed_ms: 4,
+      }
+    },
+  }, telemetry)
+  await chunks(adapter, semanticOptions())
+  await assert.rejects(chunks(adapter, semanticOptions()), /Session did not contain/u)
+  assert.equal(providerCalls, 1)
+  assert.ok(events.some(event => event.event === 'SESSION_CONTINUITY_CHECK' && event.observed_tool_result === false))
+  assert.ok(events.some(event => event.event === 'MODEL_REQUEST_FAILED' && event.error_code === 'session_continuity_missing'))
+})
+
+test('continues only when the next turn contains the same Session tool-result digest', async () => {
+  const events: Readonly<Record<string, unknown>>[] = []
+  const telemetry = new DshAgentTelemetry('trial-a2', 'session-a2', 'A', record => events.push(record))
+  telemetry.bindToolCall('semantic-result-1', 1)
+  const resultContent = [{ type: 'text', text: '{"ok":true,"returncode":1}' }]
+  telemetry.markToolResultDelivered('semantic-result-1', resultContent, false)
+  let providerCalls = 0
+  const adapter = new KhaosDshModelAdapter({
+    provider: 'khaos-local', model: 'bundled-cpu', name: 'CPU model', contextWindow: 8_192,
+    complete: async () => {
+      providerCalls += 1
+      return {
+        completion: completion(providerCalls === 1 ? {
+          role: 'assistant', content: null,
+          tool_calls: [{
+            id: 'semantic-result-1', type: 'function',
+            function: { name: 'read_file', arguments: '{"path":"fee.py"}' },
+          }],
+        } : { role: 'assistant', content: 'received failure' }, providerCalls === 1 ? 'tool_calls' : 'stop'),
+        elapsed_ms: 5,
+      }
+    },
+  }, telemetry)
+  await chunks(adapter, semanticOptions())
+  const messages = [
+    {
+      role: 'assistant',
+      content: [{
+        type: 'tool-call', id: 'semantic-result-1', name: 'read_file', arguments: '{"path":"fee.py"}',
+      }],
+    },
+    { role: 'tool', toolCallId: 'semantic-result-1', content: resultContent, isError: false },
+  ]
+  await chunks(adapter, semanticOptions({ messages: messages as GenerateOptions['messages'] }))
+  assert.ok(events.some(event => event.event === 'SESSION_CONTINUITY_CHECK' && event.observed_tool_result === true))
+  assert.ok(events.some(event => event.event === 'AGENT_NEXT_TURN_STARTED' && event.tool_call_id === 'semantic-result-1'))
 })
 
 test('local model route uses the same bounded DSH completion translation and call budget', async () => {

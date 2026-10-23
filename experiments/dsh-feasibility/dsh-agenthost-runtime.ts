@@ -10,7 +10,14 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
-import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
+import {
+  createKhaosCapabilityPlugin,
+  type KhaosProposalCorrelation,
+  type KhaosShellProposal,
+  type KhaosToolResult,
+} from './khaos-capability-adapter.ts'
+import { createKhaosSemanticToolsPlugin, type KhaosCodingToolPolicy, type SemanticToolName } from './khaos-semantic-tools.ts'
+import { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
 import {
   KhaosDshModelAdapter,
@@ -185,6 +192,76 @@ function codingResponses() {
   ]
 }
 
+function semanticCodingResponses() {
+  return [
+    toolCallResponse('phase31-read-fee', 'read_file', { path: 'fee.py' }),
+    options => {
+      if (!lastToolResultText(options.messages).includes('return amount * rate')) {
+        return textResponse('The actual fee.py read result did not contain the expected function.')
+      }
+      return toolCallResponse('phase31-read-tests', 'read_file', { path: 'test_public.py' })
+    },
+    options => {
+      if (!lastToolResultText(options.messages).includes('test_fee_is_rounded_to_cents')) {
+        return textResponse('The actual public test read result was incomplete.')
+      }
+      return toolCallResponse('phase31-edit-fee', 'replace_text', {
+        path: 'fee.py',
+        oldText: 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n',
+        newText: 'def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n',
+      })
+    },
+    options => {
+      const edit = JSON.parse(lastToolResult(options.messages)) as { ok?: unknown; returncode?: unknown }
+      if (edit.ok !== true || edit.returncode !== 0) return textResponse('The actual scoped edit did not complete successfully.')
+      return toolCallResponse('phase31-test-fee', 'run_tests', { profile: 'public' })
+    },
+    options => {
+      const test = JSON.parse(lastToolResult(options.messages)) as { returncode?: unknown }
+      return test.returncode === 0
+        ? textResponse('The actual public tests passed after the controlled edit.')
+        : textResponse('The actual public tests failed; no success is claimed.')
+    },
+  ]
+}
+
+interface Phase31TaskInput {
+  readonly trial_id: string
+  readonly task_id: string
+  readonly prompt: string
+  readonly read_scope: readonly string[]
+  readonly write_scope: readonly string[]
+}
+
+const PHASE31_REAL_PREFIX = 'KHAOS_DSH_PHASE3_1_REAL: '
+const PHASE31_FIXTURE_PREFIX = 'KHAOS_DSH_PHASE3_1_FIXTURE: '
+
+function parsePhase31Input(text: string): { input: Phase31TaskInput; realModel: boolean } | undefined {
+  const prefix = text.startsWith(PHASE31_REAL_PREFIX) ? PHASE31_REAL_PREFIX
+    : text.startsWith(PHASE31_FIXTURE_PREFIX) ? PHASE31_FIXTURE_PREFIX : undefined
+  if (!prefix) return undefined
+  let value: unknown
+  try { value = JSON.parse(text.slice(prefix.length)) } catch { throw new Error('invalid_phase31_task_input') }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_phase31_task_input')
+  const input = value as Record<string, unknown>
+  const keys = Object.keys(input).sort().join(',')
+  if (keys !== 'prompt,read_scope,task_id,trial_id,write_scope'
+    || typeof input.trial_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(input.trial_id)
+    || typeof input.task_id !== 'string' || !['A', 'B', 'C', 'D'].includes(input.task_id)
+    || typeof input.prompt !== 'string' || input.prompt.length === 0
+    || !Array.isArray(input.read_scope) || input.read_scope.length === 0 || input.read_scope.length > 8
+    || !Array.isArray(input.write_scope) || input.write_scope.length === 0 || input.write_scope.length > 8
+    || ![...input.read_scope, ...input.write_scope].every(path => typeof path === 'string'
+      && path.length > 0 && Buffer.byteLength(path, 'utf8') <= 128 && !path.startsWith('/')
+      && !path.includes('\\') && !path.split('/').some(part => part === '' || part === '.' || part === '..'))
+    || new Set(input.read_scope).size !== input.read_scope.length
+    || new Set(input.write_scope).size !== input.write_scope.length
+    || !input.write_scope.every(path => input.read_scope.includes(path))) {
+    throw new Error('invalid_phase31_task_input')
+  }
+  return { input: input as unknown as Phase31TaskInput, realModel: prefix === PHASE31_REAL_PREFIX }
+}
+
 function scopeAttackResponses() {
   return [
     toolCallResponse('dsh-scope-escape', 'khaos_capability', proposal(
@@ -325,8 +402,10 @@ function probePaths(): HostileProbePaths | undefined {
 async function createTask(text: string): Promise<void> {
   if (currentAgent || pendingResult) throw new Error('task already active')
   const realModelPrefix = 'KHAOS_DSH_REAL_MODEL_CODING: '
-  const realModelMode = text.startsWith(realModelPrefix)
-  const taskText = realModelMode ? text.slice(realModelPrefix.length) : text
+  const phase31 = parsePhase31Input(text)
+  const semanticMode = phase31 !== undefined
+  const realModelMode = phase31?.realModel ?? text.startsWith(realModelPrefix)
+  const taskText = phase31?.input.prompt ?? (realModelMode ? text.slice(realModelPrefix.length) : text)
   if (realModelMode && taskText.length === 0) throw new Error('real-model task text is empty')
   const pluginLifecycleMode = text.includes('KHAOS_DSH_PLUGIN_LIFECYCLE')
   const attackMode = text.includes('KHAOS_DSH_XPC_ATTACK')
@@ -340,6 +419,13 @@ async function createTask(text: string): Promise<void> {
   crashOnNextToolResult = text.includes('KHAOS_DSH_NODE_CRASH_ON_RESULT')
   const recoveryMode = text.includes('KHAOS_DSH_RECOVERY_NEW_TASK')
   const ctx = new Context()
+  const dshSessionId = semanticMode ? `khaos-phase31-${randomUUID()}` : `khaos-xpc-${randomUUID()}`
+  const telemetry = phase31 === undefined ? undefined : new DshAgentTelemetry(
+    phase31.input.trial_id,
+    dshSessionId,
+    phase31.input.task_id,
+    record => emit({ type: 'telemetry', record }),
+  )
   let hostileEvidence: HostileProbeEvidence | undefined
 
   if (attackMode) {
@@ -361,6 +447,8 @@ async function createTask(text: string): Promise<void> {
       } : { status: 'FAIL', oversizedScopeBlocked, reason: 'probe did not produce evidence' }
       return textResponse(`KHAOS_DSH_XPC_ATTACK_RESULT ${JSON.stringify(result)}`)
     }]
+    : semanticMode && !realModelMode
+      ? semanticCodingResponses()
     : codingMode
       ? codingResponses()
       : fakeResultMode
@@ -415,6 +503,7 @@ async function createTask(text: string): Promise<void> {
           contextWindow: 32_768,
           complete: requestModel,
         },
+        telemetry,
     )
     : undefined
   const localModelMode = realModelMode && Boolean(process.env.KHAOS_DSH_LOCAL_MODEL_EXECUTABLE)
@@ -428,6 +517,13 @@ async function createTask(text: string): Promise<void> {
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [], maxParallelToolCalls: 1 })
+  const disposeSemanticPrompt = semanticMode
+    ? ctx.systemPrompt.section({
+      name: 'khaos-phase3-1-semantic-tools',
+      order: 9_900,
+      text: 'For this coding task use only the semantic tools shown in the tool registry: read_file, replace_text, and run_tests with profile public. The task text may describe the public test command; that command is executed only through run_tests. Never generate shell commands, argv, scopes, working directories, environment values, or paths outside the displayed tool schemas. The registry exposes only the next allowed operation. Read every permitted public file before editing. Never access hidden tests. Maximum 8 tool operations, 3 writes, 3 repairs, and 600 seconds.',
+    })
+    : undefined
   ctx.llm.registerAdapter(
     [provider],
     modelAdapter ?? mockAdapter,
@@ -446,40 +542,98 @@ async function createTask(text: string): Promise<void> {
     return
   }
   let rejectedProposalCount = 0
-  const pluginFiber = await ctx.plugin(createKhaosCapabilityPlugin({
-    reportRejectedProposal() {
-      rejectedProposalCount += 1
-    },
-    submitProposal(proposalValue, signal) {
-      if (pendingResult) throw new Error('one Khaos operation may be pending at a time')
-      emit({ type: 'proposal', proposal: proposalValue })
-      return new Promise((resolve, reject) => {
-        let settled = false
-        const finish = (result: KhaosToolResult) => {
-          if (settled) return
-          settled = true
-          signal.removeEventListener('abort', onAbort)
-          pendingResult = undefined
-          resolve(result)
-        }
-        const onAbort = () => {
-          if (settled) return
-          settled = true
-          pendingResult = undefined
-          reject(new Error('Khaos Agent Host request was cancelled'))
-        }
-        pendingResult = finish
-        if (signal.aborted) onAbort()
-        else signal.addEventListener('abort', onAbort, { once: true })
+  const submitProposal = (
+    proposalValue: KhaosShellProposal,
+    signal: AbortSignal,
+    correlation?: KhaosProposalCorrelation,
+  ): Promise<KhaosToolResult> => {
+    if (pendingResult) throw new Error('one Khaos operation may be pending at a time')
+    if (correlation && telemetry) {
+      telemetry.emit('LAUNCHER_PROPOSAL_SUBMITTED', {
+        agent_turn_id: correlation.turn,
+        agent_step_id: correlation.step,
+        ...(correlation.modelCallId ? { model_call_id: correlation.modelCallId } : {}),
+        tool_call_id: correlation.toolCallId,
+        tool_name: correlation.toolName,
+        operation_seq: correlation.operationSequence,
+        invocation_sha256: correlation.invocationSHA256,
       })
-    },
-  }))
+    }
+    emit({
+      type: 'proposal',
+      proposal: proposalValue,
+      ...(correlation === undefined ? {} : {
+        correlation: {
+          trial_id: correlation.trialId,
+          dsh_session_id: correlation.sessionId,
+          benchmark_task_id: correlation.benchmarkTaskId,
+          agent_turn_id: correlation.turn,
+          agent_step_id: correlation.step,
+          ...(correlation.modelCallId ? { model_call_id: correlation.modelCallId } : {}),
+          tool_call_id: correlation.toolCallId,
+          operation_seq: correlation.operationSequence,
+          tool_name: correlation.toolName,
+          invocation_sha256: correlation.invocationSHA256,
+        },
+      }),
+    })
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (result: KhaosToolResult) => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', onAbort)
+        pendingResult = undefined
+        resolve(result)
+      }
+      const onAbort = () => {
+        if (settled) return
+        settled = true
+        pendingResult = undefined
+        reject(new Error('Khaos Agent Host request was cancelled'))
+      }
+      pendingResult = finish
+      if (signal.aborted) onAbort()
+      else signal.addEventListener('abort', onAbort, { once: true })
+    })
+  }
 
-  const agent = await ctx.agentLoop.create(SessionId(`khaos-xpc-${randomUUID()}`), {
+  const agent = await ctx.agentLoop.create(SessionId(dshSessionId), {
     provider,
     model,
     ...(realModelMode ? { maxTokens: 2_048 } : {}),
   })
+  let visibleToolDisposer: (() => void) | undefined
+  let allAgentTools: string[] = []
+  const setVisibleTools = (names: readonly SemanticToolName[]) => {
+    visibleToolDisposer?.()
+    visibleToolDisposer = names.length === 0
+      ? agent.ctx.tools.restrict({ deny: allAgentTools })
+      : agent.ctx.tools.restrict({ allow: [...names] })
+  }
+  const pluginFiber = semanticMode
+    ? await ctx.plugin(createKhaosSemanticToolsPlugin(
+      { submitProposal },
+      {
+        trialId: phase31.input.trial_id,
+        taskId: phase31.input.task_id,
+        readFiles: phase31.input.read_scope,
+        writeFiles: phase31.input.write_scope,
+        fixedEditScript: process.env.KHAOS_DSH_CANDIDATE_B_FIXED_SCRIPT ?? '',
+      },
+      telemetry as DshAgentTelemetry,
+      setVisibleTools,
+    ))
+    : await ctx.plugin(createKhaosCapabilityPlugin({
+      reportRejectedProposal() {
+        rejectedProposalCount += 1
+      },
+      submitProposal,
+    }))
+  allAgentTools = agent.ctx.tools.schemas()
+    .map(tool => tool.name)
+    .filter(name => name !== 'run_code')
+  if (semanticMode) setVisibleTools(['read_file'])
   currentAgent = agent
   currentContext = ctx
   currentPluginFiber = pluginFiber
@@ -492,6 +646,92 @@ async function createTask(text: string): Promise<void> {
       ...(typeof record?.code === 'string' ? { code: record.code.slice(0, 80) } : {}),
       message: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
     })
+  })
+  const disposeSessionTelemetry = telemetry === undefined ? undefined : ctx.on('session/event', (session, event) => {
+    if (session.id !== agent.session.id) return
+    const data = event.data as Record<string, unknown>
+    if (event.type === 'turn/start') telemetry.setPosition(data.turn as number, 0)
+    if (event.type === 'step/start') {
+      telemetry.setPosition(data.turn as number, data.step as number)
+      if (phase31 && !phase31.realModel) {
+        const position = telemetry.position()
+        const modelCallId = `${phase31.input.trial_id}:fixture:${position.turn}:${position.step}`
+        telemetry.beginModelCall(modelCallId)
+        telemetry.emit('MODEL_REQUEST_STARTED', {
+          agent_turn_id: position.turn,
+          agent_step_id: position.step,
+          model_call_id: modelCallId,
+          model_provider: 'khaos-fixture',
+          model_id: 'deterministic-semantic-fixture',
+        })
+      }
+    }
+    if (event.type === 'assistant/message') {
+      const position = telemetry.position()
+      telemetry.emit('DSH_ASSISTANT_MESSAGE_COMMITTED', {
+        agent_turn_id: data.turn as number,
+        agent_step_id: data.step as number,
+        ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+        status: 'session_committed',
+        dsh_event_seq: event.seq,
+      })
+      if (phase31 && !phase31.realModel) {
+        telemetry.emit('MODEL_RESPONSE_RECEIVED', {
+          agent_turn_id: data.turn as number,
+          agent_step_id: data.step as number,
+          ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+          status: 'fixture_received',
+          duration_ms: 0,
+        })
+      }
+    }
+    if (event.type === 'tool/call') {
+      const position = telemetry.position()
+      const callId = String(data.callId ?? '')
+      const name = String(data.name ?? '')
+      const args = typeof data.arguments === 'string' ? data.arguments : ''
+      if (!/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId)
+        || !['read_file', 'replace_text', 'run_tests'].includes(name)) return
+      telemetry.emit('TOOL_CALL_PARSED', {
+        agent_turn_id: data.turn as number,
+        agent_step_id: data.step as number,
+        ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+        tool_call_id: callId,
+        tool_name: name,
+        argument_bytes: Buffer.byteLength(args, 'utf8'),
+        dsh_event_seq: event.seq,
+      })
+    }
+    if (event.type === 'tool/result') {
+      const position = telemetry.position()
+      const message = data.message as { toolCallId?: unknown; content?: unknown; isError?: unknown }
+      const callId = typeof message.toolCallId === 'string' ? message.toolCallId : ''
+      if (!/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId)) return
+      const contentJSON = JSON.stringify(message.content ?? null)
+      telemetry.markToolResultDelivered(callId, message.content ?? null, message.isError === true)
+      telemetry.emit('TOOL_RESULT_DELIVERED', {
+        agent_turn_id: data.turn as number,
+        agent_step_id: data.step as number,
+        ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+        tool_call_id: callId,
+        ...(telemetry.operationSequence(callId) === undefined
+          ? {} : { operation_seq: telemetry.operationSequence(callId) as number }),
+        result_bytes: Buffer.byteLength(contentJSON, 'utf8'),
+        result_sha256: telemetry.resultDigest(message.content ?? null),
+        ...(telemetry.launcherResultDigest(callId) === undefined ? {} : {
+          launcher_result_sha256: telemetry.launcherResultDigest(callId) as string,
+        }),
+        status: message.isError === true ? 'error' : 'ok',
+        dsh_event_seq: event.seq,
+      })
+    }
+  })
+  telemetry?.emit('SESSION_STARTED', {
+    agent_turn_id: 0,
+    agent_step_id: 0,
+    status: 'started',
+    model_provider: provider,
+    model_id: model,
   })
   agent.followup(createUserMessage({
     content: [{ type: 'text', text: taskText }],
@@ -519,6 +759,15 @@ async function createTask(text: string): Promise<void> {
       adapterRejectedProposalCount: rejectedProposalCount,
       agentErrors,
     }
+    if (telemetry) {
+      const position = telemetry.position()
+      telemetry.emit('AGENT_TERMINATED', {
+        agent_turn_id: position.turn,
+        agent_step_id: position.step,
+        ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+        status: 'idle',
+      })
+    }
     emit({
       type: 'reply',
       text: responseText || `DSH produced no final text response. diagnostics=${JSON.stringify(diagnostics)}`,
@@ -527,13 +776,38 @@ async function createTask(text: string): Promise<void> {
       ...(modelAdapter === undefined ? {} : { model_stats: modelAdapter.usage() }),
     })
     disposeAgentErrorListener()
+    disposeSessionTelemetry?.()
+    disposeSemanticPrompt?.()
+    visibleToolDisposer?.()
     currentAgent = undefined
     currentContext = undefined
     currentPluginFiber = undefined
     await pluginFiber.dispose()
     await ctx.fiber.dispose()
-  }).catch(() => {
+  }).catch(async () => {
+    try {
+      if (telemetry) {
+        const position = telemetry.position()
+        telemetry.emit('AGENT_TERMINATED', {
+          agent_turn_id: position.turn,
+          agent_step_id: position.step,
+          ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
+          status: 'failed',
+          error_code: 'dsh_agent_failed',
+        })
+      }
+    } catch {
+      // Trace exhaustion must not keep the failed experimental session alive.
+    }
     disposeAgentErrorListener()
+    disposeSessionTelemetry?.()
+    disposeSemanticPrompt?.()
+    visibleToolDisposer?.()
+    currentAgent = undefined
+    currentContext = undefined
+    currentPluginFiber = undefined
+    await pluginFiber.dispose().catch(() => undefined)
+    await ctx.fiber.dispose().catch(() => undefined)
     emit({ type: 'error', code: 'dsh_agent_failed' })
   })
 }

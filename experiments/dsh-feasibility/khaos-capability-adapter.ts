@@ -21,6 +21,19 @@ export interface KhaosToolResult {
   readonly returncode?: number
 }
 
+export interface KhaosProposalCorrelation {
+  readonly trialId: string
+  readonly sessionId: string
+  readonly benchmarkTaskId: string
+  readonly turn: number
+  readonly step: number
+  readonly modelCallId?: string
+  readonly toolCallId: string
+  readonly operationSequence: number
+  readonly toolName: string
+  readonly invocationSHA256: string
+}
+
 /**
  * Untrusted DSH-to-Host bridge. It only proposes an action; the existing
  * Trusted Launcher still performs review, approval, Kernel submission, and
@@ -30,6 +43,7 @@ export interface KhaosLauncherPort {
   submitProposal(
     proposal: KhaosShellProposal,
     signal: AbortSignal,
+    correlation?: KhaosProposalCorrelation,
   ): Promise<KhaosToolResult>
   reportRejectedProposal?(): void
 }
@@ -104,9 +118,77 @@ function parseResult(value: unknown): KhaosToolResult {
   }
 }
 
+/** One bounded proposal lifecycle shared by raw and semantic Cordis tools. */
+export class KhaosProposalSession {
+  private closed = false
+  private closeVersion = 0
+  private inFlight = false
+  private readonly seenCallIds = new Set<string>()
+
+  constructor(
+    private readonly port: KhaosLauncherPort,
+    private readonly onRejected?: () => void,
+  ) {}
+
+  async submit(
+    args: unknown,
+    callId: string,
+    signal: AbortSignal,
+    correlation?: KhaosProposalCorrelation,
+  ): Promise<KhaosToolResult> {
+    if (this.closed) throw new Error('Launcher ended this capability session')
+    if (!callId || callId.length > 128 || this.seenCallIds.has(callId)) {
+      this.onRejected?.()
+      throw new Error('duplicate or invalid tool call id')
+    }
+    if (this.seenCallIds.size >= MAX_SCOPE_PATHS * 2) {
+      this.close()
+      throw new Error('tool call limit exceeded')
+    }
+    this.seenCallIds.add(callId)
+    if (this.inFlight) {
+      this.onRejected?.()
+      throw new Error('a Khaos operation is already pending')
+    }
+    let proposal: KhaosShellProposal
+    try {
+      proposal = parseProposal(args)
+    } catch (error) {
+      this.onRejected?.()
+      throw error
+    }
+    if (signal.aborted) throw new Error('Khaos operation was cancelled before submission')
+
+    this.inFlight = true
+    const closeVersion = this.closeVersion
+    try {
+      const rawResult = await this.port.submitProposal(proposal, signal, correlation)
+      if (this.closeVersion !== closeVersion) throw new Error('Launcher ended this capability session')
+      const result = parseResult(rawResult)
+      if (!result.canContinue) this.close()
+      return result
+    } catch (error) {
+      this.close()
+      throw error
+    } finally {
+      this.inFlight = false
+    }
+  }
+
+  close(): void {
+    if (this.closed) return
+    this.closed = true
+    this.closeVersion += 1
+  }
+
+  get isClosed(): boolean {
+    return this.closed
+  }
+}
+
 /** Create a Cordis Plugin that adds one bounded, untrusted Launcher proposal tool. */
 export function createKhaosCapabilityPlugin(port: KhaosLauncherPort) {
-  let closed = false
+  const session = new KhaosProposalSession(port, () => port.reportRejectedProposal?.())
   const plugin = (ctx: Context): void => {
     const unregister = ctx.tools.register(defineTool({
       name: 'khaos_capability',
@@ -130,28 +212,11 @@ export function createKhaosCapabilityPlugin(port: KhaosLauncherPort) {
         render: (_args, result) => [{ type: 'text', text: JSON.stringify(result) }],
       },
       async execute(args, execution) {
-        if (closed) throw new Error('Launcher ended this capability session')
-        let proposal: KhaosShellProposal
-        try {
-          proposal = parseProposal(args)
-        } catch (error) {
-          port.reportRejectedProposal?.()
-          throw error
-        }
-        try {
-          const value = await port.submitProposal(proposal, execution.signal)
-          if (closed) throw new Error('Launcher ended this capability session')
-          const result = parseResult(value)
-          if (!result.canContinue) closed = true
-          return result
-        } catch (error) {
-          closed = true
-          throw error
-        }
+        return session.submit(args, String(execution.callId), execution.signal)
       },
     }))
     ctx.effect(() => () => {
-      closed = true
+      session.close()
       unregister()
     })
   }
