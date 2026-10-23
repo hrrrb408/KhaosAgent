@@ -79,10 +79,12 @@ def build_dsh_bundle(
     bundle_name: str = "runtime-probe.mjs",
 ) -> tuple[Path, str]:
     tests = dsh_source / "packages/core/agent-loop/tests"
+    build_directory = dsh_source / ".tmp"
+    build_directory.mkdir(exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="khaos-signed-runtime-", dir=tests))
-    output_dir = Path(tempfile.mkdtemp(prefix="khaos-runtime-bundle-", dir=dsh_source / ".tmp"))
-    tsconfig = dsh_source / ".tmp/khaos-runtime-tsconfig.json"
-    sandbox = dsh_source / ".tmp/khaos-runtime-build.sb"
+    output_dir = Path(tempfile.mkdtemp(prefix="khaos-runtime-bundle-", dir=build_directory))
+    tsconfig = build_directory / "khaos-runtime-tsconfig.json"
+    sandbox = build_directory / "khaos-runtime-build.sb"
     try:
         shutil.copy2(probe_dir / "dsh-capability-lifecycle-probe.ts", staging / "dsh-capability-lifecycle-probe.ts")
         shutil.copy2(probe_dir / "khaos-capability-adapter.ts", staging / "khaos-capability-adapter.ts")
