@@ -732,6 +732,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         }
         guard let runtime = runtimeSnapshot() else { return response(.failure("dsh_runtime_unavailable")) }
 
+        var failureStage = "request"
         do {
             switch operation {
             case "user":
@@ -792,6 +793,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 } else {
                     taskDeadlineUptime = nil
                 }
+                failureStage = "runtime_exchange"
                 let event = try runtime.exchange(
                     ["operation": "user", "text": text],
                     modelAPIKey: realModelTask && AgentModelProvider.from(bundle: .main).isRemote
@@ -799,6 +801,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )
+                failureStage = "action_encode"
                 return try encodeAgentAction(
                     event,
                     activePlugin: AgentHostProtocol.activePlugin(in: frame),
@@ -845,6 +848,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 if let launcherTrace = frame["launcher_trace"] as? [String: Any] {
                     toolResult["launcher_trace"] = launcherTrace
                 }
+                failureStage = "runtime_exchange"
                 let event = try runtime.exchange(
                     toolResult,
                     modelAPIKey: realModelTask && AgentModelProvider.from(bundle: .main).isRemote
@@ -852,6 +856,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )
+                failureStage = "action_encode"
                 return try encodeAgentAction(
                     event,
                     activePlugin: AgentHostProtocol.activePlugin(in: frame),
@@ -870,16 +875,21 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             case .childExited: failureCategory = "child_exited"
             case nil: failureCategory = "exchange_error"
             }
-            fputs("dsh-runtime-exchange-failed category=\(failureCategory)\n", stderr)
+            fputs("dsh-agenthost-failure stage=\(failureStage) category=\(failureCategory)\n", stderr)
             fflush(stderr)
             runtime.stop()
             replaceRuntime(nil)
             awaitingToolResult = false
             realModelTask = false
             taskDeadlineUptime = nil
-            let failureCode = phase31Task
-                ? "dsh_runtime_\(failureCategory)"
-                : "dsh_runtime_failed"
+            let failureCode: String
+            if !phase31Task {
+                failureCode = "dsh_runtime_failed"
+            } else if failureStage == "runtime_exchange" {
+                failureCode = "dsh_runtime_exchange_\(failureCategory)"
+            } else {
+                failureCode = "dsh_\(failureStage)_failed"
+            }
             return response(.failure(failureCode))
         }
     }
