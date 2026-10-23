@@ -557,8 +557,8 @@ def main() -> int:
                 _ = os.killpg(node_pid, signal.SIGKILL)
                 raise RuntimeError(f"Cordis lifecycle Node process group survived XPC teardown: {members}")
         elif args.mode == "xpc-crash":
-            failure_marker = "Agent Host failed while receiving a tool result (xpc_transport_failure)"
-            if stdout.count(failure_marker) != 1:
+            failure_marker = "agent-session=host-response=invalid stage=xpc_transport_failure"
+            if stderr.count(failure_marker) != 1:
                 raise RuntimeError("the Launcher did not surface exactly one AgentHost XPC transport failure")
             if "Khaos: KHAOS_DSH_XPC_RECOVERY_TASK_RESULT" not in stdout:
                 raise RuntimeError("a fresh AgentHost XPC did not complete the later independent task")
