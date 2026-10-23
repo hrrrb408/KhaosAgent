@@ -443,7 +443,7 @@ def main() -> int:
                 "-sdk", sdk,
                 "-target", f"{platform.machine()}-apple-macosx26.0",
                 str(source_root / "khaos/macos/AgentHostProtocol.swift"),
-                str(bridge_service_source),
+                str(model_bridge_service_source),
                 "-o", str(bridge_binary),
             ])
             plistlib.dump({
