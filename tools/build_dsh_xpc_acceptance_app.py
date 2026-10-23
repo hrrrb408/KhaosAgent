@@ -456,7 +456,7 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
     if transformed.count(old_method) != 1:
         raise RuntimeError("expected one AgentHostClient tool-result method")
     transformed = transformed.replace(old_method, new_method)
-    for indentation, receiver in (("            ", "self?"), ("        ", "self.")):
+    for indentation, receiver in (("            ", "self?."), ("        ", "self.")):
         old_decode = indentation + "guard let reply = AgentHostProtocol.decodeReply(data) else {\n"
         new_decode = (
             indentation + f"guard let sanitizedData = {receiver}acceptExperimentalTelemetry(data),\n"
