@@ -35,6 +35,7 @@ def main() -> int:
     staging = Path(tempfile.mkdtemp(prefix="khaos-phase3-llm-tests-", dir=staging_root))
     try:
         shutil.copy2(source / "khaos-model-bridge.ts", staging / "khaos-model-bridge.ts")
+        shutil.copy2(source / "khaos-local-model.ts", staging / "khaos-local-model.ts")
         shutil.copy2(source / "khaos-model-bridge.test.ts", staging / "khaos-model-bridge.test.ts")
         result = subprocess.run(
             [str(node), "--import", "tsx", "--test", str(staging / "khaos-model-bridge.test.ts")],

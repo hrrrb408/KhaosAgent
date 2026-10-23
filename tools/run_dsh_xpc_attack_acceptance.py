@@ -25,7 +25,7 @@ BUILDER = ROOT / "tools/build_dsh_xpc_acceptance_app.py"
 sys.path.insert(0, str(ROOT / "experiments"))
 from dsh_phase3 import benchmark as phase3_benchmark  # noqa: E402
 
-SIGNED_UI_MODES = frozenset({"attack", "coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model"})
+SIGNED_UI_MODES = frozenset({"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model"})
 MODEL_BRIDGE_BLOCKED_RESULTS = frozenset({
     "MODEL_BRIDGE_PEER_REJECTED",
     "MODEL_BRIDGE_NOT_VISIBLE",
@@ -190,6 +190,29 @@ def running_nodes_for_app(app: Path) -> list[tuple[int, int]]:
     return processes
 
 
+def running_local_models_for_app(app: Path) -> list[tuple[int, int]]:
+    expected_cli = str(
+        app / "Contents/XPCServices/KhaosAgentHost.xpc/Contents/Frameworks/KhaosLlama/llama-cli"
+    )
+    result = subprocess.run(
+        ["/bin/ps", "-axo", "pid=,pgid=,command="],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    processes: list[tuple[int, int]] = []
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(maxsplit=2)
+        if len(fields) != 3 or not fields[2].startswith(expected_cli + " "):
+            continue
+        try:
+            processes.append((int(fields[0]), int(fields[1])))
+        except ValueError:
+            continue
+    return processes
+
+
 def stop_nodes_for_app(app: Path) -> None:
     for _, group_id in running_nodes_for_app(app):
         try:
@@ -315,6 +338,7 @@ def evaluate_real_model_trial(
     runtime_metrics: dict[str, object],
     elapsed_seconds: float,
     api_key_value: str,
+    model_id: str,
 ) -> dict[str, object]:
     task = phase3_benchmark.TASKS[task_id]
     proposal_payloads = diagnostic_payloads(stderr, "dsh-tool-proposal=")
@@ -442,12 +466,18 @@ def evaluate_real_model_trial(
         and agent_loop.get("last_message_role") == "assistant"
     )
     no_model_key_in_logs = (
-        bool(api_key_value)
-        and api_key_value not in stdout + stderr
+        (not api_key_value or api_key_value not in stdout + stderr)
         and "KHAOS_BIGMODEL_API_KEY=" not in stdout + stderr
         and "GLM_API_KEY=" not in stdout + stderr
     )
     remote_data_approved = stderr.count("agent-session=remote-data=approved") == 1
+    remote_data_policy_satisfied = remote_data_approved if provider != "local" else not any(
+        marker in stderr for marker in (
+            "agent-session=remote-data=approval-presented",
+            "agent-session=remote-data=approved",
+            "agent-session=remote-data=denied",
+        )
+    )
     actual_model_invoked = len(model_call_records) > 0
     actual_dsh_loop = bool(agent_loop_records) and loop_has_session_results
     hidden_pass = hidden_result["status"] == "PASS"
@@ -463,7 +493,7 @@ def evaluate_real_model_trial(
         and actual_dsh_loop
         and len(proposals) == len(requests)
         and approved_runner_operations > 0
-        and remote_data_approved
+        and remote_data_policy_satisfied
         and hidden_pass
         and visible_tests_passed
         and (task_id != "C" or repair_success)
@@ -483,7 +513,7 @@ def evaluate_real_model_trial(
         "title": task.title,
         "status": "PASS" if success else "FAIL",
         "dataset_sha256": phase3_benchmark.dataset_digest(),
-        "model": "glm-5.3",
+        "model": model_id,
         "provider": provider,
         "model_actually_invoked": actual_model_invoked,
         "successful_model_calls": successful_model_calls,
@@ -515,7 +545,9 @@ def evaluate_real_model_trial(
         "false_success_count": false_success_count,
         "cancellation_count": cancellation_count,
         "remote_data_consent_recorded": remote_data_approved,
+        "remote_data_policy_satisfied": remote_data_policy_satisfied,
         "api_key_absent_from_logs": no_model_key_in_logs,
+        "api_key_delivery": "none" if provider == "local" else "Launcher to AgentHost XPC and signed model bridge",
         "actual_dsh_tool_results_returned_to_session": loop_has_session_results,
         "unmatched_proposals_or_results": abs(len(proposals) - len(requests)),
         "task_elapsed_seconds_including_operator_ui": round(elapsed_seconds, 4),
@@ -545,6 +577,8 @@ def main() -> int:
     parser.add_argument("--task-id", choices=tuple(phase3_benchmark.TASKS))
     parser.add_argument("--trial-id", choices=("1", "2"))
     parser.add_argument("--prebuilt-app", type=Path, help="reuse a previously signed exact-source DSH app")
+    parser.add_argument("--local-model-app", type=Path,
+                        help="signed app supplying its existing CPU-only local model")
     parser.add_argument(
         "--preserve-scratch",
         action="store_true",
@@ -569,16 +603,22 @@ def main() -> int:
         if args.task_id is None or args.trial_id is None:
             parser.error("--task-id and --trial-id are required with --mode real-model")
         if args.model_provider == "local":
-            parser.error("--mode real-model requires a configured remote provider")
-        api_key_value = os.environ.get("KHAOS_BIGMODEL_API_KEY") or os.environ.get("GLM_API_KEY") or ""
-        if not api_key_value:
-            parser.error("REAL_MODEL_BLOCKED: no existing BigModel credential is present in process environment")
-        if len(api_key_value.encode("utf-8")) > 2_048:
-            parser.error("existing BigModel credential exceeds the bounded key size")
+            if args.prebuilt_app is None and args.local_model_app is None:
+                parser.error("REAL_MODEL_BLOCKED: pass --local-model-app when building the local model app")
+        else:
+            api_key_value = os.environ.get("KHAOS_BIGMODEL_API_KEY") or os.environ.get("GLM_API_KEY") or ""
+            if not api_key_value:
+                parser.error("REAL_MODEL_BLOCKED: no existing BigModel credential is present in process environment")
+            if len(api_key_value.encode("utf-8")) > 2_048:
+                parser.error("existing BigModel credential exceeds the bounded key size")
+            if args.local_model_app is not None:
+                parser.error("--local-model-app is only valid with the local provider")
     elif args.mode == "attack":
-        if args.task_id is not None or args.trial_id is not None or args.prebuilt_app is not None:
+        if args.task_id is not None or args.trial_id is not None or args.prebuilt_app is not None \
+                or args.local_model_app is not None:
             parser.error("attack mode does not accept benchmark or prebuilt-app arguments")
-    elif args.model_provider != "local" or args.task_id is not None or args.trial_id is not None or args.prebuilt_app is not None:
+    elif args.model_provider != "local" or args.task_id is not None or args.trial_id is not None \
+            or args.prebuilt_app is not None or args.local_model_app is not None:
         parser.error("model and benchmark options are restricted to --mode real-model or attack mode")
     try:
         validate_operator(
@@ -723,6 +763,8 @@ def main() -> int:
         ]
         if args.keychain is not None:
             build_command.extend(("--keychain", str(args.keychain.expanduser().resolve(strict=True))))
+        if args.mode == "real-model" and args.model_provider == "local" and args.local_model_app is not None:
+            build_command.extend(("--local-model-app", str(args.local_model_app.expanduser().resolve(strict=True))))
         if args.mode == "cancellation":
             build_command.extend((
                 "--cancellation-case", args.cancellation_case,
@@ -756,7 +798,10 @@ def main() -> int:
                 flush=True,
             )
             print(f"Select this disposable workspace in the signed app Picker: {workspace}", flush=True)
-            print("The signed Launcher must show BigModel and model id glm-5.3 before you approve synthetic task data.", flush=True)
+            if args.model_provider == "local":
+                print("This signed app uses its bundled CPU-only local model; task data stays local.", flush=True)
+            else:
+                print("The signed Launcher must show BigModel and model id glm-5.3 before you approve synthetic task data.", flush=True)
             print(f"Read allowlist: {task.read_scope}; write allowlist: {task.write_scope}", flush=True)
             print("Inspect every request. Approve only python3 -I -B -c commands within those exact path scopes.", flush=True)
             print("Allow at most 8 tool operations and 3 operations with a non-empty write scope.", flush=True)
@@ -770,6 +815,9 @@ def main() -> int:
             raise RuntimeError("signed app build record does not bind to the current exact source SHA")
         if build_record.get("dsh_model_provider") != args.model_provider:
             raise RuntimeError("signed app provider does not match the requested experiment mode")
+        if args.mode == "real-model" and args.model_provider == "local" \
+                and build_record.get("dsh_model_id") != "bundled-cpu":
+            raise RuntimeError("signed local-model app does not contain the configured CPU model")
         run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
 
         stdout_path.touch()
@@ -777,7 +825,10 @@ def main() -> int:
         launch_environment = None
         if args.mode == "real-model":
             launch_environment = os.environ.copy()
-            if not launch_environment.get("KHAOS_BIGMODEL_API_KEY"):
+            if args.model_provider == "local":
+                launch_environment.pop("KHAOS_BIGMODEL_API_KEY", None)
+                launch_environment.pop("GLM_API_KEY", None)
+            elif not launch_environment.get("KHAOS_BIGMODEL_API_KEY"):
                 launch_environment["KHAOS_BIGMODEL_API_KEY"] = launch_environment["GLM_API_KEY"]
         launch_started = time.monotonic()
         launch = subprocess.Popen(
@@ -799,6 +850,8 @@ def main() -> int:
             "launch_to_first_model_completion_seconds": None,
             "launch_to_first_tool_proposal_seconds": None,
             "maximum_node_rss_bytes": 0,
+            "maximum_local_model_rss_bytes": 0,
+            "local_model_process_count_peak": 0,
             "kernel_tool_roundtrip_seconds_poll_sampled": [],
         }
         pending_tool_starts: list[float] = []
@@ -854,6 +907,16 @@ def main() -> int:
                     if sampled_rss is not None:
                         runtime_metrics["maximum_node_rss_bytes"] = max(
                             int(runtime_metrics["maximum_node_rss_bytes"]), sampled_rss
+                        )
+                local_models = running_local_models_for_app(app)
+                runtime_metrics["local_model_process_count_peak"] = max(
+                    int(runtime_metrics["local_model_process_count_peak"]), len(local_models)
+                )
+                for process_id, _ in local_models:
+                    sampled_rss = process_rss_bytes(process_id)
+                    if sampled_rss is not None:
+                        runtime_metrics["maximum_local_model_rss_bytes"] = max(
+                            int(runtime_metrics["maximum_local_model_rss_bytes"]), sampled_rss
                         )
                 submitted_count = stderr_snapshot.count("agent-session=tool=submitted request_id=")
                 executed_count = stderr_snapshot.count("agent-session=tool=executed returncode=")
@@ -1048,6 +1111,16 @@ def main() -> int:
             if remaining_nodes:
                 stop_nodes_for_app(app)
                 raise RuntimeError(f"signed AgentHost left Node process(es) after the trial: {remaining_nodes}")
+            remaining_models = running_local_models_for_app(app)
+            if remaining_models:
+                for process_id, _ in remaining_models:
+                    try:
+                        os.kill(process_id, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                raise RuntimeError(
+                    f"signed AgentHost left local model process(es) after the trial: {remaining_models}"
+                )
             phase3_trial = evaluate_real_model_trial(
                 task_id=args.task_id,
                 trial_id=args.trial_id,
@@ -1060,6 +1133,7 @@ def main() -> int:
                 runtime_metrics=runtime_metrics,
                 elapsed_seconds=time.monotonic() - launch_started,
                 api_key_value=api_key_value,
+                model_id=str(build_record.get("dsh_model_id") or "glm-5.3"),
             )
         elif args.mode == "coding":
             expected = "Khaos: DSH consumed the actual passing test result:"

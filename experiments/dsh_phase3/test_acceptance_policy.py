@@ -89,7 +89,16 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         )
 
     def test_codex_signed_runs_require_explicit_delegation_metadata(self):
-        self.assertIn("attack", acceptance.SIGNED_UI_MODES)
+        self.assertNotIn("attack", acceptance.SIGNED_UI_MODES)
+        acceptance.validate_operator("attack", None, None, None)
+        self.assertIsNone(acceptance.signed_ui_evidence(
+            mode="attack",
+            operator=None,
+            authorization=None,
+            authorized_scope=None,
+            records=[],
+            stderr="",
+        ))
         with self.assertRaisesRegex(ValueError, "operator-authorization"):
             acceptance.validate_operator("real-model", "codex_agent", None, None)
 

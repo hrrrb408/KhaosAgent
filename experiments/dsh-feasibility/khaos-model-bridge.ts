@@ -17,23 +17,31 @@ const MAX_REQUEST_BYTES = 56 * 1024
 const MAX_RESPONSE_TEXT_BYTES = 48 * 1024
 const MAX_ARGUMENT_BYTES = 32 * 1024
 const MAX_COMPLETION_TOKENS = 2_048
-const MODEL = 'glm-5.3'
+const MAX_MODEL_CALLS_PER_TASK = 12
 
-export interface KhaosModelBridgeRequest {
+export interface KhaosModelRequest {
   readonly request_id: string
   readonly headers: Readonly<Record<string, string>>
   readonly body: Readonly<Record<string, unknown>>
 }
 
-export interface KhaosModelBridgeResult {
+export interface KhaosModelResult {
   readonly completion: unknown
   readonly elapsed_ms: number
 }
 
-export type KhaosModelBridgeCall = (
-  request: KhaosModelBridgeRequest,
+export type KhaosModelCall = (
+  request: KhaosModelRequest,
   signal?: AbortSignal,
-) => Promise<KhaosModelBridgeResult>
+) => Promise<KhaosModelResult>
+
+export interface KhaosModelRoute {
+  readonly provider: string
+  readonly model: string
+  readonly name: string
+  readonly contextWindow: number
+  readonly complete: KhaosModelCall
+}
 
 export interface KhaosModelUsage {
   readonly calls: number
@@ -43,7 +51,7 @@ export interface KhaosModelUsage {
 }
 
 function fail(message: string, code = 'MALFORMED_RESPONSE'): never {
-  throw new LlmError(`Khaos BigModel adapter: ${message}`, code)
+  throw new LlmError(`Khaos DSH model adapter: ${message}`, code)
 }
 
 function utf8Bytes(value: string): number {
@@ -108,8 +116,8 @@ function requestMessage(message: GenerateOptions['messages'][number]): Record<st
   }
 }
 
-function requestBody(options: GenerateOptions): Record<string, unknown> {
-  if (options.model !== MODEL) fail('only the configured model is supported', 'INVALID_MODEL')
+function requestBody(options: GenerateOptions, model: string): Record<string, unknown> {
+  if (options.model !== model) fail('only the configured model is supported', 'INVALID_MODEL')
   const maxTokens = options.maxTokens ?? MAX_COMPLETION_TOKENS
   if (!Number.isSafeInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_COMPLETION_TOKENS) {
     fail('completion token limit is outside the experimental bound', 'INVALID_REQUEST')
@@ -141,7 +149,7 @@ function requestBody(options: GenerateOptions): Record<string, unknown> {
     fail('invalid stop sequence', 'INVALID_REQUEST')
   }
   const body = {
-    model: MODEL,
+    model,
     messages,
     ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
     max_tokens: maxTokens,
@@ -259,21 +267,28 @@ function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { in
   }
 }
 
-/** DSH-native provider route whose network request is proxied by the signed Swift XPC host. */
-export class KhaosModelBridgeAdapter extends LlmAdapter {
+/** Shared DSH adapter for model routes that return bounded OpenAI-style completions. */
+export class KhaosDshModelAdapter extends LlmAdapter {
   private calls = 0
   private inputTokens = 0
   private outputTokens = 0
   private usageKnown = true
   private elapsedMilliseconds = 0
 
-  constructor(private readonly complete: KhaosModelBridgeCall) {
+  constructor(private readonly route: KhaosModelRoute) {
     super()
   }
 
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    if (provider !== 'khaos-bigmodel' || model !== MODEL) fail('unsupported model route', 'INVALID_MODEL')
-    return { provider, id: MODEL, name: 'GLM-5.3', contextWindow: 32_768 }
+    if (provider !== this.route.provider || model !== this.route.model) {
+      fail('unsupported model route', 'INVALID_MODEL')
+    }
+    return {
+      provider,
+      id: this.route.model,
+      name: this.route.name,
+      contextWindow: this.route.contextWindow,
+    }
   }
 
   usage(): KhaosModelUsage {
@@ -287,15 +302,18 @@ export class KhaosModelBridgeAdapter extends LlmAdapter {
 
   async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     if (options.signal?.aborted) throw new LlmError('model call was cancelled', 'ABORTED')
-    const request: KhaosModelBridgeRequest = {
+    if (this.calls >= MAX_MODEL_CALLS_PER_TASK) {
+      fail('model call budget exceeded', 'MODEL_CALL_BUDGET_EXCEEDED')
+    }
+    const request: KhaosModelRequest = {
       request_id: randomUUID(),
       headers: attributionHeaders(),
-      body: requestBody(options),
+      body: requestBody(options, this.route.model),
     }
     this.calls += 1
-    let result: KhaosModelBridgeResult
+    let result: KhaosModelResult
     try {
-      result = await this.complete(request, options.signal)
+      result = await this.route.complete(request, options.signal)
     } catch (error) {
       this.usageKnown = false
       if (options.signal?.aborted) throw new LlmError('model call was cancelled', 'ABORTED')
@@ -305,7 +323,7 @@ export class KhaosModelBridgeAdapter extends LlmAdapter {
       if (Number.isSafeInteger(elapsed) && (elapsed as number) >= 0) {
         this.elapsedMilliseconds += elapsed as number
       }
-      throw new LlmError(`Khaos BigModel request failed (${code})`, code.toUpperCase())
+      throw new LlmError(`Khaos model request failed (${code})`, code.toUpperCase())
     }
     if (!Number.isSafeInteger(result.elapsed_ms) || result.elapsed_ms < 0) {
       fail('invalid bridge timing')

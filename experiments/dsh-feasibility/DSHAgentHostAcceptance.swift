@@ -153,6 +153,22 @@ private final class DSHRuntimeProcess {
             "KHAOS_DSH_NODE_PATH": node.path,
             "KHAOS_DSH_MODEL_BRIDGE_AVAILABLE": modelBridgeAvailable ? "1" : "0",
         ]
+        let bundleContents = Bundle.main.bundleURL.appendingPathComponent("Contents", isDirectory: true)
+        let localModelExecutable = bundleContents
+            .appendingPathComponent("Frameworks/KhaosLlama", isDirectory: true)
+            .appendingPathComponent("llama-cli", isDirectory: false)
+        let localModelFile = bundleContents
+            .appendingPathComponent("Resources/agent-model.gguf", isDirectory: false)
+        // Pass only paths to model files already sealed into this signed experimental Host bundle.
+        // The Node child remains untrusted and network-denied; this adds no workspace or Kernel authority.
+        if FileManager.default.isExecutableFile(atPath: localModelExecutable.path),
+           FileManager.default.fileExists(atPath: localModelFile.path),
+           let modelDigest = Bundle.main.object(forInfoDictionaryKey: "KhaosLocalModelSHA256") as? String,
+           modelDigest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil {
+            environment["KHAOS_DSH_LOCAL_MODEL_EXECUTABLE"] = localModelExecutable.path
+            environment["KHAOS_DSH_LOCAL_MODEL_FILE"] = localModelFile.path
+            environment["KHAOS_DSH_LOCAL_MODEL_SHA256"] = modelDigest
+        }
         environment["KHAOS_DSH_AGENTHOST_PID"] = String(getpid())
         if let requirement = Bundle.main.object(
             forInfoDictionaryKey: DSHModelBridgeLimits.bridgeRequirementInfoKey
@@ -277,12 +293,40 @@ private final class DSHRuntimeProcess {
                     max(1, Int($0 - ProcessInfo.processInfo.systemUptime))
                 } ?? 120
                 readTimeout = min(120, remaining)
+            } else if let deadline = taskDeadlineUptime {
+                // A local CPU inference may exceed the ordinary 60-second protocol read, but the
+                // enclosing synthetic task deadline remains the hard upper bound.
+                readTimeout = max(1, min(DSHModelBridgeLimits.maximumTaskSeconds,
+                                         Int(deadline - ProcessInfo.processInfo.systemUptime)))
             } else {
                 readTimeout = 60
             }
             let line = try readLine(timeoutSeconds: readTimeout)
             guard let value = try JSONSerialization.jsonObject(with: line) as? [String: Any] else {
                 throw DSHAgentHostError.invalidFrame
+            }
+            if value["type"] as? String == "model_diagnostic" {
+                // Node's completion metrics are untrusted telemetry; accept only bounded fields and
+                // never use them to authorize a workspace or Kernel operation.
+                guard let status = value["status"] as? String,
+                      status == "ok" || status == "failed" else {
+                    throw DSHAgentHostError.invalidFrame
+                }
+                let elapsed = value["elapsed_ms"] as? Int
+                guard let elapsed,
+                      (0...DSHModelBridgeLimits.maximumTaskSeconds * 1_000).contains(elapsed) else {
+                    throw DSHAgentHostError.invalidFrame
+                }
+                var diagnostic: [String: Any] = ["status": status, "elapsed_ms": elapsed]
+                if let code = value["code"] as? String,
+                   code.range(of: #"^[a-z][a-z0-9_]{0,79}$"#, options: .regularExpression) != nil {
+                    diagnostic["code"] = code
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: diagnostic, options: [.sortedKeys]) {
+                    fputs("dsh-model-call=\(String(decoding: data, as: UTF8.self))\n", stderr)
+                    fflush(stderr)
+                }
+                continue
             }
             guard value["type"] as? String == "model_request" else { return value }
             guard let requestID = value["request_id"] as? String,
@@ -519,12 +563,31 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 let taskText = realModelTask ? String(text.dropFirst(realModelPrefix.count)) : text
                 guard !taskText.isEmpty else { return response(.failure("invalid_request")) }
                 if realModelTask {
-                    guard AgentModelProvider.from(bundle: .main).isRemote,
-                          frame["model_api_key"] as? String != nil else {
-                        return response(.failure("model_credentials_unavailable"))
-                    }
-                    guard modelBridgeClient != nil else {
-                        return response(.failure("model_bridge_unavailable"))
+                    let provider = AgentModelProvider.from(bundle: .main)
+                    if provider.isRemote {
+                        guard frame["model_api_key"] as? String != nil else {
+                            return response(.failure("model_credentials_unavailable"))
+                        }
+                        guard modelBridgeClient != nil else {
+                            return response(.failure("model_bridge_unavailable"))
+                        }
+                    } else {
+                        let contents = Bundle.main.bundleURL.appendingPathComponent("Contents", isDirectory: true)
+                        let executable = contents.appendingPathComponent(
+                            "Frameworks/KhaosLlama/llama-cli", isDirectory: false
+                        )
+                        let model = contents.appendingPathComponent(
+                            "Resources/agent-model.gguf", isDirectory: false
+                        )
+                        guard FileManager.default.isExecutableFile(atPath: executable.path),
+                              FileManager.default.fileExists(atPath: model.path),
+                              let modelDigest = Bundle.main.object(
+                                forInfoDictionaryKey: "KhaosLocalModelSHA256"
+                              ) as? String,
+                              modelDigest.range(of: #"^[0-9a-f]{64}$"#,
+                                                options: .regularExpression) != nil else {
+                            return response(.failure("local_model_bundle_unavailable"))
+                        }
                     }
                     taskDeadlineUptime = ProcessInfo.processInfo.systemUptime
                         + TimeInterval(DSHModelBridgeLimits.maximumTaskSeconds)
@@ -534,7 +597,8 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 }
                 let event = try runtime.exchange(
                     ["operation": "user", "text": text],
-                    modelAPIKey: realModelTask ? frame["model_api_key"] as? String : nil,
+                    modelAPIKey: realModelTask && AgentModelProvider.from(bundle: .main).isRemote
+                        ? frame["model_api_key"] as? String : nil,
                     modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )
@@ -557,7 +621,8 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                         "can_continue": canContinue,
                         "text": text,
                     ],
-                    modelAPIKey: realModelTask ? frame["model_api_key"] as? String : nil,
+                    modelAPIKey: realModelTask && AgentModelProvider.from(bundle: .main).isRemote
+                        ? frame["model_api_key"] as? String : nil,
                     modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )

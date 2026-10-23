@@ -1,0 +1,18 @@
+{
+  "source_sha": "db2fca59d7654c0db0a9f7f22bd3b55b8e060193",
+  "base_sha": "fd6747abd9ba785f784126dd848112cffa782163",
+  "runs": [
+    {
+      "name": "current",
+      "exit_code": 0,
+      "log": "reports/dsh-phase3/raw/security-freeze-current-db2fca5.log",
+      "output": "security-freeze: verified; sensitive changes=0; independent approval is external\n"
+    },
+    {
+      "name": "exact_pr43_base",
+      "exit_code": 0,
+      "log": "reports/dsh-phase3/raw/security-freeze-exact_pr43_base-db2fca5.log",
+      "output": "security-freeze: verified; sensitive changes=0; independent approval is external\n"
+    }
+  ]
+}

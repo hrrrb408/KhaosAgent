@@ -36,6 +36,7 @@ KHAOS_BASE_SHA = "b08ab11e01663d2b26304cb541efb5361dea0417"
 REPLACED_SOURCE = "khaos/macos/AgentHost.swift"
 REMOTE_MODEL_DISCLOSURE_SOURCE = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
 EXPERIMENTAL_MODEL_ID = "glm-5.3"
+LOCAL_MODEL_ID = "bundled-cpu"
 DSH_MODEL_BRIDGE_ID = "org.khaos.Seed.DSHModelBridge"
 
 
@@ -74,6 +75,44 @@ def candidate_b_fixed_script(candidate_probe: Path) -> str:
     if not isinstance(fixed_script, str) or not fixed_script:
         raise RuntimeError("Candidate B probe returned no fixed script")
     return fixed_script
+
+
+def local_model_inputs(app_path: Path) -> tuple[Path, Path, Path, dict[str, object]]:
+    source_app = app_path.expanduser().resolve(strict=True)
+    run(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(source_app)])
+    host_contents = source_app / "Contents/XPCServices/KhaosAgentHost.xpc/Contents"
+    executable = host_contents / "Frameworks/KhaosLlama/llama-cli"
+    model = host_contents / "Resources/agent-model.gguf"
+    license_file = host_contents / "Resources/THIRD_PARTY_NOTICES/AgentModel-LICENSE"
+    info_path = host_contents / "Info.plist"
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise RuntimeError("local model app has no executable CPU llama.cpp runtime")
+    if not model.is_file() or model.stat().st_nlink != 1 or not 0 < model.stat().st_size <= 24 * 1024**3:
+        raise RuntimeError("local model must be a bounded, single-link regular file")
+    if not license_file.is_file() or license_file.stat().st_size > 1024**2:
+        raise RuntimeError("local model app is missing its bounded model license")
+    with info_path.open("rb") as stream:
+        host_info = plistlib.load(stream)
+    model_sha = seed_builder._sha256_file(model)
+    if host_info.get("KhaosLocalModelSHA256") != model_sha:
+        raise RuntimeError("local model digest does not match its signed AgentHost metadata")
+    otool = shutil.which("otool")
+    if otool is None:
+        raise RuntimeError("otool is required to inspect the CPU model runtime")
+    linked = run([otool, "-L", str(executable)]).stdout.lower()
+    if "metal.framework" in linked or "metalperformance" in linked:
+        raise RuntimeError("local model runtime links a Metal framework")
+    metadata: dict[str, object] = {
+        "model_id": LOCAL_MODEL_ID,
+        "model_sha256": model_sha,
+        "model_bytes": model.stat().st_size,
+        "llama_cli_sha256": seed_builder._sha256_file(executable),
+        "model_license_sha256": seed_builder._sha256_file(license_file),
+        "model_runtime": host_info.get("KhaosLocalModelRuntime"),
+        "network": "none; offline llama.cpp child of the network-denied AgentHost",
+        "compute_backend": "CPU only; no Metal framework dependency",
+    }
+    return executable, model, license_file, metadata
 
 
 def apply_experimental_model_disclosure(source_root: Path) -> dict[str, str]:
@@ -257,6 +296,8 @@ def main() -> int:
     parser.add_argument("--cancellation-control-path", type=Path)
     parser.add_argument("--pnpm", default="pnpm")
     parser.add_argument("--keychain", type=Path)
+    parser.add_argument("--local-model-app", type=Path,
+                        help="signed local Khaos app supplying its existing CPU-only llama.cpp model")
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     args = parser.parse_args()
 
@@ -286,6 +327,9 @@ def main() -> int:
     if digest(node_archive) != PINNED_NODE_ARCHIVE_SHA256:
         parser.error("Node archive hash differs from the pinned official macOS arm64 release")
     identity = seed_builder._require_signing_identity(args.signing_identity, args.keychain)
+    if args.model_provider != "local" and args.local_model_app is not None:
+        parser.error("--local-model-app is supported only with the local provider")
+    local_model = local_model_inputs(args.local_model_app) if args.local_model_app is not None else None
     output_app = args.output_app.expanduser().absolute()
     if output_app.suffix != ".app" or os.path.lexists(output_app):
         parser.error("--output-app must be a new .app path")
@@ -321,6 +365,7 @@ def main() -> int:
         model_bridge_probe_source,
         probe_dir / "dsh-agenthost-runtime.ts",
         probe_dir / "khaos-model-bridge.ts",
+        probe_dir / "khaos-local-model.ts",
         probe_dir / "dsh-capability-lifecycle-probe.ts",
         probe_dir / "dsh-tool-result.ts",
         probe_dir / "khaos-capability-adapter.ts",
@@ -469,35 +514,46 @@ def main() -> int:
             "cancellation_case": args.cancellation_case,
             "cancellation_overlay_sha256": cancellation_overlay_hashes,
             "dsh_model_provider": args.model_provider,
-            "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local" else None,
+            "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local"
+                else (LOCAL_MODEL_ID if local_model is not None else None),
+            "dsh_local_model": None if local_model is None else local_model[3],
             "experimental_source_overrides": (
                 [protocol_overlay, model_bridge_client_overlay]
                 + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (
                 "synthetic benchmark data only; Launcher task-scoped consent; exact hostile-XPC marker uses MockAdapter and skips provider data flow"
-                if args.model_provider != "local" else "no remote model"
+                if args.model_provider != "local" else (
+                    "synthetic benchmark data only; bundled local CPU model; no remote data flow"
+                    if local_model is not None else "no model configured"
+                )
             ),
-            "dsh_model_limits": (
-                {
-                    "model_id": EXPERIMENTAL_MODEL_ID,
+            "dsh_model_limits": {
+                    "model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local"
+                        else (LOCAL_MODEL_ID if local_model is not None else None),
                     "max_completion_tokens_per_call": 2_048,
-                    "max_model_calls_per_task": 16,
+                    "max_model_calls_per_task": 12,
                     "max_task_seconds": 600,
                     "max_request_bytes": 56 * 1_024,
                     "max_response_bytes": 56 * 1_024,
                     "agent_host_network_entitlement": False,
                     "node_network_entitlement": False,
-                    "model_bridge_network_entitlement": True,
-                    "model_bridge_service": "org.khaos.Seed.DSHModelBridge",
-                    "model_bridge_peer": "anonymous bridge listener; Launcher transfers endpoint to signed AgentHost XPC; bridge checks Host identity",
-                    "api_key_delivery": "Launcher to AgentHost XPC frame, then fixed AgentHost-to-bridge XPC; not in Node environment",
-                }
-                if args.model_provider != "local" else None
-            ),
+                    "model_bridge_network_entitlement": args.model_provider != "local",
+                    **({
+                        "model_bridge_service": "org.khaos.Seed.DSHModelBridge",
+                        "model_bridge_peer": "anonymous bridge listener; Launcher transfers endpoint to signed AgentHost XPC; bridge checks Host identity",
+                        "api_key_delivery": "Launcher to AgentHost XPC frame, then fixed AgentHost-to-bridge XPC; not in Node environment",
+                    } if args.model_provider != "local" else {
+                        "local_model_process": "untrusted Node child; fixed bundled CPU llama.cpp executable; offline; task cancellation kills the process group",
+                        "local_model_files": "signed AgentHost bundle resources; prompt files mode 0600 and removed after each call",
+                    }),
+                },
             "model_network_boundary": (
                 "only the dedicated fixed-endpoint model XPC has network.client; Launcher, AgentHost, and Node do not"
-                if args.model_provider != "local" else "no remote model; no network.client entitlement"
+                if args.model_provider != "local" else (
+                    "offline local CPU model; Launcher, AgentHost, and Node have no network.client entitlement"
+                    if local_model is not None else "no model configured; no network.client entitlement"
+                )
             ),
             "dsh_sha": PINNED_DSH_SHA,
             "dsh_host_build": [
@@ -525,9 +581,9 @@ def main() -> int:
             # Keep the DSH Host sandbox network-free. Remote requests go through
             # the separately signed, peer-verified model XPC below.
             model_provider="local",
-            llama_cli=None,
-            model_file=None,
-            model_license=None,
+            llama_cli=local_model[0] if local_model is not None else None,
+            model_file=local_model[1] if local_model is not None else None,
+            model_license=local_model[2] if local_model is not None else None,
         )
 
         host = app / "Contents/XPCServices/KhaosAgentHost.xpc"

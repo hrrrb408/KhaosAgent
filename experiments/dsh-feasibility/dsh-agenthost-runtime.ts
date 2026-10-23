@@ -13,10 +13,11 @@ import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
 import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
 import {
-  KhaosModelBridgeAdapter,
-  type KhaosModelBridgeRequest,
-  type KhaosModelBridgeResult,
+  KhaosDshModelAdapter,
+  type KhaosModelRequest,
+  type KhaosModelResult,
 } from './khaos-model-bridge.ts'
+import { completeWithLocalModel } from './khaos-local-model.ts'
 import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 import {
   createMaliciousCordisPlugin,
@@ -38,7 +39,7 @@ interface HostInput {
 
 type PendingResult = (result: KhaosToolResult) => void
 type PendingModelCall = {
-  resolve(result: KhaosModelBridgeResult): void
+  resolve(result: KhaosModelResult): void
   reject(error: Error): void
   signal?: AbortSignal
   onAbort?: () => void
@@ -51,14 +52,36 @@ let currentContext: Context | undefined
 let currentPluginFiber: { dispose(): Promise<void> } | undefined
 let crashOnNextToolResult = false
 
+async function requestLocalModel(
+  request: KhaosModelRequest,
+  signal?: AbortSignal,
+): Promise<KhaosModelResult> {
+  try {
+    const result = await completeWithLocalModel(request, undefined, undefined, signal)
+    emit({ type: 'model_diagnostic', status: 'ok', elapsed_ms: result.elapsed_ms })
+    return result
+  } catch (error) {
+    const value = error as Error & { elapsed_ms?: unknown }
+    const elapsed = Number.isSafeInteger(value?.elapsed_ms) && (value.elapsed_ms as number) >= 0
+      ? Math.min(value.elapsed_ms as number, 600_000)
+      : 0
+    const code = typeof value?.message === 'string'
+      && /^local_model_[a-z0-9_]{1,64}$/u.test(value.message)
+      ? value.message
+      : 'local_model_failed'
+    emit({ type: 'model_diagnostic', status: 'failed', code, elapsed_ms: elapsed })
+    throw error
+  }
+}
+
 function emit(value: object): void {
   process.stdout.write(`${JSON.stringify(value)}\n`)
 }
 
 function requestModel(
-  request: KhaosModelBridgeRequest,
+  request: KhaosModelRequest,
   signal?: AbortSignal,
-): Promise<KhaosModelBridgeResult> {
+): Promise<KhaosModelResult> {
   if (pendingModelCalls.size !== 0) return Promise.reject(new Error('a model request is already pending'))
   if (signal?.aborted) return Promise.reject(new Error('model request was cancelled'))
   return new Promise((resolve, reject) => {
@@ -376,10 +399,27 @@ async function createTask(text: string): Promise<void> {
           options => textResponse(`DSH observed the actual Khaos tool result: ${lastToolResult(options.messages)}`),
         ])
   const modelAdapter = realModelMode
-    ? new KhaosModelBridgeAdapter(requestModel)
+    ? new KhaosDshModelAdapter(
+      process.env.KHAOS_DSH_LOCAL_MODEL_EXECUTABLE
+        ? {
+          provider: 'khaos-local',
+          model: 'bundled-cpu',
+          name: 'Khaos bundled CPU model',
+          contextWindow: 8_192,
+          complete: requestLocalModel,
+        }
+        : {
+          provider: 'khaos-bigmodel',
+          model: 'glm-5.3',
+          name: 'GLM-5.3',
+          contextWindow: 32_768,
+          complete: requestModel,
+        },
+    )
     : undefined
-  const provider = realModelMode ? 'khaos-bigmodel' : 'khaos-fixture'
-  const model = realModelMode ? 'glm-5.3' : 'deterministic-acceptance'
+  const localModelMode = realModelMode && Boolean(process.env.KHAOS_DSH_LOCAL_MODEL_EXECUTABLE)
+  const provider = realModelMode ? (localModelMode ? 'khaos-local' : 'khaos-bigmodel') : 'khaos-fixture'
+  const model = realModelMode ? (localModelMode ? 'bundled-cpu' : 'glm-5.3') : 'deterministic-acceptance'
 
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
