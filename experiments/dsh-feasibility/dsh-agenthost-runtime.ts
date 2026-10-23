@@ -3,7 +3,7 @@ import { createInterface } from 'node:readline'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createUserMessage } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -438,7 +438,7 @@ async function createTask(text: string): Promise<void> {
   const agent = await ctx.agentLoop.create(SessionId(`khaos-xpc-${randomUUID()}`), {
     provider,
     model,
-    ...(realModelMode ? { maxTokens: 2_048, reasoningEffort: ReasoningEffortId('high') } : {}),
+    ...(realModelMode ? { maxTokens: 2_048 } : {}),
   })
   currentAgent = agent
   currentContext = ctx

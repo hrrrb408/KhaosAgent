@@ -1,0 +1,22 @@
+{
+  "agent_tool_operations": 0,
+  "api_key_redacted_before_write": true,
+  "dsh_agent_loop_error": "UNSUPPORTED_REASONING_EFFORT",
+  "hidden_verification": "FAIL (starter fixture unchanged)",
+  "logs": {
+    "real-model-A-1-reasoning-effort.stderr.gz": {
+      "sha256_gzip": "dfbcc753e8f78916cd862ae452538acdca0d5a9b11fb5d618fc14f83a720a13f",
+      "sha256_uncompressed": "9a7fc01d33cd93d5522da2c21f73b85d2b8fe9c583c2f477037da7d2a0c4cf7b",
+      "uncompressed_bytes": 80
+    },
+    "real-model-A-1-reasoning-effort.stdout.gz": {
+      "sha256_gzip": "47355e3b45128427186d7d05051a354aa6b95b57f439c4e3ff6bfde5da4f98e8",
+      "sha256_uncompressed": "b228887630a444de9cc9da678a7cd36ef9f6fb7e7c140a79a60afa9b83ea060a",
+      "uncompressed_bytes": 897
+    }
+  },
+  "model_actually_invoked": false,
+  "remote_http_requests": 0,
+  "result": "FAIL",
+  "source_sha": "9eb3cb5d89db95d530ed520da5a6502aacecb56a"
+}

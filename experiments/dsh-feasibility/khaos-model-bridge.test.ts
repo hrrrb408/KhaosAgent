@@ -77,6 +77,16 @@ test('uses the DSH route, fixed model, bounded output, and one Khaos tool', asyn
   })
 })
 
+test('leaves GLM reasoning effort at the provider default', async () => {
+  const adapter = new KhaosModelBridgeAdapter(async () => ({
+    completion: completion({ role: 'assistant', content: 'unused' }),
+    elapsed_ms: 1,
+  }))
+
+  const model = await adapter.resolveModel('khaos-bigmodel', 'glm-5.3')
+  assert.equal(model.reasoning, undefined)
+})
+
 test('rejects unsupported models, completion budgets, request sizes, and tools before transport', async () => {
   let calls = 0
   const adapter = new KhaosModelBridgeAdapter(async () => {

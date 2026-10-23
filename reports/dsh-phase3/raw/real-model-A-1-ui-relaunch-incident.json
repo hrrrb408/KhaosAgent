@@ -1,0 +1,14 @@
+{
+  "agent_operation": false,
+  "app_mode": "default workspace writeback smoke",
+  "classification": "OUT_OF_SCOPE_OPERATOR_UI_LAUNCH",
+  "cleanup": "App closed; disposable scratch preserved for audit.",
+  "created_file": "khaos-seed-writeback-smoke-9e2f13bb-8a63-484f-8034-16c61939296f.txt",
+  "created_file_sha256": "424af2cf1970670c0feb3cb8b563daafe1d9d97d5cd50882db21af67938711e4",
+  "kernel_message": "Kernel committed one file and direct Picker write was denied.",
+  "runner_execution": false,
+  "source_sha": "9eb3cb5d89db95d530ed520da5a6502aacecb56a",
+  "status": "SEPARATE_FROM_AGENT_TRIAL",
+  "trigger_assessment": "A separate no-argument app launch occurred during UI handling after the task process returned its DSH error; cua.getApp can launch an app when no matching process remains, so this is the likely trigger.",
+  "workspace": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-vdcl29qj/coding-workspace"
+}
