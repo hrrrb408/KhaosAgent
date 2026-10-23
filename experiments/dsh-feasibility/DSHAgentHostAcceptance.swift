@@ -159,12 +159,19 @@ private final class DSHRuntimeProcess {
             ("KhaosDSHProbeCredentialPath", "KHAOS_DSH_CREDENTIAL_PATH"),
             ("KhaosDSHProbeKernelPath", "KHAOS_DSH_KERNEL_PATH"),
             ("KhaosDSHProbeLocalPort", "KHAOS_DSH_LOCAL_PORT"),
-            ("KhaosDSHModelBridgeProbePath", "KHAOS_DSH_MODEL_BRIDGE_PROBE_PATH"),
             ("KhaosDSHCandidateBFixedScriptArgument", "KHAOS_DSH_CANDIDATE_B_FIXED_SCRIPT"),
         ] {
             if let value = Bundle.main.object(forInfoDictionaryKey: infoKey) as? String {
                 environment[environmentKey] = value
             }
+        }
+        if let probeName = Bundle.main.object(
+            forInfoDictionaryKey: "KhaosDSHModelBridgeProbePath"
+        ) as? String,
+           !probeName.isEmpty,
+           URL(fileURLWithPath: probeName).lastPathComponent == probeName {
+            environment["KHAOS_DSH_MODEL_BRIDGE_PROBE_PATH"] = resources
+                .appendingPathComponent(probeName, isDirectory: false).path
         }
 
         var actions: posix_spawn_file_actions_t? = nil

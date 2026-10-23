@@ -433,7 +433,7 @@ def main() -> int:
                 "--identifier", "org.khaos.Seed.AgentHost.DSHModelBridgePeerProbe",
                 str(model_bridge_probe),
             ])
-            host_info["KhaosDSHModelBridgeProbePath"] = str(model_bridge_probe)
+            host_info["KhaosDSHModelBridgeProbePath"] = model_bridge_probe.name
             bridge = app / "Contents/XPCServices/DSHModelBridge.xpc"
             bridge_contents = bridge / "Contents"
             bridge_binary = bridge_contents / "MacOS/DSHModelBridge"
