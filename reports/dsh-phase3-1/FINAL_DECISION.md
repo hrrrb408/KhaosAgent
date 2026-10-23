@@ -2,7 +2,7 @@
 
 ## Status
 
-**Engineering: PASS.** The semantic tool implementation, signed Stage A, eight real-model trials, evaluator tests, DSH tests, canonical suite, and Security Freeze passed. GitHub `security-tests` and `security-freeze` both passed on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`. The report-only follow-up is checked again at its own exact head; its final status is available in PR #45.
+**Engineering: PASS for the implementation and experimental evidence.** The semantic tool implementation, signed Stage A, eight real-model trials, evaluator tests, DSH tests, canonical suite, and Security Freeze passed. GitHub `security-tests` and `security-freeze` both passed on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`. A subsequent report-only head had one CI failure in an inherited XPC snapshot setup test; its focused local rerun passed. The full retry on the latest report head remains authoritative in PR #45, and the first failure remains recorded in the security report and evidence index.
 
 **Reliability decision: PARTIAL — Tool Interface Fixed, Model Still Weak.**
 
@@ -29,7 +29,7 @@ Semantic tool parsing and deterministic lowering succeeded in 32/32 calls, compa
 | Node / model resource measurements | PARTIAL; RSS measured, process cleanup observed; Node startup, model initialization, token counts, and cost NOT_MEASURED |
 | Canonical tests | PASS, 412 tests in 835.535 seconds on the final local rerun |
 | Security Freeze | PASS on current inventory and exact stacked base 391848b02a2ec4d095cef7f71f2e55947ec24b24 |
-| GitHub CI | PASS on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`; report-only follow-up checked separately on PR #45 |
+| GitHub CI | PASS on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`; report-only-head retry status is tracked by PR #45 |
 | Owner Review | PENDING |
 | Independent Code Owner Review | NOT_PERFORMED |
 | Technical Gate A | UNCHANGED |

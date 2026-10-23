@@ -61,4 +61,10 @@ These inherited tests validate the existing enforcement path. No claim is made t
 - Signed Stage A semantic workflow: PASS.
 - Security Freeze: PASS after the test-only manifest correction.
 
+## GitHub CI failure retained
+
+The first `security-tests` run for report-only head `272089a3387e978a5be35913da2e38ed2a8d0df0` failed once in `test_xpc_sandbox_scope_peer_identity_and_service_container_identity`. The nested Kernel result was `sandbox_unavailable_probe_snapshot` during the cancellation probe, so the test did not reach its expected cancellation terminal. The same XPC test and all 412 canonical tests passed locally; the previous code/evidence head also had both GitHub checks green. There were no runtime-code changes between those heads. This points to an intermittent snapshot setup failure, but the precise environmental cause is not proven.
+
+The focused local rerun passed (1 test, 112.870 seconds). The failed GitHub log and focused rerun record are retained locally with owner-only permissions and indexed by SHA-256. The full CI retry result for the final report head remains authoritative in PR #45; the failed attempt is not erased by a later retry.
+
 Full raw trial JSON and compressed UI logs remain owner-only under reports/dsh-phase3-1/raw. The PR carries a hash-bound index and reports rather than repeated transcripts or local temporary paths.

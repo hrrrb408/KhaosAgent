@@ -56,6 +56,10 @@
         "size_bytes": 70912
       },
       {
+        "path": "raw/github-security-tests-272089a-first-attempt.log",
+        "sha256": "31c4cc7bcd05b53a05f9f583510b1bf20fd33da3d089a55895cb34634ced61c9"
+      },
+      {
         "mode": "0600",
         "path": "raw/real-model-A-1.json",
         "sha256": "992e8f9cf66d77ae8f17bcc27b7e3e7cf5f60bc66495ff7957a233c34457063b",
@@ -216,6 +220,10 @@
         "path": "raw/stage-a-signed-semantic-fixture.json",
         "sha256": "9537902982a3b1041629c1f4db5e8ec9ff9b66d5b5e4829cbfe29602fa3095eb",
         "size_bytes": 696818
+      },
+      {
+        "path": "raw/targeted-xpc-scope-repro.log",
+        "sha256": "2d91ed2f7fc25ce7392ac59ee1d90983914ac1a319a4b57d01e5ace7e3145252"
       }
     ],
     "local_directory": "reports/dsh-phase3-1/raw"
