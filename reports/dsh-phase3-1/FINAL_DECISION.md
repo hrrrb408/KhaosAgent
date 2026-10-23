@@ -2,7 +2,7 @@
 
 ## Status
 
-**Engineering: PENDING final exact-head CI.** The semantic tool implementation, signed Stage A, eight real-model trials, evaluator tests, DSH tests, canonical suite, and Security Freeze have passed locally. GitHub CI must still pass on the final pushed Draft PR head before Engineering is marked PASS.
+**Engineering: PASS.** The semantic tool implementation, signed Stage A, eight real-model trials, evaluator tests, DSH tests, canonical suite, and Security Freeze passed. GitHub `security-tests` and `security-freeze` both passed on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`. The report-only follow-up is checked again at its own exact head; its final status is available in PR #45.
 
 **Reliability decision: PARTIAL — Tool Interface Fixed, Model Still Weak.**
 
@@ -29,13 +29,13 @@ Semantic tool parsing and deterministic lowering succeeded in 32/32 calls, compa
 | Node / model resource measurements | PARTIAL; RSS measured, process cleanup observed; Node startup, model initialization, token counts, and cost NOT_MEASURED |
 | Canonical tests | PASS, 412 tests in 835.535 seconds on the final local rerun |
 | Security Freeze | PASS on current inventory and exact stacked base 391848b02a2ec4d095cef7f71f2e55947ec24b24 |
-| GitHub CI | PENDING |
+| GitHub CI | PASS on code/evidence commit `4f8953564ba7305c3c9c845df9cdf46408c4d694`; report-only follow-up checked separately on PR #45 |
 | Owner Review | PENDING |
 | Independent Code Owner Review | NOT_PERFORMED |
 | Technical Gate A | UNCHANGED |
 | Production Harness migration | NOT_AUTHORIZED |
 
-The committed CI result must be read from the attached Draft PR's checks for its exact current head. No CI result from PR #44 or an earlier Phase 3.1 SHA substitutes for that check.
+The final handoff records the exact current Phase 3.1 SHA and its own Draft PR checks. The CI result above binds the implementation and experiment evidence; no CI result from PR #44 substitutes for Phase 3.1 validation.
 
 ## Recommendation
 
