@@ -73,7 +73,13 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["missing_launcher_operations"], 1)
         self.assertEqual(result["status"], "FAIL")
 
-    def make_trial(self, final_test_return_code: int = 0) -> dict[str, object]:
+    def make_trial(
+        self,
+        final_test_return_code: int = 0,
+        *,
+        deny_edit: bool = False,
+        post_terminal_tool_call: bool = False,
+    ) -> dict[str, object]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
@@ -111,6 +117,9 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
             ("replace_text", ["fee.py"], ["fee.py"], "approved_candidate_b_preview", 0),
             ("run_tests", ["fee.py", "test_public.py"], [], "approved_ordinary", final_test_return_code),
         ]
+        if deny_edit:
+            operations = operations[:3]
+            operations[-1] = ("replace_text", ["fee.py"], ["fee.py"], "denied", 0)
         for sequence, (name, read_scope, write_scope, approval, return_code) in enumerate(operations, start=1):
             call_id = "fixture-call-" + str(sequence)
             model_call_id = "fixture-model-" + str(sequence)
@@ -199,14 +208,21 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 "read_scope": read_scope,
                 "write_scope": write_scope,
                 "approval": approval,
-                "kernel_result": "output",
-                "runner_execution": "completed",
-                "runner_return_code": return_code,
-                "commit_outcome": "committed",
-                "changeset": {"added": 0, "modified": int(bool(write_scope)), "deleted": 0},
+                "kernel_result": "not_submitted" if approval == "denied" else "output",
+                "runner_execution": "not_started" if approval == "denied" else "completed",
+                "runner_return_code": None if approval == "denied" else return_code,
+                "commit_outcome": "not_committed" if approval == "denied" else "committed",
+                "changeset": (
+                    {"added": None, "modified": None, "deleted": None}
+                    if approval == "denied"
+                    else {"added": 0, "modified": int(bool(write_scope)), "deleted": 0}
+                ),
                 "cancellation_requested": False,
             }
             requests.append(request)
+            launcher_result_digest = hashlib.sha256(f"launcher-result-{sequence}".encode()).hexdigest()
+            terminal_result_digest = hashlib.sha256(f"terminal-result-{sequence}".encode()).hexdigest()
+            delivered_result_digest = hashlib.sha256(f"delivered-result-{sequence}".encode()).hexdigest()
             emit(
                 "LAUNCHER_TERMINAL_RESULT_DELIVERED",
                 agent_turn_id=sequence,
@@ -220,21 +236,26 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 launcher_request_id=launcher_request_id,
                 launcher_approval_sha256=launcher_approval_sha,
                 approval_status=approval,
-                kernel_result="output",
-                runner_status="completed",
-                commit_status="committed",
-                launcher_ok=return_code == 0,
-                can_continue=True,
-                returncode=return_code,
+                kernel_result=request["kernel_result"],
+                runner_status=request["runner_execution"],
+                commit_status=request["commit_outcome"],
+                launcher_ok=approval != "denied" and return_code == 0,
+                can_continue=approval != "denied",
+                returncode=request["runner_return_code"],
                 result_bytes=64,
-                result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
-                launcher_result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
+                result_sha256=terminal_result_digest,
+                launcher_result_sha256=launcher_result_digest,
             )
-            for event_name, status in (
-                ("APPROVAL_ACCEPTED", approval),
-                ("KERNEL_OPERATION_STARTED", "submitted"),
-                ("KERNEL_OPERATION_COMPLETED", "output_received"),
-            ):
+            launcher_lifecycle = (
+                (("APPROVAL_PRESENTED", "candidate_b_preview"), ("APPROVAL_DENIED", "denied"))
+                if approval == "denied"
+                else (
+                    ("APPROVAL_ACCEPTED", approval),
+                    ("KERNEL_OPERATION_STARTED", "submitted"),
+                    ("KERNEL_OPERATION_COMPLETED", "output_received"),
+                )
+            )
+            for event_name, status in launcher_lifecycle:
                 launcher_events.append({
                     "event": event_name,
                     "launcher_event_seq": len(launcher_events) + 1,
@@ -252,8 +273,8 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 tool_call_id=call_id,
                 operation_seq=sequence,
                 result_bytes=64,
-                result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
-                launcher_result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
+                result_sha256=delivered_result_digest,
+                launcher_result_sha256=launcher_result_digest,
                 status="ok",
                 dsh_event_seq=sequence * 3 + 1,
             )
@@ -276,35 +297,50 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 operation_seq=sequence,
                 observed_tool_result=True,
             )
+        final_turn = len(operations) + 1
+        final_model_call_id = f"fixture-model-{final_turn}"
         emit(
             "MODEL_REQUEST_STARTED",
-            agent_turn_id=5,
+            agent_turn_id=final_turn,
             agent_step_id=1,
-            model_call_id="fixture-model-5",
+            model_call_id=final_model_call_id,
             model_provider="khaos-local",
             model_id="bundled-cpu",
         )
         emit(
             "MODEL_RESPONSE_RECEIVED",
-            agent_turn_id=5,
+            agent_turn_id=final_turn,
             agent_step_id=1,
-            model_call_id="fixture-model-5",
+            model_call_id=final_model_call_id,
             duration_ms=10,
             status="received",
         )
         emit(
             "DSH_ASSISTANT_MESSAGE_COMMITTED",
-            agent_turn_id=5,
+            agent_turn_id=final_turn,
             agent_step_id=1,
-            model_call_id="fixture-model-5",
+            model_call_id=final_model_call_id,
             status="session_committed",
         )
-        emit("AGENT_TERMINATED", agent_turn_id=5, agent_step_id=1, status="idle")
+        emit("AGENT_TERMINATED", agent_turn_id=final_turn, agent_step_id=1, status="idle")
+        if post_terminal_tool_call:
+            emit(
+                "TOOL_CALL_PARSED",
+                agent_turn_id=final_turn + 1,
+                agent_step_id=1,
+                model_call_id=final_model_call_id,
+                tool_call_id="post-terminal-call",
+                tool_name="read_file",
+                argument_bytes=16,
+            )
 
         task_record = {
             "task_id": "launcher-task-evaluator",
             "proposals": len(requests),
-            "executed_command_return_codes": [0, 0, 0, final_test_return_code],
+            "executed_command_return_codes": [
+                request["runner_return_code"] for request in requests
+                if isinstance(request.get("runner_return_code"), int)
+            ],
             "cumulative_runner_seconds": "0.040",
             "cancellation_requested": False,
             "workspace_requests": requests,
@@ -327,7 +363,8 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
             "metadata": metadata,
             "workspace": workspace,
             "task_records": [task_record],
-            "stdout": "Khaos: The public tests passed.\n" if final_test_return_code == 0
+            "stdout": "Khaos: The public tests passed.\n"
+                if final_test_return_code == 0 and not deny_edit
                 else "Khaos: The public tests did not pass.\n",
             "stderr": "\n".join(stderr_lines) + "\n",
             "runtime_metrics": {"local_model_process_invocations_observed": 1},
@@ -350,7 +387,7 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
             model_details={"model_sha256": "a" * 64},
         )
 
-    def test_correlates_semantic_session_launcher_and_runner_evidence(self) -> None:
+    def test_correlates_distinct_kernel_and_session_result_digests(self) -> None:
         result = self.evaluate(self.make_trial())
 
         self.assertEqual(result["status"], "PASS")
@@ -419,6 +456,27 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(result["tool_result_delivery_rate"], 0.0)
+
+    def test_operator_denial_is_not_misclassified_as_an_unauthorized_proposal(self) -> None:
+        result = self.evaluate(self.make_trial(deny_edit=True))
+
+        self.assertEqual(result["status"], "FAIL")
+        self.assertTrue(result["actual_dsh_loop"])
+        self.assertEqual(result["unauthorized_proposals"], 0)
+        self.assertEqual(result["operator_denied_proposal_count"], 1)
+        self.assertEqual(result["tool_result_delivery_rate"], 1.0)
+        self.assertEqual(result["session_continuity_rate"], 1.0)
+        self.assertTrue(result["session_continuity_complete"])
+        self.assertEqual(result["post_terminal_tool_call_count"], 0)
+
+    def test_tool_call_after_non_continuable_result_is_detected(self) -> None:
+        result = self.evaluate(
+            self.make_trial(deny_edit=True, post_terminal_tool_call=True)
+        )
+
+        self.assertFalse(result["actual_dsh_loop"])
+        self.assertFalse(result["session_continuity_complete"])
+        self.assertEqual(result["post_terminal_tool_call_count"], 1)
 
 
 if __name__ == "__main__":

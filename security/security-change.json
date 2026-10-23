@@ -1,16 +1,15 @@
 {
-  "base": "b08ab11e01663d2b26304cb541efb5361dea0417",
+  "base": "391848b02a2ec4d095cef7f71f2e55947ec24b24",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/test_dsh_xpc_acceptance_builder.py",
-    "tests/test_dsh_xpc_acceptance_runner.py"
+    "tests/test_dsh_xpc_acceptance_builder.py"
   ],
-  "motivation": "Record the two test-only DSH signed-acceptance regressions in the protected build-governance inventory. The builder regression decodes the fixed Candidate B script from the probe's stdout; the acceptance-runner regressions classify the observed Node and AgentHost XPC failure events. No runtime implementation or security expectation is changed.",
-  "invariants": "DSH, Cordis, model output, and all acceptance fixtures remain untrusted. The signed Launcher, Kernel, exact scopes, approval flow, OS sandbox, and commit validation remain unchanged. The new tests validate harness behavior only and do not grant capability or represent production runtime code.",
-  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 runtime TCB. Two development-only test files are classified as build-governance inputs. No new trusted process, IPC operation, persistent state, or production dependency.",
-  "real_os_tests": "On exact source SHA 5abf5d34426304b77a0773c1b30eb8814f5aa44c, the signed macOS attack, Cordis lifecycle, Read-Edit-Test, fake-result, B32, pre-commit, post-commit, Node child-crash recovery, and AgentHost XPC crash-recovery acceptances passed. The canonical unittest suite passed all 411 tests in 824.946 seconds in the worktree with this inventory update. The suite does not replace independent review.",
-  "trusted_delta": "No production or runtime trusted code changed. The only new protected runtime-adjacent files are two build-governance regression tests for the experimental acceptance builder and verifier.",
-  "baseline_decision": "Keep the existing runtime TCB baseline unchanged. Add the two exact test paths as build-governance entries, refresh only the manifest digest in the freeze baseline, and bind the complete sensitive path list to PR #41 base b08ab11e01663d2b26304cb541efb5361dea0417. Independent Code Owner approval remains NOT PROVEN in single-maintainer mode."
+  "motivation": "Refresh the protected build-governance digest for the experimental signed-acceptance regression that verifies the active Task ID is visible in approval UI. This does not change runtime code or security expectations.",
+  "invariants": "DSH, Cordis, model output, and fixtures remain untrusted. Trusted Launcher, Security Kernel, exact scopes, approval, sandbox execution, commit validation, and Kernel ABI are unchanged.",
+  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 production trusted-runtime delta. Only one existing build-governance test digest and its manifest digest are refreshed. No new trusted process, IPC operation, persistent state, or production dependency.",
+  "real_os_tests": "Signed Stage A semantic Read-Edit-Test acceptance passed through the real experimental AgentHost XPC, Trusted Launcher, Kernel, and Runner. The canonical Khaos suite passed 412 tests in this worktree; exact final-HEAD CI remains a separate check. These checks do not establish Owner Review or Independent Code Owner Review.",
+  "trusted_delta": "No production or runtime trusted code changed. The protected change is a test-only build-governance hash refresh. Keep the runtime TCB inventory and authority baseline unchanged.",
+  "baseline_decision": "Rebind this declaration to the exact stacked PR base 391848b02a2ec4d095cef7f71f2e55947ec24b24. Preserve all runtime TCB hashes and boundaries. The declaration is a review aid, not approval; Owner Review remains pending and Independent Code Owner approval remains NOT PERFORMED."
 }

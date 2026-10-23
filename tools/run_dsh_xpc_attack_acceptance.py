@@ -570,7 +570,7 @@ def evaluate_real_model_trial(
         scope_matches = exact_scope(request, name)
         expected_approval = "approved_candidate_b_preview" if name == "replace_text" else "approved_ordinary"
         approval = request.get("approval")
-        approval_valid = approval == expected_approval
+        approval_valid = None if approval == "denied" else approval == expected_approval
         request_id_matches = (
             terminal.get("launcher_task_id") == records.get("task_id")
             and terminal.get("launcher_request_id") == request.get("request_id")
@@ -588,17 +588,31 @@ def evaluate_real_model_trial(
             and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
         ]
         event_by_name = {event.get("event"): event for event in request_events}
-        launcher_lifecycle_complete = all(
-            name in event_by_name
-            for name in ("APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED")
-        )
-        launcher_event_order_valid = (
-            launcher_lifecycle_complete
-            and event_by_name["APPROVAL_ACCEPTED"].get("launcher_event_seq")
-                < event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
-            and event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
-                < event_by_name["KERNEL_OPERATION_COMPLETED"].get("launcher_event_seq")
-        )
+        if approval == "denied":
+            launcher_lifecycle_complete = (
+                "APPROVAL_PRESENTED" in event_by_name
+                and "APPROVAL_DENIED" in event_by_name
+                and not any(name in event_by_name for name in (
+                    "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED"
+                ))
+            )
+            launcher_event_order_valid = (
+                launcher_lifecycle_complete
+                and event_by_name["APPROVAL_PRESENTED"].get("launcher_event_seq")
+                    < event_by_name["APPROVAL_DENIED"].get("launcher_event_seq")
+            )
+        else:
+            launcher_lifecycle_complete = all(
+                name in event_by_name
+                for name in ("APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED")
+            )
+            launcher_event_order_valid = (
+                launcher_lifecycle_complete
+                and event_by_name["APPROVAL_ACCEPTED"].get("launcher_event_seq")
+                    < event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
+                and event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
+                    < event_by_name["KERNEL_OPERATION_COMPLETED"].get("launcher_event_seq")
+            )
         kernel_output = request.get("kernel_result") == "output"
         runner_completed = request.get("runner_execution") == "completed"
         return_code = request.get("runner_return_code")
@@ -611,7 +625,10 @@ def evaluate_real_model_trial(
             and delivered_event.get("operation_seq") == sequence
             and delivered_event.get("tool_call_id") == call_id
             and delivered_event.get("model_call_id") == lower.get("model_call_id")
-            and delivered_event.get("launcher_result_sha256") == terminal.get("result_sha256")
+            and delivered_event.get("launcher_result_sha256") == terminal.get("launcher_result_sha256")
+            and isinstance(terminal.get("event_seq"), int)
+            and isinstance(delivered_event.get("event_seq"), int)
+            and terminal["event_seq"] < delivered_event["event_seq"]
         )
         should_continue = terminal.get("can_continue") is True
         observed_next_turn = (
@@ -627,7 +644,7 @@ def evaluate_real_model_trial(
             and isinstance(next_turn_event.get("event_seq"), int)
             and delivered_event["event_seq"] < continuity_event["event_seq"]
             and continuity_event["event_seq"] < next_turn_event["event_seq"]
-        ) if should_continue else not continuity_event and not next_turn_event
+        )
         identity_matches = (
             isinstance(call_id, str)
             and accepted_model_output.get("tool_call_id") == call_id
@@ -773,11 +790,29 @@ def evaluate_real_model_trial(
         and (provider != "local" or observed_local_model_calls > 0)
     )
     actual_model_invoked = bool(model_call_records) and model_invocation_evidence
-    expected_continuity_count = sum(event.get("can_continue") is True for event in terminal_results)
+    expected_continuity_count = len(terminal_results)
+    non_continuable_terminal_events = [
+        event for event in terminal_results if event.get("can_continue") is not True
+    ]
+    post_terminal_tool_calls = [
+        call for call in calls
+        if any(
+            isinstance(terminal.get("event_seq"), int)
+            and isinstance(call.get("event_seq"), int)
+            and call["event_seq"] > terminal["event_seq"]
+            for terminal in non_continuable_terminal_events
+        )
+    ]
     continuity_ok = (
         len(continuity) == expected_continuity_count
         and len(next_turns) == expected_continuity_count
+        and set(continuity_by_id) == {
+            event.get("tool_call_id") for event in terminal_results
+            if isinstance(event.get("tool_call_id"), str)
+        }
         and all(event.get("observed_tool_result") is True for event in continuity)
+        and all(check["next_model_call_observed_the_tool_result"] for check in operation_checks)
+        and not post_terminal_tool_calls
     )
     actual_dsh_loop = (
         actual_model_invoked
@@ -792,7 +827,10 @@ def evaluate_real_model_trial(
         len(rejected_arguments) + sum(
             1 for check in operation_checks
             if not check["scope_matches_predeclared_task_policy"]
-            or not check["signed_ui_approval_matches_semantic_tool"]
+            or (
+                requests[int(check["operation_seq"]) - 1].get("approval") != "denied"
+                and check["signed_ui_approval_matches_semantic_tool"] is not True
+            )
         )
         if event_sequence_valid and proposal_telemetry_complete
         else None
@@ -813,7 +851,10 @@ def evaluate_real_model_trial(
         if operation_checks else 0.0
     )
     session_continuity_rate = (
-        sum(event.get("observed_tool_result") is True for event in continuity)
+        sum(
+            continuity_by_id.get(event.get("tool_call_id"), {}).get("observed_tool_result") is True
+            for event in terminal_results
+        )
         / max(1, expected_continuity_count)
     )
     lowering_latencies = [
@@ -937,6 +978,8 @@ def evaluate_real_model_trial(
         "tool_results_delivered": len(delivered),
         "session_continuity_checks": len(continuity),
         "session_continuity_complete": continuity_ok,
+        "post_terminal_tool_call_count": len(post_terminal_tool_calls),
+        "terminal_tool_boundary_preserved": not post_terminal_tool_calls,
         "next_model_turns_after_tool_results": len(next_turns),
         "unmatched_proposals_or_results": abs(len(lowered) - len(requests)),
         "task_elapsed_seconds_including_operator_ui": round(elapsed_seconds, 4),
