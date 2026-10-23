@@ -34,6 +34,8 @@ from run_dsh_signed_runtime_probe import (  # noqa: E402
 
 KHAOS_BASE_SHA = "b08ab11e01663d2b26304cb541efb5361dea0417"
 REPLACED_SOURCE = "khaos/macos/AgentHost.swift"
+REMOTE_MODEL_DISCLOSURE_SOURCE = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+EXPERIMENTAL_MODEL_ID = "glm-5.3"
 
 
 def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -56,6 +58,28 @@ def candidate_b_fixed_script(candidate_probe: Path) -> str:
     return fixed_script
 
 
+def apply_experimental_model_disclosure(source_root: Path) -> dict[str, str]:
+    path = source_root / REMOTE_MODEL_DISCLOSURE_SOURCE
+    original = path.read_text(encoding="utf-8")
+    old = (
+        '            ? "BigModel GLM-5.3-Flash Coding Plan"\n'
+        '            : "BigModel GLM-5.3-Flash"'
+    )
+    replacement = (
+        f'            ? "BigModel GLM-5.3 Coding Plan (model id: {EXPERIMENTAL_MODEL_ID})"\n'
+        f'            : "BigModel GLM-5.3 (model id: {EXPERIMENTAL_MODEL_ID})"'
+    )
+    if original.count(old) != 1:
+        raise RuntimeError("expected one remote model disclosure string in the Launcher source")
+    path.write_text(original.replace(old, replacement), encoding="utf-8")
+    return {
+        "path": REMOTE_MODEL_DISCLOSURE_SOURCE,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "show the exact fixed glm-5.3 model id in the disposable signed experiment app",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -66,6 +90,12 @@ def main() -> int:
     parser.add_argument("--probe-workspace-write-path", type=Path, required=True)
     parser.add_argument("--probe-credential-path", type=Path, required=True)
     parser.add_argument("--probe-local-port", type=int, required=True)
+    parser.add_argument(
+        "--model-provider",
+        choices=("local", "bigmodel", "bigmodel-coding-plan"),
+        default="local",
+        help="remote providers are for synthetic experimental tasks only",
+    )
     parser.add_argument("--cancellation-case", choices=("b32", "pre-commit", "post-commit"))
     parser.add_argument("--cancellation-control-path", type=Path)
     parser.add_argument("--pnpm", default="pnpm")
@@ -127,6 +157,7 @@ def main() -> int:
     test_inputs = (
         override,
         probe_dir / "dsh-agenthost-runtime.ts",
+        probe_dir / "khaos-model-bridge.ts",
         probe_dir / "dsh-capability-lifecycle-probe.ts",
         probe_dir / "dsh-tool-result.ts",
         probe_dir / "khaos-capability-adapter.ts",
@@ -135,6 +166,16 @@ def main() -> int:
         ROOT / "tools/run_dsh_xpc_attack_acceptance.py",
         ROOT / "tools/run_dsh_signed_runtime_probe.py",
         ROOT / "tools/run_dsh_feasibility_probe.py",
+        ROOT / "tools/run_dsh_model_bridge_tests.py",
+        ROOT / "tools/run_dsh_plugin_evaluation.py",
+        ROOT / "experiments/dsh-feasibility/khaos-model-bridge.test.ts",
+        ROOT / "experiments/dsh_phase3/benchmark.py",
+        ROOT / "experiments/dsh_phase3/test_benchmark.py",
+        ROOT / "experiments/dsh_phase3/plugin_evolution/tag-plugin.ts",
+        ROOT / "experiments/dsh_phase3/plugin_evolution/baseline.ts",
+        ROOT / "experiments/dsh_phase3/plugin_evolution/candidate_v1.ts",
+        ROOT / "experiments/dsh_phase3/plugin_evolution/malicious_candidate.ts",
+        ROOT / "experiments/dsh_phase3/plugin_evolution/runner.ts",
         ROOT / "tests/signed_cancellation_fixture.py",
         ROOT / "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift",
     )
@@ -143,6 +184,12 @@ def main() -> int:
     try:
         source_root = temporary / "inputs"
         source_hashes = seed_builder._snapshot_sources(source_root, None)
+        disclosure_override = (
+            apply_experimental_model_disclosure(source_root)
+            if args.model_provider != "local" else None
+        )
+        if disclosure_override is not None:
+            source_hashes[REMOTE_MODEL_DISCLOSURE_SOURCE] = disclosure_override["experimental_sha256"]
         cancellation_overlay_hashes: dict[str, str] = {}
         if args.cancellation_case is not None and cancellation_control is not None:
             sys.path.insert(0, str(ROOT / "tests"))
@@ -219,6 +266,28 @@ def main() -> int:
             "probe_local_port": args.probe_local_port,
             "cancellation_case": args.cancellation_case,
             "cancellation_overlay_sha256": cancellation_overlay_hashes,
+            "dsh_model_provider": args.model_provider,
+            "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local" else None,
+            "experimental_source_overrides": (
+                [disclosure_override] if disclosure_override is not None else []
+            ),
+            "dsh_model_data_policy": (
+                "synthetic disposable benchmark data only; Launcher task-scoped consent"
+                if args.model_provider != "local" else "no remote model"
+            ),
+            "dsh_model_limits": (
+                {
+                    "model_id": EXPERIMENTAL_MODEL_ID,
+                    "max_completion_tokens_per_call": 2_048,
+                    "max_model_calls_per_task": 16,
+                    "max_task_seconds": 600,
+                    "max_request_bytes": 56 * 1_024,
+                    "max_response_bytes": 56 * 1_024,
+                    "node_network_entitlement": False,
+                    "api_key_delivery": "Launcher to fixed AgentHost XPC bridge; not in Node environment",
+                }
+                if args.model_provider != "local" else None
+            ),
             "dsh_sha": PINNED_DSH_SHA,
             "dsh_host_build": [
                 "tsc -b tsconfig.host.json",
@@ -242,7 +311,7 @@ def main() -> int:
             architecture=platform.machine(),
             signing_identity=identity,
             keychain=args.keychain,
-            model_provider="local",
+            model_provider=args.model_provider,
             llama_cli=None,
             model_file=None,
             model_license=None,
