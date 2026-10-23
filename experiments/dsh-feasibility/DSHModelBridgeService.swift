@@ -266,6 +266,18 @@ private enum DSHModelCompletion {
     }
 }
 
+private final class DSHModelBridgeBootstrapService: NSObject, DSHModelBridgeBootstrapEndpoint {
+    private let endpoint: NSXPCListenerEndpoint
+
+    init(endpoint: NSXPCListenerEndpoint) {
+        self.endpoint = endpoint
+    }
+
+    func modelEndpoint(withReply reply: @escaping (NSXPCListenerEndpoint?) -> Void) {
+        reply(endpoint)
+    }
+}
+
 private final class DSHModelBridgeService: NSObject, DSHModelBridgeEndpoint {
     func complete(
         _ body: NSData,
@@ -312,16 +324,21 @@ private final class DSHModelBridgeService: NSObject, DSHModelBridgeEndpoint {
 }
 
 private final class DSHModelBridgeListener: NSObject, NSXPCListenerDelegate {
-    private let listener = NSXPCListener.service()
+    private let bootstrapListener = NSXPCListener.service()
+    private let modelListener = NSXPCListener.anonymous()
     private let hostRequirement: String
+    private let launcherRequirement: String
 
-    init(hostRequirement: String) {
+    init(hostRequirement: String, launcherRequirement: String) {
         self.hostRequirement = hostRequirement
+        self.launcherRequirement = launcherRequirement
     }
 
     func run() {
-        listener.delegate = self
-        listener.resume()
+        modelListener.delegate = self
+        modelListener.resume()
+        bootstrapListener.delegate = self
+        bootstrapListener.resume()
         RunLoop.main.run()
     }
 
@@ -329,9 +346,24 @@ private final class DSHModelBridgeListener: NSObject, NSXPCListenerDelegate {
         _ listener: NSXPCListener,
         shouldAcceptNewConnection connection: NSXPCConnection
     ) -> Bool {
-        connection.setCodeSigningRequirement(hostRequirement)
-        connection.exportedInterface = NSXPCInterface(with: DSHModelBridgeEndpoint.self)
-        connection.exportedObject = DSHModelBridgeService()
+        if listener === bootstrapListener {
+            connection.setCodeSigningRequirement(launcherRequirement)
+            let interface = NSXPCInterface(with: DSHModelBridgeBootstrapEndpoint.self)
+            interface.setClasses(
+                [NSXPCListenerEndpoint.self],
+                for: #selector(DSHModelBridgeBootstrapEndpoint.modelEndpoint(withReply:)),
+                argumentIndex: 0,
+                ofReply: true
+            )
+            connection.exportedInterface = interface
+            connection.exportedObject = DSHModelBridgeBootstrapService(
+                endpoint: modelListener.endpoint
+            )
+        } else {
+            connection.setCodeSigningRequirement(hostRequirement)
+            connection.exportedInterface = NSXPCInterface(with: DSHModelBridgeEndpoint.self)
+            connection.exportedObject = DSHModelBridgeService()
+        }
         connection.resume()
         return true
     }
@@ -344,9 +376,16 @@ enum DSHModelBridgeMain {
             forInfoDictionaryKey: DSHModelBridgeLimits.hostRequirementInfoKey
         ) as? String,
         !requirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        let launcherRequirement = Bundle.main.object(
+            forInfoDictionaryKey: DSHModelBridgeLimits.launcherRequirementInfoKey
+        ) as? String,
+        !launcherRequirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
         AgentModelProvider.from(bundle: .main).isRemote else {
             exit(EXIT_FAILURE)
         }
-        DSHModelBridgeListener(hostRequirement: requirement).run()
+        DSHModelBridgeListener(
+            hostRequirement: requirement,
+            launcherRequirement: launcherRequirement
+        ).run()
     }
 }

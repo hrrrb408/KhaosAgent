@@ -8,6 +8,7 @@ enum DSHModelBridgeLimits {
     static let maximumTaskSeconds = 600
     static let serviceName = "org.khaos.Seed.DSHModelBridge"
     static let hostRequirementInfoKey = "KhaosAgentHostRequirement"
+    static let launcherRequirementInfoKey = "KhaosLauncherRequirement"
     static let bridgeRequirementInfoKey = "KhaosDSHModelBridgeRequirement"
 }
 
@@ -18,5 +19,11 @@ enum DSHModelBridgeLimits {
         apiKey: NSString,
         timeoutSeconds: NSNumber,
         withReply reply: @escaping (NSData?, NSString?, NSNumber) -> Void
+    )
+}
+
+@objc protocol DSHModelBridgeBootstrapEndpoint {
+    func modelEndpoint(
+        withReply reply: @escaping (NSXPCListenerEndpoint?) -> Void
     )
 }

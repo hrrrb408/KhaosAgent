@@ -98,6 +98,142 @@ def apply_experimental_model_disclosure(source_root: Path) -> dict[str, str]:
     }
 
 
+def apply_experimental_model_bridge_client(source_root: Path) -> dict[str, str]:
+    relative_path = "khaos/macos/AgentHostClient.swift"
+    path = source_root / relative_path
+    original = path.read_text(encoding="utf-8")
+    transformed = original
+    replacements = (
+        (
+            "    private let modelAPIKey: String?\n",
+            "    private let modelAPIKey: String?\n"
+            "    private let modelBridgeEndpoint: NSXPCListenerEndpoint?\n"
+            "    private let modelBridgeBootstrapConnection: NSXPCConnection?\n",
+        ),
+        (
+            "        let provider = AgentModelProvider.from(bundle: .main)\n"
+            "        modelAPIKey = provider.isRemote\n"
+            "            ? ProcessInfo.processInfo.environment[\"KHAOS_BIGMODEL_API_KEY\"]\n"
+            "            : nil\n"
+            "        connection = NSXPCConnection(serviceName: \"org.khaos.Seed.AgentHost\")\n"
+            "        connection.remoteObjectInterface = NSXPCInterface(\n"
+            "            with: AgentHostSessionEndpoint.self\n"
+            "        )\n"
+            "        connection.resume()\n",
+            "        let provider = AgentModelProvider.from(bundle: .main)\n"
+            "        modelAPIKey = provider.isRemote\n"
+            "            ? ProcessInfo.processInfo.environment[\"KHAOS_BIGMODEL_API_KEY\"]\n"
+            "            : nil\n"
+            "        let bridge = provider.isRemote\n"
+            "            ? DSHModelBridgeBootstrapClient.connectIfAvailable()\n"
+            "            : nil\n"
+            "        modelBridgeEndpoint = bridge?.endpoint\n"
+            "        modelBridgeBootstrapConnection = bridge?.connection\n"
+            "        connection = NSXPCConnection(serviceName: \"org.khaos.Seed.AgentHost\")\n"
+            "        let interface = NSXPCInterface(with: AgentHostSessionEndpoint.self)\n"
+            "        interface.setClasses(\n"
+            "            [NSXPCListenerEndpoint.self],\n"
+            "            for: #selector(AgentHostSessionEndpoint.handle(_:modelBridgeEndpoint:withReply:)),\n"
+            "            argumentIndex: 1,\n"
+            "            ofReply: false\n"
+            "        )\n"
+            "        connection.remoteObjectInterface = interface\n"
+            "        connection.resume()\n",
+        ),
+        (
+            "        endpoint.handle(NSData(data: frame)) { value in\n",
+            "        endpoint.handle(\n"
+            "            NSData(data: frame),\n"
+            "            modelBridgeEndpoint: modelBridgeEndpoint\n"
+            "        ) { value in\n",
+        ),
+        (
+            "        endpoint.handle(NSData(data: frame)) { [weak self] value in\n",
+            "        endpoint.handle(\n"
+            "            NSData(data: frame),\n"
+            "            modelBridgeEndpoint: modelBridgeEndpoint\n"
+            "        ) { [weak self] value in\n",
+        ),
+    )
+    for replacement in replacements:
+        old, new = replacement[:2]
+        expected = replacement[2] if len(replacement) == 3 else 1
+        if transformed.count(old) != expected:
+            raise RuntimeError(f"unexpected AgentHostClient overlay target count in {relative_path}")
+        transformed = transformed.replace(old, new)
+    helper = '''
+private enum DSHModelBridgeBootstrapClient {
+    static func connectIfAvailable() -> (endpoint: NSXPCListenerEndpoint, connection: NSXPCConnection)? {
+        guard let requirement = Bundle.main.object(
+            forInfoDictionaryKey: DSHModelBridgeLimits.bridgeRequirementInfoKey
+        ) as? String,
+        !requirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let connection = NSXPCConnection(serviceName: DSHModelBridgeLimits.serviceName)
+        connection.setCodeSigningRequirement(requirement)
+        let interface = NSXPCInterface(with: DSHModelBridgeBootstrapEndpoint.self)
+        interface.setClasses(
+            [NSXPCListenerEndpoint.self],
+            for: #selector(DSHModelBridgeBootstrapEndpoint.modelEndpoint(withReply:)),
+            argumentIndex: 0,
+            ofReply: true
+        )
+        connection.remoteObjectInterface = interface
+        let lock = NSLock()
+        let completed = DispatchSemaphore(value: 0)
+        var finished = false
+        var received: NSXPCListenerEndpoint?
+        let finish: (NSXPCListenerEndpoint?) -> Void = { endpoint in
+            lock.lock()
+            guard !finished else {
+                lock.unlock()
+                return
+            }
+            finished = true
+            received = endpoint
+            lock.unlock()
+            completed.signal()
+        }
+        connection.invalidationHandler = { finish(nil) }
+        connection.interruptionHandler = { finish(nil) }
+        connection.resume()
+        guard let bootstrap = connection.remoteObjectProxyWithErrorHandler({ _ in
+            finish(nil)
+        }) as? DSHModelBridgeBootstrapEndpoint else {
+            connection.invalidate()
+            return nil
+        }
+        bootstrap.modelEndpoint { finish($0) }
+        guard completed.wait(timeout: .now() + .seconds(10)) == .success else {
+            connection.invalidate()
+            return nil
+        }
+        lock.lock()
+        let endpoint = received
+        lock.unlock()
+        guard let endpoint else {
+            connection.invalidate()
+            return nil
+        }
+        return (endpoint, connection)
+    }
+}
+
+'''
+    marker = "final class AgentHostClient {\n"
+    if transformed.count(marker) != 1:
+        raise RuntimeError("expected one AgentHostClient declaration")
+    transformed = transformed.replace(marker, helper + marker)
+    path.write_text(transformed, encoding="utf-8")
+    return {
+        "path": relative_path,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "bootstrap the bounded model XPC from the trusted Launcher and pass only its opaque endpoint to the signed AgentHost",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -194,6 +330,7 @@ def main() -> int:
         ROOT / "tools/run_dsh_plugin_evaluation.py",
         ROOT / "experiments/dsh-feasibility/khaos-model-bridge.test.ts",
         ROOT / "experiments/dsh_phase3/benchmark.py",
+        ROOT / "experiments/dsh_phase3/test_acceptance_policy.py",
         ROOT / "experiments/dsh_phase3/test_benchmark.py",
         ROOT / "experiments/dsh_phase3/plugin_evolution/tag-plugin.ts",
         ROOT / "experiments/dsh_phase3/plugin_evolution/baseline.ts",
@@ -213,8 +350,28 @@ def main() -> int:
         protocol_extension = model_bridge_protocol.read_text(encoding="utf-8")
         if "enum DSHModelBridgeLimits" in protocol_original:
             raise RuntimeError("base AgentHost protocol unexpectedly contains the experimental bridge")
+        old_handle_signature = (
+            "@objc protocol AgentHostSessionEndpoint {\n"
+            "    func handle(\n"
+            "        _ frame: NSData,\n"
+            "        withReply reply: @escaping (NSData?) -> Void\n"
+            "    )\n"
+            "}\n"
+        )
+        new_handle_signature = (
+            "@objc protocol AgentHostSessionEndpoint {\n"
+            "    func handle(\n"
+            "        _ frame: NSData,\n"
+            "        modelBridgeEndpoint: NSXPCListenerEndpoint?,\n"
+            "        withReply reply: @escaping (NSData?) -> Void\n"
+            "    )\n"
+            "}\n"
+        )
+        if protocol_original.count(old_handle_signature) != 1:
+            raise RuntimeError("expected one bounded AgentHost XPC method for the endpoint overlay")
         protocol_target.write_text(
-            protocol_original.rstrip() + "\n\n" + protocol_extension,
+            protocol_original.replace(old_handle_signature, new_handle_signature).rstrip()
+            + "\n\n" + protocol_extension,
             encoding="utf-8",
         )
         source_hashes["khaos/macos/AgentHostProtocol.swift"] = digest(protocol_target)
@@ -222,8 +379,10 @@ def main() -> int:
             "path": "khaos/macos/AgentHostProtocol.swift",
             "original_sha256": hashlib.sha256(protocol_original.encode("utf-8")).hexdigest(),
             "experimental_sha256": digest(protocol_target),
-            "reason": "share the fixed, bounded model-bridge XPC contract in the disposable app",
+            "reason": "pass one opaque model-listener endpoint over the disposable Launcher-to-AgentHost XPC",
         }
+        model_bridge_client_overlay = apply_experimental_model_bridge_client(source_root)
+        source_hashes[model_bridge_client_overlay["path"]] = model_bridge_client_overlay["experimental_sha256"]
         disclosure_override = (
             apply_experimental_model_disclosure(source_root)
             if args.model_provider != "local" else None
@@ -309,7 +468,7 @@ def main() -> int:
             "dsh_model_provider": args.model_provider,
             "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local" else None,
             "experimental_source_overrides": (
-                [protocol_overlay]
+                [protocol_overlay, model_bridge_client_overlay]
                 + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (
@@ -328,13 +487,13 @@ def main() -> int:
                     "node_network_entitlement": False,
                     "model_bridge_network_entitlement": True,
                     "model_bridge_service": "org.khaos.Seed.DSHModelBridge",
-                    "model_bridge_peer": "signed org.khaos.Seed.AgentHost XPC only",
-                    "api_key_delivery": "Launcher to fixed AgentHost XPC bridge; not in Node environment",
+                    "model_bridge_peer": "anonymous bridge listener; Launcher transfers endpoint to signed AgentHost XPC; bridge checks Host identity",
+                    "api_key_delivery": "Launcher to AgentHost XPC frame, then fixed AgentHost-to-bridge XPC; not in Node environment",
                 }
                 if args.model_provider != "local" else None
             ),
             "model_network_boundary": (
-                "only the dedicated fixed-endpoint model XPC has network.client; AgentHost and Node do not"
+                "only the dedicated fixed-endpoint model XPC has network.client; Launcher, AgentHost, and Node do not"
                 if args.model_provider != "local" else "no remote model; no network.client entitlement"
             ),
             "dsh_sha": PINNED_DSH_SHA,
@@ -410,6 +569,10 @@ def main() -> int:
         with launcher_info_path.open("rb") as stream:
             launcher_info = plistlib.load(stream)
         launcher_info["KhaosModelProvider"] = args.model_provider
+        launcher_requirement = seed_builder._designated_requirement(
+            app / "Contents/MacOS/KhaosSeed",
+            seed_builder.APP_ID,
+        )
         with launcher_info_path.open("wb") as stream:
             plistlib.dump(launcher_info, stream, sort_keys=True)
 
@@ -456,6 +619,7 @@ def main() -> int:
                 "CFBundleVersion": "1",
                 "LSMinimumSystemVersion": "26.0",
                 "KhaosAgentHostRequirement": host_requirement,
+                "KhaosLauncherRequirement": launcher_requirement,
                 "KhaosModelProvider": args.model_provider,
                 "XPCService": {"ServiceType": "Application", "RunLoopType": "NSRunLoop"},
             }, (bridge_contents / "Info.plist").open("wb"), sort_keys=True)
@@ -474,6 +638,11 @@ def main() -> int:
                 DSH_MODEL_BRIDGE_ID,
             )
             host_info["KhaosDSHModelBridgeRequirement"] = bridge_requirement
+            with launcher_info_path.open("rb") as stream:
+                launcher_info = plistlib.load(stream)
+            launcher_info["KhaosDSHModelBridgeRequirement"] = bridge_requirement
+            with launcher_info_path.open("wb") as stream:
+                plistlib.dump(launcher_info, stream, sort_keys=True)
         with host_info_path.open("wb") as stream:
             plistlib.dump(host_info, stream, sort_keys=True)
 

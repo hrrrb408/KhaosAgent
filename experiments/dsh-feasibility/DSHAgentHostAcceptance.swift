@@ -19,14 +19,14 @@ private enum DSHAgentHostError: Error {
 private final class DSHModelBridgeClient {
     private let connection: NSXPCConnection
 
-    init() throws {
+    init(endpoint: NSXPCListenerEndpoint) throws {
         guard let requirement = Bundle.main.object(
             forInfoDictionaryKey: DSHModelBridgeLimits.bridgeRequirementInfoKey
         ) as? String,
         !requirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw DSHAgentHostError.childUnavailable
         }
-        let connection = NSXPCConnection(serviceName: DSHModelBridgeLimits.serviceName)
+        let connection = NSXPCConnection(listenerEndpoint: endpoint)
         connection.setCodeSigningRequirement(requirement)
         connection.remoteObjectInterface = NSXPCInterface(
             with: DSHModelBridgeEndpoint.self
@@ -130,7 +130,7 @@ private final class DSHRuntimeProcess {
     private var processStopped = false
     private var modelCallsThisTask = 0
 
-    init() throws {
+    init(modelBridgeAvailable: Bool) throws {
         let resources = Bundle.main.bundleURL.appendingPathComponent(
             "Contents/Resources", isDirectory: true
         )
@@ -151,8 +151,15 @@ private final class DSHRuntimeProcess {
             "HOME": NSHomeDirectory(),
             "TMPDIR": NSTemporaryDirectory(),
             "KHAOS_DSH_NODE_PATH": node.path,
+            "KHAOS_DSH_MODEL_BRIDGE_AVAILABLE": modelBridgeAvailable ? "1" : "0",
         ]
         environment["KHAOS_DSH_AGENTHOST_PID"] = String(getpid())
+        if let requirement = Bundle.main.object(
+            forInfoDictionaryKey: DSHModelBridgeLimits.bridgeRequirementInfoKey
+        ) as? String,
+           !requirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            environment["KHAOS_DSH_MODEL_BRIDGE_REQUIREMENT"] = requirement
+        }
         for (infoKey, environmentKey) in [
             ("KhaosDSHProbeWorkspaceReadPath", "KHAOS_DSH_WORKSPACE_READ_PATH"),
             ("KhaosDSHProbeWorkspaceWritePath", "KHAOS_DSH_WORKSPACE_WRITE_PATH"),
@@ -419,7 +426,7 @@ private final class DSHRuntimeProcess {
 private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
     private let lock = NSLock()
     private var runtime: DSHRuntimeProcess?
-    private let modelBridgeClient: DSHModelBridgeClient?
+    private var modelBridgeClient: DSHModelBridgeClient?
     private var handlingRequest = false
     private var awaitingToolResult = false
     private var crashAfterToolResult = false
@@ -428,14 +435,14 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
     private var taskDeadlineUptime: TimeInterval?
 
     override init() {
-        modelBridgeClient = AgentModelProvider.from(bundle: .main).isRemote
-            ? try? DSHModelBridgeClient()
-            : nil
-        runtime = try? DSHRuntimeProcess()
         super.init()
     }
 
-    func handle(_ frame: NSData, withReply reply: @escaping (NSData?) -> Void) {
+    func handle(
+        _ frame: NSData,
+        modelBridgeEndpoint: NSXPCListenerEndpoint?,
+        withReply reply: @escaping (NSData?) -> Void
+    ) {
         let data = Data(referencing: frame)
         guard data.count <= AgentHostProtocol.maximumFrameBytes else {
             reply(response(.failure("invalid_request")).map(NSData.init(data:)))
@@ -451,7 +458,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         lock.unlock()
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = self.process(data)
+            let result = self.process(data, modelBridgeEndpoint: modelBridgeEndpoint)
             self.lock.lock()
             self.handlingRequest = false
             self.lock.unlock()
@@ -459,7 +466,10 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         }
     }
 
-    private func process(_ data: Data) -> Data? {
+    private func process(
+        _ data: Data,
+        modelBridgeEndpoint: NSXPCListenerEndpoint?
+    ) -> Data? {
         guard let frame = AgentHostProtocol.decodeInput(data),
               let operation = frame["operation"] as? String else {
             return response(.failure("invalid_request"))
@@ -468,6 +478,15 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         let isCancelled = cancelled
         lock.unlock()
         guard !isCancelled else { return response(.failure("dsh_runtime_unavailable")) }
+        if AgentModelProvider.from(bundle: .main).isRemote {
+            guard let modelBridgeEndpoint,
+                  let client = try? DSHModelBridgeClient(endpoint: modelBridgeEndpoint) else {
+                return response(.failure("model_bridge_unavailable"))
+            }
+            lock.lock()
+            modelBridgeClient = client
+            lock.unlock()
+        }
         if operation == "stop" {
             let current = runtimeSnapshot()
             current?.stop()
@@ -478,7 +497,9 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             guard operation == "user" else {
                 return response(.failure("dsh_runtime_unavailable"))
             }
-            guard let created = try? DSHRuntimeProcess() else {
+            guard let created = try? DSHRuntimeProcess(
+                modelBridgeAvailable: modelBridgeClient != nil
+            ) else {
                 return response(.failure("dsh_runtime_unavailable"))
             }
             replaceRuntime(created)
@@ -699,7 +720,14 @@ private final class DSHAgentHostService: NSObject, NSXPCListenerDelegate {
         shouldAcceptNewConnection connection: NSXPCConnection
     ) -> Bool {
         connection.setCodeSigningRequirement(launcherRequirement)
-        connection.exportedInterface = NSXPCInterface(with: AgentHostSessionEndpoint.self)
+        let interface = NSXPCInterface(with: AgentHostSessionEndpoint.self)
+        interface.setClasses(
+            [NSXPCListenerEndpoint.self],
+            for: #selector(AgentHostSessionEndpoint.handle(_:modelBridgeEndpoint:withReply:)),
+            argumentIndex: 1,
+            ofReply: false
+        )
+        connection.exportedInterface = interface
         let session = DSHAgentHostSession()
         connection.exportedObject = session
         connection.invalidationHandler = { [weak session] in session?.cancel() }

@@ -133,8 +133,14 @@ function modelBridgePeerAttempt(path?: string): string {
     const output = typeof failure.stdout === 'string'
       ? failure.stdout
       : failure.stdout?.toString('utf8') ?? ''
-    return output.includes('MODEL_BRIDGE_PEER_ACCEPTED')
-      ? 'MODEL_BRIDGE_PEER_ACCEPTED'
+    const result = output.trim()
+    return [
+      'MODEL_BRIDGE_PEER_ACCEPTED',
+      'MODEL_BRIDGE_PEER_REJECTED',
+      'MODEL_BRIDGE_NOT_VISIBLE',
+      'MODEL_BRIDGE_UNAVAILABLE',
+    ].includes(result)
+      ? result
       : failureCode(error)
   }
 }
@@ -185,7 +191,7 @@ export function hostileProbePasses(evidence: HostileProbeEvidence): boolean {
     && evidence.childProcessRead === 'DENIED'
     && evidence.childProcessWrite === 'DENIED'
     && ['EPERM', 'EACCES'].includes(evidence.childLocalhostNetwork)
-    && ['MODEL_BRIDGE_PEER_REJECTED', 'MODEL_BRIDGE_NOT_CONFIGURED'].includes(evidence.modelBridgePeer)
+    && ['MODEL_BRIDGE_PEER_REJECTED', 'MODEL_BRIDGE_NOT_VISIBLE'].includes(evidence.modelBridgePeer)
     && evidence.credentialRead === 'DENIED'
     && evidence.credentialEnvironmentKeys === 0
     && evidence.kernelWriteAttempt === 'DENIED'
