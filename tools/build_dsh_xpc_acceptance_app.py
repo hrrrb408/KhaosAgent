@@ -47,6 +47,15 @@ def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedP
     )
 
 
+def candidate_b_fixed_script(candidate_probe: Path) -> str:
+    result = run([str(candidate_probe), "--fixed-script-json"])
+    payload = json.loads(result.stdout)
+    fixed_script = payload.get("fixed_script") if isinstance(payload, dict) else None
+    if not isinstance(fixed_script, str) or not fixed_script:
+        raise RuntimeError("Candidate B probe returned no fixed script")
+    return fixed_script
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -186,7 +195,7 @@ def main() -> int:
                 str(ROOT / "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift"),
                 "-o", str(candidate_probe),
             ])
-            fixed_script = json.loads(run([str(candidate_probe), "--fixed-script-json"]))["fixed_script"]
+            fixed_script = candidate_b_fixed_script(candidate_probe)
             fixed_script_argument = "exec(" + json.dumps(fixed_script, separators=(",", ":")) + ")"
         build_record = {
             "schema": 1,
