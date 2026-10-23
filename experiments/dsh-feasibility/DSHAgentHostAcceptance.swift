@@ -861,6 +861,17 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 return response(.failure("invalid_request"))
             }
         } catch {
+            let failureCategory: String
+            switch error as? DSHAgentHostError {
+            case .childUnavailable: failureCategory = "child_unavailable"
+            case .frameTooLarge: failureCategory = "frame_too_large"
+            case .invalidFrame: failureCategory = "invalid_frame"
+            case .timedOut: failureCategory = "timed_out"
+            case .childExited: failureCategory = "child_exited"
+            case nil: failureCategory = "exchange_error"
+            }
+            fputs("dsh-runtime-exchange-failed category=\(failureCategory)\n", stderr)
+            fflush(stderr)
             runtime.stop()
             replaceRuntime(nil)
             awaitingToolResult = false
