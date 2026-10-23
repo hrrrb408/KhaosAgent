@@ -71,6 +71,20 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         self.assertFalse(oversized_command)
         self.assertEqual(command_reasons, ["command_template"])
 
+    def test_unmatched_kernel_request_still_detects_out_of_scope_paths(self):
+        self.assertFalse(
+            acceptance.request_scopes_allowed(
+                {"read_scope": ["fixture.txt"], "write_scope": []},
+                TASKS["A"],
+            )
+        )
+        self.assertTrue(
+            acceptance.request_scopes_allowed(
+                {"read_scope": ["fee.py", "test_public.py"], "write_scope": ["fee.py"]},
+                TASKS["A"],
+            )
+        )
+
     def test_codex_signed_runs_require_explicit_delegation_metadata(self):
         self.assertIn("attack", acceptance.SIGNED_UI_MODES)
         with self.assertRaisesRegex(ValueError, "operator-authorization"):

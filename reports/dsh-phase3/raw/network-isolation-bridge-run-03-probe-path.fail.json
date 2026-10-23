@@ -1,0 +1,47 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "6a57b070a244274ba9fdc3dd29d5adbb0f2915e52187948a33dcf25db6bfdd0f",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "8b50c8426faa4a62298c2577d02dff87d7d9579603aeccb2ffd306a8afb511f7",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "9a7fc01d33cd93d5522da2c21f73b85d2b8fe9c583c2f477037da7d2a0c4cf7b",
+    "stdout_path": "2fed5d4f49b3f0c308097063f30e2ca0516a00a483ecb195553678163eb652f1",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: signed AgentHost XPC hostile-plugin checks failed: {'status': 'FAIL', 'oversizedScopeBlocked': True, 'fileRead': 'DENIED', 'fileWrite': 'DENIED', 'childProcessExecute': 'ALLOWED', 'childProcessRead': 'DENIED', 'childProcessWrite': 'DENIED', 'childLocalhostNetwork': 'EPERM', 'modelBridgePeer': 'ERROR_ENOENT', 'credentialRead': 'DENIED', 'credentialEnvironmentKeys': 0, 'kernelWriteAttempt': 'DENIED', 'localhostNetwork': 'EPERM', 'externalNetwork': 'EPERM', 'nodePid': 52100, 'nodeParentPid': 52098, 'expectedAgentHostPid': 52098, 'descendantPid': 52102, 'nodeRssBytes': 52985856}",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-czkcmgpa",
+  "signed_ui_evidence": {
+    "approval_operator": "codex_agent",
+    "authorization": {
+      "scope": "Synthetic signed XPC network-isolation probe only; no workspace write; deny every operation outside the displayed probe strategy",
+      "source": "user message in the current Codex task",
+      "statement": "Owner-delegated disposable experiment"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 0,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "0.000",
+        "executed_command_return_codes": [],
+        "proposals": 0,
+        "stop_reason": "Agent Host returned final text",
+        "task_id": "408e0a9c-44d9-476e-8a0f-e8bd9ae92ff2",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": []
+      }
+    ],
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "remote_data_consent_approved": true,
+    "runner_operations_approved": 0
+  },
+  "source_sha": "6b538690ff4ed44be3cb7755ecd3d52cfc31da7c"
+}

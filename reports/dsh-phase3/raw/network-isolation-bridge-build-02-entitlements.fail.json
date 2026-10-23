@@ -1,0 +1,30 @@
+{
+  "app_bundle_preserved": false,
+  "available_file_sha256": {
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: command exited 1: DSH Host project compilation succeeded\nDSH Host package build succeeded\n\u2139 tsdown v0.22.2 powered by rolldown v1.1.1\n\u2139 entry: packages/core/agent-loop/tests/khaos-signed-runtime-ofigzdeg/dsh-agenthost-runtime.ts\n\u2139 target: node22\n\u2139 tsconfig: .tmp/khaos-runtime-tsconfig.json\n\u2139 Build start\n\u2139 Hint: consider adding deps.onlyBundle option to avoid unintended bundling of dependencies, or set deps.onlyBundle: false to disable this hint.\nSee more at https://tsdown.dev/options/dependencies#deps-onlybundle\nDetected dependencies in bundle:\n- zod\n\u2714 Build complete in 29ms\nTraceback (most recent call last):\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase3-real-agent/self-evolving-khaos/tools/build_dsh_xpc_acceptance_app.py\", line 548, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase3-real-agent/self-evolving-khaos/tools/build_dsh_xpc_acceptance_app.py\", line 483, in main\n    node_entitlement_values = signed_entitlements(node)\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase3-real-agent/self-evolving-khaos/tools/build_dsh_xpc_acceptance_app.py\", line 67, in signed_entitlements\n    raise RuntimeError(f\"could not read signed entitlements from {path.name}\")\nRuntimeError: could not read signed entitlements from node\n",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-7msr5a9e",
+  "signed_ui_evidence": {
+    "approval_operator": "codex_agent",
+    "authorization": {
+      "scope": "Synthetic signed XPC network-isolation probe only; no workspace write; deny every operation outside the displayed probe strategy",
+      "source": "user message in the current Codex task",
+      "statement": "Owner-delegated disposable experiment"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [],
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "remote_data_consent_approved": false,
+    "runner_operations_approved": 0
+  },
+  "source_sha": "a2f5037f5c9b073dff5246c60d3e12d600203e12"
+}

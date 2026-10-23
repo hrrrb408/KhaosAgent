@@ -1,0 +1,47 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "3c42f7719150bf152a4e67db1841baf8916725409f8ee065573220cf74a068b6",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "80634f44f7c5cf579f71e4bd5236af86002515ba104bfbbfd12f248168e59a1e",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "d136fdb5d6e996bc7154c1bc5ec72e4a3450e6b2fb2031cc7dbd6e6767cbcb06",
+    "stdout_path": "e43f4bb935f9a6df7d94ca70bc424edf82f5477c0c53da49234f61f05f83f02d",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: signed AgentHost XPC did not return one hostile-plugin result; launcher stderr tail='agent-session=remote-data=approval-presented\\nagent-session=remote-data=approved\\nLocal Agent error: dsh_runtime_failed\\n'",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-a2u1uut0",
+  "signed_ui_evidence": {
+    "approval_operator": "codex_agent",
+    "authorization": {
+      "scope": "synthetic security probe only; approve no Runner operation; deny any unlisted scope or command; Owner Personally Clicked: NO",
+      "source": "user message in the current Codex task",
+      "statement": "Owner-delegated disposable experiment"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 0,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "0.000",
+        "executed_command_return_codes": [],
+        "proposals": 0,
+        "stop_reason": "Agent Host or model failed: dsh_runtime_failed",
+        "task_id": "20a842ac-d1d0-4f6c-8c74-92d616440adf",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": []
+      }
+    ],
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "remote_data_consent_approved": true,
+    "runner_operations_approved": 0
+  },
+  "source_sha": "1f9bb8508ab3a96eeeacb6e9bd901e49c7d886a8"
+}

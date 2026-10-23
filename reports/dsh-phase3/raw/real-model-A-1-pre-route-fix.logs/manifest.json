@@ -1,0 +1,14 @@
+{
+  "encoding": "gzip with mtime 0",
+  "launcher.stderr": {
+    "compressed_file": "launcher.stderr.gz",
+    "compressed_sha256": "1222d1d1e82d3921654ed86b7744bdf69abceec71f2a44c8b4e60fe1087f25fb",
+    "raw_sha256": "397ab7e141e05aebd6cc3f738d17586913957beb62112567afbb639f29a16ff6"
+  },
+  "launcher.stdout": {
+    "compressed_file": "launcher.stdout.gz",
+    "compressed_sha256": "a7518301d78b572e51c44b0f4c62b780e136bd6e67fd35d4280fcd1dbe90a315",
+    "raw_sha256": "c60bf297366aed6505fb610f9dc8045399282d5a5d99ffdf087b3ac23275dde7"
+  },
+  "schema": "khaos-dsh-phase3-compressed-raw-logs-v1"
+}

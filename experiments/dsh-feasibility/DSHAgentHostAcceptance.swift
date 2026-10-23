@@ -512,7 +512,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     taskDeadlineUptime = nil
                 }
                 let event = try runtime.exchange(
-                    ["operation": "user", "text": taskText],
+                    ["operation": "user", "text": text],
                     modelAPIKey: realModelTask ? frame["model_api_key"] as? String : nil,
                     modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
