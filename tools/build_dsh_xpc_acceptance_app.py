@@ -689,11 +689,6 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
 
     replacements = (
         (
-            '        writeAgentDiagnostic("tool=approval-presented")\n',
-            '        writeAgentDiagnostic("tool=approval-presented")\n'
-            '        writeDshLauncherEvent("APPROVAL_PRESENTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: approvalKind)\n',
-        ),
-        (
             '            writeAgentDiagnostic("tool=approval-denied")\n',
             '            writeAgentDiagnostic("tool=approval-denied")\n'
             '            writeDshLauncherEvent("APPROVAL_DENIED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "denied")\n',
@@ -702,6 +697,20 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
             '        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")\n',
             '        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")\n'
             '        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")\n',
+        ),
+        (
+            '            approvalKind = "ordinary"\n'
+            '            approved = approveReviewedRequest(',
+            '            approvalKind = "ordinary"\n'
+            '            writeDshLauncherEvent("APPROVAL_PRESENTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: approvalKind)\n'
+            '            approved = approveReviewedRequest(',
+        ),
+        (
+            '            approvalKind = "candidate_b_preview"\n'
+            '            let decision = TrustedCandidateBApproval.present(',
+            '            approvalKind = "candidate_b_preview"\n'
+            '            writeDshLauncherEvent("APPROVAL_PRESENTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: approvalKind)\n'
+            '            let decision = TrustedCandidateBApproval.present(',
         ),
         (
             '                    handle.start { observation in\n',
