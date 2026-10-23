@@ -1,0 +1,108 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "b5fdee5504530682b25ae51cdc10d4a6edf8b71bbe6956b2f0ffef225957cf3a",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "77a40415d8849c8d43c444df4b9252584b4aaf5f54e1dc1f577e16cb1bb26905",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "b7ffd1bf547aafbe92b36777efcc801b326e4b1b09e2686bfedb6f091375b606",
+    "stdout_path": "42516ade6876ea38f1c1d138c8ad714637b61115da93edadce2779131298ea92",
+    "task_path": "7906713fe4579adef435030e73a64724f0e5e49831dc3d03c9185cf32589a5ae",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: the Launcher did not surface exactly one AgentHost XPC transport failure",
+  "mode": "xpc-crash",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-m778tkj9",
+  "signed_ui_evidence": {
+    "authorization": {
+      "scope": "Khaos \u00d7 DSH Phase 2 signed experimental acceptances on disposable fixtures, including selecting the workspace and deciding only the exact operations displayed for each experiment.",
+      "source": "user message in the current Codex task",
+      "statement": "\u4ece\u73b0\u5728\u5f00\u59cb\uff0c\u5168\u90e8\u7531\u4f60\u7740\u624b\u5b8c\u6210\uff0c\u6211\u4e0d\u518d\u53c2\u4e0e\u5f00\u53d1\uff0c\u6211\u9700\u8981\u4f60\u7ee7\u7eed\u5b8c\u6210khaos\u7684\u5f00\u53d1\uff0c\u4fdd\u6301\u4ee3\u7801\u7684\u5065\u58ee\u6027\u548c\u7b80\u6d01\u4f18\u96c5\uff0c\u4e0d\u8981\u6709\u91cd\u590d\u7684\uff0c\u5c3d\u53ef\u80fd\u7684\u590d\u7528"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 125,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "3.305",
+        "executed_command_return_codes": [
+          0
+        ],
+        "proposals": 1,
+        "stop_reason": "Agent Host failed while receiving a tool result",
+        "task_id": "9365800d-8ae7-4bc5-879b-2b46740978d4",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": [
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 1
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "6c4c316c444dc3ed9689355abdfd0997f327e3d797e1c593c5f41e9c006dbed4",
+            "kernel_result": "output",
+            "read_scope": [
+              "tags.py"
+            ],
+            "request_id": "68d8a58ff50845a28c1a59307baf5b60",
+            "runner_execution": "completed",
+            "runner_return_code": 0,
+            "workspace_session_id": "97176928-a749-4870-89f7-58354f72c56c",
+            "write_scope": [
+              "tags.py"
+            ],
+            "xpc_connection_id": "c0d0bdf1-2cfd-4f95-9acc-934cb7859c53"
+          }
+        ]
+      },
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 225,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "3.229",
+        "executed_command_return_codes": [
+          0
+        ],
+        "proposals": 1,
+        "stop_reason": "Kernel completed request da9aeb9a654b48d9872829517682dddc, committed the accepted changeset, Runner return code=0",
+        "task_id": "08af4d7b-081b-4982-88aa-6edbaad3b053",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": [
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 0
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "41be52c481826926f678b64e7af57b71701e48d2a847ccc26db1205e4a719e9b",
+            "kernel_result": "output",
+            "read_scope": [
+              "tags.py"
+            ],
+            "request_id": "da9aeb9a654b48d9872829517682dddc",
+            "runner_execution": "completed",
+            "runner_return_code": 0,
+            "workspace_session_id": "97176928-a749-4870-89f7-58354f72c56c",
+            "write_scope": [],
+            "xpc_connection_id": "02552471-b5fd-4bf7-8e72-db446eeae168"
+          }
+        ]
+      }
+    ],
+    "operator": "codex_agent",
+    "runner_operations_approved": 2
+  },
+  "source_sha": "c98dbfc7675ef3ba95a70a3ceea2a157a1c39eb1"
+}

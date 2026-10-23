@@ -1,0 +1,92 @@
+{
+  "agent_host_xpc_sha256": "bcc88bd16c802358148a3e1107b8395c0fcc740da98fa20da25a24d4276ddf4a",
+  "agenthost_xpc_recovery": null,
+  "build_record_sha256": "115c6402168763b6aa47a78acafa11e253e0fab929acb9c1e5d62db71a1d59b1",
+  "canaries_unchanged": true,
+  "cancellation_acknowledged": null,
+  "cancellation_barrier_reached": null,
+  "cancellation_barrier_released": null,
+  "cancellation_case": null,
+  "cancellation_events": null,
+  "cancellation_task_record": null,
+  "cordis_plugin_lifecycle": null,
+  "deep_code_signature_verified": true,
+  "descendant_pid": null,
+  "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+  "dsh_terminal_preserved_original_result": false,
+  "hostile_cordis_plugin": null,
+  "kernel_sha256_before_after": [
+    "5346eb7554ef36a33ad57ae3260d5958c1defc68a9657ba3b59b9e9add7afc5e",
+    "5346eb7554ef36a33ad57ae3260d5958c1defc68a9657ba3b59b9e9add7afc5e"
+  ],
+  "launcher_tool_proposal_requested": true,
+  "launcher_workspace_picker_requested": true,
+  "local_tcp_connections": 0,
+  "mode": "fake-result",
+  "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+  "node_pid": null,
+  "node_process_group_clean_after_xpc_teardown": null,
+  "node_rss_bytes": null,
+  "node_runtime_spawned_count": null,
+  "node_runtime_stopped_count": null,
+  "node_version": "v22.19.0",
+  "pr41_base_sha": "b08ab11e01663d2b26304cb541efb5361dea0417",
+  "result": "PASS",
+  "schema": 2,
+  "signed_app_bytes": 198808888,
+  "signed_ui_evidence": {
+    "authorization": {
+      "scope": "Khaos \u00d7 DSH Phase 2 signed experimental acceptances on disposable fixtures, including selecting the workspace and deciding only the exact operations displayed for each experiment.",
+      "source": "user message in the current Codex task",
+      "statement": "\u4ece\u73b0\u5728\u5f00\u59cb\uff0c\u5168\u90e8\u7531\u4f60\u7740\u624b\u5b8c\u6210\uff0c\u6211\u4e0d\u518d\u53c2\u4e0e\u5f00\u53d1\uff0c\u6211\u9700\u8981\u4f60\u7ee7\u7eed\u5b8c\u6210khaos\u7684\u5f00\u53d1\uff0c\u4fdd\u6301\u4ee3\u7801\u7684\u5065\u58ee\u6027\u548c\u7b80\u6d01\u4f18\u96c5\uff0c\u4e0d\u8981\u6709\u91cd\u590d\u7684\uff0c\u5c3d\u53ef\u80fd\u7684\u590d\u7528"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 141,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "3.303",
+        "executed_command_return_codes": [
+          1
+        ],
+        "proposals": 1,
+        "stop_reason": "Kernel completed request 211594d5e86e4b318260dea6f9bf3a3b, committed the accepted changeset, Runner return code=1",
+        "task_id": "e110a0d9-9ea8-4f85-8f48-be2af5a1cdfe",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": [
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 0
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "80672f668277159ceae7335d74968978ff1c576ed67beff7ce41008672e5d0f7",
+            "kernel_result": "output",
+            "read_scope": [],
+            "request_id": "211594d5e86e4b318260dea6f9bf3a3b",
+            "runner_execution": "completed",
+            "runner_return_code": 1,
+            "workspace_session_id": "e9f93dfd-632f-46e8-9039-2b0a08b997a9",
+            "write_scope": [],
+            "xpc_connection_id": "554f3483-9327-4357-a334-562d3d9574c8"
+          }
+        ]
+      }
+    ],
+    "operator": "codex_agent",
+    "runner_operations_approved": 1
+  },
+  "signing_certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+  "source_sha": "5abf5d34426304b77a0773c1b30eb8814f5aa44c",
+  "team_identifiers": {
+    "agent_host_xpc": "UBAP6LN5AM",
+    "app": "UBAP6LN5AM",
+    "kernel_xpc": "UBAP6LN5AM",
+    "snapshot_broker_xpc": "UBAP6LN5AM"
+  }
+}

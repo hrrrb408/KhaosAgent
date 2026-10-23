@@ -1,0 +1,20 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "eb53b48d1a3a90a513b638446723f0b398dc0d408a1136ce2f601d06c4badede",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "e4fc4a4f96baeaed0aa5bc3cf96e464b612930856c01e18c5f3eab7189a0d259",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_path": "89296a68e625149650c6c4e5f20a7d9d450f071baa01523203045948d37d3523",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: signed AgentHost XPC did not return one hostile-plugin result; launcher stderr tail=''",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 1,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-4z8yqudr",
+  "source_sha": "f971d7fb0d42092ea993229ef8a8dba5c096bc94"
+}

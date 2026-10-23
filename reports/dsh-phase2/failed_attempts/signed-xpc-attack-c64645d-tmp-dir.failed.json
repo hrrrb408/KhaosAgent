@@ -1,0 +1,16 @@
+{
+  "app_bundle_preserved": false,
+  "available_file_sha256": {
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: command exited 1: Traceback (most recent call last):\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase2/self-evolving-khaos/tools/build_dsh_xpc_acceptance_app.py\", line 317, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase2/self-evolving-khaos/tools/build_dsh_xpc_acceptance_app.py\", line 161, in main\n    runtime_bundle, runtime_hash = build_dsh_bundle(\n                                   ~~~~~~~~~~~~~~~~^\n        dsh_source,\n        ^^^^^^^^^^^\n    ...<4 lines>...\n        bundle_name=\"agenthost-runtime.mjs\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/huangruibang/.codex/worktrees/khaos-dsh-phase2/self-evolving-khaos/tools/run_dsh_signed_runtime_probe.py\", line 83, in build_dsh_bundle\n    output_dir = Path(tempfile.mkdtemp(prefix=\"khaos-runtime-bundle-\", dir=dsh_source / \".tmp\"))\n                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tempfile.py\", line 384, in mkdtemp\n    _os.mkdir(file, 0o700)\n    ~~~~~~~~~^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/khaos-dsh-687f282/.tmp/khaos-runtime-bundle-lxoxo2se'\n",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-nwfsu_bg",
+  "source_sha": "c64645da58d8f8424710f9c1109f039e562c0829"
+}
