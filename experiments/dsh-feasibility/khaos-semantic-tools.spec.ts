@@ -277,6 +277,7 @@ describe('Khaos semantic Cordis tools', () => {
         argv: ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript],
         readScope: ['fee.py', 'test_public.py'], writeScope: [],
       })
+      expect(semanticToolTestSupport.testScript).not.toMatch(/[\u0000-\u001f\u007f]/u)
       expect(observedFailure).toHaveLength(1)
       expect(portResults).toEqual([])
       expect(agent.session.deriveMessages().at(-1)?.content).toContainEqual({
