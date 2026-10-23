@@ -45,10 +45,16 @@ Security Freeze passed in both modes after the inventory update:
   security/freeze-baseline.json, and security/security-change.json. This is
   governance inventory, not a runtime TCB or authority expansion.
 
-After the final report commit, the two local Freeze commands are rerun at that
-exact HEAD. The existing Draft PR #43 description records the required
-GitHub Seed CI and Security Freeze runs for its exact final head. A green check
-does not replace the independent review recorded below.
+After the governance inventory update, both local Freeze commands passed at
+the resulting exact head. The first GitHub Security Freeze run for c06d925
+(run 39914050934) captured the old PR base,
+707395146bbaf6be9ac6f58ae1f538e443b064a8, while PR #43 was being retargeted.
+It failed because that event base did not match the declaration bound to
+PR #41's b08ab11 base. The PR now targets the exact b08ab11 commit; that earlier
+run is retained as a stale-base attempt and is not counted as current-base
+evidence. The final exact-head Seed CI and Security Freeze run links are
+recorded in PR #43's description. A green check does not replace the
+independent review recorded below.
 
 ## Production and architecture deltas
 
@@ -75,5 +81,5 @@ boundary is unchanged.
 
 The existing PR #43 remains a draft and is the sole delivery PR. PRs #39–#42
 were not modified, no PR was merged, and no main branch merge was performed.
-Independent review, PR status, and exact-head GitHub checks are updated after
-the final reporting commit.
+The latest exact-head GitHub checks are linked from the draft PR description.
+PR status does not change the independent-review result above.
