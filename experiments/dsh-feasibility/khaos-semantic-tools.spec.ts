@@ -113,7 +113,7 @@ describe('Khaos semantic Cordis tools', () => {
 
       expect(submissions).toHaveLength(4)
       expect(submissions[3]?.argv).toEqual([
-        'python3', '-I', '-B', '-c', semanticToolTestSupport.testScript,
+        'python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'fee.py',
       ])
       expect(adapter.requests.map(toolNames)).toEqual([
         ['read_file'], ['read_file'], ['replace_text'], ['run_tests'], [],
@@ -274,7 +274,7 @@ describe('Khaos semantic Cordis tools', () => {
       expect(submissions[2]?.readScope).toEqual(['fee.py'])
       expect(submissions[2]?.writeScope).toEqual(['fee.py'])
       expect(submissions[3]).toEqual({
-        argv: ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript],
+        argv: ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'fee.py'],
         readScope: ['fee.py', 'test_public.py'], writeScope: [],
       })
       expect(semanticToolTestSupport.testScript).not.toMatch(/[\u0000-\u001f\u007f]/u)
@@ -344,10 +344,10 @@ describe('Khaos semantic Cordis tools', () => {
       expect(submissions.map(request => request.argv)).toEqual([
         ['python3', '-I', '-B', '-c', semanticToolTestSupport.readScript, 'progress.py'],
         ['python3', '-I', '-B', '-c', semanticToolTestSupport.readScript, 'test_public.py'],
-        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript],
+        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'progress.py'],
         ['python3', '-I', '-B', '-c', taskC.fixedEditScript, 'progress.py',
           JSON.stringify(source), JSON.stringify(fixed)],
-        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript],
+        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'progress.py'],
       ])
       expect(results).toEqual([])
       await pluginFiber.dispose()
@@ -550,7 +550,7 @@ describe('Khaos semantic Cordis tools', () => {
   })
 
   it('does not turn an untrusted test profile into a command or hidden-test request', async () => {
-    expect(semanticToolTestSupport.testScript).toContain('loadTestsFromModule(test_public)')
+    expect(semanticToolTestSupport.testScript).toContain('loadTestsFromModule(test)')
     expect(semanticToolTestSupport.testScript).not.toContain('.discover(')
     const oneFilePolicy: KhaosCodingToolPolicy = {
       ...policy,

@@ -17,7 +17,7 @@ const MAX_WRITES = 3
 const MAX_REPAIRS = 3
 const READ_SCRIPT = 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),end="")'
 // Avoid directory discovery so the fixed test profile stays within file-scoped read authority.
-const TEST_SCRIPT = "import sys, unittest; sys.path.insert(0, '.'); import test_public; result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test_public)); raise SystemExit(not result.wasSuccessful())"
+const TEST_SCRIPT = 'import pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); raise SystemExit(not result.wasSuccessful())'
 const TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export type SemanticToolName = typeof TOOL_NAMES[number]
@@ -251,9 +251,16 @@ export function createKhaosSemanticToolsPlugin(
       } else {
         const record = exactObject(args, ['profile'], 'run_tests_arguments')
         if (record.profile !== 'public') throw new Error('test_profile_not_allowed')
+        const [sourcePath] = policy.writeFiles
+        if (policy.writeFiles.length !== 1 || typeof sourcePath !== 'string'
+          || !/^[A-Za-z_][A-Za-z0-9_]*\.py$/u.test(sourcePath)
+          || !policy.readFiles.includes(sourcePath)
+          || !policy.readFiles.includes('test_public.py')) {
+          throw new Error('public_test_scope_invalid')
+        }
         proposal = {
-          argv: ['python3', '-I', '-B', '-c', TEST_SCRIPT],
-          readScope: [...policy.readFiles],
+          argv: ['python3', '-I', '-B', '-c', TEST_SCRIPT, sourcePath],
+          readScope: [sourcePath, 'test_public.py'],
           writeScope: [],
         }
         argsBytes = bytes('public')
