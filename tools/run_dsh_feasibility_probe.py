@@ -84,9 +84,14 @@ def main() -> int:
         repository_root = Path(__file__).resolve().parents[1]
         probe = repository_root / "experiments/dsh-feasibility"
         shutil.copy2(probe / "khaos-capability-adapter.ts", temp_tests / "khaos-capability-adapter.ts")
+        shutil.copy2(probe / "khaos-semantic-tools.ts", temp_tests / "khaos-semantic-tools.ts")
+        shutil.copy2(probe / "dsh-semantic-fixture.ts", temp_tests / "dsh-semantic-fixture.ts")
+        shutil.copy2(probe / "dsh-agent-telemetry.ts", temp_tests / "dsh-agent-telemetry.ts")
+        shutil.copy2(probe / "khaos-local-model.ts", temp_tests / "khaos-local-model.ts")
         shutil.copy2(probe / "dsh-capability-lifecycle-probe.ts", temp_tests / "dsh-capability-lifecycle-probe.ts")
         shutil.copy2(probe / "dsh-tool-result.ts", temp_tests / "dsh-tool-result.ts")
         shutil.copy2(probe / "dsh-probe.spec.ts", temp_tests / "dsh-probe.spec.ts")
+        shutil.copy2(probe / "khaos-semantic-tools.spec.ts", temp_tests / "khaos-semantic-tools.spec.ts")
 
         # The probe executes untrusted upstream JavaScript. Keep its filesystem
         # writes inside the disposable DSH checkout, deny user files and TCP,
@@ -141,7 +146,7 @@ def main() -> int:
             str(vitest),
             "run",
             "--reporter=dot",
-            str((temp_tests / "dsh-probe.spec.ts").relative_to(source)),
+            str(temp_tests.relative_to(source)),
         ]
         print(f"DSH_SHA={head}")
         print(f"Node.js={node_version}")

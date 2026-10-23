@@ -12,12 +12,14 @@ import type {
   StreamChunk,
   ToolSchema,
 } from '@deepseek-ai/dsh-llm'
+import type { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 
 const MAX_REQUEST_BYTES = 56 * 1024
 const MAX_RESPONSE_TEXT_BYTES = 48 * 1024
 const MAX_ARGUMENT_BYTES = 32 * 1024
 const MAX_COMPLETION_TOKENS = 2_048
 const MAX_MODEL_CALLS_PER_TASK = 12
+const SEMANTIC_TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export interface KhaosModelRequest {
   readonly request_id: string
@@ -130,8 +132,16 @@ function requestBody(options: GenerateOptions, model: string): Record<string, un
     messages.unshift({ role: 'system', content: options.system })
   }
   const tools = options.tools?.map(toolSchema)
-  if (tools !== undefined && (tools.length !== 1 || options.tools?.[0]?.name !== 'khaos_capability')) {
-    fail('only the Khaos capability tool may be sent to the model', 'INVALID_REQUEST')
+  if (tools !== undefined) {
+    const names = options.tools?.map(tool => tool.name) ?? []
+    const noToolMode = names.length === 0
+    const rawToolMode = names.length === 1 && names[0] === 'khaos_capability'
+    const semanticToolMode = names.length > 0 && names.length <= SEMANTIC_TOOL_NAMES.length
+      && new Set(names).size === names.length
+      && names.every(name => SEMANTIC_TOOL_NAMES.includes(name as typeof SEMANTIC_TOOL_NAMES[number]))
+    if (!noToolMode && !rawToolMode && !semanticToolMode) {
+      fail('model tool set is outside the registered Khaos experiment interface', 'INVALID_REQUEST')
+    }
   }
   const temperature = options.temperature ?? 0.2
   if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
@@ -185,7 +195,14 @@ function textChunks(text: string, index: number): StreamChunk[] {
   ]
 }
 
-function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { inputTokens: number; outputTokens: number } } {
+function completionChunks(
+  value: unknown,
+  permittedTools: ReadonlySet<string>,
+): {
+  chunks: StreamChunk[]
+  usage?: { inputTokens: number; outputTokens: number }
+  toolCalls: { id: string; name: string; argumentBytes: number }[]
+} {
   const completion = object(value, 'completion')
   if (!Array.isArray(completion.choices) || completion.choices.length !== 1) {
     fail('expected one completion choice')
@@ -203,6 +220,7 @@ function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { in
   }
 
   const chunks: StreamChunk[] = []
+  const toolCalls: { id: string; name: string; argumentBytes: number }[] = []
   let index = 0
   if (typeof content === 'string' && content.length > 0) {
     chunks.push(...textChunks(content, index++))
@@ -217,7 +235,7 @@ function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { in
       || typeof fn.arguments !== 'string' || utf8Bytes(fn.arguments) > MAX_ARGUMENT_BYTES) {
       fail('invalid tool call')
     }
-    if (fn.name !== 'khaos_capability') fail('model requested an unregistered tool', 'UNKNOWN_TOOL')
+    if (!permittedTools.has(fn.name)) fail('model requested an unregistered tool', 'UNKNOWN_TOOL')
     let argumentsValue: unknown
     try {
       argumentsValue = JSON.parse(fn.arguments)
@@ -228,6 +246,7 @@ function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { in
       fail('model returned a non-object tool argument', 'INVALID_TOOL_ARGUMENTS')
     }
     const id = ToolCallId(call.id)
+    toolCalls.push({ id: call.id, name: fn.name, argumentBytes: utf8Bytes(fn.arguments) })
     chunks.push(
       { type: 'block-start', index, blockType: 'tool-call' },
       { type: 'tool-call-delta', index, id, name: fn.name, argumentsDelta: fn.arguments },
@@ -263,6 +282,7 @@ function completionChunks(value: unknown): { chunks: StreamChunk[]; usage?: { in
       ...(usage === undefined ? [] : [{ type: 'usage' as const, usage }]),
       { type: 'finish', reason: finish },
     ],
+    toolCalls,
     ...(usage === undefined ? {} : { usage }),
   }
 }
@@ -274,8 +294,13 @@ export class KhaosDshModelAdapter extends LlmAdapter {
   private outputTokens = 0
   private usageKnown = true
   private elapsedMilliseconds = 0
+  private readonly usedToolCallIds = new Set<string>()
+  private awaitingToolResultId: string | undefined
 
-  constructor(private readonly route: KhaosModelRoute) {
+  constructor(
+    private readonly route: KhaosModelRoute,
+    private readonly telemetry?: DshAgentTelemetry,
+  ) {
     super()
   }
 
@@ -305,10 +330,58 @@ export class KhaosDshModelAdapter extends LlmAdapter {
     if (this.calls >= MAX_MODEL_CALLS_PER_TASK) {
       fail('model call budget exceeded', 'MODEL_CALL_BUDGET_EXCEEDED')
     }
+    const body = requestBody(options, this.route.model)
+    const requestId = randomUUID()
+    const position = this.telemetry?.position()
+    if (this.awaitingToolResultId !== undefined && this.telemetry) {
+      const toolCallId = this.awaitingToolResultId
+      const toolMessage = options.messages.find(message =>
+        message.role === 'tool' && message.toolCallId === toolCallId)
+      const observed = toolMessage !== undefined
+        && this.telemetry.matchesDeliveredToolResult(
+          toolCallId,
+          toolMessage.content,
+          toolMessage.isError === true,
+        )
+      const operationSequence = this.telemetry.operationSequence(toolCallId)
+      const correlation = {
+        agent_turn_id: position?.turn ?? 0,
+        agent_step_id: position?.step ?? 0,
+        model_call_id: requestId,
+        tool_call_id: toolCallId,
+        ...(operationSequence === undefined ? {} : { operation_seq: operationSequence }),
+        observed_tool_result: observed,
+      }
+      this.telemetry.emit('SESSION_CONTINUITY_CHECK', correlation)
+      if (this.telemetry.nextPendingContinuityCheck() === toolCallId) {
+        this.telemetry.completeContinuityCheck(toolCallId)
+      }
+      if (!observed) {
+        this.telemetry.emit('MODEL_REQUEST_FAILED', {
+          agent_turn_id: position?.turn ?? 0,
+          agent_step_id: position?.step ?? 0,
+          model_call_id: requestId,
+          duration_ms: 0,
+          error_code: 'session_continuity_missing',
+        })
+        this.awaitingToolResultId = undefined
+        throw new LlmError('DSH Session did not contain the delivered Khaos tool result', 'SESSION_CONTINUITY_MISSING')
+      }
+      this.telemetry.emit('AGENT_NEXT_TURN_STARTED', correlation)
+      this.awaitingToolResultId = undefined
+    }
+    this.telemetry?.beginModelCall(requestId)
+    this.telemetry?.emit('MODEL_REQUEST_STARTED', {
+      agent_turn_id: position?.turn ?? 0,
+      agent_step_id: position?.step ?? 0,
+      model_call_id: requestId,
+      model_provider: this.route.provider,
+      model_id: this.route.model,
+    })
     const request: KhaosModelRequest = {
-      request_id: randomUUID(),
+      request_id: requestId,
       headers: attributionHeaders(),
-      body: requestBody(options, this.route.model),
+      body,
     }
     this.calls += 1
     let result: KhaosModelResult
@@ -320,6 +393,14 @@ export class KhaosDshModelAdapter extends LlmAdapter {
       const value = error instanceof Error ? error.message : ''
       const code = /^[a-z][a-z0-9_]{0,79}$/u.test(value) ? value : 'model_provider_failed'
       const elapsed = (error as Error & { elapsed_ms?: unknown })?.elapsed_ms
+      this.telemetry?.emit('MODEL_REQUEST_FAILED', {
+        agent_turn_id: position?.turn ?? 0,
+        agent_step_id: position?.step ?? 0,
+        model_call_id: requestId,
+        duration_ms: Number.isSafeInteger(elapsed) && (elapsed as number) >= 0
+          ? Math.min(elapsed as number, 600_000) : 0,
+        error_code: code,
+      })
       if (Number.isSafeInteger(elapsed) && (elapsed as number) >= 0) {
         this.elapsedMilliseconds += elapsed as number
       }
@@ -331,12 +412,46 @@ export class KhaosDshModelAdapter extends LlmAdapter {
     if (utf8Bytes(JSON.stringify(result.completion)) > 56 * 1024) {
       fail('provider completion exceeds the XPC frame budget', 'RESPONSE_TOO_LARGE')
     }
+    this.telemetry?.emit('MODEL_RESPONSE_RECEIVED', {
+      agent_turn_id: position?.turn ?? 0,
+      agent_step_id: position?.step ?? 0,
+      model_call_id: requestId,
+      duration_ms: result.elapsed_ms,
+      status: 'received',
+    })
     let translated: ReturnType<typeof completionChunks>
     try {
-      translated = completionChunks(result.completion)
+      translated = completionChunks(result.completion, new Set(options.tools?.map(tool => tool.name) ?? []))
+      for (const call of translated.toolCalls) {
+        if (this.usedToolCallIds.has(call.id)) fail('duplicate tool call id in one DSH task', 'DUPLICATE_TOOL_CALL_ID')
+        if (this.usedToolCallIds.size >= 16) fail('tool call id limit exceeded', 'TOOL_CALL_LIMIT_EXCEEDED')
+        this.usedToolCallIds.add(call.id)
+      }
     } catch (error) {
       this.usageKnown = false
+      const rawCode = error instanceof LlmError ? error.code.toLowerCase() : 'invalid_model_output'
+      const code = /^[a-z0-9_]{1,80}$/u.test(rawCode) ? rawCode : 'invalid_model_output'
+      this.telemetry?.emit('MODEL_OUTPUT_REJECTED', {
+        agent_turn_id: position?.turn ?? 0,
+        agent_step_id: position?.step ?? 0,
+        model_call_id: requestId,
+        duration_ms: result.elapsed_ms,
+        error_code: code,
+      })
       throw error
+    }
+    for (const call of translated.toolCalls) {
+      this.telemetry?.emit('MODEL_TOOL_CALL_OUTPUT_ACCEPTED', {
+        agent_turn_id: position?.turn ?? 0,
+        agent_step_id: position?.step ?? 0,
+        model_call_id: requestId,
+        tool_call_id: call.id,
+        tool_name: call.name,
+        argument_bytes: call.argumentBytes,
+      })
+    }
+    for (const call of translated.toolCalls) {
+      this.awaitingToolResultId = call.id
     }
     this.elapsedMilliseconds += result.elapsed_ms
     if (translated.usage === undefined) {

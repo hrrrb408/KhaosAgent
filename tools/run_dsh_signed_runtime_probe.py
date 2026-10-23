@@ -145,6 +145,9 @@ def build_dsh_bundle(
         for name in (
             "dsh-capability-lifecycle-probe.ts",
             "khaos-capability-adapter.ts",
+            "khaos-semantic-tools.ts",
+            "dsh-semantic-fixture.ts",
+            "dsh-agent-telemetry.ts",
             "dsh-tool-result.ts",
             "malicious-cordis-plugin.ts",
             "khaos-model-bridge.ts",

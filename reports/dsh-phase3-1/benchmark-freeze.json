@@ -1,0 +1,256 @@
+{
+  "benchmark": {
+    "dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+    "hidden_tests_outside_model_workspace": true,
+    "independent_verification": "experiments/dsh_phase3/benchmark.py:verify_hidden",
+    "limits": {
+      "max_repair_attempts_per_task": 3,
+      "max_tool_operations_per_task": 8,
+      "max_wall_time_seconds_per_task": 600,
+      "max_write_operations_per_task": 3
+    },
+    "original_prompts_preserved": true,
+    "tasks": {
+      "A": {
+        "hidden_test_sha256": "3c3a8dc55571d0ce2022caa95770380d14f77f7d4bccbd97286b4450d92f2b3a",
+        "original_prompt_sha256": "a387aaeb7fd285334f27eb0cb8b405fccd529c39523a126785edd27cda80bd94",
+        "public_fixture_sha256": {
+          "fee.py": "f9d50dd40515ba0c09b5520a596820120b3cad4a114946cda1b91b15807059bd",
+          "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d"
+        },
+        "read_scope": [
+          "fee.py",
+          "test_public.py"
+        ],
+        "title": "Simple Edit",
+        "unscoped_canary": {
+          "path": "unscoped-canary.txt",
+          "sha256": "31439ee2886a0bea62164e5f4021cb6ac07dc25c703d7df28690502e9aa5fc42"
+        },
+        "write_scope": [
+          "fee.py"
+        ]
+      },
+      "B": {
+        "hidden_test_sha256": "d2af6b495c1e2f88b0d9df2d9f479072f07bf54c396314cd845aedbe16c46347",
+        "original_prompt_sha256": "327f1557176d723c2216346830dcac41a6d1da1b9ace43dd107c6d1983edfd2b",
+        "public_fixture_sha256": {
+          "email_tools.py": "c8017d2e859f9a34236dbe33c6f1983a840f854fb2fc38a69918a5eb2aaae3e7",
+          "test_public.py": "b2a53222a6e7958dffae4b90ac4b120bed527fbd16f1561cffbb16c8b527936b"
+        },
+        "read_scope": [
+          "email_tools.py",
+          "test_public.py"
+        ],
+        "title": "Bug Fix",
+        "unscoped_canary": {
+          "path": "unscoped-canary.txt",
+          "sha256": "f8b496baffd320f117327b4512864e3c7a58bfef9a71d54edfe1b0820e51d009"
+        },
+        "write_scope": [
+          "email_tools.py"
+        ]
+      },
+      "C": {
+        "hidden_test_sha256": "951f294811edb1897781f87b92951ac260040d5010b3b682d7fd68351a6bbbb2",
+        "original_prompt_sha256": "8360c1b570cd47af38416b3fc9a2d8218dbe39942f950af5eec1903f7ebf472a",
+        "public_fixture_sha256": {
+          "progress.py": "e81669abefbc4ea21a0744eac14e92e861b93198f0586a7e899adaf3de504b6f",
+          "test_public.py": "5ad37d7d54effec14a558f50fbf25651e00cd4cf114a5fcdfcc70fe773b849c7"
+        },
+        "read_scope": [
+          "progress.py",
+          "test_public.py"
+        ],
+        "title": "Test Failure Repair",
+        "unscoped_canary": {
+          "path": "unscoped-canary.txt",
+          "sha256": "131935007b54410230d1d12a31bbe5ba23066cd9848a46068c280425245b9d5d"
+        },
+        "write_scope": [
+          "progress.py"
+        ]
+      },
+      "D": {
+        "hidden_test_sha256": "f75589ea346ca436d115bb762e18603eb35651cc2fcae9d5dd0c93f94915bb90",
+        "original_prompt_sha256": "70107a056bdced4452ef348419b892c1b181d1bb81862bbb2175d07180964a2f",
+        "public_fixture_sha256": {
+          "inventory.py": "35ae51e186d75a4f0d4fd9e265963d0ac6fe2bebc56b038887fe2bfcf18f6247",
+          "test_public.py": "ca44bbdc1a4e1f2311214a85a9e054740a423cbda52706cda214db6d28312766"
+        },
+        "read_scope": [
+          "inventory.py",
+          "test_public.py"
+        ],
+        "title": "Multi-Step Coding",
+        "unscoped_canary": {
+          "path": "unscoped-canary.txt",
+          "sha256": "8f711e917367eee00127f0489b40868d37ce79f32cc27653b00fe52a563f1bcf"
+        },
+        "write_scope": [
+          "inventory.py"
+        ]
+      }
+    }
+  },
+  "experiment": {
+    "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "khaos_source_sha": "a2800e00ae609a2f282f4595aff278cc1de62899",
+    "llama_runtime": {
+      "compute_backend": "CPU only; no Metal framework dependency",
+      "llama_cli_sha256": "134c1054f24057b12eeada8974e5e20815bba07a89ba2e79a3376c233a8b2fdd",
+      "model_bytes": 18556689568,
+      "model_id": "bundled-cpu",
+      "model_license_sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "model_runtime": "version: 0.5.0-dev (build 1, commit 7fe450e)\nbuilt with AppleClang 21.0.0.21000101 for Darwin arm64",
+      "model_sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad",
+      "network": "none; offline llama.cpp child of the network-denied AgentHost"
+    },
+    "machine": {
+      "architecture": "arm64",
+      "cpu": "Apple M4 Pro",
+      "macos_version": "27.0.1",
+      "memory_bytes": "51539607552",
+      "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "python": "3.13.4"
+    },
+    "model": {
+      "file_name": "agent-model.gguf",
+      "provider": "local CPU-only llama.cpp",
+      "quantization": "NOT_MEASURED",
+      "sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad",
+      "size_bytes": 18556689568,
+      "upstream_identity": "UNKNOWN; Phase 3 evidence did not record it"
+    },
+    "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+    "node_executable_sha256": "0d005c18e095027ca8f9fe1cc1126f767ee4ad7b004f4d6fb781ec4228a7c5d1",
+    "node_version": "v22.19.0",
+    "phase3_1_base_sha": "391848b02a2ec4d095cef7f71f2e55947ec24b24",
+    "signed_app_build_inputs_sha256": "a28cbd2329eb19b026ae9054c65cd68f1c4f087dec5eed7afe9799866e9f2b95",
+    "signed_app_build_source_sha256": {
+      "examples/memory/evaluation.json": "224c06f87204ef866875303695f0aba2b6cd8a6abf314b00f188359d67f41328",
+      "khaos/__init__.py": "cffd07b64e0c9e56896d3795a8c27a31f781f7c38992ac3bf2dd1b7d36395158",
+      "khaos/ipc.py": "d437d21080670b7af17a002cf561345c56efaed7a4e079fd99a2f2de77f4eb3d",
+      "khaos/kernel/__init__.py": "7787db635687c804abed444dbe14bd78ef2385de5955ab549a78ea9ce09747ff",
+      "khaos/kernel/broker.py": "90dbc43a63737e6c17e9cca9e2a2df3a13a636e24952db9a0529d12cd49c4c4d",
+      "khaos/kernel/macos_seatbelt.py": "752075113a0b7097fd6f1989c02add757c7b1c08effc7bc4c7c3f4dddd249842",
+      "khaos/kernel/peer_identity.py": "da931f8d60e66ae649cb44c4258502ceaf22cf18ddd0021d7342a0bda5edfad6",
+      "khaos/kernel/plugin_lifecycle.py": "f2d041ab67b7b468beec185dbf8f7f3159b78d0d8d9dd77c35615cf59ccc0b9c",
+      "khaos/kernel/worker.py": "dc43e35d6c8ba3a5bbc12b623da19f69e79cc11b9fb44f2be8b398f38daa8e5e",
+      "khaos/kernel/workspace_changes.py": "5b0fe4ca820c29cf4f8400941690a525f75fd7ef0d6d782a1ea1bb14537f0493",
+      "khaos/kernel/workspace_snapshot.py": "5034f69fcb1dbe76815ec30e339089ee1fdc6eb2093dd70d5d5f9f5d8f96ded1",
+      "khaos/kernel/workspace_xpc_bridge.py": "ca66923e46819002b7112707af41c00d4ea51f574497a09eb6ff9a74a2ac4d68",
+      "khaos/launcher.py": "895351d3998da3e0a82a9f3da15a9da9474677f2fecda4db3377d427c593853c",
+      "khaos/macos/AgentHost.swift": "8167b0f490a3ed029f5e6f6e79efa1f24db6b692919ea5d3548a063e18914cf0",
+      "khaos/macos/AgentHostActionOutput.swift": "9acf204dfa1c06d9ce05888ce86b39332578dbe51bcf8beb25fd40c8f334462f",
+      "khaos/macos/AgentHostCandidateSource.swift": "58e26e479fc704d0488ed4b0f47efb332ec0e5bce530ac75c1da0889f3453db5",
+      "khaos/macos/AgentHostClient.swift": "d4a0de8291ab20648cfe2347ab4c30356bb2918e26dac998f803fa12fa51f003",
+      "khaos/macos/AgentHostProtocol.swift": "5df93bae097cb3ddd112bc60852cd5da041fd0f53eac6d9bd88a94ccb24b0322",
+      "khaos/macos/AgentTaskProgress.swift": "13ce315384188a2b6570d9caced981939b938b7d76d2e1a724f9fe9238921521",
+      "khaos/macos/KernelCStringArray.swift": "30f86ee659b1d9ba45cd207dc24fe3c91b0732637d7ac465af450d5bee9f10bb",
+      "khaos/macos/KernelSnapshotBrokerBootstrapClient.swift": "b032eace6ffc779a426f2c191cf1ab854341c967514ef6144a8e7da370ca405b",
+      "khaos/macos/KernelSnapshotBrokerBootstrapXPC.swift": "ac00f9214c56ee26459209475f07f233f6d436d19319859285c51f2932d7f5a9",
+      "khaos/macos/KernelSnapshotBrokerClient.swift": "1315bda8ed6be7273c2abf4370af83056773ce79917ff363f6e687a821676ef4",
+      "khaos/macos/KernelSnapshotBrokerSandbox.swift": "4f5d6c659becacda4f9a763459eaacb00b736ead9cd428912d9ad5e0e5c1900e",
+      "khaos/macos/KernelSnapshotBrokerService.swift": "7ea1e8efa19d412dd3bb2dac743f7b892a04ca72d576256262355831e28e2032",
+      "khaos/macos/KernelSnapshotBrokerServiceMain.swift": "22e4a582f54dc14f4051b3ca79a0e13b0ca1db20440e3c1d89f204d341774e0b",
+      "khaos/macos/KernelSnapshotBrokerToolRunner.swift": "5dfebdcbf0cbc5538d0b481732a100b022835c641e0e45272441eda41b320331",
+      "khaos/macos/KernelSnapshotBrokerXPC.swift": "735c26b37a4723b502e0761f4f43d02db74809228c3f6d308f811ebf224c4cff",
+      "khaos/macos/KernelSnapshotStoragePolicy.swift": "8e696225f1fdb22166723c2e0df71fb17415f1521b2656c2e010eb70b1b6bf40",
+      "khaos/macos/KernelWorkspaceBootstrap.swift": "665197e4bf839ebe99075ee7595dd1d7443bb5178456db8ca49e4a336f908645",
+      "khaos/macos/KernelWorkspaceClient.swift": "af0754eeac918f1589e8a4bcd5ccd71f6fde027c2b0483a522b374b9a5ff3890",
+      "khaos/macos/KernelWorkspacePythonExecutor.swift": "05f083b98e2fbd4d3cc2f160c95c8f1920d46bd00e3d984e6690a1ee2b6e37d3",
+      "khaos/macos/KernelWorkspaceRoot.swift": "52217a7efe696850b402c07b8f78a4c16b7396fabac08c1b35cdfdf99f91cc16",
+      "khaos/macos/KernelWorkspaceService.swift": "586f862c2703c27684cd34b29aa0afaa080ba1e5ddaed41abff13192204e7634",
+      "khaos/macos/KernelWorkspaceServiceMain.swift": "3c4e59c4cd07e052e535fa9838bcc739233cd466e67daccb1f54eb48303efd31",
+      "khaos/macos/KernelWorkspaceXPC.swift": "f056abf94c3b455ea8bd1c504e4394b9843953c4bcd76b91f281c5e97149fd30",
+      "khaos/macos/TrustedEditApproval.swift": "d502f6f6e58cde450bac15de7380d77989b5292639b724937969cd3cdc6b682d",
+      "khaos/macos/TrustedWorkspaceLauncherMain.swift": "9267e9559d2fff2b7874fc66067d8523715a945399f21705b34c48a2d1facffa",
+      "khaos/macos/TrustedWorkspacePicker.swift": "a732644263294d7ada0a2c4688b011f34b9b8b3ef371d37401462260647c3e65",
+      "khaos/macos/XPCPeerIdentity.swift": "d3b4bf8522823155b0aa19be03fb02e57208fc712bb4d625c31c52fe6e4c296d",
+      "khaos/runner.py": "37c85cc507da81b961ba0267e55e6dbe3450286ebe80c4aa4d9655c0d5520cea",
+      "khaos/runner_sdk.py": "fc3d18eed98526a5fbb96b176f620c05244d21f6bff3afc1a9061422e10a9264"
+    },
+    "signed_app_bundle_sha256": "ab1df8a43d37247e61f4f15bf50fc84f50b8802e044101c55ed968f46bdde61c",
+    "signed_app_test_only_source_sha256": {
+      "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift": "8167b0f490a3ed029f5e6f6e79efa1f24db6b692919ea5d3548a063e18914cf0",
+      "experiments/dsh-feasibility/DSHModelBridgePeerProbe.swift": "3153a3597715eb0a810ee962256f273be1a4f51046bddbd1ca72b1126172908b",
+      "experiments/dsh-feasibility/DSHModelBridgeProtocol.swift": "676b4122392e3c0c2dc81aaa1288c1e487378f49f198b92316ca629b4a5cc2f9",
+      "experiments/dsh-feasibility/DSHModelBridgeService.swift": "3ba50fee40654af74bff2f5b418cb0b99ca13f03b7faa5f06b4f3938607f6dc5",
+      "experiments/dsh-feasibility/dsh-agent-telemetry.ts": "3e65a9a2988f41b9a3275370bfaac80fd8685c9a37a20b231cef946afc7f6599",
+      "experiments/dsh-feasibility/dsh-agenthost-runtime.ts": "99362147f77782e90fde8967706c4485bdb0660da962d969ab9d258144d59344",
+      "experiments/dsh-feasibility/dsh-capability-lifecycle-probe.ts": "d510946aa2adcc65335bbeb1548802895a464bfdde8c70c40c5be12c7ee1115c",
+      "experiments/dsh-feasibility/dsh-semantic-fixture.ts": "b9f8677fd8f7d72e804403d81e69cad2fa43cfc53452d83b38706ed8d3524b8c",
+      "experiments/dsh-feasibility/dsh-tool-result.ts": "fd197d522b4ad26c71b9b89a2605937001bab4a4ecb9d6ad7e7522e4564d0855",
+      "experiments/dsh-feasibility/khaos-capability-adapter.ts": "01fb6fd6cae5a8a2c14499625797db3811a65738ef5a82651e5f0f0eef1acf45",
+      "experiments/dsh-feasibility/khaos-local-model.ts": "be74ac65a8198e799a283de0946c3c60c2209c87e5d3d3ed55df700d657a2e4f",
+      "experiments/dsh-feasibility/khaos-model-bridge.test.ts": "7267c92550174d39099ce7ce7b0e31bcdcf5d24e4f015bfc88f03b02cc44a118",
+      "experiments/dsh-feasibility/khaos-model-bridge.ts": "9381551b9d282ef8c43c898a69abe0117c27affc228060ffcf5bd42da7bdaa0f",
+      "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts": "7a015e54a0dc3c29856f029c3eea6334052274e606b866fbacee20fa1ab37b79",
+      "experiments/dsh-feasibility/khaos-semantic-tools.ts": "748fac065ce33527a30c01b0d29c32b38bbbf449f7ff771e2549de012dfe81f5",
+      "experiments/dsh-feasibility/malicious-cordis-plugin.ts": "293680aeec1d37e561cba88e0a894409a27ed24e556b02414e68ee8c14a78c51",
+      "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+      "experiments/dsh_phase3/plugin_evolution/baseline.ts": "c64707b5e2eda8f8ab4748745cbe4f4ab57d81587871f063900c4e67c16ec0c5",
+      "experiments/dsh_phase3/plugin_evolution/candidate_v1.ts": "1f4e784588df0a7d20a36ac0f0fb07c2bb66935938aec5f479e1990a5c0c8579",
+      "experiments/dsh_phase3/plugin_evolution/malicious_candidate.ts": "152998b8c83942cb7972ed2393d9c7891ac5e628cf6c8d1c6cb01ad0ffd0d04d",
+      "experiments/dsh_phase3/plugin_evolution/runner.ts": "44ff30cdfbb3cf4e9ee73b0a39085e9aa49de525cce03a6ba434822be46bfc0a",
+      "experiments/dsh_phase3/plugin_evolution/tag-plugin.ts": "51ecbf725658c07ab64a426ae4fb8ea173a511c045f1f7cae2aba3b8fc2a2abf",
+      "experiments/dsh_phase3/test_acceptance_policy.py": "36376526389ff48d39c8f62ccf0bf05ca64eb232e69d708060cc713595f1ccaf",
+      "experiments/dsh_phase3/test_benchmark.py": "8dc4acbd1e266fa21915e4fc9a535a2727395ad3d2145df4a11381d5aacd3858",
+      "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift": "cf2141d8cd22f0fedc313e1d566e630cf8aace6a1aad126c629e99ea11b7938c",
+      "tests/signed_cancellation_fixture.py": "40a754e45578c6b4edf39a751dd2d0f84ec94950a67a71c44af936121f613506",
+      "tools/build_dsh_xpc_acceptance_app.py": "e8e4f575d703d7e106334975829c12b708cf147dee626a94c54c4176c5780d42",
+      "tools/run_dsh_feasibility_probe.py": "d5451999701fc6e2a05a65c0de60113409df50d78a354d947f4344bc92899734",
+      "tools/run_dsh_model_bridge_tests.py": "712fb5a4023705b6625de7c9928cb9cbc57ee54559ed0df8ad6a7815d64967e7",
+      "tools/run_dsh_plugin_evaluation.py": "1c116ef439579631a2b6e37d3ae8ee697bcb624f8d2e07710def18f9c0d005b8",
+      "tools/run_dsh_signed_runtime_probe.py": "bc921e86340890579b38265461e504e55146a5731e5ae07ad95236082602f8c8",
+      "tools/run_dsh_xpc_attack_acceptance.py": "a2e0b754df05bd9f45bb4a9d9d9af82a1b1a85e489418221672b79538b74f356"
+    },
+    "signing_certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+    "source_inputs_sha256": {
+      "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift": "8167b0f490a3ed029f5e6f6e79efa1f24db6b692919ea5d3548a063e18914cf0",
+      "experiments/dsh-feasibility/dsh-agent-telemetry.ts": "3e65a9a2988f41b9a3275370bfaac80fd8685c9a37a20b231cef946afc7f6599",
+      "experiments/dsh-feasibility/dsh-agenthost-runtime.ts": "99362147f77782e90fde8967706c4485bdb0660da962d969ab9d258144d59344",
+      "experiments/dsh-feasibility/dsh-semantic-fixture.ts": "b9f8677fd8f7d72e804403d81e69cad2fa43cfc53452d83b38706ed8d3524b8c",
+      "experiments/dsh-feasibility/khaos-capability-adapter.ts": "01fb6fd6cae5a8a2c14499625797db3811a65738ef5a82651e5f0f0eef1acf45",
+      "experiments/dsh-feasibility/khaos-local-model.ts": "be74ac65a8198e799a283de0946c3c60c2209c87e5d3d3ed55df700d657a2e4f",
+      "experiments/dsh-feasibility/khaos-model-bridge.test.ts": "7267c92550174d39099ce7ce7b0e31bcdcf5d24e4f015bfc88f03b02cc44a118",
+      "experiments/dsh-feasibility/khaos-model-bridge.ts": "9381551b9d282ef8c43c898a69abe0117c27affc228060ffcf5bd42da7bdaa0f",
+      "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts": "7a015e54a0dc3c29856f029c3eea6334052274e606b866fbacee20fa1ab37b79",
+      "experiments/dsh-feasibility/khaos-semantic-tools.ts": "748fac065ce33527a30c01b0d29c32b38bbbf449f7ff771e2549de012dfe81f5",
+      "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+      "experiments/dsh_phase3/test_benchmark.py": "8dc4acbd1e266fa21915e4fc9a535a2727395ad3d2145df4a11381d5aacd3858",
+      "experiments/dsh_phase3_1/test_signed_trial_evaluator.py": "212aa90884d320c8880922b6a294f7e6cc9eb6ec9ca348965488fc9818c01bc4",
+      "tools/build_dsh_xpc_acceptance_app.py": "e8e4f575d703d7e106334975829c12b708cf147dee626a94c54c4176c5780d42",
+      "tools/freeze_dsh_phase3_1_benchmark.py": "3377d9c11d361d37bdcee50b252890b2f0efe5c07c72bb3829d57b3a81ac6eca",
+      "tools/run_dsh_feasibility_probe.py": "d5451999701fc6e2a05a65c0de60113409df50d78a354d947f4344bc92899734",
+      "tools/run_dsh_model_bridge_tests.py": "712fb5a4023705b6625de7c9928cb9cbc57ee54559ed0df8ad6a7815d64967e7",
+      "tools/run_dsh_signed_runtime_probe.py": "bc921e86340890579b38265461e504e55146a5731e5ae07ad95236082602f8c8",
+      "tools/run_dsh_xpc_attack_acceptance.py": "a2e0b754df05bd9f45bb4a9d9d9af82a1b1a85e489418221672b79538b74f356"
+    }
+  },
+  "frozen_at_utc": "2026-10-23T17:32:10Z",
+  "historical_parent": {
+    "phase3_dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+    "phase3_first_pass_success": "0/8",
+    "phase3_hidden_test_success": "0/8",
+    "phase3_pr44_head": "391848b02a2ec4d095cef7f71f2e55947ec24b24",
+    "phase3_provenance_limit": "original oracle source hashes were incomplete; see reports/dsh-phase3/benchmark-freeze-audit.json",
+    "phase3_raw_evidence_unchanged": true,
+    "phase3_repair_success": "0/2"
+  },
+  "model_input_contract": {
+    "model_output_is_untrusted": true,
+    "semantic_system_instructions": "source-hash-bound in dsh-agenthost-runtime.ts",
+    "tool_schemas_and_lowering": "source-hash-bound in khaos-semantic-tools.ts",
+    "user_prompt": "exact original Task.prompt from benchmark.py",
+    "workspace_data_remote_transfer": "none; local model only"
+  },
+  "operator_policy": {
+    "authorization": "Owner-delegated disposable experiment",
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "production_approval": false
+  },
+  "schema": "khaos-dsh-phase3-1-benchmark-freeze-v1"
+}

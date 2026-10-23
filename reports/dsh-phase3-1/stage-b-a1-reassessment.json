@@ -1,0 +1,81 @@
+{
+  "approval_operator": "codex_agent",
+  "archived_signed_log_sha256": "528ed853eb87149687ed0c95319b2d02b72e16bab2d08f5591498fa455f11b8a",
+  "corrected_evaluator_source_sha256": "e831c7a565610be974cd7166746cc232d6c6b33389b67d307fa2cde4588bc82d",
+  "corrected_tool_result_delivery_rate": 1.0,
+  "operations": [
+    {
+      "conditions": {
+        "launcher_request_matches": true,
+        "launcher_result_digest_delivered": true,
+        "next_turn_observed_result": true,
+        "session_event_order_valid": true,
+        "source_correlation_checks_pass": true,
+        "tool_call_and_operation_match": true
+      },
+      "launcher_request_id": "84b8e4a1c5164c2a98304242bee81024",
+      "launcher_task_id": "5e9d5531-6773-4e5b-ae22-40634191dcdc",
+      "operation_seq": 1,
+      "pass": true,
+      "tool_call_id": "local-65874919-dc39-4661-9af3-d8a844418da7",
+      "tool_name": "read_file"
+    },
+    {
+      "conditions": {
+        "launcher_request_matches": true,
+        "launcher_result_digest_delivered": true,
+        "next_turn_observed_result": true,
+        "session_event_order_valid": true,
+        "source_correlation_checks_pass": true,
+        "tool_call_and_operation_match": true
+      },
+      "launcher_request_id": "24e19a2ff3994500aa959cb21928db05",
+      "launcher_task_id": "5e9d5531-6773-4e5b-ae22-40634191dcdc",
+      "operation_seq": 2,
+      "pass": true,
+      "tool_call_id": "local-f6cc9c30-0068-4a6a-b194-fab4812991f6",
+      "tool_name": "read_file"
+    },
+    {
+      "conditions": {
+        "launcher_request_matches": true,
+        "launcher_result_digest_delivered": true,
+        "next_turn_observed_result": true,
+        "session_event_order_valid": true,
+        "source_correlation_checks_pass": true,
+        "tool_call_and_operation_match": true
+      },
+      "launcher_request_id": "a587ce1ad8b847778f9048c3a828e047",
+      "launcher_task_id": "5e9d5531-6773-4e5b-ae22-40634191dcdc",
+      "operation_seq": 3,
+      "pass": true,
+      "tool_call_id": "local-0e720109-af2c-40b0-b3c0-2373486c09f1",
+      "tool_name": "replace_text"
+    },
+    {
+      "conditions": {
+        "launcher_request_matches": true,
+        "launcher_result_digest_delivered": true,
+        "next_turn_observed_result": true,
+        "session_event_order_valid": true,
+        "source_correlation_checks_pass": true,
+        "tool_call_and_operation_match": true
+      },
+      "launcher_request_id": "43b1ae3ace0d48a5aa912936e4d4de3d",
+      "launcher_task_id": "5e9d5531-6773-4e5b-ae22-40634191dcdc",
+      "operation_seq": 4,
+      "pass": true,
+      "tool_call_id": "local-81526d1b-639b-47ed-a29c-29272e410160",
+      "tool_name": "run_tests"
+    }
+  ],
+  "original_evidence_path": "reports/dsh-phase3-1/raw/real-model-A-1.json",
+  "original_evidence_result": "FAIL",
+  "original_evidence_sha256": "992e8f9cf66d77ae8f17bcc27b7e3e7cf5f60bc66495ff7957a233c34457063b",
+  "owner_personally_clicked": false,
+  "reassessment": "PASS",
+  "root_cause": "The first evaluator compared the Launcher result digest against the different DSH-normalized tool-result digest. The archived Launcher result digest is present in both terminal and Session delivery events; the corrected evaluator compares those matching fields and enforces event ordering.",
+  "schema": 1,
+  "task_acceptance_gates_pass": true,
+  "trial_id": "A-1"
+}
