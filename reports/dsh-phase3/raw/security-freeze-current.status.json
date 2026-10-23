@@ -1,0 +1,8 @@
+{
+  "command": "python3 tools/check_security_freeze.py",
+  "exit_code": 0,
+  "log": "reports/dsh-phase3/raw/security-freeze-current.log",
+  "output": "security-freeze: verified; sensitive changes=0; independent approval is external",
+  "result": "PASS",
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08"
+}

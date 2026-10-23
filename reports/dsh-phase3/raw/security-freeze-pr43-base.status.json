@@ -1,0 +1,10 @@
+{
+  "base_sha": "fd6747abd9ba785f784126dd848112cffa782163",
+  "command": "python3 tools/check_security_freeze.py --base fd6747abd9ba785f784126dd848112cffa782163",
+  "exit_code": 0,
+  "log": "reports/dsh-phase3/raw/security-freeze-pr43-base.log",
+  "output": "security-freeze: verified; sensitive changes=0; independent approval is external",
+  "result": "PASS",
+  "sensitive_changes": 0,
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08"
+}

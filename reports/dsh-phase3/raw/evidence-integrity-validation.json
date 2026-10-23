@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "all_trial_sources_are_recorded": true,
+    "compressed_launcher_log_hashes_match": true,
+    "dataset_digest_matches_freeze": true,
+    "hidden_test_hashes_match_freeze": true,
+    "operator_identity_matches": true,
+    "source_hash_metadata_reconciled_posthoc": true,
+    "task_request_hashes_match_freeze": true,
+    "trial_raw_json_hashes_match": true
+  },
+  "interpretation": "All primary raw trial and log hashes, operator metadata, benchmark content digest, task request hashes, and hidden fixture hashes validate. Original source hashes in benchmark-freeze.json were stale and are recorded as a post-hoc metadata correction in benchmark-freeze-audit.json.",
+  "result": "PARTIAL",
+  "schema": "khaos-dsh-phase3-evidence-integrity-v1",
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08",
+  "trials_checked": 8
+}

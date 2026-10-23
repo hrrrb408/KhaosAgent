@@ -1,0 +1,10 @@
+{
+  "command": "python3 -m unittest discover -s tests -v",
+  "duration_seconds": 853.067,
+  "exit_code": 0,
+  "log": "reports/dsh-phase3/raw/canonical-tests-worktree.log",
+  "result": "PASS",
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08",
+  "tests_run": 411,
+  "worktree_report_artifacts_uncommitted_during_run": true
+}
