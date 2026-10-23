@@ -284,6 +284,7 @@ def main() -> int:
                     "max_request_bytes": 56 * 1_024,
                     "max_response_bytes": 56 * 1_024,
                     "node_network_entitlement": False,
+                    "node_network_enforcement": "nested Seatbelt deny network for Node and descendants; fail closed if sandbox-exec is absent",
                     "api_key_delivery": "Launcher to fixed AgentHost XPC bridge; not in Node environment",
                 }
                 if args.model_provider != "local" else None

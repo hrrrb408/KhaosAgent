@@ -299,10 +299,12 @@ private final class DSHRuntimeProcess {
             "Contents/Resources", isDirectory: true
         )
         let node = resources.appendingPathComponent("node", isDirectory: false)
+        let nodeSandbox = URL(fileURLWithPath: "/usr/bin/sandbox-exec", isDirectory: false)
         let script = resources.appendingPathComponent(
             "dsh/agenthost-runtime.mjs", isDirectory: false
         )
         guard FileManager.default.isExecutableFile(atPath: node.path),
+              FileManager.default.isExecutableFile(atPath: nodeSandbox.path),
               script.isFileURL,
               FileManager.default.fileExists(atPath: script.path) else {
             throw DSHAgentHostError.childUnavailable
@@ -368,7 +370,15 @@ private final class DSHRuntimeProcess {
             throw DSHAgentHostError.childUnavailable
         }
 
-        let argumentValues = [node.path, script.path]
+        // The experimental XPC Host needs network.client for its fixed model
+        // bridge. Keep that entitlement out of DSH and every Plugin descendant.
+        let argumentValues = [
+            nodeSandbox.path,
+            "-p",
+            "(version 1) (allow default) (deny network*)",
+            node.path,
+            script.path,
+        ]
         let environmentValues = environment.map { "\($0.key)=\($0.value)" }
         var argumentPointers = argumentValues.map { strdup($0) } + [nil]
         var environmentPointers = environmentValues.map { strdup($0) } + [nil]
@@ -379,7 +389,7 @@ private final class DSHRuntimeProcess {
         var spawnedID: pid_t = 0
         let spawnStatus = argumentPointers.withUnsafeMutableBufferPointer { arguments in
             environmentPointers.withUnsafeMutableBufferPointer { environment in
-                node.path.withCString { executable in
+                nodeSandbox.path.withCString { executable in
                     posix_spawn(
                         &spawnedID,
                         executable,

@@ -25,7 +25,7 @@ BUILDER = ROOT / "tools/build_dsh_xpc_acceptance_app.py"
 sys.path.insert(0, str(ROOT / "experiments"))
 from dsh_phase3 import benchmark as phase3_benchmark  # noqa: E402
 
-SIGNED_UI_MODES = frozenset({"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model"})
+SIGNED_UI_MODES = frozenset({"attack", "coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model"})
 
 
 def sha256(path: Path) -> str:
@@ -84,6 +84,8 @@ def signed_ui_evidence(
     )
     return {
         "operator": operator,
+        "approval_operator": operator,
+        "owner_personally_clicked": operator == "project_owner",
         "authorization": {
             "source": authorization_source,
             "statement": authorization,
@@ -91,6 +93,7 @@ def signed_ui_evidence(
         },
         "runner_operations_approved": len(re.findall(r"(?m)^agent-session=tool=approved kind=ordinary$", stderr)),
         "candidate_preview_operations_approved": len(re.findall(r"(?m)^agent-session=tool=approved kind=candidate_b_preview$", stderr)),
+        "remote_data_consent_approved": stderr.count("agent-session=remote-data=approved") == 1,
         "launcher_task_records": records,
     }
 

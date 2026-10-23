@@ -72,6 +72,7 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         self.assertEqual(command_reasons, ["command_template"])
 
     def test_codex_signed_runs_require_explicit_delegation_metadata(self):
+        self.assertIn("attack", acceptance.SIGNED_UI_MODES)
         with self.assertRaisesRegex(ValueError, "operator-authorization"):
             acceptance.validate_operator("real-model", "codex_agent", None, None)
 
@@ -93,8 +94,9 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         )
 
         self.assertEqual(evidence["operator"], "codex_agent")
+        self.assertEqual(evidence["approval_operator"], "codex_agent")
+        self.assertFalse(evidence["owner_personally_clicked"])
         self.assertEqual(evidence["authorization"]["source"], "user message in the current Codex task")
-        self.assertNotIn("owner_personally_clicked", evidence)
 
 
 if __name__ == "__main__":
