@@ -549,6 +549,8 @@ describe('Khaos semantic Cordis tools', () => {
   })
 
   it('does not turn an untrusted test profile into a command or hidden-test request', async () => {
+    expect(semanticToolTestSupport.testScript).toContain('loadTestsFromModule(test_public)')
+    expect(semanticToolTestSupport.testScript).not.toContain('.discover(')
     const oneFilePolicy: KhaosCodingToolPolicy = {
       ...policy,
       trialId: 'phase31-profile-attack',
