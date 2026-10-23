@@ -28,6 +28,12 @@ client entitlement. The test AgentHost retains App Sandbox. The signed attack
 run measures actual bundle size and Node RSS rather than inferring cost from
 source size.
 
+For a clean DSH checkout, the acceptance builder first runs the upstream Host
+project compilation (`tsc -b tsconfig.host.json`) and Host package bundle
+(`tsdown --config-loader native --env.DSH_BUILD_FACE host`) inside the existing
+no-network sandbox. It then bundles the test AgentHost runtime from the pinned
+workspace packages. This avoids depending on untracked prebuilt `lib` outputs.
+
 The build record binds the exact Khaos source SHA, PR #41 base SHA, DSH SHA,
 Node archive SHA-256, bundled runtime digest, test-only source hashes, and
 signature identity. A test result is valid only for the exact SHA and build

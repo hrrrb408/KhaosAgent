@@ -69,6 +69,22 @@ def create_build_sandbox(path: Path, dsh_source: Path, scratch: Path) -> None:
     )
 
 
+def run_sandboxed_build(command: list[str], sandbox: Path, cwd: Path, env: dict[str, str], label: str) -> None:
+    result = subprocess.run(
+        ["/usr/bin/sandbox-exec", "-f", str(sandbox), *command],
+        cwd=cwd,
+        env=env,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    if result.returncode != 0:
+        print(result.stdout[-16_000:], end="")
+        raise RuntimeError(f"{label} failed with exit {result.returncode}")
+    print(f"{label} succeeded")
+
+
 def build_dsh_bundle(
     dsh_source: Path,
     probe_dir: Path,
@@ -81,30 +97,11 @@ def build_dsh_bundle(
     tests = dsh_source / "packages/core/agent-loop/tests"
     build_directory = dsh_source / ".tmp"
     build_directory.mkdir(exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix="khaos-signed-runtime-", dir=tests))
     output_dir = Path(tempfile.mkdtemp(prefix="khaos-runtime-bundle-", dir=build_directory))
     tsconfig = build_directory / "khaos-runtime-tsconfig.json"
     sandbox = build_directory / "khaos-runtime-build.sb"
+    staging: Path | None = None
     try:
-        shutil.copy2(probe_dir / "dsh-capability-lifecycle-probe.ts", staging / "dsh-capability-lifecycle-probe.ts")
-        shutil.copy2(probe_dir / "khaos-capability-adapter.ts", staging / "khaos-capability-adapter.ts")
-        shutil.copy2(probe_dir / "dsh-tool-result.ts", staging / "dsh-tool-result.ts")
-        shutil.copy2(probe_dir / "malicious-cordis-plugin.ts", staging / "malicious-cordis-plugin.ts")
-        shutil.copy2(probe_dir / runtime_entry, staging / runtime_entry)
-        tsconfig.write_text(
-            json.dumps(
-                {
-                    "compilerOptions": {
-                        "target": "ES2022",
-                        "module": "NodeNext",
-                        "moduleResolution": "NodeNext",
-                        "skipLibCheck": True,
-                        "baseUrl": ".",
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
         create_build_sandbox(sandbox, dsh_source, temp_root)
         build_env = {
             "PATH": os.pathsep.join(
@@ -127,12 +124,52 @@ def build_dsh_bundle(
             "npm_config_userconfig": "/dev/null",
             "npm_config_globalconfig": "/dev/null",
         }
+        node = str(Path(shutil.which("node") or "node"))
+        typescript = dsh_source / "node_modules/typescript/bin/tsc"
+        tsdown = dsh_source / "node_modules/tsdown/dist/run.mjs"
+        run_sandboxed_build(
+            [node, str(typescript), "-b", "tsconfig.host.json"],
+            sandbox,
+            dsh_source,
+            build_env,
+            "DSH Host project compilation",
+        )
+        run_sandboxed_build(
+            [node, str(tsdown), "--config-loader", "native", "--env.DSH_BUILD_FACE", "host"],
+            sandbox,
+            dsh_source,
+            build_env,
+            "DSH Host package build",
+        )
+        staging = Path(tempfile.mkdtemp(prefix="khaos-signed-runtime-", dir=tests))
+        for name in (
+            "dsh-capability-lifecycle-probe.ts",
+            "khaos-capability-adapter.ts",
+            "dsh-tool-result.ts",
+            "malicious-cordis-plugin.ts",
+            runtime_entry,
+        ):
+            shutil.copy2(probe_dir / name, staging / name)
+        tsconfig.write_text(
+            json.dumps(
+                {
+                    "compilerOptions": {
+                        "target": "ES2022",
+                        "module": "NodeNext",
+                        "moduleResolution": "NodeNext",
+                        "skipLibCheck": True,
+                        "baseUrl": ".",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         command = [
             "/usr/bin/sandbox-exec",
             "-f",
             str(sandbox),
-            str(Path(shutil.which("node") or "node")),
-            str(dsh_source / "node_modules/tsdown/dist/run.mjs"),
+            node,
+            str(tsdown),
             str((staging / runtime_entry).relative_to(dsh_source)),
             "--format",
             "esm",
@@ -172,7 +209,8 @@ def build_dsh_bundle(
             raise RuntimeError(f"bundle retained external imports: {non_builtins}")
         return bundle, digest(bundle)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        if staging is not None:
+            shutil.rmtree(staging, ignore_errors=True)
         shutil.rmtree(output_dir, ignore_errors=True)
         tsconfig.unlink(missing_ok=True)
         sandbox.unlink(missing_ok=True)

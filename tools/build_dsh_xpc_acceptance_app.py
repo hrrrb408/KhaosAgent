@@ -211,6 +211,10 @@ def main() -> int:
             "cancellation_case": args.cancellation_case,
             "cancellation_overlay_sha256": cancellation_overlay_hashes,
             "dsh_sha": PINNED_DSH_SHA,
+            "dsh_host_build": [
+                "tsc -b tsconfig.host.json",
+                "tsdown --config-loader native --env.DSH_BUILD_FACE host",
+            ],
             "dsh_license_sha256": digest(dsh_source / "LICENSE"),
             "dsh_third_party_notices_sha256": digest(dsh_source / "THIRD_PARTY_NOTICES.md"),
             "node_version": PINNED_NODE_VERSION,
