@@ -19,6 +19,30 @@ export interface KhaosToolResult {
   readonly canContinue: boolean
   readonly text: string
   readonly returncode?: number
+  readonly launcherTrace?: LauncherOperationTrace
+}
+
+export interface LauncherOperationTrace {
+  readonly trial_id: string
+  readonly dsh_session_id: string
+  readonly benchmark_task_id: string
+  readonly agent_turn_id: number
+  readonly agent_step_id: number
+  readonly model_call_id?: string
+  readonly tool_call_id: string
+  readonly tool_name: string
+  readonly operation_seq: number
+  readonly invocation_sha256: string
+  readonly launcher_task_id: string
+  readonly launcher_request_id: string
+  readonly launcher_approval_sha256: string
+  readonly approval_status: string
+  readonly kernel_result: string
+  readonly runner_status: string
+  readonly commit_status: string
+  readonly launcher_ok: boolean
+  readonly can_continue: boolean
+  readonly returncode?: number
 }
 
 export interface KhaosProposalCorrelation {
@@ -110,12 +134,58 @@ function parseResult(value: unknown): KhaosToolResult {
       && (!Number.isInteger(record.returncode) || Math.abs(record.returncode as number) > 2_147_483_647))) {
     throw new Error('invalid Launcher result')
   }
+  const launcherTrace = record.launcherTrace === undefined
+    ? undefined : parseLauncherTrace(record.launcherTrace)
   return {
     ok: record.ok,
     canContinue: record.canContinue,
     text: record.text,
     ...(record.returncode === undefined ? {} : { returncode: record.returncode as number }),
+    ...(launcherTrace === undefined ? {} : { launcherTrace }),
   }
+}
+
+function parseLauncherTrace(value: unknown): LauncherOperationTrace {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('invalid Launcher trace')
+  }
+  const record = value as Record<string, unknown>
+  const required = [
+    'trial_id', 'dsh_session_id', 'benchmark_task_id', 'agent_turn_id', 'agent_step_id',
+    'tool_call_id', 'tool_name', 'operation_seq', 'invocation_sha256',
+    'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
+    'kernel_result', 'runner_status', 'commit_status', 'launcher_ok', 'can_continue',
+  ]
+  const optional = ['model_call_id', 'returncode']
+  if (required.some(key => !(key in record))
+    || Object.keys(record).some(key => !required.includes(key) && !optional.includes(key))) {
+    throw new Error('invalid Launcher trace')
+  }
+  const ids = [
+    record.trial_id, record.dsh_session_id, record.tool_call_id,
+    record.launcher_task_id, record.launcher_request_id,
+  ]
+  if (!ids.every(item => typeof item === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/u.test(item))
+    || !['A', 'B', 'C', 'D'].includes(record.benchmark_task_id as string)
+    || !['read_file', 'replace_text', 'run_tests'].includes(record.tool_name as string)
+    || !Number.isSafeInteger(record.agent_turn_id) || (record.agent_turn_id as number) < 0
+    || !Number.isSafeInteger(record.agent_step_id) || (record.agent_step_id as number) < 0
+    || !Number.isSafeInteger(record.operation_seq) || (record.operation_seq as number) < 1
+    || typeof record.invocation_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.invocation_sha256)
+    || typeof record.launcher_approval_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.launcher_approval_sha256)
+    || !['ordinary', 'candidate_b_preview', 'denied', 'preview_incomplete'].some(status =>
+      record.approval_status === status || record.approval_status === `approved_${status}`)
+    || typeof record.kernel_result !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.kernel_result)
+    || typeof record.runner_status !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.runner_status)
+    || typeof record.commit_status !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.commit_status)
+    || typeof record.launcher_ok !== 'boolean' || typeof record.can_continue !== 'boolean'
+    || (record.model_call_id !== undefined
+      && (typeof record.model_call_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(record.model_call_id)))
+    || (record.returncode !== undefined
+      && (!Number.isInteger(record.returncode) || Math.abs(record.returncode as number) > 2_147_483_647))) {
+    throw new Error('invalid Launcher trace')
+  }
+  return record as unknown as LauncherOperationTrace
 }
 
 /** One bounded proposal lifecycle shared by raw and semantic Cordis tools. */

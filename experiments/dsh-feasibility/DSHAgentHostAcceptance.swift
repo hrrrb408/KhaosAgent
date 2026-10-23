@@ -135,6 +135,7 @@ private final class DSHRuntimeProcess {
     private var telemetrySessionID: String?
     private var telemetryBenchmarkTaskID: String?
     private var lastTelemetryRecord: [String: Any]?
+    private let maximumTelemetryReplyBytes = 40 * 1_024
 
     init(modelBridgeAvailable: Bool) throws {
         let resources = Bundle.main.bundleURL.appendingPathComponent(
@@ -341,6 +342,8 @@ private final class DSHRuntimeProcess {
             "write_operation", "duration_ms", "status", "error_code", "returncode",
             "can_continue", "result_bytes", "result_sha256", "launcher_result_sha256", "observed_tool_result",
             "dsh_event_seq", "token_input", "token_output", "model_provider", "model_id",
+            "launcher_task_id", "launcher_request_id", "launcher_approval_sha256", "approval_status",
+            "kernel_result", "runner_status", "commit_status", "launcher_ok",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -402,16 +405,24 @@ private final class DSHRuntimeProcess {
         }
         if let name = record["tool_name"] as? String,
            !["read_file", "replace_text", "run_tests"].contains(name) { return false }
-        for name in ["invocation_sha256", "result_sha256", "launcher_result_sha256"] where record[name] != nil {
+        for name in [
+            "invocation_sha256", "result_sha256", "launcher_result_sha256", "launcher_approval_sha256",
+        ] where record[name] != nil {
             guard let digest = record[name] as? String,
                   digest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil else { return false }
         }
-        for name in ["write_operation", "can_continue", "observed_tool_result"] where record[name] != nil {
+        for name in ["write_operation", "can_continue", "observed_tool_result", "launcher_ok"] where record[name] != nil {
             guard record[name] is Bool else { return false }
         }
-        for name in ["status", "error_code", "model_provider", "model_id"] where record[name] != nil {
+        for name in [
+            "status", "error_code", "model_provider", "model_id", "approval_status",
+            "kernel_result", "runner_status", "commit_status",
+        ] where record[name] != nil {
             guard let value = record[name] as? String, value.utf8.count <= 128,
                   value.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil else { return false }
+        }
+        for name in ["launcher_task_id", "launcher_request_id"] where record[name] != nil {
+            guard safeID(record[name]) != nil else { return false }
         }
         if let rawReturnCode = record["returncode"] {
             guard let returncode = rawReturnCode as? Int,
@@ -432,6 +443,8 @@ private final class DSHRuntimeProcess {
         defer { lock.unlock() }
         guard isRunning() else { throw DSHAgentHostError.childExited }
         try writeFrame(frame)
+        var replyTelemetry: [[String: Any]] = []
+        var replyTelemetryBytes = 0
         while true {
             let readTimeout: Int
             if modelAPIKey != nil {
@@ -457,9 +470,13 @@ private final class DSHRuntimeProcess {
                       let encoded = try? JSONSerialization.data(
                         withJSONObject: record,
                         options: [.sortedKeys, .withoutEscapingSlashes]
-                      ), encoded.count <= 4 * 1_024 else {
+                      ), encoded.count <= 4 * 1_024,
+                      replyTelemetry.count < 128,
+                      replyTelemetryBytes + encoded.count <= maximumTelemetryReplyBytes else {
                     throw DSHAgentHostError.invalidFrame
                 }
+                replyTelemetry.append(record)
+                replyTelemetryBytes += encoded.count
                 fputs("dsh-telemetry=\(String(decoding: encoded, as: UTF8.self))\n", stderr)
                 fflush(stderr)
                 continue
@@ -487,7 +504,11 @@ private final class DSHRuntimeProcess {
                 }
                 continue
             }
-            guard value["type"] as? String == "model_request" else { return value }
+            guard value["type"] as? String == "model_request" else {
+                var result = value
+                if !replyTelemetry.isEmpty { result["dsh_telemetry"] = replyTelemetry }
+                return result
+            }
             guard let requestID = value["request_id"] as? String,
                   !requestID.isEmpty, requestID.utf8.count <= 64 else {
                 throw DSHAgentHostError.invalidFrame
@@ -791,20 +812,41 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     return response(.failure("invalid_request"))
                 }
                 if let correlation = pendingSemanticCorrelation {
-                    logLauncherTerminalResult(correlation, ok: ok, canContinue: canContinue, text: text)
+                    let launcherTrace = frame["launcher_trace"] as? [String: Any]
+                    guard !phase31Task || launcherTrace.map({
+                        launcherTraceMatches($0, correlation: correlation)
+                    }) == true else {
+                        return response(.failure("dsh_launcher_trace_mismatch"))
+                    }
+                    logLauncherTerminalResult(
+                        correlation,
+                        launcherTrace: launcherTrace,
+                        ok: ok,
+                        canContinue: canContinue,
+                        text: text
+                    )
                     pendingSemanticCorrelation = nil
+                } else if phase31Task || frame["launcher_trace"] != nil {
+                    return response(.failure("dsh_unexpected_launcher_trace"))
                 }
                 if crashAfterToolResult {
                     crashAfterToolResult = false
                     exit(86)
                 }
+                var toolResult: [String: Any] = [
+                    "operation": "tool_result",
+                    "ok": ok,
+                    "can_continue": canContinue,
+                    "text": text,
+                ]
+                if let returncode = frame["returncode"] as? Int {
+                    toolResult["returncode"] = returncode
+                }
+                if let launcherTrace = frame["launcher_trace"] as? [String: Any] {
+                    toolResult["launcher_trace"] = launcherTrace
+                }
                 let event = try runtime.exchange(
-                    [
-                        "operation": "tool_result",
-                        "ok": ok,
-                        "can_continue": canContinue,
-                        "text": text,
-                    ],
+                    toolResult,
                     modelAPIKey: realModelTask && AgentModelProvider.from(bundle: .main).isRemote
                         ? frame["model_api_key"] as? String : nil,
                     modelBridgeClient: modelBridgeClient,
@@ -960,7 +1002,23 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         default:
             return response(.failure("dsh_invalid_result"))
         }
-        return try AgentHostActionOutput.encodeAction(action, activePlugin: activePlugin)
+        let encoded = try AgentHostActionOutput.encodeAction(action, activePlugin: activePlugin)
+        guard phase31Task,
+              let records = event["dsh_telemetry"] as? [[String: Any]],
+              !records.isEmpty,
+              let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
+            return encoded
+        }
+        var responseObject = object
+        responseObject["dsh_telemetry"] = records
+        let responseData = try JSONSerialization.data(
+            withJSONObject: responseObject,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+        guard responseData.count <= AgentHostProtocol.maximumFrameBytes else {
+            return response(.failure("dsh_telemetry_frame_too_large"))
+        }
+        return responseData
     }
 
     private func logSemanticProposal(_ correlation: [String: Any]) {
@@ -976,6 +1034,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
 
     private func logLauncherTerminalResult(
         _ correlation: [String: Any],
+        launcherTrace: [String: Any]?,
         ok: Bool,
         canContinue: Bool,
         text: String
@@ -987,12 +1046,37 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         record["launcher_can_continue"] = canContinue
         record["result_bytes"] = text.utf8.count
         record["result_sha256"] = digest
+        if let launcherTrace {
+            for key in [
+                "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
+                "approval_status", "kernel_result", "runner_status", "commit_status", "returncode",
+            ] {
+                record[key] = launcherTrace[key]
+            }
+        }
         guard let data = try? JSONSerialization.data(
             withJSONObject: record,
             options: [.sortedKeys, .withoutEscapingSlashes]
         ), data.count <= 2 * 1_024 else { return }
         fputs("dsh-launcher-terminal=\(String(decoding: data, as: UTF8.self))\n", stderr)
         fflush(stderr)
+    }
+
+    private func launcherTraceMatches(
+        _ trace: [String: Any],
+        correlation: [String: Any]
+    ) -> Bool {
+        [
+            "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
+            "model_call_id", "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
+        ].allSatisfy { trace[$0] as? NSObject == correlation[$0] as? NSObject }
+            && trace["launcher_task_id"] is String
+            && trace["launcher_request_id"] is String
+            && trace["launcher_approval_sha256"] is String
+            && trace["approval_status"] is String
+            && trace["kernel_result"] is String
+            && trace["runner_status"] is String
+            && trace["commit_status"] is String
     }
 
     private func response(_ reply: AgentHostReply) -> Data? {

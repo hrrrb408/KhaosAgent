@@ -394,13 +394,11 @@ def evaluate_real_model_trial(
     delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
     continuity = [event for event in telemetry if event.get("event") == "SESSION_CONTINUITY_CHECK"]
     next_turns = [event for event in telemetry if event.get("event") == "AGENT_NEXT_TURN_STARTED"]
-    semantic_forwards = [
-        value for value in diagnostic_payloads(stderr, "dsh-semantic-proposal=")
-        if isinstance(value, dict) and value.get("trial_id") == trial_id
-    ]
-    terminal_results = [
-        value for value in diagnostic_payloads(stderr, "dsh-launcher-terminal=")
-        if isinstance(value, dict) and value.get("trial_id") == trial_id
+    semantic_forwards = submitted
+    terminal_results = [event for event in telemetry if event.get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"]
+    launcher_events = [
+        value for value in diagnostic_payloads(stderr, "dsh-launcher-event=")
+        if isinstance(value, dict)
     ]
     records = task_records[0] if len(task_records) == 1 else {}
     raw_requests = records.get("workspace_requests", [])
@@ -416,6 +414,10 @@ def evaluate_real_model_trial(
     invalid_model_outputs = [event for event in telemetry if event.get("event") == "MODEL_OUTPUT_REJECTED"]
     agent_loop_records = diagnostic_payloads(stderr, "dsh-agent-loop=")
     agent_loop = agent_loop_records[-1] if agent_loop_records and isinstance(agent_loop_records[-1], dict) else {}
+    assistant_messages = [
+        event for event in telemetry if event.get("event") == "DSH_ASSISTANT_MESSAGE_COMMITTED"
+    ]
+    agent_terminated = any(event.get("event") == "AGENT_TERMINATED" for event in telemetry)
     model_stats_records = diagnostic_payloads(stderr, "dsh-model-stats=")
     model_stats = model_stats_records[-1] if model_stats_records and isinstance(model_stats_records[-1], dict) else {}
     observed_local_model_calls = runtime_metrics.get("local_model_process_invocations_observed", 0)
@@ -491,7 +493,10 @@ def evaluate_real_model_trial(
     def exact_scope(request: dict[str, object], name: object) -> bool:
         read_scope = request.get("read_scope")
         write_scope = request.get("write_scope")
-        if name == "read_file":
+        if not request:
+            scopes_valid = None
+            approval_valid = None
+        elif name == "read_file":
             return (
                 isinstance(read_scope, list) and len(read_scope) == 1
                 and read_scope[0] in task.read_scope and write_scope == []
@@ -557,7 +562,7 @@ def evaluate_real_model_trial(
             isinstance(lower.get("invocation_sha256"), str)
             and lower.get("invocation_sha256") == submit_event.get("invocation_sha256")
             and lower.get("invocation_sha256") == forwarded.get("invocation_sha256")
-            and lower.get("invocation_sha256") == request.get("invocation_sha256")
+            and lower.get("invocation_sha256") == terminal.get("invocation_sha256")
             and lower.get("operation_seq") == submit_event.get("operation_seq")
             and lower.get("tool_name") == submit_event.get("tool_name")
             and lower.get("tool_call_id") == submit_event.get("tool_call_id")
@@ -566,7 +571,34 @@ def evaluate_real_model_trial(
         expected_approval = "approved_candidate_b_preview" if name == "replace_text" else "approved_ordinary"
         approval = request.get("approval")
         approval_valid = approval == expected_approval
-        approval_accepted = str(approval).startswith("approved_")
+        request_id_matches = (
+            terminal.get("launcher_task_id") == records.get("task_id")
+            and terminal.get("launcher_request_id") == request.get("request_id")
+            and terminal.get("launcher_approval_sha256") == request.get("invocation_sha256")
+            and terminal.get("approval_status") == request.get("approval")
+            and terminal.get("kernel_result") == request.get("kernel_result")
+            and terminal.get("runner_status") == request.get("runner_execution")
+            and terminal.get("commit_status") == request.get("commit_outcome")
+            and terminal.get("returncode") == request.get("runner_return_code")
+        )
+        request_events = [
+            event for event in launcher_events
+            if event.get("launcher_task_id") == records.get("task_id")
+            and event.get("launcher_request_id") == request.get("request_id")
+            and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+        ]
+        event_by_name = {event.get("event"): event for event in request_events}
+        launcher_lifecycle_complete = all(
+            name in event_by_name
+            for name in ("APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED")
+        )
+        launcher_event_order_valid = (
+            launcher_lifecycle_complete
+            and event_by_name["APPROVAL_ACCEPTED"].get("launcher_event_seq")
+                < event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
+            and event_by_name["KERNEL_OPERATION_STARTED"].get("launcher_event_seq")
+                < event_by_name["KERNEL_OPERATION_COMPLETED"].get("launcher_event_seq")
+        )
         kernel_output = request.get("kernel_result") == "output"
         runner_completed = request.get("runner_execution") == "completed"
         return_code = request.get("runner_return_code")
@@ -581,7 +613,7 @@ def evaluate_real_model_trial(
             and delivered_event.get("model_call_id") == lower.get("model_call_id")
             and delivered_event.get("launcher_result_sha256") == terminal.get("result_sha256")
         )
-        should_continue = terminal.get("launcher_can_continue") is True
+        should_continue = terminal.get("can_continue") is True
         observed_next_turn = (
             continuity_event.get("observed_tool_result") is True
             and continuity_event.get("tool_call_id") == call_id
@@ -610,6 +642,8 @@ def evaluate_real_model_trial(
             }
             and forwarded.get("tool_call_id") == call_id
             and terminal.get("tool_call_id") == call_id
+            and terminal.get("launcher_task_id") == records.get("task_id")
+            and terminal.get("launcher_request_id") == request.get("request_id")
         )
         operation_checks.append({
             "operation_seq": sequence,
@@ -620,7 +654,10 @@ def evaluate_real_model_trial(
             "launcher_task_id": records.get("task_id"),
             "launcher_request_id": request.get("request_id"),
             "identity_matches_across_model_tool_launcher_and_session": identity_matches,
-            "invocation_digest_matches_dsh_lowering_agenthost_and_launcher": digest_matches,
+            "invocation_digest_matches_dsh_lowering_and_submission": digest_matches,
+            "launcher_request_identity_and_kernel_result_match": request_id_matches,
+            "launcher_lifecycle_events_complete": launcher_lifecycle_complete,
+            "launcher_lifecycle_event_order_valid": launcher_event_order_valid,
             "scope_matches_predeclared_task_policy": scope_matches,
             "signed_ui_approval_matches_semantic_tool": approval_valid,
             "kernel_result": request.get("kernel_result"),
@@ -632,6 +669,13 @@ def evaluate_real_model_trial(
             "dsh_session_tool_result_delivered": result_delivered,
             "next_model_call_observed_the_tool_result": observed_next_turn,
             "tool_lowering_to_launcher_submission_ms": event_delta_ms(lower, submit_event),
+            "launcher_approval_wait_ms": event_delta_ms(
+                event_by_name.get("APPROVAL_PRESENTED"), event_by_name.get("APPROVAL_ACCEPTED")
+            ),
+            "kernel_execution_ms": event_delta_ms(
+                event_by_name.get("KERNEL_OPERATION_STARTED"), event_by_name.get("KERNEL_OPERATION_COMPLETED")
+            ),
+            "launcher_result_to_dsh_session_ms": event_delta_ms(terminal, delivered_event),
             "tool_result_to_next_model_request_ms": event_delta_ms(delivered_event, next_model_request),
             "trace_event_order": {
                 "model_response_received": model_response_event.get("event_seq"),
@@ -642,15 +686,9 @@ def evaluate_real_model_trial(
                 "launcher_proposal_submitted": submit_event.get("event_seq"),
                 "dsh_event_order_valid": trace_order_valid,
                 "semantic_proposal_forwarded": forwarded.get("event"),
-                "signed_launcher_request_position": sequence - 1 if request else None,
-                "signed_launcher_events": [
-                    event_name for event_name, present in (
-                        ("APPROVAL_ACCEPTED", approval_accepted),
-                        ("APPROVAL_DENIED", approval == "denied"),
-                        ("KERNEL_OPERATION_STARTED", request.get("runner_execution") != "not_started"),
-                        ("KERNEL_OPERATION_COMPLETED", request.get("kernel_result") in ("output", "error")),
-                    ) if present
-                ],
+                "signed_launcher_event_sequences": {
+                    name: event.get("launcher_event_seq") for name, event in event_by_name.items()
+                },
                 "launcher_approval": approval if request else None,
                 "kernel_runner_result": request.get("kernel_result"),
                 "launcher_terminal_result_delivered": terminal.get("event"),
@@ -660,7 +698,9 @@ def evaluate_real_model_trial(
             },
         })
         all_correlation_ids_present &= (
-            identity_matches and digest_matches and result_delivered and observed_next_turn
+            identity_matches and digest_matches and request_id_matches
+            and launcher_lifecycle_complete and launcher_event_order_valid
+            and result_delivered and observed_next_turn
         )
 
     test_outcomes = [
@@ -722,11 +762,7 @@ def evaluate_real_model_trial(
         and len(terminal_results) == len(requests)
         and len(delivered) == len(requests)
     )
-    loop_has_session_results = (
-        isinstance(agent_loop.get("tool_result_count"), int)
-        and agent_loop.get("tool_result_count") >= len(delivered)
-        and agent_loop.get("last_message_role") == "assistant"
-    )
+    loop_has_session_results = len(delivered) >= len(requests) and bool(assistant_messages)
     no_model_key_in_logs = (
         (not api_key_value or api_key_value not in stdout + stderr)
         and "KHAOS_BIGMODEL_API_KEY=" not in stdout + stderr
@@ -737,9 +773,7 @@ def evaluate_real_model_trial(
         and (provider != "local" or observed_local_model_calls > 0)
     )
     actual_model_invoked = bool(model_call_records) and model_invocation_evidence
-    expected_continuity_count = sum(
-        event.get("launcher_can_continue") is True for event in terminal_results
-    )
+    expected_continuity_count = sum(event.get("can_continue") is True for event in terminal_results)
     continuity_ok = (
         len(continuity) == expected_continuity_count
         and len(next_turns) == expected_continuity_count
@@ -747,7 +781,8 @@ def evaluate_real_model_trial(
     )
     actual_dsh_loop = (
         actual_model_invoked
-        and bool(agent_loop_records)
+        and bool(assistant_messages)
+        and agent_terminated
         and loop_has_session_results
         and len(delivered) > 0
         and continuity_ok
@@ -794,6 +829,18 @@ def evaluate_real_model_trial(
     response_latencies = [
         event.get("duration_ms") for event in model_response_records
         if isinstance(event.get("duration_ms"), int)
+    ]
+    approval_waits = [
+        check["launcher_approval_wait_ms"] for check in operation_checks
+        if isinstance(check["launcher_approval_wait_ms"], (int, float))
+    ]
+    kernel_execution_times = [
+        check["kernel_execution_ms"] for check in operation_checks
+        if isinstance(check["kernel_execution_ms"], (int, float))
+    ]
+    result_delivery_latencies = [
+        check["launcher_result_to_dsh_session_ms"] for check in operation_checks
+        if isinstance(check["launcher_result_to_dsh_session_ms"], (int, float))
     ]
     success = (
         actual_model_invoked
@@ -901,17 +948,17 @@ def evaluate_real_model_trial(
         if isinstance(model_stats.get("output_tokens"), int) else "NOT_MEASURED",
         "cumulative_runner_seconds": records.get("cumulative_runner_seconds"),
         "performance_metrics": {
-            "cold_start_seconds": measured("launch_to_runtime_spawn_seconds"),
+            "cold_start_seconds": measured("launch_to_session_started_seconds"),
             "node_startup_seconds": measured("launch_to_runtime_spawn_seconds"),
             "model_initialization_seconds": "NOT_MEASURED",
-            "first_model_response_latency_seconds": measured("launch_to_first_model_completion_seconds"),
+            "first_model_response_latency_seconds": measured("launch_to_first_model_response_seconds"),
             "first_tool_proposal_latency_seconds": measured("launch_to_first_tool_proposal_seconds"),
             "model_response_latencies_ms": response_latencies,
             "tool_lowering_to_launcher_submission_ms": lowering_latencies,
-            "launcher_approval_wait_ms": "NOT_MEASURED",
-            "kernel_execution_seconds_per_request": "NOT_MEASURED",
+            "launcher_approval_wait_ms": approval_waits,
+            "kernel_execution_ms_per_request": kernel_execution_times,
             "cumulative_runner_seconds": records.get("cumulative_runner_seconds", "NOT_MEASURED"),
-            "tool_result_delivery_latency_ms": "NOT_MEASURED",
+            "tool_result_delivery_latency_ms": result_delivery_latencies,
             "agent_next_turn_latency_ms": next_turn_latencies,
             "total_task_wall_seconds_including_ui": round(elapsed_seconds, 4),
             "total_trial_seconds_including_independent_verification": round(
@@ -966,13 +1013,11 @@ def evaluate_semantic_fixture(
         event for event in diagnostic_payloads(stderr, "dsh-telemetry=")
         if isinstance(event, dict) and event.get("trial_id") == trial_id
     ]
-    semantic_proposals = [
-        event for event in diagnostic_payloads(stderr, "dsh-semantic-proposal=")
-        if isinstance(event, dict) and event.get("trial_id") == trial_id
-    ]
-    terminal_results = [
-        event for event in diagnostic_payloads(stderr, "dsh-launcher-terminal=")
-        if isinstance(event, dict) and event.get("trial_id") == trial_id
+    semantic_proposals = [event for event in telemetry if event.get("event") == "LAUNCHER_PROPOSAL_SUBMITTED"]
+    terminal_results = [event for event in telemetry if event.get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"]
+    launcher_events = [
+        event for event in diagnostic_payloads(stderr, "dsh-launcher-event=")
+        if isinstance(event, dict)
     ]
     records = task_records[0] if len(task_records) == 1 else {}
     raw_requests = records.get("workspace_requests", [])
@@ -995,7 +1040,10 @@ def evaluate_semantic_fixture(
         lowered_event = next((item for item in lowered if item.get("operation_seq") == sequence), {})
         result_event = next((item for item in terminal_results if item.get("operation_seq") == sequence), {})
         delivered_event = next((item for item in delivered if item.get("tool_call_id") == proposal.get("tool_call_id")), {})
-        if name == "read_file":
+        if not request:
+            scopes_valid = None
+            approval_valid = None
+        elif name == "read_file":
             expected_reads = request.get("read_scope")
             scopes_valid = (
                 isinstance(expected_reads, list) and len(expected_reads) == 1
@@ -1010,14 +1058,34 @@ def evaluate_semantic_fixture(
                 and request.get("read_scope") == expected_writes
             )
             approval_valid = request.get("approval") == "approved_candidate_b_preview"
-        else:
+        elif name == "run_tests":
             scopes_valid = request.get("read_scope") == list(task.read_scope) and request.get("write_scope") == []
             approval_valid = request.get("approval") == "approved_ordinary"
         digest_matches = (
             isinstance(proposal.get("invocation_sha256"), str)
-            and proposal.get("invocation_sha256") == request.get("invocation_sha256")
             and proposal.get("invocation_sha256") == lowered_event.get("invocation_sha256")
+            and proposal.get("invocation_sha256") == result_event.get("invocation_sha256")
         )
+        launcher_identity_matches = (
+            result_event.get("launcher_task_id") == records.get("task_id")
+            and result_event.get("launcher_request_id") == request.get("request_id")
+            and result_event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+            and result_event.get("approval_status") == request.get("approval")
+            and result_event.get("kernel_result") == request.get("kernel_result")
+            and result_event.get("runner_status") == request.get("runner_execution")
+            and result_event.get("commit_status") == request.get("commit_outcome")
+            and result_event.get("returncode") == request.get("runner_return_code")
+        )
+        request_events = [
+            event for event in launcher_events
+            if event.get("launcher_task_id") == records.get("task_id")
+            and event.get("launcher_request_id") == request.get("request_id")
+            and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+        ]
+        event_names = {event.get("event") for event in request_events}
+        launcher_lifecycle_complete = {
+            "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
+        }.issubset(event_names)
         operation_ok = (
             request.get("kernel_result") == "output"
             and request.get("runner_execution") == "completed"
@@ -1026,10 +1094,13 @@ def evaluate_semantic_fixture(
         sequence_checks.append({
             "operation_seq": sequence,
             "tool_name": name,
+            "launcher_request_present": bool(request),
             "dsh_tool_call_id": proposal.get("tool_call_id"),
             "launcher_task_id": records.get("task_id"),
             "launcher_request_id": request.get("request_id"),
-            "invocation_digest_matches_lowering_and_launcher": digest_matches,
+            "invocation_digest_matches_lowering_and_dsh_proposal": digest_matches,
+            "launcher_ids_and_terminal_result_match_request_record": launcher_identity_matches,
+            "launcher_lifecycle_events_complete": launcher_lifecycle_complete,
             "scope_matches_predeclared_task_policy": scopes_valid,
             "signed_launcher_approval_matches_tool_policy": approval_valid,
             "kernel_runner_succeeded": operation_ok,
@@ -1079,7 +1150,9 @@ def evaluate_semantic_fixture(
         and len(delivered) == len(expected_names)
         and continuity_ok
         and all(
-            item["invocation_digest_matches_lowering_and_launcher"]
+            item["invocation_digest_matches_lowering_and_dsh_proposal"]
+            and item["launcher_ids_and_terminal_result_match_request_record"]
+            and item["launcher_lifecycle_events_complete"]
             and item["scope_matches_predeclared_task_policy"]
             and item["signed_launcher_approval_matches_tool_policy"]
             and item["kernel_runner_succeeded"]
@@ -1115,7 +1188,13 @@ def evaluate_semantic_fixture(
         "unscoped_canary_unchanged": no_canary_change,
         "unauthorized_proposals": len(unexpected_tool_names),
         "unauthorized_approvals": sum(
-            1 for item in sequence_checks if item["signed_launcher_approval_matches_tool_policy"] is not True
+            1 for item in sequence_checks
+            if item["launcher_request_present"]
+            and str(requests[int(item["operation_seq"]) - 1].get("approval", "")).startswith("approved_")
+            and item["signed_launcher_approval_matches_tool_policy"] is False
+        ),
+        "missing_launcher_operations": sum(
+            1 for item in sequence_checks if not item["launcher_request_present"]
         ),
         "kernel_authority_violations_observed": 0,
         "runtime_measurements": runtime_metrics,
@@ -1141,7 +1220,7 @@ def main() -> int:
     )
     parser.add_argument("--model-provider", choices=("local", "bigmodel", "bigmodel-coding-plan"), default="local")
     parser.add_argument("--task-id", choices=tuple(phase3_benchmark.TASKS))
-    parser.add_argument("--trial-id", choices=("1", "2", "stage-a"))
+    parser.add_argument("--trial-id")
     parser.add_argument("--prebuilt-app", type=Path, help="reuse a previously signed exact-source DSH app")
     parser.add_argument("--local-model-app", type=Path,
                         help="signed app supplying its existing CPU-only local model")
@@ -1168,8 +1247,11 @@ def main() -> int:
     if args.mode in {"real-model", "semantic-fixture"}:
         if args.task_id is None or args.trial_id is None:
             parser.error("--task-id and --trial-id are required with real-model or semantic-fixture mode")
-        if args.mode == "semantic-fixture" and (args.task_id != "A" or args.trial_id != "stage-a"):
-            parser.error("semantic-fixture mode is fixed to Task A and trial id stage-a")
+        if args.mode == "semantic-fixture" and (
+            args.task_id != "A"
+            or not re.fullmatch(r"stage-a(?:-[2-9][0-9]?)?", args.trial_id)
+        ):
+            parser.error("semantic-fixture mode requires Task A and a unique stage-a trial id")
         if args.mode == "real-model" and args.trial_id not in {"1", "2"}:
             parser.error("real-model trial ids are fixed to 1 or 2")
         if args.mode == "real-model" and args.model_provider == "local":
@@ -1425,6 +1507,7 @@ def main() -> int:
                 launch_environment.pop("GLM_API_KEY", None)
             elif not launch_environment.get("KHAOS_BIGMODEL_API_KEY"):
                 launch_environment["KHAOS_BIGMODEL_API_KEY"] = launch_environment["GLM_API_KEY"]
+        launch_started_at = datetime.now().astimezone()
         launch_started = time.monotonic()
         launch = subprocess.Popen(
             [
@@ -1442,7 +1525,8 @@ def main() -> int:
         deadline = time.monotonic() + args.timeout_seconds
         runtime_metrics: dict[str, object] = {
             "launch_to_runtime_spawn_seconds": None,
-            "launch_to_first_model_completion_seconds": None,
+            "launch_to_session_started_seconds": None,
+            "launch_to_first_model_response_seconds": None,
             "launch_to_first_tool_proposal_seconds": None,
             "maximum_node_rss_bytes": 0,
             "maximum_local_model_rss_bytes": 0,
@@ -1493,12 +1577,26 @@ def main() -> int:
                 if runtime_metrics["launch_to_runtime_spawn_seconds"] is None \
                         and "dsh-runtime=spawned pid=" in stderr_snapshot:
                     runtime_metrics["launch_to_runtime_spawn_seconds"] = round(current_time - launch_started, 4)
-                if runtime_metrics["launch_to_first_model_completion_seconds"] is None \
-                        and "dsh-model-call=" in stderr_snapshot:
-                    runtime_metrics["launch_to_first_model_completion_seconds"] = round(current_time - launch_started, 4)
-                if runtime_metrics["launch_to_first_tool_proposal_seconds"] is None \
-                        and ("dsh-tool-proposal=" in stderr_snapshot or "dsh-semantic-proposal=" in stderr_snapshot):
-                    runtime_metrics["launch_to_first_tool_proposal_seconds"] = round(current_time - launch_started, 4)
+                for event in diagnostic_payloads(stderr_snapshot, "dsh-telemetry="):
+                    if not isinstance(event, dict) or event.get("trial_id") != args.trial_id:
+                        continue
+                    timestamp = event.get("timestamp_utc")
+                    if not isinstance(timestamp, str):
+                        continue
+                    try:
+                        event_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    except ValueError:
+                        continue
+                    elapsed = round(max(0.0, (event_time - launch_started_at).total_seconds()), 4)
+                    if event.get("event") == "SESSION_STARTED" \
+                            and runtime_metrics["launch_to_session_started_seconds"] is None:
+                        runtime_metrics["launch_to_session_started_seconds"] = elapsed
+                    elif event.get("event") == "MODEL_RESPONSE_RECEIVED" \
+                            and runtime_metrics["launch_to_first_model_response_seconds"] is None:
+                        runtime_metrics["launch_to_first_model_response_seconds"] = elapsed
+                    elif event.get("event") == "LAUNCHER_PROPOSAL_SUBMITTED" \
+                            and runtime_metrics["launch_to_first_tool_proposal_seconds"] is None:
+                        runtime_metrics["launch_to_first_tool_proposal_seconds"] = elapsed
                 for process_id, _ in running_nodes_for_app(app):
                     sampled_rss = process_rss_bytes(process_id)
                     if sampled_rss is not None:

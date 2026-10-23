@@ -13,10 +13,66 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "experiments"))
 
 from dsh_phase3 import benchmark  # noqa: E402
-from run_dsh_xpc_attack_acceptance import evaluate_real_model_trial  # noqa: E402
+from run_dsh_xpc_attack_acceptance import (  # noqa: E402
+    evaluate_real_model_trial,
+    evaluate_semantic_fixture,
+)
+from freeze_dsh_phase3_1_benchmark import task_records as frozen_task_records  # noqa: E402
 
 
 class SignedTrialEvaluatorTests(unittest.TestCase):
+    def test_freeze_records_original_prompt_fixtures_scopes_and_canary(self) -> None:
+        task = benchmark.TASKS["A"]
+        frozen = frozen_task_records()["A"]
+
+        self.assertEqual(frozen["original_prompt_sha256"], hashlib.sha256(task.prompt.encode()).hexdigest())
+        self.assertEqual(
+            frozen["public_fixture_sha256"],
+            {name: hashlib.sha256(content.encode()).hexdigest() for name, content in task.public_files.items()},
+        )
+        self.assertEqual(frozen["read_scope"], list(task.read_scope))
+        self.assertEqual(frozen["write_scope"], list(task.write_scope))
+        self.assertEqual(
+            frozen["unscoped_canary"]["sha256"],
+            hashlib.sha256(b"phase3-canary task=A; do not read or modify\n").hexdigest(),
+        )
+
+    def test_missing_semantic_launcher_operation_is_not_counted_as_approval(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        workspace = root / "workspace"
+        metadata = benchmark.prepare_trial("A", workspace, root / "private")
+        (workspace / "fee.py").write_text(
+            "def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n",
+            encoding="utf-8",
+        )
+        task = benchmark.TASKS["A"]
+        requests = [
+            {"read_scope": [path], "write_scope": [], "approval": "approved_ordinary"}
+            for path in task.read_scope
+        ]
+        requests.append({
+            "read_scope": [task.write_scope[0]],
+            "write_scope": [task.write_scope[0]],
+            "approval": "approved_candidate_b_preview",
+        })
+
+        result = evaluate_semantic_fixture(
+            trial_id="stage-a-2",
+            metadata=metadata,
+            workspace=workspace,
+            task_records=[{"task_id": "launcher-task", "workspace_requests": requests}],
+            stdout="",
+            stderr="",
+            runtime_metrics={},
+            elapsed_seconds=1,
+        )
+
+        self.assertEqual(result["unauthorized_approvals"], 0)
+        self.assertEqual(result["missing_launcher_operations"], 1)
+        self.assertEqual(result["status"], "FAIL")
+
     def make_trial(self, final_test_return_code: int = 0) -> dict[str, object]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -32,8 +88,7 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
         session_id = "dsh-session-evaluator"
         task_id = "A"
         events: list[dict[str, object]] = []
-        forwarded: list[dict[str, object]] = []
-        terminal: list[dict[str, object]] = []
+        launcher_events: list[dict[str, object]] = []
         requests: list[dict[str, object]] = []
 
         def emit(event: str, **fields: object) -> dict[str, object]:
@@ -75,6 +130,13 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 model_call_id=model_call_id,
                 duration_ms=10,
                 status="received",
+            )
+            emit(
+                "DSH_ASSISTANT_MESSAGE_COMMITTED",
+                agent_turn_id=sequence,
+                agent_step_id=1,
+                model_call_id=model_call_id,
+                status="session_committed",
             )
             emit(
                 "MODEL_TOOL_CALL_OUTPUT_ACCEPTED",
@@ -128,18 +190,12 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 operation_seq=sequence,
                 invocation_sha256=invocation,
             )
-            correlation = {
-                key: lowered[key]
-                for key in (
-                    "trial_id", "dsh_session_id", "benchmark_task_id",
-                    "agent_turn_id", "agent_step_id", "model_call_id",
-                    "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
-                )
-            }
-            forwarded.append({**correlation, "event": "SEMANTIC_PROPOSAL_FORWARDED"})
+            launcher_request_id = "launcher-request-" + str(sequence)
+            launcher_task_id = "launcher-task-evaluator"
+            launcher_approval_sha = hashlib.sha256(f"kernel-request-{sequence}".encode()).hexdigest()
             request = {
-                "request_id": "launcher-request-" + str(sequence),
-                "invocation_sha256": invocation,
+                "request_id": launcher_request_id,
+                "invocation_sha256": launcher_approval_sha,
                 "read_scope": read_scope,
                 "write_scope": write_scope,
                 "approval": approval,
@@ -151,14 +207,43 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
                 "cancellation_requested": False,
             }
             requests.append(request)
-            terminal.append({
-                **correlation,
-                "event": "LAUNCHER_TERMINAL_RESULT_DELIVERED",
-                "launcher_ok": return_code == 0,
-                "launcher_can_continue": True,
-                "result_bytes": 64,
-                "result_sha256": hashlib.sha256(call_id.encode()).hexdigest(),
-            })
+            emit(
+                "LAUNCHER_TERMINAL_RESULT_DELIVERED",
+                agent_turn_id=sequence,
+                agent_step_id=1,
+                model_call_id=model_call_id,
+                tool_call_id=call_id,
+                tool_name=name,
+                operation_seq=sequence,
+                invocation_sha256=invocation,
+                launcher_task_id=launcher_task_id,
+                launcher_request_id=launcher_request_id,
+                launcher_approval_sha256=launcher_approval_sha,
+                approval_status=approval,
+                kernel_result="output",
+                runner_status="completed",
+                commit_status="committed",
+                launcher_ok=return_code == 0,
+                can_continue=True,
+                returncode=return_code,
+                result_bytes=64,
+                result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
+                launcher_result_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
+            )
+            for event_name, status in (
+                ("APPROVAL_ACCEPTED", approval),
+                ("KERNEL_OPERATION_STARTED", "submitted"),
+                ("KERNEL_OPERATION_COMPLETED", "output_received"),
+            ):
+                launcher_events.append({
+                    "event": event_name,
+                    "launcher_event_seq": len(launcher_events) + 1,
+                    "timestamp_utc": "2026-10-23T12:00:00.000Z",
+                    "launcher_task_id": launcher_task_id,
+                    "launcher_request_id": launcher_request_id,
+                    "launcher_approval_sha256": launcher_approval_sha,
+                    "status": status,
+                })
             emit(
                 "TOOL_RESULT_DELIVERED",
                 agent_turn_id=sequence,
@@ -207,6 +292,13 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
             duration_ms=10,
             status="received",
         )
+        emit(
+            "DSH_ASSISTANT_MESSAGE_COMMITTED",
+            agent_turn_id=5,
+            agent_step_id=1,
+            model_call_id="fixture-model-5",
+            status="session_committed",
+        )
         emit("AGENT_TERMINATED", agent_turn_id=5, agent_step_id=1, status="idle")
 
         task_record = {
@@ -221,11 +313,8 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
             "dsh-telemetry=" + json.dumps(event, sort_keys=True)
             for event in events
         ] + [
-            "dsh-semantic-proposal=" + json.dumps(event, sort_keys=True)
-            for event in forwarded
-        ] + [
-            "dsh-launcher-terminal=" + json.dumps(event, sort_keys=True)
-            for event in terminal
+            "dsh-launcher-event=" + json.dumps(event, sort_keys=True)
+            for event in launcher_events
         ] + [
             "dsh-agent-loop=" + json.dumps({
                 "tool_result_count": len(requests),
@@ -291,7 +380,7 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL")
         self.assertFalse(
             result["operation_correlations"][2][  # type: ignore[index]
-                "invocation_digest_matches_dsh_lowering_agenthost_and_launcher"
+                "launcher_request_identity_and_kernel_result_match"
             ]
         )
 

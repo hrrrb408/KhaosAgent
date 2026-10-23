@@ -353,6 +353,9 @@ export class KhaosDshModelAdapter extends LlmAdapter {
         observed_tool_result: observed,
       }
       this.telemetry.emit('SESSION_CONTINUITY_CHECK', correlation)
+      if (this.telemetry.nextPendingContinuityCheck() === toolCallId) {
+        this.telemetry.completeContinuityCheck(toolCallId)
+      }
       if (!observed) {
         this.telemetry.emit('MODEL_REQUEST_FAILED', {
           agent_turn_id: position?.turn ?? 0,

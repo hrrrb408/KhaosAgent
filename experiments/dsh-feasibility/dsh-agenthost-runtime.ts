@@ -26,6 +26,7 @@ import {
 } from './khaos-model-bridge.ts'
 import { completeWithLocalModel } from './khaos-local-model.ts'
 import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
+import { semanticCodingResponses } from './dsh-semantic-fixture.ts'
 import {
   createMaliciousCordisPlugin,
   hostileProbePasses,
@@ -38,6 +39,8 @@ interface HostInput {
   text?: string
   ok?: boolean
   can_continue?: boolean
+  returncode?: number
+  launcher_trace?: unknown
   request_id?: string
   elapsed_ms?: number
   response?: unknown
@@ -188,39 +191,6 @@ function codingResponses() {
         return textResponse(`DSH consumed the actual passing test result: ${observed}`)
       }
       return textResponse(`DSH consumed the actual non-passing test result: ${observed}`)
-    },
-  ]
-}
-
-function semanticCodingResponses() {
-  return [
-    toolCallResponse('phase31-read-fee', 'read_file', { path: 'fee.py' }),
-    options => {
-      if (!lastToolResultText(options.messages).includes('return amount * rate')) {
-        return textResponse('The actual fee.py read result did not contain the expected function.')
-      }
-      return toolCallResponse('phase31-read-tests', 'read_file', { path: 'test_public.py' })
-    },
-    options => {
-      if (!lastToolResultText(options.messages).includes('test_fee_is_rounded_to_cents')) {
-        return textResponse('The actual public test read result was incomplete.')
-      }
-      return toolCallResponse('phase31-edit-fee', 'replace_text', {
-        path: 'fee.py',
-        oldText: 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n',
-        newText: 'def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n',
-      })
-    },
-    options => {
-      const edit = JSON.parse(lastToolResult(options.messages)) as { ok?: unknown; returncode?: unknown }
-      if (edit.ok !== true || edit.returncode !== 0) return textResponse('The actual scoped edit did not complete successfully.')
-      return toolCallResponse('phase31-test-fee', 'run_tests', { profile: 'public' })
-    },
-    options => {
-      const test = JSON.parse(lastToolResult(options.messages)) as { returncode?: unknown }
-      return test.returncode === 0
-        ? textResponse('The actual public tests passed after the controlled edit.')
-        : textResponse('The actual public tests failed; no success is claimed.')
     },
   ]
 }
@@ -657,6 +627,29 @@ async function createTask(text: string): Promise<void> {
         const position = telemetry.position()
         const modelCallId = `${phase31.input.trial_id}:fixture:${position.turn}:${position.step}`
         telemetry.beginModelCall(modelCallId)
+        const toolCallId = telemetry.nextPendingContinuityCheck()
+        if (toolCallId) {
+          const toolMessage = [...session.deriveMessages()].reverse().find(message =>
+            message.role === 'tool' && message.toolCallId === toolCallId)
+          const observed = toolMessage !== undefined
+            && telemetry.matchesDeliveredToolResult(
+              toolCallId,
+              toolMessage.content ?? null,
+              toolMessage.isError === true,
+            )
+          const correlation = {
+            agent_turn_id: position.turn,
+            agent_step_id: position.step,
+            model_call_id: modelCallId,
+            tool_call_id: toolCallId,
+            ...(telemetry.operationSequence(toolCallId) === undefined
+              ? {} : { operation_seq: telemetry.operationSequence(toolCallId) as number }),
+            observed_tool_result: observed,
+          }
+          telemetry.emit('SESSION_CONTINUITY_CHECK', correlation)
+          if (observed) telemetry.emit('AGENT_NEXT_TURN_STARTED', correlation)
+          telemetry.completeContinuityCheck(toolCallId)
+        }
         telemetry.emit('MODEL_REQUEST_STARTED', {
           agent_turn_id: position.turn,
           agent_step_id: position.step,
@@ -838,6 +831,10 @@ async function handle(input: HostInput): Promise<void> {
       ok: input.ok,
       canContinue: input.can_continue,
       text: input.text,
+      ...(Number.isInteger(input.returncode)
+        && Math.abs(input.returncode as number) <= 2_147_483_647
+        ? { returncode: input.returncode as number } : {}),
+      ...(input.launcher_trace === undefined ? {} : { launcherTrace: input.launcher_trace }),
     })
     return
   }

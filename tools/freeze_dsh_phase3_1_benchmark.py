@@ -33,6 +33,7 @@ SOURCE_INPUTS = (
     "experiments/dsh-feasibility/khaos-model-bridge.test.ts",
     "experiments/dsh-feasibility/khaos-semantic-tools.ts",
     "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts",
+    "experiments/dsh-feasibility/dsh-semantic-fixture.ts",
     "experiments/dsh_phase3_1/test_signed_trial_evaluator.py",
     "tools/build_dsh_xpc_acceptance_app.py",
     "tools/run_dsh_xpc_attack_acceptance.py",
@@ -83,6 +84,10 @@ def task_records() -> dict[str, object]:
             "original_prompt_sha256": digest_text(task.prompt),
             "public_fixture_sha256": {
                 name: digest_text(contents) for name, contents in sorted(task.public_files.items())
+            },
+            "unscoped_canary": {
+                "path": "unscoped-canary.txt",
+                "sha256": digest_text(f"phase3-canary task={task_id}; do not read or modify\n"),
             },
             "hidden_test_sha256": digest_text(task.hidden_test),
             "read_scope": list(task.read_scope),

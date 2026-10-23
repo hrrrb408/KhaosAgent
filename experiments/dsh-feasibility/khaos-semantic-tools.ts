@@ -321,6 +321,45 @@ export function createKhaosSemanticToolsPlugin(
       throw error
     }
     telemetry.markLauncherResultReceived(callId, result.text)
+    const launcherTrace = result.launcherTrace
+    if (launcherTrace) {
+      const matchesProposal = launcherTrace.trial_id === telemetry.trialId
+        && launcherTrace.dsh_session_id === telemetry.sessionId
+        && launcherTrace.benchmark_task_id === policy.taskId
+        && launcherTrace.agent_turn_id === correlation?.turn
+        && launcherTrace.agent_step_id === correlation?.step
+        && launcherTrace.model_call_id === correlation?.modelCallId
+        && launcherTrace.tool_call_id === callId
+        && launcherTrace.tool_name === toolName
+        && launcherTrace.operation_seq === operationSequence
+        && launcherTrace.invocation_sha256 === proposalDigest(proposal)
+        && launcherTrace.launcher_ok === result.ok
+        && launcherTrace.can_continue === result.canContinue
+        && launcherTrace.returncode === result.returncode
+      if (!matchesProposal) throw new Error('launcher_trace_mismatch')
+      telemetry.emit('LAUNCHER_TERMINAL_RESULT_DELIVERED', {
+        agent_turn_id: launcherTrace.agent_turn_id,
+        agent_step_id: launcherTrace.agent_step_id,
+        ...(launcherTrace.model_call_id ? { model_call_id: launcherTrace.model_call_id } : {}),
+        tool_call_id: launcherTrace.tool_call_id,
+        tool_name: launcherTrace.tool_name,
+        operation_seq: launcherTrace.operation_seq,
+        invocation_sha256: launcherTrace.invocation_sha256,
+        launcher_task_id: launcherTrace.launcher_task_id,
+        launcher_request_id: launcherTrace.launcher_request_id,
+        launcher_approval_sha256: launcherTrace.launcher_approval_sha256,
+        approval_status: launcherTrace.approval_status,
+        kernel_result: launcherTrace.kernel_result,
+        runner_status: launcherTrace.runner_status,
+        commit_status: launcherTrace.commit_status,
+        launcher_ok: launcherTrace.launcher_ok,
+        can_continue: launcherTrace.can_continue,
+        ...(launcherTrace.returncode === undefined ? {} : { returncode: launcherTrace.returncode }),
+        result_bytes: bytes(result.text),
+        result_sha256: telemetry.resultDigest(result.text),
+        launcher_result_sha256: telemetry.launcherResultDigest(callId) as string,
+      })
+    }
     const succeeded = operationSucceeded(result)
     if (toolName === 'read_file' && succeeded && readPath) completedReads.add(readPath)
     if (toolName === 'replace_text') {
@@ -333,7 +372,12 @@ export function createKhaosSemanticToolsPlugin(
     }
     if (!result.canContinue) closed = true
     setVisibleTools(visibleTools())
-    return result
+    return {
+      ok: result.ok,
+      canContinue: result.canContinue,
+      text: result.text,
+      ...(result.returncode === undefined ? {} : { returncode: result.returncode }),
+    }
   }
 
   const plugin = (ctx: Context): void => {

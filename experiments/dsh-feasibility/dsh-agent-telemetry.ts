@@ -41,6 +41,8 @@ const FIELDS = new Set([
   'write_operation', 'duration_ms', 'status', 'error_code', 'returncode',
   'can_continue', 'result_bytes', 'result_sha256', 'observed_tool_result',
   'launcher_result_sha256', 'dsh_event_seq', 'token_input', 'token_output', 'model_provider', 'model_id',
+  'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
+  'kernel_result', 'runner_status', 'commit_status', 'launcher_ok',
 ])
 
 function safeId(value: string): boolean {
@@ -55,6 +57,7 @@ export class DshAgentTelemetry {
   private modelCallId: string | undefined
   private readonly toolOperationSequences = new Map<string, number>()
   private readonly deliveredToolResults = new Map<string, { digest: string; isError: boolean }>()
+  private readonly pendingContinuityChecks: string[] = []
   private readonly launcherResults = new Map<string, string>()
 
   constructor(
@@ -116,6 +119,7 @@ export class DshAgentTelemetry {
       throw new Error('invalid_tool_result_correlation')
     }
     this.deliveredToolResults.set(callId, { digest: this.resultDigest(content), isError })
+    this.pendingContinuityChecks.push(callId)
   }
 
   matchesDeliveredToolResult(callId: string, content: unknown, isError: boolean): boolean {
@@ -123,6 +127,17 @@ export class DshAgentTelemetry {
     return expected !== undefined
       && expected.isError === isError
       && expected.digest === this.resultDigest(content)
+  }
+
+  nextPendingContinuityCheck(): string | undefined {
+    return this.pendingContinuityChecks[0]
+  }
+
+  completeContinuityCheck(callId: string): void {
+    if (this.pendingContinuityChecks[0] !== callId) {
+      throw new Error('invalid_tool_result_continuity_order')
+    }
+    this.pendingContinuityChecks.shift()
   }
 
   resultDigest(value: unknown): string {

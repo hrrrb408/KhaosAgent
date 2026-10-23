@@ -276,6 +276,515 @@ private enum DSHModelBridgeBootstrapClient {
     }
 
 
+def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
+    relative_path = "khaos/macos/AgentHostProtocol.swift"
+    path = source_root / relative_path
+    original = path.read_text(encoding="utf-8")
+    transformed = original
+    old_tool_result = (
+        '            ], allowModelAPIKey: true),\n'
+        '                  let ok = object["ok"] as? Bool,\n'
+    )
+    new_tool_result = (
+        '            ], allowModelAPIKey: true, allowExperimentalToolTrace: true),\n'
+        '                  let ok = object["ok"] as? Bool,\n'
+    )
+    if transformed.count(old_tool_result) != 1:
+        raise RuntimeError("expected one tool_result input validation clause")
+    transformed = transformed.replace(old_tool_result, new_tool_result)
+    old_signature = (
+        "        allowModelAPIKey: Bool\n"
+        "    ) -> Bool {\n"
+        "        var expected = required\n"
+    )
+    new_signature = (
+        "        allowModelAPIKey: Bool,\n"
+        "        allowExperimentalToolTrace: Bool = false\n"
+        "    ) -> Bool {\n"
+        "        var expected = required\n"
+    )
+    if transformed.count(old_signature) != 1:
+        raise RuntimeError("expected one protocol input-key validator signature")
+    transformed = transformed.replace(old_signature, new_signature)
+    old_return = "        return Set(object.keys) == expected\n    }\n\n    private static func validModelAPIKey"
+    new_return = '''        if object.keys.contains("returncode") || object.keys.contains("launcher_trace") {
+            guard allowExperimentalToolTrace else { return false }
+            if object.keys.contains("returncode") {
+                guard validExperimentalReturnCode(object["returncode"]) else { return false }
+                expected.insert("returncode")
+            }
+            if object.keys.contains("launcher_trace") {
+                guard validExperimentalLauncherTrace(object["launcher_trace"]) else { return false }
+                expected.insert("launcher_trace")
+            }
+        }
+        return Set(object.keys) == expected
+    }
+
+    private static func validExperimentalReturnCode(_ value: Any?) -> Bool {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(),
+              number.doubleValue.isFinite,
+              number.doubleValue.rounded(.towardZero) == number.doubleValue else { return false }
+        return number.int64Value >= Int64(Int32.min) && number.int64Value <= Int64(Int32.max)
+    }
+
+    private static func validExperimentalLauncherTrace(_ value: Any?) -> Bool {
+        guard let record = value as? [String: Any] else { return false }
+        let required: Set<String> = [
+            "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
+            "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
+            "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
+            "approval_status", "kernel_result", "runner_status", "commit_status",
+            "launcher_ok", "can_continue",
+        ]
+        let optional: Set<String> = ["model_call_id", "returncode"]
+        guard required.isSubset(of: Set(record.keys)),
+              Set(record.keys).subtracting(required).isSubset(of: optional) else { return false }
+        func safeID(_ key: String) -> Bool {
+            guard let value = record[key] as? String else { return false }
+            return value.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil
+        }
+        func safeStatus(_ key: String) -> Bool {
+            guard let value = record[key] as? String else { return false }
+            return value.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil
+        }
+        func safeInteger(_ key: String, minimum: Int, maximum: Int) -> Bool {
+            guard let number = record[key] as? NSNumber,
+                  CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  number.doubleValue.isFinite,
+                  number.doubleValue.rounded(.towardZero) == number.doubleValue else { return false }
+            return number.int64Value >= Int64(minimum) && number.int64Value <= Int64(maximum)
+        }
+        func safeBoolean(_ key: String) -> Bool {
+            guard let number = record[key] as? NSNumber else { return false }
+            return CFGetTypeID(number) == CFBooleanGetTypeID()
+        }
+        guard ["trial_id", "dsh_session_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
+                .allSatisfy(safeID),
+              ["agent_turn_id", "agent_step_id"].allSatisfy({ safeInteger($0, minimum: 0, maximum: 1_000_000) }),
+              safeInteger("operation_seq", minimum: 1, maximum: 8),
+              ["benchmark_task_id", "tool_name", "approval_status", "kernel_result", "runner_status", "commit_status"]
+                .allSatisfy(safeStatus),
+              ["A", "B", "C", "D"].contains(record["benchmark_task_id"] as? String ?? ""),
+              ["read_file", "replace_text", "run_tests"].contains(record["tool_name"] as? String ?? ""),
+              ["invocation_sha256", "launcher_approval_sha256"].allSatisfy({ key in
+                  (record[key] as? String)?.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+              }),
+              safeBoolean("launcher_ok"), safeBoolean("can_continue"),
+              record["model_call_id"] == nil || safeID("model_call_id"),
+              record["returncode"] == nil || validExperimentalReturnCode(record["returncode"]) else {
+            return false
+        }
+        guard let approval = record["approval_status"] as? String,
+              ["approved_ordinary", "approved_candidate_b_preview", "denied", "preview_incomplete"].contains(approval) else {
+            return false
+        }
+        return true
+    }
+
+    private static func validModelAPIKey'''
+    if transformed.count(old_return) != 1:
+        raise RuntimeError("expected one protocol input-key validator return")
+    transformed = transformed.replace(old_return, new_return)
+    path.write_text(transformed, encoding="utf-8")
+    return {
+        "path": relative_path,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "allow only bounded result metadata on the disposable experimental tool_result path; it conveys Runner return status and audit correlation, never authority",
+    }
+
+
+def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str, str]:
+    relative_path = "khaos/macos/AgentHostClient.swift"
+    path = source_root / relative_path
+    original = path.read_text(encoding="utf-8")
+    transformed = original
+    property_marker = "    private let modelAPIKey: String?\n"
+    telemetry_properties = (
+        property_marker
+        + "    private let experimentalTelemetryLock = NSLock()\n"
+        + "    private var experimentalTelemetrySequence = 0\n"
+        + "    private var experimentalTelemetryIdentity: (trial: String, session: String, task: String)?\n"
+        + "    private var pendingDSHCorrelation: [String: Any]?\n"
+    )
+    if transformed.count(property_marker) != 1:
+        raise RuntimeError("expected one AgentHostClient model-key property")
+    transformed = transformed.replace(property_marker, telemetry_properties)
+    old_method = '''    func sendToolResultAsync(
+        ok: Bool,
+        canContinue: Bool,
+        text: String,
+        activePlugin: AgentHostPluginMetadata?,
+        completion: @escaping (Result<AgentHostReply, Error>) -> Void
+    ) throws {
+        let frame = try AgentHostProtocol.toolResult(
+            ok: ok,
+            canContinue: canContinue,
+            text: text,
+            activePlugin: activePlugin,
+            modelAPIKey: modelAPIKey
+        )
+        requestAsync(frame, completion: completion)
+    }
+'''
+    new_method = '''    func sendToolResultAsync(
+        ok: Bool,
+        canContinue: Bool,
+        text: String,
+        activePlugin: AgentHostPluginMetadata?,
+        launcherTrace: [String: Any]? = nil,
+        completion: @escaping (Result<AgentHostReply, Error>) -> Void
+    ) throws {
+        let frame = try AgentHostProtocol.toolResult(
+            ok: ok,
+            canContinue: canContinue,
+            text: text,
+            activePlugin: activePlugin,
+            modelAPIKey: modelAPIKey
+        )
+        let tracedFrame = try experimentalToolResultFrame(
+            frame,
+            launcherTrace: launcherTrace,
+            ok: ok,
+            canContinue: canContinue
+        )
+        requestAsync(tracedFrame, completion: completion)
+    }
+'''
+    if transformed.count(old_method) != 1:
+        raise RuntimeError("expected one AgentHostClient tool-result method")
+    transformed = transformed.replace(old_method, new_method)
+    for indentation in ("            ", "        "):
+        old_decode = indentation + "guard let reply = AgentHostProtocol.decodeReply(data) else {\n"
+        new_decode = (
+            indentation + "guard let sanitizedData = acceptExperimentalTelemetry(data),\n"
+            + indentation + "      let reply = AgentHostProtocol.decodeReply(sanitizedData) else {\n"
+        )
+        if transformed.count(old_decode) != 1:
+            raise RuntimeError("expected one AgentHost reply decoder at each call site")
+        transformed = transformed.replace(old_decode, new_decode)
+    helper = r'''
+    private func experimentalToolResultFrame(
+        _ frame: Data,
+        launcherTrace: [String: Any]?,
+        ok: Bool,
+        canContinue: Bool
+    ) throws -> Data {
+        experimentalTelemetryLock.lock()
+        let correlation = pendingDSHCorrelation
+        pendingDSHCorrelation = nil
+        experimentalTelemetryLock.unlock()
+        guard let launcherTrace, let correlation else { return frame }
+        guard var object = try JSONSerialization.jsonObject(with: frame) as? [String: Any] else {
+            throw AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure)
+        }
+        var trace = launcherTrace
+        for key in [
+            "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
+            "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
+        ] {
+            guard let value = correlation[key] else {
+                throw AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure)
+            }
+            trace[key] = value
+        }
+        if let modelCallID = correlation["model_call_id"] {
+            trace["model_call_id"] = modelCallID
+        } else {
+            trace.removeValue(forKey: "model_call_id")
+        }
+        trace["launcher_ok"] = ok
+        trace["can_continue"] = canContinue
+        if let returncode = launcherTrace["returncode"] as? Int {
+            trace["returncode"] = returncode
+            object["returncode"] = returncode
+        }
+        object["launcher_trace"] = trace
+        let data = try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+        guard data.count <= AgentHostProtocol.maximumFrameBytes else {
+            throw AgentHostClientError.invalidResponse(.launcherReplyDecodeFailure)
+        }
+        return data
+    }
+
+    private func acceptExperimentalTelemetry(_ data: Data) -> Data? {
+        guard var object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        guard let rawRecords = object.removeValue(forKey: "dsh_telemetry") else { return data }
+        guard let records = rawRecords as? [[String: Any]], !records.isEmpty, records.count <= 128 else {
+            return nil
+        }
+        let allowedFields: Set<String> = [
+            "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "benchmark_task_id",
+            "agent_turn_id", "agent_step_id", "model_call_id", "tool_call_id", "tool_name",
+            "operation_seq", "invocation_sha256", "argument_bytes", "file_count", "write_operation",
+            "duration_ms", "status", "error_code", "returncode", "can_continue", "result_bytes",
+            "result_sha256", "launcher_result_sha256", "observed_tool_result", "dsh_event_seq",
+            "token_input", "token_output", "model_provider", "model_id", "launcher_task_id",
+            "launcher_request_id", "launcher_approval_sha256", "approval_status", "kernel_result",
+            "runner_status", "commit_status", "launcher_ok",
+        ]
+        let allowedEvents: Set<String> = [
+            "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
+            "MODEL_TOOL_CALL_OUTPUT_ACCEPTED", "DSH_ASSISTANT_MESSAGE_COMMITTED", "MODEL_REQUEST_FAILED",
+            "MODEL_OUTPUT_REJECTED", "TOOL_CALL_PARSED", "TOOL_ARGUMENT_VALIDATED", "TOOL_ARGUMENT_REJECTED",
+            "TOOL_SUBMISSION_FAILED", "TOOL_PROPOSAL_LOWERED", "LAUNCHER_PROPOSAL_SUBMITTED",
+            "APPROVAL_ACCEPTED", "APPROVAL_DENIED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
+            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "TOOL_RESULT_DELIVERED", "AGENT_NEXT_TURN_STARTED",
+            "SESSION_CONTINUITY_CHECK", "AGENT_TERMINATED",
+        ]
+        var encodedRecords: [Data] = []
+        var totalBytes = 0
+        for record in records {
+            guard Set(record.keys).isSubset(of: allowedFields),
+                  let event = record["event"] as? String, allowedEvents.contains(event),
+                  let sequence = record["event_seq"] as? Int,
+                  let trial = record["trial_id"] as? String,
+                  let session = record["dsh_session_id"] as? String,
+                  let task = record["benchmark_task_id"] as? String,
+                  let timestamp = record["timestamp_utc"] as? String,
+                  trial.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil,
+                  session.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil,
+                  ["A", "B", "C", "D"].contains(task),
+                  timestamp.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"#, options: .regularExpression) != nil,
+                  record.values.allSatisfy({
+                      if let text = $0 as? String {
+                          return text.utf8.count <= 256 && !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+                      }
+                      return $0 is NSNumber
+                  }),
+                  let encoded = try? JSONSerialization.data(
+                    withJSONObject: record,
+                    options: [.sortedKeys, .withoutEscapingSlashes]
+                  ), encoded.count <= 4 * 1_024 else { return nil }
+            totalBytes += encoded.count
+            guard totalBytes <= 40 * 1_024 else { return nil }
+            encodedRecords.append(encoded)
+        }
+
+        experimentalTelemetryLock.lock()
+        defer { experimentalTelemetryLock.unlock() }
+        var identity = experimentalTelemetryIdentity
+        var sequence = experimentalTelemetrySequence
+        var pending = pendingDSHCorrelation
+        for record in records {
+            guard let event = record["event"] as? String,
+                  let eventSequence = record["event_seq"] as? Int,
+                  let trial = record["trial_id"] as? String,
+                  let session = record["dsh_session_id"] as? String,
+                  let task = record["benchmark_task_id"] as? String else { return nil }
+            if event == "SESSION_STARTED" {
+                guard eventSequence == 1, pending == nil else { return nil }
+                identity = (trial, session, task)
+                sequence = 0
+            } else {
+                guard let identity,
+                      identity.trial == trial, identity.session == session, identity.task == task else { return nil }
+            }
+            guard eventSequence == sequence + 1 else { return nil }
+            if event == "LAUNCHER_PROPOSAL_SUBMITTED" {
+                guard pending == nil,
+                      record["tool_call_id"] is String,
+                      record["tool_name"] is String,
+                      record["operation_seq"] is Int,
+                      record["invocation_sha256"] is String else { return nil }
+                pending = record
+            }
+            sequence = eventSequence
+        }
+        experimentalTelemetryIdentity = identity
+        experimentalTelemetrySequence = sequence
+        pendingDSHCorrelation = pending
+        for encoded in encodedRecords {
+            fputs("dsh-telemetry=\(String(decoding: encoded, as: UTF8.self))\n", stderr)
+        }
+        fflush(stderr)
+        guard let sanitized = try? JSONSerialization.data(
+            withJSONObject: object,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ), sanitized.count <= AgentHostProtocol.maximumFrameBytes else { return nil }
+        return sanitized
+    }
+'''
+    marker = "    private func request(\n"
+    if transformed.count(marker) != 1:
+        raise RuntimeError("expected one AgentHostClient synchronous request method")
+    transformed = transformed.replace(marker, helper + "\n" + marker)
+    path.write_text(transformed, encoding="utf-8")
+    return {
+        "path": relative_path,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "forward bounded DSH lifecycle telemetry through the signed Launcher while stripping it before strict AgentHost reply decoding, and return exact Runner/task correlation as non-authoritative metadata",
+    }
+
+
+def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, str]:
+    relative_path = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+    path = source_root / relative_path
+    original = path.read_text(encoding="utf-8")
+    transformed = original
+    marker = "    private static func runAgentSession() throws {\n"
+    helper = r'''
+    private static var semanticLauncherEventSequence = 0
+    private static let semanticLauncherEventLock = NSLock()
+
+    private static func semanticLauncherTrace(
+        _ outcome: AgentToolOutcome,
+        taskID: UUID
+    ) -> [String: Any]? {
+        guard let record = outcome.workspaceRecord else { return nil }
+        var trace: [String: Any] = [
+            "launcher_task_id": taskID.uuidString.lowercased(),
+            "launcher_request_id": record.requestID,
+            "launcher_approval_sha256": record.approvalSHA256,
+            "approval_status": record.approval,
+            "kernel_result": record.kernelResult,
+            "runner_status": record.runnerExecution,
+            "commit_status": record.commitOutcome,
+        ]
+        if let returncode = outcome.returncode { trace["returncode"] = returncode }
+        return trace
+    }
+
+    private static func writeDshLauncherEvent(
+        _ event: String,
+        taskID: UUID,
+        requestID: String,
+        approvalSHA256: String,
+        status: String
+    ) {
+        semanticLauncherEventLock.lock()
+        semanticLauncherEventSequence += 1
+        let sequence = semanticLauncherEventSequence
+        semanticLauncherEventLock.unlock()
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let record: [String: Any] = [
+            "event": event,
+            "launcher_event_seq": sequence,
+            "timestamp_utc": formatter.string(from: Date()),
+            "launcher_task_id": taskID.uuidString.lowercased(),
+            "launcher_request_id": requestID,
+            "launcher_approval_sha256": approvalSHA256,
+            "status": status,
+        ]
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: record,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ), data.count <= 2 * 1_024 else { return }
+        fputs("dsh-launcher-event=\(String(decoding: data, as: UTF8.self))\n", stderr)
+        fflush(stderr)
+    }
+
+'''
+    if transformed.count(marker) != 1:
+        raise RuntimeError("expected one experimental Launcher Agent session entry")
+    transformed = transformed.replace(marker, helper + marker)
+
+    replacements = (
+        (
+            '        writeAgentDiagnostic("tool=approval-presented")\n',
+            '        writeAgentDiagnostic("tool=approval-presented")\n'
+            '        writeDshLauncherEvent("APPROVAL_PRESENTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: approvalKind)\n',
+        ),
+        (
+            '            writeAgentDiagnostic("tool=approval-denied")\n',
+            '            writeAgentDiagnostic("tool=approval-denied")\n'
+            '            writeDshLauncherEvent("APPROVAL_DENIED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "denied")\n',
+        ),
+        (
+            '        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")\n',
+            '        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")\n'
+            '        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")\n',
+        ),
+        (
+            '                    handle.start { observation in\n',
+            '                    writeDshLauncherEvent("KERNEL_OPERATION_STARTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "submitted")\n'
+            '                    handle.start { observation in\n',
+        ),
+        (
+            '        let elapsed = observation.submittedAt.map {\n',
+            '''        let kernelCompletionStatus: String
+        switch observation.reply {
+        case let .failure(error):
+            kernelCompletionStatus = "transport_failure:\\(failureCode(for: error))"
+        case let .success(reply):
+            if let errorCode = reply.errorCode {
+                kernelCompletionStatus = "kernel_rejected:\\(errorCode)"
+            } else if reply.output != nil {
+                kernelCompletionStatus = "output_received"
+            } else {
+                kernelCompletionStatus = "missing_output"
+            }
+        }
+        writeDshLauncherEvent(
+            "KERNEL_OPERATION_COMPLETED",
+            taskID: taskID,
+            requestID: requestID.token,
+            approvalSHA256: approvalDigest,
+            status: kernelCompletionStatus
+        )
+        let elapsed = observation.submittedAt.map {
+''',
+        ),
+    )
+    for old, new in replacements:
+        if transformed.count(old) != 1:
+            raise RuntimeError("unexpected Launcher semantic-event injection site")
+        transformed = transformed.replace(old, new)
+
+    cancelled_result = '''                            try host.sendToolResultAsync(
+                                ok: outcome.ok,
+                                canContinue: false,
+                                text: outcome.text,
+                                activePlugin: currentAgentPluginMetadata(),
+                                completion: completion
+                            )'''
+    cancelled_result_new = '''                            try host.sendToolResultAsync(
+                                ok: outcome.ok,
+                                canContinue: false,
+                                text: outcome.text,
+                                activePlugin: currentAgentPluginMetadata(),
+                                launcherTrace: Self.semanticLauncherTrace(outcome, taskID: taskID),
+                                completion: completion
+                            )'''
+    if transformed.count(cancelled_result) != 1:
+        raise RuntimeError("expected one cancelled-operation result delivery")
+    transformed = transformed.replace(cancelled_result, cancelled_result_new)
+    normal_result = '''                        try host.sendToolResultAsync(
+                            ok: outcome.ok,
+                            canContinue: canContinue,
+                            text: outcome.text,
+                            activePlugin: currentAgentPluginMetadata(),
+                            completion: completion
+                        )'''
+    normal_result_new = '''                        try host.sendToolResultAsync(
+                            ok: outcome.ok,
+                            canContinue: canContinue,
+                            text: outcome.text,
+                            activePlugin: currentAgentPluginMetadata(),
+                            launcherTrace: Self.semanticLauncherTrace(outcome, taskID: taskID),
+                            completion: completion
+                        )'''
+    if transformed.count(normal_result) != 1:
+        raise RuntimeError("expected one ordinary workspace result delivery")
+    transformed = transformed.replace(normal_result, normal_result_new)
+    path.write_text(transformed, encoding="utf-8")
+    return {
+        "path": relative_path,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "add payload-free task/request/approval/Kernel lifecycle events and pass result correlation to the experimental AgentHost; no execution or approval policy changes",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -374,6 +883,7 @@ def main() -> int:
         probe_dir / "khaos-local-model.ts",
         probe_dir / "khaos-semantic-tools.ts",
         probe_dir / "khaos-semantic-tools.spec.ts",
+        probe_dir / "dsh-semantic-fixture.ts",
         probe_dir / "dsh-capability-lifecycle-probe.ts",
         probe_dir / "dsh-tool-result.ts",
         probe_dir / "khaos-capability-adapter.ts",
@@ -430,15 +940,21 @@ def main() -> int:
             + "\n\n" + protocol_extension,
             encoding="utf-8",
         )
-        source_hashes["khaos/macos/AgentHostProtocol.swift"] = digest(protocol_target)
+        protocol_endpoint_sha256 = digest(protocol_target)
+        protocol_trace_overlay = apply_experimental_tool_trace_protocol(source_root)
+        source_hashes["khaos/macos/AgentHostProtocol.swift"] = protocol_trace_overlay["experimental_sha256"]
         protocol_overlay = {
             "path": "khaos/macos/AgentHostProtocol.swift",
             "original_sha256": hashlib.sha256(protocol_original.encode("utf-8")).hexdigest(),
-            "experimental_sha256": digest(protocol_target),
+            "experimental_sha256": protocol_endpoint_sha256,
             "reason": "pass one opaque model-listener endpoint over the disposable Launcher-to-AgentHost XPC",
         }
         model_bridge_client_overlay = apply_experimental_model_bridge_client(source_root)
         source_hashes[model_bridge_client_overlay["path"]] = model_bridge_client_overlay["experimental_sha256"]
+        telemetry_client_overlay = apply_experimental_telemetry_transport_client(source_root)
+        source_hashes[telemetry_client_overlay["path"]] = telemetry_client_overlay["experimental_sha256"]
+        launcher_trace_overlay = apply_experimental_launcher_semantic_trace(source_root)
+        source_hashes[launcher_trace_overlay["path"]] = launcher_trace_overlay["experimental_sha256"]
         disclosure_override = (
             apply_experimental_model_disclosure(source_root)
             if args.model_provider != "local" else None
@@ -527,7 +1043,8 @@ def main() -> int:
                 else (LOCAL_MODEL_ID if local_model is not None else None),
             "dsh_local_model": None if local_model is None else local_model[3],
             "experimental_source_overrides": (
-                [protocol_overlay, model_bridge_client_overlay]
+                [protocol_overlay, protocol_trace_overlay, model_bridge_client_overlay,
+                 telemetry_client_overlay, launcher_trace_overlay]
                 + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (

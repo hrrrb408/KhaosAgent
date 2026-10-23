@@ -85,6 +85,7 @@ def main() -> int:
         probe = repository_root / "experiments/dsh-feasibility"
         shutil.copy2(probe / "khaos-capability-adapter.ts", temp_tests / "khaos-capability-adapter.ts")
         shutil.copy2(probe / "khaos-semantic-tools.ts", temp_tests / "khaos-semantic-tools.ts")
+        shutil.copy2(probe / "dsh-semantic-fixture.ts", temp_tests / "dsh-semantic-fixture.ts")
         shutil.copy2(probe / "dsh-agent-telemetry.ts", temp_tests / "dsh-agent-telemetry.ts")
         shutil.copy2(probe / "khaos-local-model.ts", temp_tests / "khaos-local-model.ts")
         shutil.copy2(probe / "dsh-capability-lifecycle-probe.ts", temp_tests / "dsh-capability-lifecycle-probe.ts")
