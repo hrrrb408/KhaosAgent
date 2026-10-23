@@ -113,10 +113,10 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         self.assertEqual(evidence["authorization"]["source"], "user message in the current Codex task")
 
     def test_model_bridge_probe_keeps_unavailable_distinct_from_denial(self):
-        self.assertTrue(acceptance.model_bridge_peer_denied("MODEL_BRIDGE_PEER_REJECTED"))
-        self.assertTrue(acceptance.model_bridge_peer_denied("MODEL_BRIDGE_NOT_VISIBLE"))
-        self.assertFalse(acceptance.model_bridge_peer_denied("MODEL_BRIDGE_UNAVAILABLE"))
-        self.assertFalse(acceptance.model_bridge_peer_denied("MODEL_BRIDGE_PEER_ACCEPTED"))
+        self.assertTrue(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_PEER_REJECTED"))
+        self.assertTrue(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_NOT_VISIBLE"))
+        self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_UNAVAILABLE"))
+        self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_PEER_ACCEPTED"))
 
 
 if __name__ == "__main__":

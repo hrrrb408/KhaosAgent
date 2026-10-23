@@ -42,12 +42,6 @@ enum DSHModelBridgePeerProbe {
         let bootstrapInterface = NSXPCInterface(
             with: DSHModelBridgeBootstrapEndpoint.self
         )
-        bootstrapInterface.setClasses(
-            [NSXPCListenerEndpoint.self],
-            for: #selector(DSHModelBridgeBootstrapEndpoint.modelEndpoint(withReply:)),
-            argumentIndex: 0,
-            ofReply: true
-        )
         connection.remoteObjectInterface = bootstrapInterface
 
         let result = ProbeResult()

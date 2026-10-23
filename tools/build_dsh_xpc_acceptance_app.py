@@ -131,12 +131,6 @@ def apply_experimental_model_bridge_client(source_root: Path) -> dict[str, str]:
             "        modelBridgeBootstrapConnection = bridge?.connection\n"
             "        connection = NSXPCConnection(serviceName: \"org.khaos.Seed.AgentHost\")\n"
             "        let interface = NSXPCInterface(with: AgentHostSessionEndpoint.self)\n"
-            "        interface.setClasses(\n"
-            "            [NSXPCListenerEndpoint.self],\n"
-            "            for: #selector(AgentHostSessionEndpoint.handle(_:modelBridgeEndpoint:withReply:)),\n"
-            "            argumentIndex: 1,\n"
-            "            ofReply: false\n"
-            "        )\n"
             "        connection.remoteObjectInterface = interface\n"
             "        connection.resume()\n",
         ),
@@ -173,12 +167,6 @@ private enum DSHModelBridgeBootstrapClient {
         let connection = NSXPCConnection(serviceName: DSHModelBridgeLimits.serviceName)
         connection.setCodeSigningRequirement(requirement)
         let interface = NSXPCInterface(with: DSHModelBridgeBootstrapEndpoint.self)
-        interface.setClasses(
-            [NSXPCListenerEndpoint.self],
-            for: #selector(DSHModelBridgeBootstrapEndpoint.modelEndpoint(withReply:)),
-            argumentIndex: 0,
-            ofReply: true
-        )
         connection.remoteObjectInterface = interface
         let lock = NSLock()
         let completed = DispatchSemaphore(value: 0)

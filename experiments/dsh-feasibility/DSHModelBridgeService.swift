@@ -348,14 +348,9 @@ private final class DSHModelBridgeListener: NSObject, NSXPCListenerDelegate {
     ) -> Bool {
         if listener === bootstrapListener {
             connection.setCodeSigningRequirement(launcherRequirement)
-            let interface = NSXPCInterface(with: DSHModelBridgeBootstrapEndpoint.self)
-            interface.setClasses(
-                [NSXPCListenerEndpoint.self],
-                for: #selector(DSHModelBridgeBootstrapEndpoint.modelEndpoint(withReply:)),
-                argumentIndex: 0,
-                ofReply: true
+            connection.exportedInterface = NSXPCInterface(
+                with: DSHModelBridgeBootstrapEndpoint.self
             )
-            connection.exportedInterface = interface
             connection.exportedObject = DSHModelBridgeBootstrapService(
                 endpoint: modelListener.endpoint
             )

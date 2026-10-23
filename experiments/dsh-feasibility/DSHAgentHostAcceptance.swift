@@ -721,12 +721,6 @@ private final class DSHAgentHostService: NSObject, NSXPCListenerDelegate {
     ) -> Bool {
         connection.setCodeSigningRequirement(launcherRequirement)
         let interface = NSXPCInterface(with: AgentHostSessionEndpoint.self)
-        interface.setClasses(
-            [NSXPCListenerEndpoint.self],
-            for: #selector(AgentHostSessionEndpoint.handle(_:modelBridgeEndpoint:withReply:)),
-            argumentIndex: 1,
-            ofReply: false
-        )
         connection.exportedInterface = interface
         let session = DSHAgentHostSession()
         connection.exportedObject = session

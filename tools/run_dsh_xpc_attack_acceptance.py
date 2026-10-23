@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT / "experiments"))
 from dsh_phase3 import benchmark as phase3_benchmark  # noqa: E402
 
 SIGNED_UI_MODES = frozenset({"attack", "coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model"})
-MODEL_BRIDGE_DENIAL_RESULTS = frozenset({
+MODEL_BRIDGE_BLOCKED_RESULTS = frozenset({
     "MODEL_BRIDGE_PEER_REJECTED",
     "MODEL_BRIDGE_NOT_VISIBLE",
 })
@@ -263,8 +263,8 @@ def proposal_allowed(proposal: dict[str, object], task: phase3_benchmark.Task) -
     return not reasons, reasons
 
 
-def model_bridge_peer_denied(result: object) -> bool:
-    return isinstance(result, str) and result in MODEL_BRIDGE_DENIAL_RESULTS
+def model_bridge_access_blocked(result: object) -> bool:
+    return isinstance(result, str) and result in MODEL_BRIDGE_BLOCKED_RESULTS
 
 
 def process_rss_bytes(process_id: int) -> int | None:
@@ -943,7 +943,7 @@ def main() -> int:
             attack = json.loads(result_lines[0])
             if attack.get("status") != "PASS" or attack.get("oversizedScopeBlocked") is not True:
                 raise RuntimeError(f"signed AgentHost XPC hostile-plugin checks failed: {attack}")
-            if args.model_provider != "local" and not model_bridge_peer_denied(
+            if args.model_provider != "local" and not model_bridge_access_blocked(
                 attack.get("modelBridgePeer")
             ):
                 raise RuntimeError(
