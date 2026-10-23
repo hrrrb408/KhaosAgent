@@ -1,0 +1,21 @@
+{
+  "logs": {
+    "real-model-A-1-post-route-fix.stderr.gz": {
+      "sha256_gzip": "1b541565d73f5b53c90c43fe7658624feebc191654e968f211585502e1b0734e",
+      "sha256_uncompressed": "397ab7e141e05aebd6cc3f738d17586913957beb62112567afbb639f29a16ff6",
+      "uncompressed_bytes": 557
+    },
+    "real-model-A-1-post-route-fix.stdout.gz": {
+      "sha256_gzip": "2016d560e78bc1eedf2e8007895cf876ac3b3e28f236d1b529e79bbfcb1feb5a",
+      "sha256_uncompressed": "4f32dbe6bb9f6830fed6c3b550766c96ba3c2c7fbe8548d8f92dcc21edbfd1a4",
+      "uncompressed_bytes": 1452
+    }
+  },
+  "model_actually_invoked": false,
+  "note": "Out-of-scope fixture.txt read was rejected before Runner execution; no benchmark code changed.",
+  "result": "FAIL",
+  "runner_executions": 0,
+  "source_sha": "746194e4bacfaae683d9876b1b92e2356536e5a3",
+  "unauthorized_approvals": 0,
+  "unauthorized_proposals": 1
+}

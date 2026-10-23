@@ -199,6 +199,8 @@ TASKS = {
     ),
 }
 
+REAL_MODEL_TASK_PREFIX = "KHAOS_DSH_REAL_MODEL_CODING:"
+
 
 def dataset_digest(tasks: dict[str, Task] | None = None) -> str:
     digest = hashlib.sha256()
@@ -228,6 +230,14 @@ def task_prompt(task_id: str) -> str:
         "Do not request any other paths or commands. The task allows at most 8 tool operations, "
         "at most 3 operations with a non-empty write scope, and 10 minutes total."
     )
+
+
+def real_model_task_line(task_id: str) -> str:
+    """Encode one synthetic task as a single Launcher readLine() turn."""
+    prompt = " ".join(task_prompt(task_id).split())
+    if not prompt:
+        raise ValueError("real-model task prompt must not be empty")
+    return f"{REAL_MODEL_TASK_PREFIX} {prompt}"
 
 
 def prepare_trial(task_id: str, workspace: Path, private_dir: Path) -> dict[str, object]:

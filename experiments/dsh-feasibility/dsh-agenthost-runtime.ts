@@ -301,7 +301,7 @@ function probePaths(): HostileProbePaths | undefined {
 
 async function createTask(text: string): Promise<void> {
   if (currentAgent || pendingResult) throw new Error('task already active')
-  const realModelPrefix = 'KHAOS_DSH_REAL_MODEL_CODING\n'
+  const realModelPrefix = 'KHAOS_DSH_REAL_MODEL_CODING: '
   const realModelMode = text.startsWith(realModelPrefix)
   const taskText = realModelMode ? text.slice(realModelPrefix.length) : text
   if (realModelMode && taskText.length === 0) throw new Error('real-model task text is empty')

@@ -31,6 +31,30 @@ class DSHPhase3BenchmarkTests(unittest.TestCase):
         self.assertIn("at most 8 tool operations", prompt)
         self.assertNotIn(benchmark.TASKS["A"].hidden_test, prompt)
 
+    def test_real_model_input_is_one_launcher_turn(self) -> None:
+        swift_host = (ROOT / "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift").read_text(
+            encoding="utf-8"
+        )
+        node_host = (ROOT / "experiments/dsh-feasibility/dsh-agenthost-runtime.ts").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            f'let realModelPrefix = "{benchmark.REAL_MODEL_TASK_PREFIX} "',
+            swift_host,
+        )
+        self.assertIn(
+            f"const realModelPrefix = '{benchmark.REAL_MODEL_TASK_PREFIX} '",
+            node_host,
+        )
+        for task_id in benchmark.TASKS:
+            with self.subTest(task=task_id):
+                line = benchmark.real_model_task_line(task_id)
+                self.assertTrue(line.startswith(benchmark.REAL_MODEL_TASK_PREFIX + " "))
+                self.assertNotIn("\n", line)
+                self.assertNotIn("\r", line)
+                self.assertIn("Authorized read paths:", line)
+                self.assertNotIn(benchmark.TASKS[task_id].hidden_test, line)
+
     def test_hidden_tests_are_created_outside_the_model_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

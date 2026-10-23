@@ -613,7 +613,7 @@ def main() -> int:
             private_dir = scratch / f"private-{args.task_id}-{args.trial_id}"
             trial_metadata = phase3_benchmark.prepare_trial(args.task_id, workspace, private_dir)
             task_path.write_text(
-                "KHAOS_DSH_REAL_MODEL_CODING\n" + phase3_benchmark.task_prompt(args.task_id) + "\n",
+                phase3_benchmark.real_model_task_line(args.task_id) + "\n",
                 encoding="utf-8",
             )
         elif args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"}:

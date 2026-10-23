@@ -493,7 +493,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     return response(.failure("invalid_request"))
                 }
                 crashAfterToolResult = text.contains("KHAOS_DSH_AGENTHOST_CRASH_ON_TOOL_RESULT")
-                let realModelPrefix = "KHAOS_DSH_REAL_MODEL_CODING\n"
+                let realModelPrefix = "KHAOS_DSH_REAL_MODEL_CODING: "
                 realModelTask = text.hasPrefix(realModelPrefix)
                 let taskText = realModelTask ? String(text.dropFirst(realModelPrefix.count)) : text
                 guard !taskText.isEmpty else { return response(.failure("invalid_request")) }
