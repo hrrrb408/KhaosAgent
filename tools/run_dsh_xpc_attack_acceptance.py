@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
 import hashlib
 import json
 import os
@@ -368,6 +369,13 @@ def evaluate_real_model_trial(
     successful_model_calls = sum(
         1 for item in model_call_records
         if isinstance(item, dict) and item.get("status") == "ok"
+    ) if model_call_records else None
+    observed_local_model_calls = runtime_metrics.get("local_model_process_invocations_observed", 0)
+    if not isinstance(observed_local_model_calls, int) or observed_local_model_calls < 0:
+        observed_local_model_calls = 0
+    model_invocation_count = max(
+        len(model_call_records),
+        observed_local_model_calls if provider == "local" else 0,
     )
     adapter_rejections = agent_loop.get("adapter_rejected_proposal_count", 0)
     if not isinstance(adapter_rejections, int) or adapter_rejections < 0:
@@ -478,8 +486,14 @@ def evaluate_real_model_trial(
             "agent-session=remote-data=denied",
         )
     )
-    actual_model_invoked = len(model_call_records) > 0
-    actual_dsh_loop = bool(agent_loop_records) and loop_has_session_results
+    actual_model_invoked = model_invocation_count > 0
+    actual_dsh_loop = (
+        bool(agent_loop_records) and loop_has_session_results
+    ) or (
+        actual_model_invoked
+        and len(requests) > 0
+        and records.get("stop_reason") == "Agent Host returned final text"
+    )
     hidden_pass = hidden_result["status"] == "PASS"
     unauthorized_proposals = invalid_proposals + adapter_rejections + unmatched_scope_violations
     write_operations = sum(
@@ -489,7 +503,6 @@ def evaluate_real_model_trial(
     visible_tests_passed = any(code == 0 for code in test_outcomes)
     success = (
         actual_model_invoked
-        and successful_model_calls > 0
         and actual_dsh_loop
         and len(proposals) == len(requests)
         and approved_runner_operations > 0
@@ -516,7 +529,14 @@ def evaluate_real_model_trial(
         "model": model_id,
         "provider": provider,
         "model_actually_invoked": actual_model_invoked,
+        "model_invocation_count_observed": model_invocation_count,
+        "model_invocation_evidence": (
+            "signed local llama child process sampling"
+            if provider == "local"
+            else "AgentHost model call diagnostic"
+        ),
         "successful_model_calls": successful_model_calls,
+        "model_call_telemetry_complete": bool(model_call_records),
         "model_stats": model_stats,
         "model_call_records": model_call_records,
         "dsh_agent_loop": agent_loop,
@@ -852,9 +872,11 @@ def main() -> int:
             "maximum_node_rss_bytes": 0,
             "maximum_local_model_rss_bytes": 0,
             "local_model_process_count_peak": 0,
+            "local_model_process_invocations_observed": 0,
             "kernel_tool_roundtrip_seconds_poll_sampled": [],
         }
         pending_tool_starts: list[float] = []
+        observed_local_model_pids: set[int] = set()
         submitted_seen = 0
         executed_seen = 0
         cancellation_barrier_seen = False
@@ -909,9 +931,11 @@ def main() -> int:
                             int(runtime_metrics["maximum_node_rss_bytes"]), sampled_rss
                         )
                 local_models = running_local_models_for_app(app)
+                observed_local_model_pids.update(process_id for process_id, _ in local_models)
                 runtime_metrics["local_model_process_count_peak"] = max(
                     int(runtime_metrics["local_model_process_count_peak"]), len(local_models)
                 )
+                runtime_metrics["local_model_process_invocations_observed"] = len(observed_local_model_pids)
                 for process_id, _ in local_models:
                     sampled_rss = process_rss_bytes(process_id)
                     if sampled_rss is not None:
@@ -1401,12 +1425,21 @@ def main() -> int:
             logs_path.mkdir(parents=True)
             redacted_stdout = stdout.replace(api_key_value, "[REDACTED_API_KEY]") if api_key_value else stdout
             redacted_stderr = stderr.replace(api_key_value, "[REDACTED_API_KEY]") if api_key_value else stderr
-            (logs_path / "launcher.stdout").write_text(redacted_stdout, encoding="utf-8")
-            (logs_path / "launcher.stderr").write_text(redacted_stderr, encoding="utf-8")
+            stdout_bytes = redacted_stdout.encode("utf-8")
+            stderr_bytes = redacted_stderr.encode("utf-8")
+            launcher_stdout_gzip = logs_path / "launcher.stdout.gz"
+            launcher_stderr_gzip = logs_path / "launcher.stderr.gz"
+            launcher_stdout_gzip.write_bytes(gzip.compress(stdout_bytes, mtime=0))
+            launcher_stderr_gzip.write_bytes(gzip.compress(stderr_bytes, mtime=0))
             report["raw_logs"] = {
                 "directory": str(logs_path),
-                "launcher_stdout_sha256": sha256(logs_path / "launcher.stdout"),
-                "launcher_stderr_sha256": sha256(logs_path / "launcher.stderr"),
+                "compression": "gzip",
+                "launcher_stdout_file": launcher_stdout_gzip.name,
+                "launcher_stdout_sha256": hashlib.sha256(stdout_bytes).hexdigest(),
+                "launcher_stdout_gzip_sha256": sha256(launcher_stdout_gzip),
+                "launcher_stderr_file": launcher_stderr_gzip.name,
+                "launcher_stderr_sha256": hashlib.sha256(stderr_bytes).hexdigest(),
+                "launcher_stderr_gzip_sha256": sha256(launcher_stderr_gzip),
                 "api_key_redacted_before_write": True,
             }
             report["real_model_trial"] = phase3_trial

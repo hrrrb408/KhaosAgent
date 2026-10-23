@@ -130,6 +130,37 @@ class RealModelAcceptancePolicyTests(unittest.TestCase):
         self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_UNAVAILABLE"))
         self.assertFalse(acceptance.model_bridge_access_blocked("MODEL_BRIDGE_PEER_ACCEPTED"))
 
+    def test_local_model_invocation_uses_parent_observed_signed_child(self):
+        with tempfile.TemporaryDirectory(prefix="khaos-phase3-model-invocation-") as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            metadata = acceptance.phase3_benchmark.prepare_trial(
+                "A", workspace, root / "private"
+            )
+            report = acceptance.evaluate_real_model_trial(
+                task_id="A",
+                trial_id="1",
+                provider="local",
+                metadata=metadata,
+                workspace=workspace,
+                task_records=[],
+                stdout="",
+                stderr="",
+                runtime_metrics={"local_model_process_invocations_observed": 1},
+                elapsed_seconds=1.0,
+                api_key_value="",
+                model_id="bundled-cpu",
+            )
+
+        self.assertTrue(report["model_actually_invoked"])
+        self.assertEqual(report["model_invocation_count_observed"], 1)
+        self.assertEqual(
+            report["model_invocation_evidence"],
+            "signed local llama child process sampling",
+        )
+        self.assertIsNone(report["successful_model_calls"])
+        self.assertFalse(report["model_call_telemetry_complete"])
+
     def test_only_fixed_mock_attack_marker_skips_remote_data_consent(self):
         source = ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
         with tempfile.TemporaryDirectory(prefix="khaos-phase3-launcher-policy-") as directory:

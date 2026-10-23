@@ -87,6 +87,13 @@ function normalizedModelOutput(value: unknown, requestID: string): RecordValue {
   }
 }
 
+function parseLlamaOutput(stdout: string): unknown {
+  const output = stdout.trim()
+    .replace(/^<think>[\s\S]{0,8192}?<\/think>\s*/u, '')
+    .replace(/\s*\[end of text\]\s*$/u, '')
+  return JSON.parse(output)
+}
+
 function localPrompt(bodyValue: unknown): { system: string; prompt: string; maxTokens: number; temperature: number } {
   const body = record(bodyValue, 'request')
   if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_REQUEST_BYTES) {
@@ -263,8 +270,7 @@ export async function completeWithLocalModel(
   )
   let parsed: unknown
   try {
-    const output = result.stdout.trim().replace(/^<think>[\s\S]{0,8192}?<\/think>\s*/u, '')
-    parsed = JSON.parse(output)
+    parsed = parseLlamaOutput(result.stdout)
   } catch {
     throw Object.assign(new Error('local_model_invalid_output'), { elapsed_ms: result.elapsed_ms })
   }
@@ -276,4 +282,4 @@ export async function completeWithLocalModel(
   }
 }
 
-export const localModelTestSupport = { localPrompt, normalizedModelOutput }
+export const localModelTestSupport = { localPrompt, normalizedModelOutput, parseLlamaOutput }

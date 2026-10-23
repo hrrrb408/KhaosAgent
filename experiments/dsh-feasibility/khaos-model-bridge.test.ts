@@ -261,3 +261,18 @@ test('local model output maps only a final response or the registered capability
   }, 'request-3') as { choices: Array<{ message: { tool_calls: Array<{ function: { arguments: string } }> } }> }
   assert.match(proposedOutsidePath.choices[0].message.tool_calls[0].function.arguments, /\.\.\/secret/u)
 })
+
+test('local model parser removes the known llama-cli terminal marker and rejects other trailing text', () => {
+  assert.deepEqual(
+    localModelTestSupport.parseLlamaOutput('{"type":"final","content":"done"} [end of text]'),
+    { type: 'final', content: 'done' },
+  )
+  assert.deepEqual(
+    localModelTestSupport.parseLlamaOutput('<think>brief</think>\n{"type":"final","content":"done"} [end of text]'),
+    { type: 'final', content: 'done' },
+  )
+  assert.throws(
+    () => localModelTestSupport.parseLlamaOutput('{"type":"final","content":"done"} extra'),
+    SyntaxError,
+  )
+})
