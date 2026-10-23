@@ -16,8 +16,12 @@ the test app's AgentHost implementation, and signs the resulting bundle. The
 override starts the pinned Node runtime inside the signed AgentHost XPC service.
 It is not a production entry point and is not included in a production build.
 
-The DSH source pin is `687f282e8625c6b8d11ff58211a90524be2e4317`. The test
-bundle includes Node.js `v22.19.0` for macOS arm64, the bundled DSH runtime,
+The DSH source pin is [`687f282e8625c6b8d11ff58211a90524be2e4317`](https://github.com/deepseek-ai/deepseek-harness/tree/687f282e8625c6b8d11ff58211a90524be2e4317).
+Dependencies are installed from its frozen lockfile with pnpm `11.28.5` and
+install scripts disabled. The test bundle includes Node.js `v22.19.0` for
+macOS arm64 from the [official release archive](https://nodejs.org/dist/v22.19.0/node-v22.19.0-darwin-arm64.tar.xz),
+verified against SHA-256
+`1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a`, the bundled DSH runtime,
 the Node license, DSH license, and DSH third-party notices. The Node executable
 has the test bundle's `allow-jit` entitlement for V8; it receives no network
 client entitlement. The test AgentHost retains App Sandbox. The signed attack

@@ -17,11 +17,16 @@ python3 tools/run_dsh_xpc_attack_acceptance.py \
   --node-archive /tmp/node-v22.19.0-darwin-arm64.tar.xz \
   --signing-identity "<Apple Development identity>" \
   --mode coding \
+  --operator project_owner \
   --evidence-path "$PWD/reports/dsh-phase2/coding-read-edit-test.json"
 ```
 
 Select the printed workspace in the signed Picker. Approve exactly the displayed
-read, edit, and test operations. The script verifies three distinct approvals,
+read, edit, and test operations. The script records the UI operator, task records,
+invocation digests, scopes, and approval outcomes. Codex operation requires
+`--operator codex_agent` plus the owner's explicit `--operator-authorization`
+and `--authorized-ui-scope`; the report never attributes Codex clicks to the
+owner. The script verifies three distinct approvals,
 three successful Runner results, DSH's use of the actual passing test result,
 the exact `example.py` content, unchanged test and sibling canary files, and
 the Launcher task record.

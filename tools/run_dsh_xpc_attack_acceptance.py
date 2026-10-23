@@ -22,6 +22,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILDER = ROOT / "tools/build_dsh_xpc_acceptance_app.py"
+SIGNED_UI_MODES = frozenset({"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"})
 
 
 def sha256(path: Path) -> str:
@@ -30,6 +31,65 @@ def sha256(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def launcher_task_records(stdout: str) -> list[dict[str, object]]:
+    marker = "Launcher task record: "
+    records = []
+    for line in stdout.splitlines():
+        if marker not in line:
+            continue
+        record = json.loads(line.partition(marker)[2])
+        if not isinstance(record, dict):
+            raise RuntimeError("Launcher task record must be a JSON object")
+        records.append(record)
+    return records
+
+
+def validate_operator(
+    mode: str,
+    operator: str | None,
+    authorization: str | None,
+    authorized_scope: str | None,
+) -> None:
+    if mode in SIGNED_UI_MODES:
+        if operator is None:
+            raise ValueError("--operator is required for signed UI acceptance modes")
+        if operator == "codex_agent" and not (authorization and authorized_scope):
+            raise ValueError("Codex-operated signed UI runs require --operator-authorization and --authorized-ui-scope")
+        if operator == "project_owner" and (authorization or authorized_scope):
+            raise ValueError("owner-operated runs must not include a Codex operator authorization")
+    elif operator is not None or authorization or authorized_scope:
+        raise ValueError("operator fields are only valid for signed UI acceptance modes")
+
+
+def signed_ui_evidence(
+    *,
+    mode: str,
+    operator: str | None,
+    authorization: str | None,
+    authorized_scope: str | None,
+    records: list[dict[str, object]],
+    stderr: str,
+) -> dict[str, object] | None:
+    if mode not in SIGNED_UI_MODES:
+        return None
+    authorization_source = (
+        "user message in the current Codex task"
+        if operator == "codex_agent"
+        else "direct project-owner UI action"
+    )
+    return {
+        "operator": operator,
+        "authorization": {
+            "source": authorization_source,
+            "statement": authorization,
+            "scope": authorized_scope,
+        },
+        "runner_operations_approved": len(re.findall(r"(?m)^agent-session=tool=approved kind=ordinary$", stderr)),
+        "candidate_preview_operations_approved": len(re.findall(r"(?m)^agent-session=tool=approved kind=candidate_b_preview$", stderr)),
+        "launcher_task_records": records,
+    }
 
 
 def run(command: list[str], *, timeout: int = 30) -> str:
@@ -160,6 +220,9 @@ def main() -> int:
         default="attack",
     )
     parser.add_argument("--cancellation-case", choices=("b32", "pre-commit", "post-commit"))
+    parser.add_argument("--operator", choices=("project_owner", "codex_agent"))
+    parser.add_argument("--operator-authorization", help="owner authorization for a Codex-operated signed UI run")
+    parser.add_argument("--authorized-ui-scope", help="specific signed acceptance scope authorized by the owner")
     parser.add_argument("--evidence-path", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=600)
     args = parser.parse_args()
@@ -170,6 +233,15 @@ def main() -> int:
         parser.error("--timeout-seconds must be between 30 and 600")
     if (args.mode == "cancellation") != (args.cancellation_case is not None):
         parser.error("--cancellation-case is required only with --mode cancellation")
+    try:
+        validate_operator(
+            args.mode,
+            args.operator,
+            args.operator_authorization,
+            args.authorized_ui_scope,
+        )
+    except ValueError as error:
+        parser.error(str(error))
 
     evidence_path = args.evidence_path.expanduser().absolute()
     if evidence_path.exists():
@@ -422,6 +494,15 @@ def main() -> int:
 
         stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
         stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
+        task_records = launcher_task_records(stdout)
+        ui_evidence = signed_ui_evidence(
+            mode=args.mode,
+            operator=args.operator,
+            authorization=args.operator_authorization,
+            authorized_scope=args.authorized_ui_scope,
+            records=task_records,
+            stderr=stderr,
+        )
         attack = None
         lifecycle = None
         xpc_recovery = None
@@ -483,12 +564,8 @@ def main() -> int:
                 raise RuntimeError("a fresh AgentHost XPC did not complete the later independent task")
             if stderr.count("agent-session=tool=approval-presented") != 2 \
                     or stderr.count("agent-session=tool=approved kind=ordinary") != 2:
-                raise RuntimeError("the XPC failure workflow did not receive two independent Runner approvals")
-            records = [
-                json.loads(line.partition("Launcher task record: ")[2])
-                for line in stdout.splitlines()
-                if "Launcher task record: " in line
-            ]
+                raise RuntimeError("the XPC failure workflow did not receive two separate Runner approvals")
+            records = task_records
             if len(records) != 2:
                 raise RuntimeError("the XPC failure workflow did not preserve two separate task records")
             task_ids = [record.get("task_id") for record in records]
@@ -543,21 +620,16 @@ def main() -> int:
                 )
             if stderr.count("agent-session=tool=approval-presented") != 3 \
                     or stderr.count("agent-session=tool=approved kind=ordinary") != 3:
-                raise RuntimeError("the signed DSH coding loop did not receive three owner-approved operations")
+                raise RuntimeError("the signed DSH coding loop did not receive three separate Runner approvals")
             expected_example = "def answer():\n    return 200\n"
             if (workspace / "example.py").read_text(encoding="utf-8") != expected_example:
                 raise RuntimeError("the signed DSH coding loop did not commit the scoped edit")
             for name in ("test_example.py", "unscoped-canary.txt"):
                 if sha256(workspace / name) != workspace_initial_hashes[name]:
                     raise RuntimeError(f"the signed DSH coding loop changed unapproved path {name}")
-            record_lines = [
-                line.partition("Launcher task record: ")[2]
-                for line in stdout.splitlines()
-                if "Launcher task record: " in line
-            ]
-            if len(record_lines) != 1:
+            if len(task_records) != 1:
                 raise RuntimeError("the signed DSH coding loop did not emit one Launcher task record")
-            task_record = json.loads(record_lines[0])
+            task_record = task_records[0]
             if task_record.get("executed_command_return_codes") != [0, 0, 0]:
                 raise RuntimeError("the signed DSH coding loop did not complete three successful Runner calls")
             if not isinstance(task_record.get("workspace_requests"), list) \
@@ -573,14 +645,9 @@ def main() -> int:
                     continue
                 if isinstance(event, dict):
                     events.append(event)
-            record_lines = [
-                line.partition("Launcher task record: ")[2]
-                for line in stdout.splitlines()
-                if "Launcher task record: " in line
-            ]
-            if len(record_lines) != 1:
+            if len(task_records) != 1:
                 raise RuntimeError("the signed DSH cancellation run did not emit one Launcher task record")
-            task_record = json.loads(record_lines[0])
+            task_record = task_records[0]
             if task_record.get("cancellation_requested") is not True \
                     or task_record.get("terminal_result_delivery") != "delivered":
                 raise RuntimeError("the Launcher did not record and deliver the cancelled task's terminal result")
@@ -593,7 +660,7 @@ def main() -> int:
                 raise RuntimeError("the cancellation record lost the actual Candidate B approval binding")
             if stderr.count("agent-session=tool=approval-presented") != 1 \
                     or stderr.count("agent-session=tool=approved kind=candidate_b_preview") != 1:
-                raise RuntimeError("the signed DSH cancellation run did not record one owner-approved Candidate B action")
+                raise RuntimeError("the signed DSH cancellation run did not record one Candidate B approval")
 
             sent_values = [
                 line.partition("acceptance-terminal-sent=")[2]
@@ -680,11 +747,7 @@ def main() -> int:
             if "Agent Host failed while receiving a tool result" not in stdout \
                     or "Khaos: KHAOS_DSH_RECOVERY_TASK_RESULT" not in stdout:
                 raise RuntimeError("the failed Node task did not stop cleanly before a new DSH task succeeded")
-            records = [
-                json.loads(line.partition("Launcher task record: ")[2])
-                for line in stdout.splitlines()
-                if "Launcher task record: " in line
-            ]
+            records = task_records
             if len(records) != 2:
                 raise RuntimeError("the crash/recovery run did not preserve two separate Launcher task records")
             task_ids = [record.get("task_id") for record in records]
@@ -729,15 +792,10 @@ def main() -> int:
                 raise RuntimeError(f"the signed DSH fake-result check failed: {fake_result}")
             if stderr.count("agent-session=tool=approval-presented") != 1 \
                     or stderr.count("agent-session=tool=approved kind=ordinary") != 1:
-                raise RuntimeError("the signed fake-result check did not receive one owner-approved operation")
-            record_lines = [
-                line.partition("Launcher task record: ")[2]
-                for line in stdout.splitlines()
-                if "Launcher task record: " in line
-            ]
-            if len(record_lines) != 1:
+                raise RuntimeError("the signed fake-result check did not receive one Runner approval")
+            if len(task_records) != 1:
                 raise RuntimeError("the signed fake-result check did not emit one Launcher task record")
-            task_record = json.loads(record_lines[0])
+            task_record = task_records[0]
             if task_record.get("executed_command_return_codes") != [1]:
                 raise RuntimeError("the fake-success command did not retain the actual Runner failure status")
             if not isinstance(task_record.get("workspace_requests"), list) \
@@ -773,7 +831,7 @@ def main() -> int:
             raise RuntimeError(f"signed components do not share one Team ID: {team_identifiers}")
 
         report = {
-            "schema": 1,
+            "schema": 2,
             "result": "PASS",
             "source_sha": source_sha,
             "pr41_base_sha": build_record.get("khaos_experiment_base_sha"),
@@ -796,13 +854,7 @@ def main() -> int:
             "hostile_cordis_plugin": attack,
             "cordis_plugin_lifecycle": lifecycle,
             "agenthost_xpc_recovery": xpc_recovery,
-            "owner_approved_runner_calls": (
-                3 if args.mode == "coding" else
-                2 if args.mode in {"node-crash", "xpc-crash"} else
-                1 if args.mode == "fake-result" else
-                1 if args.mode == "cancellation" and args.cancellation_case != "b32" else
-                0
-            ),
+            "signed_ui_evidence": ui_evidence,
             "deep_code_signature_verified": True,
             "launcher_workspace_picker_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"},
             "launcher_tool_proposal_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"},
@@ -841,8 +893,18 @@ def main() -> int:
             path = locals().get(name)
             if isinstance(path, Path) and path.is_file():
                 file_hashes[name] = sha256(path)
+        failure_stdout = (
+            stdout_path.read_text(encoding="utf-8", errors="replace")
+            if isinstance(locals().get("stdout_path"), Path) and stdout_path.is_file()
+            else ""
+        )
+        failure_stderr = (
+            stderr_path.read_text(encoding="utf-8", errors="replace")
+            if isinstance(locals().get("stderr_path"), Path) and stderr_path.is_file()
+            else ""
+        )
         failure = {
-            "schema": 1,
+            "schema": 2,
             "result": "FAILED_ATTEMPT",
             "mode": args.mode,
             "cancellation_case": args.cancellation_case,
@@ -852,6 +914,19 @@ def main() -> int:
             "available_file_sha256": file_hashes,
             "app_bundle_preserved": (scratch / "Khaos DSH XPC Acceptance.app").exists(),
         }
+        if args.mode in SIGNED_UI_MODES:
+            try:
+                failed_task_records = launcher_task_records(failure_stdout)
+            except (json.JSONDecodeError, RuntimeError):
+                failed_task_records = []
+            failure["signed_ui_evidence"] = signed_ui_evidence(
+                mode=args.mode,
+                operator=args.operator,
+                authorization=args.operator_authorization,
+                authorized_scope=args.authorized_ui_scope,
+                records=failed_task_records,
+                stderr=failure_stderr,
+            )
         failure_path.write_text(json.dumps(failure, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         temporary._finalizer.detach()
         print(json.dumps(failure, sort_keys=True, indent=2), file=sys.stderr)

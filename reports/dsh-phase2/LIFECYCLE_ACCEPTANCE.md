@@ -2,6 +2,12 @@
 
 Date: 2026-10-20
 
+Interactive modes require an explicit `--operator`. Use `project_owner` when
+the owner operates the signed UI. A Codex-operated run must also record the
+owner's explicit authorization text and its exact experimental UI scope with
+`--operator-authorization` and `--authorized-ui-scope`. Schema 2 evidence keeps
+the actual operator, Launcher task records, and approval counts together.
+
 The test-only XPC override runs the DSH runtime in its own process group. It
 rejects overlapping frames, bounds frames, returns a failed Host operation
 without retrying it, stops the Node process group when the XPC session closes,
@@ -23,7 +29,7 @@ Run on macOS with the pinned DSH and Node inputs:
 python3 tools/run_dsh_xpc_attack_acceptance.py \
   --dsh-source /tmp/khaos-dsh-687f282 \
   --node-archive /tmp/node-v22.19.0-darwin-arm64.tar.xz \
-  --pnpm /tmp/khaos-dsh-corepack/pnpm \
+  --pnpm pnpm \
   --signing-identity "<Apple Development identity>" \
   --mode plugin-lifecycle \
   --evidence-path "$PWD/reports/dsh-phase2/cordis-plugin-lifecycle.json"
@@ -31,7 +37,7 @@ python3 tools/run_dsh_xpc_attack_acceptance.py \
 
 ## AgentHost XPC failure and recovery
 
-This owner-driven signed run terminates the test AgentHost XPC after the
+This signed UI run terminates the test AgentHost XPC after the
 Kernel has committed the first task's scoped edit, while the XPC is delivering
 that original result. Select the printed disposable workspace and approve the
 edit. Then approve the second task's separate `tags.py` read after the Launcher
@@ -41,9 +47,10 @@ connects to a fresh AgentHost XPC:
 python3 tools/run_dsh_xpc_attack_acceptance.py \
   --dsh-source /tmp/khaos-dsh-687f282 \
   --node-archive /tmp/node-v22.19.0-darwin-arm64.tar.xz \
-  --pnpm /tmp/khaos-dsh-corepack/pnpm \
+  --pnpm pnpm \
   --signing-identity "<Apple Development identity>" \
   --mode xpc-crash \
+  --operator project_owner \
   --evidence-path "$PWD/reports/dsh-phase2/agenthost-xpc-crash-recovery.json"
 ```
 
@@ -72,6 +79,7 @@ python3 tools/run_dsh_xpc_attack_acceptance.py \
   --node-archive /tmp/node-v22.19.0-darwin-arm64.tar.xz \
   --signing-identity "<Apple Development identity>" \
   --mode cancellation --cancellation-case b32 \
+  --operator project_owner \
   --evidence-path "$PWD/reports/dsh-phase2/cancellation-b32.json"
 ```
 
@@ -97,6 +105,7 @@ python3 tools/run_dsh_xpc_attack_acceptance.py \
   --node-archive /tmp/node-v22.19.0-darwin-arm64.tar.xz \
   --signing-identity "<Apple Development identity>" \
   --mode node-crash \
+  --operator project_owner \
   --evidence-path "$PWD/reports/dsh-phase2/node-crash-recovery.json"
 ```
 
