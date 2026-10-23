@@ -52,7 +52,7 @@ def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedP
 
 def signed_entitlements(path: Path) -> dict[str, object]:
     result = subprocess.run(
-        ["codesign", "-d", "--entitlements", "-", str(path)],
+        ["codesign", "-d", "--entitlements", ":-", str(path)],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
