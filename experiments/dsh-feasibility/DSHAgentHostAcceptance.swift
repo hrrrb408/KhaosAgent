@@ -877,7 +877,10 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             awaitingToolResult = false
             realModelTask = false
             taskDeadlineUptime = nil
-            return response(.failure("dsh_runtime_failed"))
+            let failureCode = phase31Task
+                ? "dsh_runtime_\(failureCategory)"
+                : "dsh_runtime_failed"
+            return response(.failure(failureCode))
         }
     }
 
