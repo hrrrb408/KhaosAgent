@@ -867,13 +867,17 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             }
         } catch {
             let failureCategory: String
-            switch error as? DSHAgentHostError {
-            case .childUnavailable: failureCategory = "child_unavailable"
-            case .frameTooLarge: failureCategory = "frame_too_large"
-            case .invalidFrame: failureCategory = "invalid_frame"
-            case .timedOut: failureCategory = "timed_out"
-            case .childExited: failureCategory = "child_exited"
-            case nil: failureCategory = "exchange_error"
+            if let rejection = error as? AgentActionRejection {
+                failureCategory = rejection.rawValue
+            } else {
+                switch error as? DSHAgentHostError {
+                case .childUnavailable: failureCategory = "child_unavailable"
+                case .frameTooLarge: failureCategory = "frame_too_large"
+                case .invalidFrame: failureCategory = "invalid_frame"
+                case .timedOut: failureCategory = "timed_out"
+                case .childExited: failureCategory = "child_exited"
+                case nil: failureCategory = "exchange_error"
+                }
             }
             fputs("dsh-agenthost-failure stage=\(failureStage) category=\(failureCategory)\n", stderr)
             fflush(stderr)
@@ -887,6 +891,9 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 failureCode = "dsh_runtime_failed"
             } else if failureStage == "runtime_exchange" {
                 failureCode = "dsh_runtime_exchange_\(failureCategory)"
+            } else if failureStage == "action_encode",
+                      error is AgentActionRejection {
+                failureCode = "dsh_action_encode_\(failureCategory)"
             } else {
                 failureCode = "dsh_\(failureStage)_failed"
             }
