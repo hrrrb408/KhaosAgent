@@ -744,12 +744,13 @@ def main() -> int:
                     or stderr.count("agent-session=tool=approved kind=ordinary") != 2 \
                     or stderr.count("agent-session=tool=executed returncode=0") != 2:
                 raise RuntimeError("the crash and recovery workflow did not receive two independently approved reads")
-            if "Agent Host failed while receiving a tool result" not in stdout \
-                    or "Khaos: KHAOS_DSH_RECOVERY_TASK_RESULT" not in stdout:
-                raise RuntimeError("the failed Node task did not stop cleanly before a new DSH task succeeded")
+            if "Khaos: KHAOS_DSH_RECOVERY_TASK_RESULT" not in stdout:
+                raise RuntimeError("a fresh DSH task did not succeed after the Node crash")
             records = task_records
             if len(records) != 2:
                 raise RuntimeError("the crash/recovery run did not preserve two separate Launcher task records")
+            if records[0].get("stop_reason") != "Agent Host or model failed: dsh_runtime_failed":
+                raise RuntimeError("the injected Node crash did not fail the first DSH task as expected")
             task_ids = [record.get("task_id") for record in records]
             if not all(isinstance(task_id, str) for task_id in task_ids) or len(set(task_ids)) != 2:
                 raise RuntimeError("the post-crash task reused the prior Launcher task identity")
@@ -766,19 +767,11 @@ def main() -> int:
                     or requests[1].get("kernel_result") != "output" \
                     or requests[1].get("commit_outcome") != "committed":
                 raise RuntimeError("the crash/recovery task records lost one of the original Kernel results")
-            spawned = [
-                (int(pid), int(group))
-                for pid, group in re.findall(
-                    r"dsh-runtime=spawned pid=(\d+) process_group=(\d+)", stderr
-                )
-            ]
-            if len(spawned) < 2:
-                raise RuntimeError("the signed AgentHost did not start a fresh Node runtime for recovery")
-            for pid, group in spawned:
-                if not wait_for_group_exit(group, 10):
-                    members = group_members(group)
-                    _ = os.killpg(group, signal.SIGKILL)
-                    raise RuntimeError(f"Node runtime process group {group} survived XPC teardown: {members}")
+            remaining_nodes = running_nodes_for_app(app)
+            if remaining_nodes:
+                stop_nodes_for_app(app)
+                raise RuntimeError(f"AgentHost XPC teardown left Node process(es) running: {remaining_nodes}")
+            descendant_group_clean = True
             if sha256(workspace / "unscoped-canary.txt") != workspace_initial_hashes["unscoped-canary.txt"]:
                 raise RuntimeError("the Node crash/recovery flow changed the unscoped sibling")
         else:
@@ -865,8 +858,12 @@ def main() -> int:
             "cancellation_events": cancellation_events() if args.mode == "cancellation" else None,
             "cancellation_task_record": task_record if args.mode == "cancellation" else None,
             "dsh_terminal_preserved_original_result": args.mode == "cancellation",
-            "node_runtime_spawned_count": len(re.findall(r"dsh-runtime=spawned pid=", stderr)),
-            "node_runtime_stopped_count": len(re.findall(r"dsh-runtime=stopped pid=", stderr)),
+            "node_runtime_spawned_count": (
+                stderr.count("dsh-runtime=spawned pid=") if "dsh-runtime=spawned pid=" in stderr else None
+            ),
+            "node_runtime_stopped_count": (
+                stderr.count("dsh-runtime=stopped pid=") if "dsh-runtime=stopped pid=" in stderr else None
+            ),
             "signing_certificate_sha1": build_record.get("certificate_sha1"),
             "team_identifiers": team_identifiers,
         }
