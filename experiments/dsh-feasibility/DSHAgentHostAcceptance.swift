@@ -16,270 +16,106 @@ private enum DSHAgentHostError: Error {
     case childExited
 }
 
-private final class DSHBoundedResponseDelegate: NSObject, URLSessionDataDelegate {
-    private let maximumResponseBytes: Int
-    private let semaphore = DispatchSemaphore(value: 0)
-    private let lock = NSLock()
-    private var responseData = Data()
-    private var response: URLResponse?
-    private var responseError: Error?
-    private var task: URLSessionDataTask?
+private final class DSHModelBridgeClient {
+    private let connection: NSXPCConnection
 
-    init(maximumResponseBytes: Int) {
-        self.maximumResponseBytes = maximumResponseBytes
-    }
-
-    func attach(_ task: URLSessionDataTask) {
-        lock.lock()
-        self.task = task
-        lock.unlock()
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        completionHandler(nil)
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        dataTask: URLSessionDataTask,
-        didReceive response: URLResponse,
-        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
-    ) {
-        lock.lock()
-        self.response = response
-        if response.expectedContentLength > Int64(maximumResponseBytes) {
-            responseError = URLError(.dataLengthExceedsMaximum)
+    init() throws {
+        guard let requirement = Bundle.main.object(
+            forInfoDictionaryKey: DSHModelBridgeLimits.bridgeRequirementInfoKey
+        ) as? String,
+        !requirement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DSHAgentHostError.childUnavailable
         }
-        lock.unlock()
-        if response.expectedContentLength > Int64(maximumResponseBytes) {
-            completionHandler(.cancel)
-        } else {
-            completionHandler(.allow)
-        }
+        let connection = NSXPCConnection(serviceName: DSHModelBridgeLimits.serviceName)
+        connection.setCodeSigningRequirement(requirement)
+        connection.remoteObjectInterface = NSXPCInterface(
+            with: DSHModelBridgeEndpoint.self
+        )
+        connection.resume()
+        self.connection = connection
     }
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        lock.lock()
-        if responseData.count + data.count > maximumResponseBytes {
-            responseError = URLError(.dataLengthExceedsMaximum)
-            lock.unlock()
-            dataTask.cancel()
-            return
-        }
-        responseData.append(data)
-        lock.unlock()
+    deinit {
+        connection.invalidate()
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        lock.lock()
-        if responseError == nil { responseError = error }
-        lock.unlock()
-        semaphore.signal()
-    }
-
-    func wait(timeoutSeconds: Int) -> (data: Data, response: URLResponse?, error: Error?)? {
-        guard semaphore.wait(timeout: .now() + .seconds(max(1, timeoutSeconds))) == .success else {
-            lock.lock()
-            let task = self.task
-            lock.unlock()
-            task?.cancel()
-            return nil
-        }
-        lock.lock()
-        defer { lock.unlock() }
-        return (responseData, response, responseError)
-    }
-}
-
-private enum DSHModelBridge {
-    private static let maximumRequestBytes = 56 * 1_024
-    private static let maximumResponseBytes = 56 * 1_024
-    private static let maximumCompletionTokens = 2_048
-    fileprivate static let maximumModelCallsPerTask = 16
-    fileprivate static let maximumTaskSeconds = 600
-    private static let userAgent = "deepseek-harness/0.2.1-rc.2 (+https://github.com/deepseek-ai/deepseek-harness)"
-
-    static func complete(
+    func complete(
         body: Any,
         headers: Any,
-        provider: AgentModelProvider,
         apiKey: String?,
         timeoutSeconds: Int
     ) -> (completion: [String: Any]?, error: String?, elapsedMilliseconds: Int) {
         let started = ProcessInfo.processInfo.systemUptime
-        guard provider.isRemote, let endpoint = provider.endpoint,
-              endpoint.scheme == "https", endpoint.host == "open.bigmodel.cn",
-              let apiKey, validAPIKey(apiKey),
-              let headerValues = headers as? [String: String],
-              headerValues == ["user-agent": userAgent],
-              let requestBody = body as? [String: Any],
-              validRequest(requestBody),
-              JSONSerialization.isValidJSONObject(requestBody),
+        guard let apiKey else {
+            return (nil, "model_credentials_unavailable", 0)
+        }
+        guard JSONSerialization.isValidJSONObject(body),
+              JSONSerialization.isValidJSONObject(headers),
               let bodyData = try? JSONSerialization.data(
-                withJSONObject: requestBody,
+                withJSONObject: body,
                 options: [.sortedKeys, .withoutEscapingSlashes]
-              ), bodyData.count <= maximumRequestBytes else {
-            return (nil, apiKey == nil ? "model_credentials_unavailable" : "invalid_model_request", 0)
+              ), bodyData.count <= DSHModelBridgeLimits.maximumRequestBytes,
+              let headerData = try? JSONSerialization.data(
+                withJSONObject: headers,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+              ), headerData.count <= 1_024 else {
+            return (nil, "invalid_model_request", 0)
         }
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.urlCache = nil
-        configuration.httpCookieStorage = nil
-        configuration.timeoutIntervalForRequest = TimeInterval(timeoutSeconds)
-        configuration.timeoutIntervalForResource = TimeInterval(timeoutSeconds)
-        let responseDelegate = DSHBoundedResponseDelegate(maximumResponseBytes: maximumResponseBytes)
-        let session = URLSession(configuration: configuration, delegate: responseDelegate, delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
-
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.timeoutInterval = TimeInterval(timeoutSeconds)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.httpBody = bodyData
-
-        let task = session.dataTask(with: request)
-        responseDelegate.attach(task)
-        task.resume()
-        guard let received = responseDelegate.wait(timeoutSeconds: timeoutSeconds) else {
-            return (nil, "model_provider_timed_out", elapsedMilliseconds(since: started))
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var completion: [String: Any]?
+        var errorCode: String?
+        var elapsedMilliseconds = 0
+        var finished = false
+        let finish: (Data?, String?, Int) -> Void = { data, error, elapsed in
+            lock.lock()
+            guard !finished else {
+                lock.unlock()
+                return
+            }
+            finished = true
+            errorCode = error
+            elapsedMilliseconds = elapsed
+            if let data, data.count <= DSHModelBridgeLimits.maximumResponseBytes {
+                completion = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            } else if data != nil {
+                errorCode = "model_output_too_large"
+            }
+            lock.unlock()
+            semaphore.signal()
         }
-        let data = received.data
-        let urlResponse = received.response
-        let error = received.error
-
-        if let urlError = error as? URLError, urlError.code == .timedOut {
-            return (nil, "model_provider_timed_out", elapsedMilliseconds(since: started))
+        guard let endpoint = connection.remoteObjectProxyWithErrorHandler({ _ in
+            finish(nil, "model_bridge_unavailable", 0)
+        }) as? DSHModelBridgeEndpoint else {
+            return (nil, "model_bridge_unavailable", 0)
         }
-        if let urlError = error as? URLError, urlError.code == .dataLengthExceedsMaximum {
-            return (nil, "model_output_too_large", elapsedMilliseconds(since: started))
-        }
-        guard error == nil, let http = urlResponse as? HTTPURLResponse,
-              http.url == endpoint else {
-            return (nil, "model_provider_failed", elapsedMilliseconds(since: started))
-        }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            return (nil, "model_provider_auth_failed", elapsedMilliseconds(since: started))
-        }
-        if http.statusCode == 429 {
-            return (nil, "model_provider_rate_limited", elapsedMilliseconds(since: started))
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            return (
-                nil,
-                "model_provider_http_\(http.statusCode)",
-                elapsedMilliseconds(since: started)
+        endpoint.complete(
+            bodyData as NSData,
+            headers: headerData as NSData,
+            apiKey: apiKey as NSString,
+            timeoutSeconds: NSNumber(value: min(120, max(1, timeoutSeconds)))
+        ) { data, error, elapsed in
+            finish(
+                data.map(Data.init(referencing:)),
+                error.map(String.init),
+                elapsed.intValue
             )
         }
-        guard let completion = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return (nil, "invalid_model_response", elapsedMilliseconds(since: started))
+        guard semaphore.wait(timeout: .now() + .seconds(max(1, timeoutSeconds) + 10)) == .success else {
+            connection.invalidate()
+            return (nil, "model_bridge_timed_out", elapsedSince(started))
         }
-        return (completion, nil, elapsedMilliseconds(since: started))
+        lock.lock()
+        let result = (completion, errorCode, elapsedMilliseconds)
+        lock.unlock()
+        if result.0 == nil, result.1 == nil {
+            return (nil, "invalid_model_response", elapsedSince(started))
+        }
+        return (result.0, result.1, result.2)
     }
 
-    private static func validAPIKey(_ key: String) -> Bool {
-        let bytes = Array(key.utf8)
-        return !bytes.isEmpty
-            && bytes.count <= AgentHostProtocol.maximumModelAPIKeyBytes
-            && bytes.allSatisfy { (0x21...0x7e).contains($0) }
-    }
-
-    private static func validRequest(_ body: [String: Any]) -> Bool {
-        let allowedKeys: Set<String> = [
-            "model", "messages", "tools", "tool_choice", "max_tokens", "temperature",
-            "reasoning_effort", "thinking", "stream", "stop",
-        ]
-        guard Set(body.keys).isSubset(of: allowedKeys),
-              body["model"] as? String == "glm-5.3",
-              let stream = body["stream"] as? NSNumber,
-              CFGetTypeID(stream) == CFBooleanGetTypeID(), !stream.boolValue,
-              let maxTokens = body["max_tokens"] as? NSNumber,
-              CFGetTypeID(maxTokens) != CFBooleanGetTypeID(),
-              maxTokens.intValue >= 1,
-              maxTokens.intValue <= maximumCompletionTokens,
-              maxTokens.doubleValue == Double(maxTokens.intValue),
-              let temperature = body["temperature"] as? NSNumber,
-              CFGetTypeID(temperature) != CFBooleanGetTypeID(),
-              temperature.doubleValue.isFinite,
-              (0...2).contains(temperature.doubleValue),
-              let thinking = body["thinking"] as? [String: Any],
-              Set(thinking.keys) == ["type", "clear_thinking"],
-              thinking["type"] as? String == "enabled",
-              let clearThinking = thinking["clear_thinking"] as? NSNumber,
-              CFGetTypeID(clearThinking) == CFBooleanGetTypeID(), !clearThinking.boolValue,
-              let messages = body["messages"] as? [[String: Any]],
-              (1...64).contains(messages.count) else {
-            return false
-        }
-
-        if let effort = body["reasoning_effort"] as? String,
-           !["low", "medium", "high", "max"].contains(effort) {
-            return false
-        }
-        if let rawStop = body["stop"] {
-            guard let stop = rawStop as? [String], stop.count <= 4,
-                  !stop.contains(where: { $0.utf8.count > 256 }) else {
-                return false
-            }
-        }
-
-        for message in messages {
-            guard let role = message["role"] as? String,
-                  ["system", "user", "assistant", "tool"].contains(role),
-                  message["content"] is String || message["content"] is NSNull else {
-                return false
-            }
-            let allowedMessageKeys: Set<String> = role == "assistant"
-                ? ["role", "content", "tool_calls"]
-                : role == "tool" ? ["role", "content", "tool_call_id"] : ["role", "content"]
-            guard Set(message.keys).isSubset(of: allowedMessageKeys) else { return false }
-            if role == "tool" {
-                guard let callID = message["tool_call_id"] as? String,
-                      !callID.isEmpty, callID.utf8.count <= 128 else { return false }
-            }
-            if let rawCalls = message["tool_calls"] {
-                guard let calls = rawCalls as? [[String: Any]] else { return false }
-                guard role == "assistant", calls.count <= 1 else { return false }
-                for call in calls {
-                    guard Set(call.keys) == ["id", "type", "function"],
-                          let callID = call["id"] as? String,
-                          !callID.isEmpty, callID.utf8.count <= 128,
-                          call["type"] as? String == "function",
-                          let function = call["function"] as? [String: Any],
-                          Set(function.keys) == ["name", "arguments"],
-                          function["name"] as? String == "khaos_capability",
-                          let arguments = function["arguments"] as? String,
-                          arguments.utf8.count <= 32 * 1_024 else { return false }
-                }
-            }
-        }
-
-        if let tools = body["tools"] as? [[String: Any]] {
-            guard tools.count == 1,
-                  body["tool_choice"] as? String == "auto",
-                  let tool = tools.first,
-                  tool["type"] as? String == "function",
-                  let function = tool["function"] as? [String: Any],
-                  function["name"] as? String == "khaos_capability",
-                  function["parameters"] is [String: Any] else {
-                return false
-            }
-        } else if body["tools"] != nil || body["tool_choice"] != nil {
-            return false
-        }
-        return true
-    }
-
-    private static func elapsedMilliseconds(since started: TimeInterval) -> Int {
+    private func elapsedSince(_ started: TimeInterval) -> Int {
         max(0, Int((ProcessInfo.processInfo.systemUptime - started) * 1_000))
     }
 }
@@ -299,12 +135,10 @@ private final class DSHRuntimeProcess {
             "Contents/Resources", isDirectory: true
         )
         let node = resources.appendingPathComponent("node", isDirectory: false)
-        let nodeSandbox = URL(fileURLWithPath: "/usr/bin/sandbox-exec", isDirectory: false)
         let script = resources.appendingPathComponent(
             "dsh/agenthost-runtime.mjs", isDirectory: false
         )
         guard FileManager.default.isExecutableFile(atPath: node.path),
-              FileManager.default.isExecutableFile(atPath: nodeSandbox.path),
               script.isFileURL,
               FileManager.default.fileExists(atPath: script.path) else {
             throw DSHAgentHostError.childUnavailable
@@ -316,6 +150,7 @@ private final class DSHRuntimeProcess {
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
             "HOME": NSHomeDirectory(),
             "TMPDIR": NSTemporaryDirectory(),
+            "KHAOS_DSH_NODE_PATH": node.path,
         ]
         environment["KHAOS_DSH_AGENTHOST_PID"] = String(getpid())
         for (infoKey, environmentKey) in [
@@ -324,6 +159,7 @@ private final class DSHRuntimeProcess {
             ("KhaosDSHProbeCredentialPath", "KHAOS_DSH_CREDENTIAL_PATH"),
             ("KhaosDSHProbeKernelPath", "KHAOS_DSH_KERNEL_PATH"),
             ("KhaosDSHProbeLocalPort", "KHAOS_DSH_LOCAL_PORT"),
+            ("KhaosDSHModelBridgeProbePath", "KHAOS_DSH_MODEL_BRIDGE_PROBE_PATH"),
             ("KhaosDSHCandidateBFixedScriptArgument", "KHAOS_DSH_CANDIDATE_B_FIXED_SCRIPT"),
         ] {
             if let value = Bundle.main.object(forInfoDictionaryKey: infoKey) as? String {
@@ -370,15 +206,7 @@ private final class DSHRuntimeProcess {
             throw DSHAgentHostError.childUnavailable
         }
 
-        // The experimental XPC Host needs network.client for its fixed model
-        // bridge. Keep that entitlement out of DSH and every Plugin descendant.
-        let argumentValues = [
-            nodeSandbox.path,
-            "-p",
-            "(version 1) (allow default) (deny network*)",
-            node.path,
-            script.path,
-        ]
+        let argumentValues = [node.path, script.path]
         let environmentValues = environment.map { "\($0.key)=\($0.value)" }
         var argumentPointers = argumentValues.map { strdup($0) } + [nil]
         var environmentPointers = environmentValues.map { strdup($0) } + [nil]
@@ -389,7 +217,7 @@ private final class DSHRuntimeProcess {
         var spawnedID: pid_t = 0
         let spawnStatus = argumentPointers.withUnsafeMutableBufferPointer { arguments in
             environmentPointers.withUnsafeMutableBufferPointer { environment in
-                nodeSandbox.path.withCString { executable in
+                node.path.withCString { executable in
                     posix_spawn(
                         &spawnedID,
                         executable,
@@ -421,6 +249,7 @@ private final class DSHRuntimeProcess {
     func exchange(
         _ frame: [String: Any],
         modelAPIKey: String? = nil,
+        modelBridgeClient: DSHModelBridgeClient? = nil,
         taskDeadlineUptime: TimeInterval? = nil
     ) throws -> [String: Any] {
         lock.lock()
@@ -447,9 +276,8 @@ private final class DSHRuntimeProcess {
                 throw DSHAgentHostError.invalidFrame
             }
 
-            let provider = AgentModelProvider.from(bundle: .main)
             let call: (completion: [String: Any]?, error: String?, elapsedMilliseconds: Int)
-            if modelCallsThisTask >= DSHModelBridge.maximumModelCallsPerTask {
+            if modelCallsThisTask >= DSHModelBridgeLimits.maximumModelCallsPerTask {
                 call = (nil, "model_call_budget_exceeded", 0)
             } else if let deadline = taskDeadlineUptime,
                       deadline <= ProcessInfo.processInfo.systemUptime {
@@ -459,13 +287,12 @@ private final class DSHRuntimeProcess {
                 let remaining = taskDeadlineUptime.map {
                     max(1, Int($0 - ProcessInfo.processInfo.systemUptime))
                 } ?? 120
-                call = DSHModelBridge.complete(
+                call = modelBridgeClient?.complete(
                     body: value["body"] as Any,
                     headers: value["headers"] as Any,
-                    provider: provider,
                     apiKey: modelAPIKey,
                     timeoutSeconds: min(120, remaining)
-                )
+                ) ?? (nil, "model_bridge_unavailable", 0)
             }
             let modelCallRecord: [String: Any] = [
                 "status": call.error ?? "ok",
@@ -585,6 +412,7 @@ private final class DSHRuntimeProcess {
 private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
     private let lock = NSLock()
     private var runtime: DSHRuntimeProcess?
+    private let modelBridgeClient: DSHModelBridgeClient?
     private var handlingRequest = false
     private var awaitingToolResult = false
     private var crashAfterToolResult = false
@@ -593,6 +421,9 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
     private var taskDeadlineUptime: TimeInterval?
 
     override init() {
+        modelBridgeClient = AgentModelProvider.from(bundle: .main).isRemote
+            ? try? DSHModelBridgeClient()
+            : nil
         runtime = try? DSHRuntimeProcess()
         super.init()
     }
@@ -664,8 +495,11 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                           frame["model_api_key"] as? String != nil else {
                         return response(.failure("model_credentials_unavailable"))
                     }
+                    guard modelBridgeClient != nil else {
+                        return response(.failure("model_bridge_unavailable"))
+                    }
                     taskDeadlineUptime = ProcessInfo.processInfo.systemUptime
-                        + TimeInterval(DSHModelBridge.maximumTaskSeconds)
+                        + TimeInterval(DSHModelBridgeLimits.maximumTaskSeconds)
                     runtime.beginTask()
                 } else {
                     taskDeadlineUptime = nil
@@ -673,6 +507,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 let event = try runtime.exchange(
                     ["operation": "user", "text": taskText],
                     modelAPIKey: realModelTask ? frame["model_api_key"] as? String : nil,
+                    modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )
                 return try encodeAgentAction(event, activePlugin: AgentHostProtocol.activePlugin(in: frame))
@@ -695,6 +530,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                         "text": text,
                     ],
                     modelAPIKey: realModelTask ? frame["model_api_key"] as? String : nil,
+                    modelBridgeClient: modelBridgeClient,
                     taskDeadlineUptime: taskDeadlineUptime
                 )
                 return try encodeAgentAction(event, activePlugin: AgentHostProtocol.activePlugin(in: frame))

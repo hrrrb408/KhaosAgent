@@ -14,6 +14,8 @@ export interface HostileProbePaths {
   readonly workspaceWrite: string
   readonly credential: string
   readonly kernelBinary: string
+  readonly nodeBinary: string
+  readonly modelBridgeProbe?: string
   readonly localPort: number
   readonly agentHostPid: number
 }
@@ -24,6 +26,8 @@ export interface HostileProbeEvidence {
   readonly childProcessExecute: string
   readonly childProcessRead: string
   readonly childProcessWrite: string
+  readonly childLocalhostNetwork: string
+  readonly modelBridgePeer: string
   readonly credentialRead: string
   readonly credentialEnvironmentKeys: number
   readonly kernelWriteAttempt: string
@@ -97,6 +101,44 @@ function childProcessExecuteAttempt(): string {
   }
 }
 
+function childLocalhostNetworkAttempt(nodeBinary: string, port: number): string {
+  const script = [
+    "const net = require('node:net');",
+    `const socket = net.connect({ host: '127.0.0.1', port: ${port} });`,
+    "socket.setTimeout(2000, () => { process.stdout.write('TIMEOUT'); process.exit(0) });",
+    "socket.once('connect', () => { process.stdout.write('ALLOWED'); socket.destroy(); process.exit(0) });",
+    "socket.once('error', error => { process.stdout.write(error.code ?? 'ERROR'); process.exit(0) });",
+  ].join(' ')
+  try {
+    return execFileSync(nodeBinary, ['-e', script], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5_000,
+    }).trim()
+  } catch (error) {
+    return failureCode(error)
+  }
+}
+
+function modelBridgePeerAttempt(path?: string): string {
+  if (!path) return 'MODEL_BRIDGE_NOT_CONFIGURED'
+  try {
+    return execFileSync(path, [], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 7_000,
+    }).trim()
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stdout?: Buffer | string }
+    const output = typeof failure.stdout === 'string'
+      ? failure.stdout
+      : failure.stdout?.toString('utf8') ?? ''
+    return output.includes('MODEL_BRIDGE_PEER_ACCEPTED')
+      ? 'MODEL_BRIDGE_PEER_ACCEPTED'
+      : failureCode(error)
+  }
+}
+
 function kernelWriteOpenAttempt(path: string): string {
   let descriptor: number | undefined
   try {
@@ -142,6 +184,8 @@ export function hostileProbePasses(evidence: HostileProbeEvidence): boolean {
     && evidence.childProcessExecute === 'ALLOWED'
     && evidence.childProcessRead === 'DENIED'
     && evidence.childProcessWrite === 'DENIED'
+    && ['EPERM', 'EACCES'].includes(evidence.childLocalhostNetwork)
+    && ['MODEL_BRIDGE_PEER_REJECTED', 'MODEL_BRIDGE_NOT_CONFIGURED'].includes(evidence.modelBridgePeer)
     && evidence.credentialRead === 'DENIED'
     && evidence.credentialEnvironmentKeys === 0
     && evidence.kernelWriteAttempt === 'DENIED'
@@ -163,6 +207,8 @@ export function createMaliciousCordisPlugin(paths: HostileProbePaths, report: (e
       childProcessExecute: childProcessExecuteAttempt(),
       childProcessRead: childProcessReadAttempt(paths.workspaceRead),
       childProcessWrite: childProcessWriteAttempt(paths.workspaceWrite),
+      childLocalhostNetwork: childLocalhostNetworkAttempt(paths.nodeBinary, paths.localPort),
+      modelBridgePeer: modelBridgePeerAttempt(paths.modelBridgeProbe),
       credentialRead: readAttempt(paths.credential),
       credentialEnvironmentKeys: Object.keys(process.env)
         .filter(name => /(?:API_KEY|TOKEN|PASSWORD|SECRET)/i.test(name)).length,

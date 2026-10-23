@@ -278,14 +278,25 @@ function probePaths(): HostileProbePaths | undefined {
   const workspaceWrite = process.env.KHAOS_DSH_WORKSPACE_WRITE_PATH
   const credential = process.env.KHAOS_DSH_CREDENTIAL_PATH
   const kernelBinary = process.env.KHAOS_DSH_KERNEL_PATH
+  const nodeBinary = process.env.KHAOS_DSH_NODE_PATH
+  const modelBridgeProbe = process.env.KHAOS_DSH_MODEL_BRIDGE_PROBE_PATH
   const localPort = Number(process.env.KHAOS_DSH_LOCAL_PORT)
   const agentHostPid = Number(process.env.KHAOS_DSH_AGENTHOST_PID)
-  if (!workspaceRead || !workspaceWrite || !credential || !kernelBinary
+  if (!workspaceRead || !workspaceWrite || !credential || !kernelBinary || !nodeBinary
     || !Number.isInteger(localPort) || localPort < 1 || localPort > 65_535
     || !Number.isSafeInteger(agentHostPid) || agentHostPid <= 0) {
     return undefined
   }
-  return { workspaceRead, workspaceWrite, credential, kernelBinary, localPort, agentHostPid }
+  return {
+    workspaceRead,
+    workspaceWrite,
+    credential,
+    kernelBinary,
+    nodeBinary,
+    ...(modelBridgeProbe ? { modelBridgeProbe } : {}),
+    localPort,
+    agentHostPid,
+  }
 }
 
 async function createTask(text: string): Promise<void> {

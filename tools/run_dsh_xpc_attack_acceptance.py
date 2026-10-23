@@ -918,6 +918,11 @@ def main() -> int:
             attack = json.loads(result_lines[0])
             if attack.get("status") != "PASS" or attack.get("oversizedScopeBlocked") is not True:
                 raise RuntimeError(f"signed AgentHost XPC hostile-plugin checks failed: {attack}")
+            if args.model_provider != "local" and attack.get("modelBridgePeer") != "MODEL_BRIDGE_PEER_REJECTED":
+                raise RuntimeError(
+                    "the signed model bridge accepted or failed to classify an untrusted Node peer: "
+                    f"{attack.get('modelBridgePeer')}"
+                )
             node_pid = attack.get("nodePid")
             descendant_pid = attack.get("descendantPid")
             if not isinstance(node_pid, int) or not isinstance(descendant_pid, int) or node_pid <= 0 or descendant_pid <= 0:

@@ -36,6 +36,7 @@ KHAOS_BASE_SHA = "b08ab11e01663d2b26304cb541efb5361dea0417"
 REPLACED_SOURCE = "khaos/macos/AgentHost.swift"
 REMOTE_MODEL_DISCLOSURE_SOURCE = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
 EXPERIMENTAL_MODEL_ID = "glm-5.3"
+DSH_MODEL_BRIDGE_ID = "org.khaos.Seed.DSHModelBridge"
 
 
 def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -47,6 +48,23 @@ def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedP
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
+
+
+def signed_entitlements(path: Path) -> dict[str, object]:
+    result = subprocess.run(
+        ["codesign", "-d", "--entitlements", "-", str(path)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    for output in (result.stdout, result.stderr):
+        try:
+            value = plistlib.loads(output)
+        except Exception:
+            continue
+        if isinstance(value, dict):
+            return value
+    raise RuntimeError(f"could not read signed entitlements from {path.name}")
 
 
 def candidate_b_fixed_script(candidate_probe: Path) -> str:
@@ -154,8 +172,14 @@ def main() -> int:
 
     probe_dir = ROOT / "experiments/dsh-feasibility"
     override = probe_dir / "DSHAgentHostAcceptance.swift"
+    model_bridge_protocol = probe_dir / "DSHModelBridgeProtocol.swift"
+    model_bridge_service_source = probe_dir / "DSHModelBridgeService.swift"
+    model_bridge_probe_source = probe_dir / "DSHModelBridgePeerProbe.swift"
     test_inputs = (
         override,
+        model_bridge_protocol,
+        model_bridge_service_source,
+        model_bridge_probe_source,
         probe_dir / "dsh-agenthost-runtime.ts",
         probe_dir / "khaos-model-bridge.ts",
         probe_dir / "dsh-capability-lifecycle-probe.ts",
@@ -184,6 +208,22 @@ def main() -> int:
     try:
         source_root = temporary / "inputs"
         source_hashes = seed_builder._snapshot_sources(source_root, None)
+        protocol_target = source_root / "khaos/macos/AgentHostProtocol.swift"
+        protocol_original = protocol_target.read_text(encoding="utf-8")
+        protocol_extension = model_bridge_protocol.read_text(encoding="utf-8")
+        if "enum DSHModelBridgeLimits" in protocol_original:
+            raise RuntimeError("base AgentHost protocol unexpectedly contains the experimental bridge")
+        protocol_target.write_text(
+            protocol_original.rstrip() + "\n\n" + protocol_extension,
+            encoding="utf-8",
+        )
+        source_hashes["khaos/macos/AgentHostProtocol.swift"] = digest(protocol_target)
+        protocol_overlay = {
+            "path": "khaos/macos/AgentHostProtocol.swift",
+            "original_sha256": hashlib.sha256(protocol_original.encode("utf-8")).hexdigest(),
+            "experimental_sha256": digest(protocol_target),
+            "reason": "share the fixed, bounded model-bridge XPC contract in the disposable app",
+        }
         disclosure_override = (
             apply_experimental_model_disclosure(source_root)
             if args.model_provider != "local" else None
@@ -269,7 +309,8 @@ def main() -> int:
             "dsh_model_provider": args.model_provider,
             "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local" else None,
             "experimental_source_overrides": (
-                [disclosure_override] if disclosure_override is not None else []
+                [protocol_overlay]
+                + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (
                 "synthetic disposable benchmark data only; Launcher task-scoped consent"
@@ -283,11 +324,18 @@ def main() -> int:
                     "max_task_seconds": 600,
                     "max_request_bytes": 56 * 1_024,
                     "max_response_bytes": 56 * 1_024,
+                    "agent_host_network_entitlement": False,
                     "node_network_entitlement": False,
-                    "node_network_enforcement": "nested Seatbelt deny network for Node and descendants; fail closed if sandbox-exec is absent",
+                    "model_bridge_network_entitlement": True,
+                    "model_bridge_service": "org.khaos.Seed.DSHModelBridge",
+                    "model_bridge_peer": "signed org.khaos.Seed.AgentHost XPC only",
                     "api_key_delivery": "Launcher to fixed AgentHost XPC bridge; not in Node environment",
                 }
                 if args.model_provider != "local" else None
+            ),
+            "model_network_boundary": (
+                "only the dedicated fixed-endpoint model XPC has network.client; AgentHost and Node do not"
+                if args.model_provider != "local" else "no remote model; no network.client entitlement"
             ),
             "dsh_sha": PINNED_DSH_SHA,
             "dsh_host_build": [
@@ -312,7 +360,9 @@ def main() -> int:
             architecture=platform.machine(),
             signing_identity=identity,
             keychain=args.keychain,
-            model_provider=args.model_provider,
+            # Keep the DSH Host sandbox network-free. Remote requests go through
+            # the separately signed, peer-verified model XPC below.
+            model_provider="local",
             llama_cli=None,
             model_file=None,
             model_license=None,
@@ -331,8 +381,7 @@ def main() -> int:
         host_info["KhaosDSHProbeLocalPort"] = str(args.probe_local_port)
         if fixed_script_argument is not None:
             host_info["KhaosDSHCandidateBFixedScriptArgument"] = fixed_script_argument
-        with host_info_path.open("wb") as stream:
-            plistlib.dump(host_info, stream, sort_keys=True)
+        host_info["KhaosModelProvider"] = args.model_provider
         dsh_resources = host_resources / "dsh"
         dsh_resources.mkdir(parents=True)
         node = host_resources / "node"
@@ -356,8 +405,99 @@ def main() -> int:
             "--entitlements", str(node_entitlements), "--identifier",
             "org.khaos.Seed.AgentHost.DSHAcceptanceRuntime", str(node),
         ])
+
+        launcher_info_path = app / "Contents/Info.plist"
+        with launcher_info_path.open("rb") as stream:
+            launcher_info = plistlib.load(stream)
+        launcher_info["KhaosModelProvider"] = args.model_provider
+        with launcher_info_path.open("wb") as stream:
+            plistlib.dump(launcher_info, stream, sort_keys=True)
+
+        if args.model_provider != "local":
+            host_binary = host / "Contents/MacOS/KhaosAgentHost"
+            host_requirement = seed_builder._designated_requirement(
+                host_binary,
+                seed_builder.AGENT_HOST_ID,
+            )
+            model_bridge_probe = host_resources / "dsh-model-bridge-peer-probe"
+            run([
+                swiftc,
+                "-sdk", sdk,
+                "-target", f"{platform.machine()}-apple-macosx26.0",
+                str(source_root / "khaos/macos/AgentHostProtocol.swift"),
+                str(model_bridge_probe_source),
+                "-o", str(model_bridge_probe),
+            ])
+            run(sign + [
+                "--options", "runtime", "--timestamp=none", "--sign", identity,
+                "--identifier", "org.khaos.Seed.AgentHost.DSHModelBridgePeerProbe",
+                str(model_bridge_probe),
+            ])
+            host_info["KhaosDSHModelBridgeProbePath"] = str(model_bridge_probe)
+            bridge = app / "Contents/XPCServices/DSHModelBridge.xpc"
+            bridge_contents = bridge / "Contents"
+            bridge_binary = bridge_contents / "MacOS/DSHModelBridge"
+            bridge_binary.parent.mkdir(parents=True)
+            run([
+                swiftc,
+                "-sdk", sdk,
+                "-target", f"{platform.machine()}-apple-macosx26.0",
+                str(source_root / "khaos/macos/AgentHostProtocol.swift"),
+                str(bridge_service_source),
+                "-o", str(bridge_binary),
+            ])
+            plistlib.dump({
+                "CFBundleIdentifier": DSH_MODEL_BRIDGE_ID,
+                "CFBundleExecutable": "DSHModelBridge",
+                "CFBundleInfoDictionaryVersion": "6.0",
+                "CFBundlePackageType": "XPC!",
+                "CFBundleName": "Khaos DSH Model Bridge",
+                "CFBundleShortVersionString": "0.1.0",
+                "CFBundleVersion": "1",
+                "LSMinimumSystemVersion": "26.0",
+                "KhaosAgentHostRequirement": host_requirement,
+                "KhaosModelProvider": args.model_provider,
+                "XPCService": {"ServiceType": "Application", "RunLoopType": "NSRunLoop"},
+            }, (bridge_contents / "Info.plist").open("wb"), sort_keys=True)
+            bridge_entitlements = temporary / "dsh-model-bridge-entitlements.plist"
+            bridge_entitlements.write_bytes(plistlib.dumps({
+                "com.apple.security.app-sandbox": True,
+                "com.apple.security.network.client": True,
+            }))
+            run(sign + [
+                "--sign", identity,
+                "--entitlements", str(bridge_entitlements),
+                str(bridge),
+            ])
+            bridge_requirement = seed_builder._designated_requirement(
+                bridge_binary,
+                DSH_MODEL_BRIDGE_ID,
+            )
+            host_info["KhaosDSHModelBridgeRequirement"] = bridge_requirement
+        with host_info_path.open("wb") as stream:
+            plistlib.dump(host_info, stream, sort_keys=True)
+
         host_entitlements = app.parent / "agent-host-entitlements.plist"
         run(sign + ["--sign", identity, "--entitlements", str(host_entitlements), str(host)])
+
+        node_entitlement_values = signed_entitlements(node)
+        host_entitlement_values = signed_entitlements(host)
+        if node_entitlement_values.get("com.apple.security.network.client") is True:
+            raise RuntimeError("signed DSH Node unexpectedly has network.client")
+        if host_entitlement_values.get("com.apple.security.network.client") is True:
+            raise RuntimeError("signed DSH AgentHost unexpectedly has network.client")
+        build_record["signed_network_entitlement_check"] = {
+            "node_network_client": False,
+            "agent_host_network_client": False,
+            "model_bridge_network_client": (
+                signed_entitlements(app / "Contents/XPCServices/DSHModelBridge.xpc").get(
+                    "com.apple.security.network.client"
+                ) is True
+                if args.model_provider != "local" else False
+            ),
+        }
+        if args.model_provider != "local" and not build_record["signed_network_entitlement_check"]["model_bridge_network_client"]:
+            raise RuntimeError("signed model bridge is missing network.client")
 
         embedded = {
             str(path.relative_to(app)): seed_builder._sha256_file(path)
@@ -371,6 +511,12 @@ def main() -> int:
         app_entitlements = app.parent / "app-entitlements.plist"
         run(sign + ["--sign", identity, "--entitlements", str(app_entitlements), str(app)])
         seed_builder.verify_app(app, identity)
+        if args.model_provider != "local":
+            run([
+                "codesign", "--verify", "--deep", "--strict",
+                f'-R=identifier "{DSH_MODEL_BRIDGE_ID}" and certificate leaf = H"{identity}"',
+                str(app / "Contents/XPCServices/DSHModelBridge.xpc"),
+            ])
         run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
         seed_builder._publish_app(app, output_app)
         seed_builder.verify_app(output_app, identity)
@@ -385,6 +531,8 @@ def main() -> int:
         print(f"node_sha256={digest(output_app / 'Contents/XPCServices/KhaosAgentHost.xpc/Contents/Resources/node')}")
         print(f"dsh_runtime_bundle_sha256={runtime_hash}")
         print(f"agent_host_binary_sha256={digest(host_binary)}")
+        if args.model_provider != "local":
+            print(f"model_bridge_binary_sha256={digest(output_app / 'Contents/XPCServices/DSHModelBridge.xpc/Contents/MacOS/DSHModelBridge')}")
         print(f"kernel_binary_sha256={digest(kernel_binary)}")
         print(f"app_bundle={output_app}")
         print(f"app_bundle_bytes={sum(path.stat().st_size for path in output_app.rglob('*') if path.is_file())}")
