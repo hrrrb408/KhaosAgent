@@ -12,6 +12,12 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { createKhaosCapabilityPlugin, type KhaosToolResult } from './khaos-capability-adapter.ts'
 import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
+import {
+  KhaosDshModelAdapter,
+  type KhaosModelRequest,
+  type KhaosModelResult,
+} from './khaos-model-bridge.ts'
+import { completeWithLocalModel } from './khaos-local-model.ts'
 import { lastToolResult, lastToolResultText } from './dsh-tool-result.ts'
 import {
   createMaliciousCordisPlugin,
@@ -21,22 +27,110 @@ import {
 } from './malicious-cordis-plugin.ts'
 
 interface HostInput {
-  operation: 'user' | 'tool_result' | 'stop'
+  operation: 'user' | 'tool_result' | 'model_result' | 'stop'
   text?: string
   ok?: boolean
   can_continue?: boolean
+  request_id?: string
+  elapsed_ms?: number
+  response?: unknown
+  error?: { code?: unknown }
 }
 
 type PendingResult = (result: KhaosToolResult) => void
+type PendingModelCall = {
+  resolve(result: KhaosModelResult): void
+  reject(error: Error): void
+  signal?: AbortSignal
+  onAbort?: () => void
+}
 
 let pendingResult: PendingResult | undefined
+const pendingModelCalls = new Map<string, PendingModelCall>()
 let currentAgent: Agent | undefined
 let currentContext: Context | undefined
 let currentPluginFiber: { dispose(): Promise<void> } | undefined
 let crashOnNextToolResult = false
 
+async function requestLocalModel(
+  request: KhaosModelRequest,
+  signal?: AbortSignal,
+): Promise<KhaosModelResult> {
+  try {
+    const result = await completeWithLocalModel(request, undefined, undefined, signal)
+    emit({ type: 'model_diagnostic', status: 'ok', elapsed_ms: result.elapsed_ms })
+    return result
+  } catch (error) {
+    const value = error as Error & { elapsed_ms?: unknown }
+    const elapsed = Number.isSafeInteger(value?.elapsed_ms) && (value.elapsed_ms as number) >= 0
+      ? Math.min(value.elapsed_ms as number, 600_000)
+      : 0
+    const code = typeof value?.message === 'string'
+      && /^local_model_[a-z0-9_]{1,64}$/u.test(value.message)
+      ? value.message
+      : 'local_model_failed'
+    emit({ type: 'model_diagnostic', status: 'failed', code, elapsed_ms: elapsed })
+    throw error
+  }
+}
+
 function emit(value: object): void {
   process.stdout.write(`${JSON.stringify(value)}\n`)
+}
+
+function requestModel(
+  request: KhaosModelRequest,
+  signal?: AbortSignal,
+): Promise<KhaosModelResult> {
+  if (pendingModelCalls.size !== 0) return Promise.reject(new Error('a model request is already pending'))
+  if (signal?.aborted) return Promise.reject(new Error('model request was cancelled'))
+  return new Promise((resolve, reject) => {
+    const pending: PendingModelCall = { resolve, reject, signal }
+    pending.onAbort = () => {
+      pendingModelCalls.delete(request.request_id)
+      reject(new Error('model request was cancelled'))
+    }
+    pendingModelCalls.set(request.request_id, pending)
+    signal?.addEventListener('abort', pending.onAbort, { once: true })
+    emit({
+      type: 'model_request',
+      request_id: request.request_id,
+      headers: request.headers,
+      body: request.body,
+    })
+  })
+}
+
+function settleModelCall(input: HostInput): void {
+  if (typeof input.request_id !== 'string') throw new Error('invalid model result id')
+  const pending = pendingModelCalls.get(input.request_id)
+  if (!pending) throw new Error('model result has no matching request')
+  pendingModelCalls.delete(input.request_id)
+  if (pending.onAbort) pending.signal?.removeEventListener('abort', pending.onAbort)
+  if (input.ok === true) {
+    if (!Number.isSafeInteger(input.elapsed_ms) || (input.elapsed_ms as number) < 0) {
+      pending.reject(new Error('invalid model bridge timing'))
+      return
+    }
+    pending.resolve({ completion: input.response, elapsed_ms: input.elapsed_ms as number })
+    return
+  }
+  const code = input.error?.code
+  const failure = new Error(
+    typeof code === 'string' ? code.slice(0, 80) : 'model_provider_failed',
+  ) as Error & { elapsed_ms?: number }
+  if (Number.isSafeInteger(input.elapsed_ms) && (input.elapsed_ms as number) >= 0) {
+    failure.elapsed_ms = input.elapsed_ms as number
+  }
+  pending.reject(failure)
+}
+
+function rejectPendingModelCalls(reason: string): void {
+  for (const [requestId, pending] of pendingModelCalls) {
+    pendingModelCalls.delete(requestId)
+    if (pending.onAbort) pending.signal?.removeEventListener('abort', pending.onAbort)
+    pending.reject(new Error(reason))
+  }
 }
 
 function proposal(argv: string[], readScope: string[], writeScope: string[]) {
@@ -207,18 +301,33 @@ function probePaths(): HostileProbePaths | undefined {
   const workspaceWrite = process.env.KHAOS_DSH_WORKSPACE_WRITE_PATH
   const credential = process.env.KHAOS_DSH_CREDENTIAL_PATH
   const kernelBinary = process.env.KHAOS_DSH_KERNEL_PATH
+  const nodeBinary = process.env.KHAOS_DSH_NODE_PATH
+  const modelBridgeProbe = process.env.KHAOS_DSH_MODEL_BRIDGE_PROBE_PATH
   const localPort = Number(process.env.KHAOS_DSH_LOCAL_PORT)
   const agentHostPid = Number(process.env.KHAOS_DSH_AGENTHOST_PID)
-  if (!workspaceRead || !workspaceWrite || !credential || !kernelBinary
+  if (!workspaceRead || !workspaceWrite || !credential || !kernelBinary || !nodeBinary
     || !Number.isInteger(localPort) || localPort < 1 || localPort > 65_535
     || !Number.isSafeInteger(agentHostPid) || agentHostPid <= 0) {
     return undefined
   }
-  return { workspaceRead, workspaceWrite, credential, kernelBinary, localPort, agentHostPid }
+  return {
+    workspaceRead,
+    workspaceWrite,
+    credential,
+    kernelBinary,
+    nodeBinary,
+    ...(modelBridgeProbe ? { modelBridgeProbe } : {}),
+    localPort,
+    agentHostPid,
+  }
 }
 
 async function createTask(text: string): Promise<void> {
   if (currentAgent || pendingResult) throw new Error('task already active')
+  const realModelPrefix = 'KHAOS_DSH_REAL_MODEL_CODING: '
+  const realModelMode = text.startsWith(realModelPrefix)
+  const taskText = realModelMode ? text.slice(realModelPrefix.length) : text
+  if (realModelMode && taskText.length === 0) throw new Error('real-model task text is empty')
   const pluginLifecycleMode = text.includes('KHAOS_DSH_PLUGIN_LIFECYCLE')
   const attackMode = text.includes('KHAOS_DSH_XPC_ATTACK')
   const scopeAttack = text.includes('KHAOS_DSH_SCOPE_ATTACK')
@@ -241,7 +350,7 @@ async function createTask(text: string): Promise<void> {
     }))
   }
 
-  const adapter = new MockAdapter(attackMode
+  const mockAdapter = new MockAdapter(attackMode
     ? [oversizedScopeProposal(), options => {
       const evidence = hostileEvidence
       const oversizedScopeBlocked = lastToolResult(options.messages).includes('invalid readScope')
@@ -289,6 +398,28 @@ async function createTask(text: string): Promise<void> {
           )),
           options => textResponse(`DSH observed the actual Khaos tool result: ${lastToolResult(options.messages)}`),
         ])
+  const modelAdapter = realModelMode
+    ? new KhaosDshModelAdapter(
+      process.env.KHAOS_DSH_LOCAL_MODEL_EXECUTABLE
+        ? {
+          provider: 'khaos-local',
+          model: 'bundled-cpu',
+          name: 'Khaos bundled CPU model',
+          contextWindow: 8_192,
+          complete: requestLocalModel,
+        }
+        : {
+          provider: 'khaos-bigmodel',
+          model: 'glm-5.3',
+          name: 'GLM-5.3',
+          contextWindow: 32_768,
+          complete: requestModel,
+        },
+    )
+    : undefined
+  const localModelMode = realModelMode && Boolean(process.env.KHAOS_DSH_LOCAL_MODEL_EXECUTABLE)
+  const provider = realModelMode ? (localModelMode ? 'khaos-local' : 'khaos-bigmodel') : 'khaos-fixture'
+  const model = realModelMode ? (localModelMode ? 'bundled-cpu' : 'glm-5.3') : 'deterministic-acceptance'
 
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
@@ -296,8 +427,11 @@ async function createTask(text: string): Promise<void> {
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
-  await ctx.plugin(AgentLoop, { agents: [] })
-  ctx.llm.registerAdapter(['khaos-fixture'], adapter)
+  await ctx.plugin(AgentLoop, { agents: [], maxParallelToolCalls: 1 })
+  ctx.llm.registerAdapter(
+    [provider],
+    modelAdapter ?? mockAdapter,
+  )
   if (pluginLifecycleMode) {
     await ctx.agentLoop.create(SessionId(`khaos-lifecycle-${randomUUID()}`), {
       provider: 'khaos-fixture',
@@ -311,7 +445,11 @@ async function createTask(text: string): Promise<void> {
     await ctx.fiber.dispose()
     return
   }
+  let rejectedProposalCount = 0
   const pluginFiber = await ctx.plugin(createKhaosCapabilityPlugin({
+    reportRejectedProposal() {
+      rejectedProposalCount += 1
+    },
     submitProposal(proposalValue, signal) {
       if (pendingResult) throw new Error('one Khaos operation may be pending at a time')
       emit({ type: 'proposal', proposal: proposalValue })
@@ -338,8 +476,9 @@ async function createTask(text: string): Promise<void> {
   }))
 
   const agent = await ctx.agentLoop.create(SessionId(`khaos-xpc-${randomUUID()}`), {
-    provider: 'khaos-fixture',
-    model: 'deterministic-acceptance',
+    provider,
+    model,
+    ...(realModelMode ? { maxTokens: 2_048 } : {}),
   })
   currentAgent = agent
   currentContext = ctx
@@ -355,7 +494,7 @@ async function createTask(text: string): Promise<void> {
     })
   })
   agent.followup(createUserMessage({
-    content: [{ type: 'text', text }],
+    content: [{ type: 'text', text: taskText }],
     source: { kind: 'user' },
   }))
   void agent.whenIdle().then(async () => {
@@ -367,22 +506,25 @@ async function createTask(text: string): Promise<void> {
       .filter(block => block.type === 'text')
       .map(block => block.text)
       .join('') ?? ''
-    const toolResults = adapter.requests.flatMap(request => request.messages
+    const toolResults = messages
       .filter(message => message.role === 'tool')
-      .map(message => message.content))
+      .map(message => message.content)
     const diagnostics = {
-      adapterRequestCount: adapter.requests.length,
+      adapterRequestCount: modelAdapter?.usage().calls ?? mockAdapter.requests.length,
       assistantMessageCount: assistantMessages.length,
       lastAssistantBlockTypes: assistant?.content.map(block => block.type) ?? [],
       toolResultCount: toolResults.length,
       lastMessageRole: messages.at(-1)?.role ?? null,
       lastMessageBlockTypes: messages.at(-1)?.content.map(block => block.type) ?? [],
+      adapterRejectedProposalCount: rejectedProposalCount,
       agentErrors,
     }
     emit({
       type: 'reply',
       text: responseText || `DSH produced no final text response. diagnostics=${JSON.stringify(diagnostics)}`,
       toolResults,
+      diagnostics,
+      ...(modelAdapter === undefined ? {} : { model_stats: modelAdapter.usage() }),
     })
     disposeAgentErrorListener()
     currentAgent = undefined
@@ -405,6 +547,10 @@ async function handle(input: HostInput): Promise<void> {
     await createTask(input.text)
     return
   }
+  if (input.operation === 'model_result') {
+    settleModelCall(input)
+    return
+  }
   if (input.operation === 'tool_result') {
     if (!pendingResult
       || typeof input.ok !== 'boolean'
@@ -424,6 +570,7 @@ async function handle(input: HostInput): Promise<void> {
   if (input.operation === 'stop') {
     currentAgent?.cancel({ kind: 'user' })
     pendingResult = undefined
+    rejectPendingModelCalls('agent host stopped')
     await currentPluginFiber?.dispose()
     await currentContext?.fiber.dispose()
     process.exit(0)
@@ -436,6 +583,7 @@ lines.on('close', () => {
   const agent = currentAgent
   agent?.cancel({ kind: 'user' })
   pendingResult = undefined
+  rejectPendingModelCalls('agent host input closed')
   void (async () => {
     await agent?.whenIdle()
     await currentPluginFiber?.dispose()
@@ -446,7 +594,7 @@ lines.on('close', () => {
   )
 })
 lines.on('line', line => {
-  if (Buffer.byteLength(line, 'utf8') > 64 * 1024) {
+  if (Buffer.byteLength(line, 'utf8') > 768 * 1024) {
     emit({ type: 'error', code: 'host_frame_too_large' })
     process.exitCode = 1
     return

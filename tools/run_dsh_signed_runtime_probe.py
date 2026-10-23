@@ -147,6 +147,8 @@ def build_dsh_bundle(
             "khaos-capability-adapter.ts",
             "dsh-tool-result.ts",
             "malicious-cordis-plugin.ts",
+            "khaos-model-bridge.ts",
+            "khaos-local-model.ts",
             runtime_entry,
         ):
             shutil.copy2(probe_dir / name, staging / name)

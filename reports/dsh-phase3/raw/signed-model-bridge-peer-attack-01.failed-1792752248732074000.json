@@ -1,0 +1,34 @@
+{
+  "app_bundle_preserved": true,
+  "available_file_sha256": {
+    "build_record_path": "397b979ee7bdcf0884bb716eb9a5a909be5f31c78f9a8cc4f9e66e138e607daa",
+    "credential_canary": "86e59deb0e7ae7a76706dcf1ac4a77a4004435f80e39f88b12993bb851d5e9c7",
+    "kernel": "dac0496f04279fabe84c7627e04b79d6aaef2da26916beedf24c3cb1db37437c",
+    "read_canary": "b8a7a78763ca09a7a44df832f8635e53866d70ae8b5855644f87b71176b2d3b1",
+    "stderr_path": "840a77ed24adbf40de5667a152ce204d18bf270090bbb573004efe69a3972943",
+    "stdout_path": "9904d9add64423329a1b95fdaeb8692fa80c5f1e896bf61502292a5b69651b50",
+    "task_path": "e1c79e4e8b23ab8b3a18c8ca9297ca5131949bc7d306dc5800b279a898973668",
+    "write_canary": "6d9a8f02a6033a0334fca64c5780d95b9600977129e27ff1555fd8f06b32999d"
+  },
+  "cancellation_case": null,
+  "failure": "RuntimeError: signed AgentHost XPC did not return one hostile-plugin result; launcher stderr tail='agent-session=remote-data=approval-presented\\nagent-session=remote-data=denied\\nagent-session=remote-data=denied\\n'",
+  "mode": "attack",
+  "result": "FAILED_ATTEMPT",
+  "schema": 2,
+  "scratch_directory": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-c6g20n8p",
+  "signed_ui_evidence": {
+    "approval_operator": "codex_agent",
+    "authorization": {
+      "scope": "Signed app XPC bridge access check using synthetic attack markers and canaries; no workspace changes and no model API request",
+      "source": "user message in the current Codex task",
+      "statement": "Owner-delegated disposable experiment"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [],
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "remote_data_consent_approved": false,
+    "runner_operations_approved": 0
+  },
+  "source_sha": "2f887fb32dde36778866572ba05ed738c900a473"
+}

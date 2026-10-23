@@ -31,6 +31,7 @@ export interface KhaosLauncherPort {
     proposal: KhaosShellProposal,
     signal: AbortSignal,
   ): Promise<KhaosToolResult>
+  reportRejectedProposal?(): void
 }
 
 function utf8Bytes(value: string): number {
@@ -130,7 +131,13 @@ export function createKhaosCapabilityPlugin(port: KhaosLauncherPort) {
       },
       async execute(args, execution) {
         if (closed) throw new Error('Launcher ended this capability session')
-        const proposal = parseProposal(args)
+        let proposal: KhaosShellProposal
+        try {
+          proposal = parseProposal(args)
+        } catch (error) {
+          port.reportRejectedProposal?.()
+          throw error
+        }
         try {
           const value = await port.submitProposal(proposal, execution.signal)
           if (closed) throw new Error('Launcher ended this capability session')

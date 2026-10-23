@@ -1,0 +1,4 @@
+Khaos Agent. The model is untrusted; each tool proposal needs separate approval. Type /exit to quit.
+You: Khaos: DSH produced no final text response. diagnostics={"adapterRequestCount":1,"assistantMessageCount":0,"lastAssistantBlockTypes":[],"toolResultCount":0,"lastMessageRole":"user","lastMessageBlockTypes":["text"],"adapterRejectedProposalCount":0,"agentErrors":[{"name":"LlmError","code":"MODEL_PROVIDER_AUTH_FAILED","message":"Khaos BigModel request failed (model_provider_auth_failed)"}]}
+Launcher task record: {"agent_host_connection_invalidated":false,"bounded_result_bytes":0,"cancellation_requested":false,"cumulative_runner_seconds":"0.000","executed_command_return_codes":[],"proposals":0,"stop_reason":"Agent Host returned final text","task_id":"96b43430-5246-4a31-a603-e6d4dbfa1f49","terminal_result_delivery":"not_applicable","workspace_requests":[]}
+You: 

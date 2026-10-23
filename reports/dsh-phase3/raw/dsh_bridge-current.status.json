@@ -1,0 +1,9 @@
+{
+  "command": "python3 tools/run_dsh_model_bridge_tests.py --dsh-source /private/tmp/khaos-dsh-687f282 --node /private/tmp/khaos-phase3-node22/bin/node",
+  "duration_seconds": 0.426028,
+  "exit_code": 0,
+  "log": "reports/dsh-phase3/raw/dsh_bridge-current.log",
+  "result": "PASS",
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08",
+  "tests_run": 10
+}

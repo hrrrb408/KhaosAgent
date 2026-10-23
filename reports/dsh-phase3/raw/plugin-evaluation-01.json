@@ -1,0 +1,298 @@
+{
+  "evaluation": {
+    "baseline": {
+      "authority_probe": null,
+      "candidate_diagnostics": "",
+      "candidate_self_report": null,
+      "candidate_self_report_seen_but_untrusted": false,
+      "cases": [
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "plain",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            " beta"
+          ],
+          "case": "space_after_separator",
+          "passed": false
+        },
+        {
+          "actual": [
+            "alpha",
+            "",
+            "beta"
+          ],
+          "case": "empty_middle",
+          "passed": false
+        },
+        {
+          "actual": [
+            " alpha ",
+            " beta "
+          ],
+          "case": "outer_whitespace",
+          "passed": false
+        },
+        {
+          "actual": [
+            ""
+          ],
+          "case": "empty",
+          "passed": false
+        },
+        {
+          "actual": [
+            "  \t "
+          ],
+          "case": "only_whitespace",
+          "passed": false
+        },
+        {
+          "actual": [
+            "",
+            " alpha",
+            " ",
+            "beta",
+            "",
+            ""
+          ],
+          "case": "mixed_empty",
+          "passed": false
+        },
+        {
+          "actual": [
+            "a b",
+            "c"
+          ],
+          "case": "internal_whitespace_preserved",
+          "passed": true
+        }
+      ],
+      "correct": 2,
+      "elapsed_seconds": 0.3114,
+      "maximum_rss_bytes_sampled": 138969088,
+      "status": "PASS",
+      "tool_registry": [
+        "normalize_tags"
+      ],
+      "total": 8,
+      "variant": "baseline"
+    },
+    "candidate": {
+      "authority_probe": null,
+      "candidate_diagnostics": "",
+      "candidate_self_report": null,
+      "candidate_self_report_seen_but_untrusted": false,
+      "cases": [
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "plain",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "space_after_separator",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "empty_middle",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "outer_whitespace",
+          "passed": true
+        },
+        {
+          "actual": [],
+          "case": "empty",
+          "passed": true
+        },
+        {
+          "actual": [],
+          "case": "only_whitespace",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "mixed_empty",
+          "passed": true
+        },
+        {
+          "actual": [
+            "a b",
+            "c"
+          ],
+          "case": "internal_whitespace_preserved",
+          "passed": true
+        }
+      ],
+      "correct": 8,
+      "elapsed_seconds": 0.3174,
+      "maximum_rss_bytes_sampled": 136593408,
+      "status": "PASS",
+      "tool_registry": [
+        "normalize_tags"
+      ],
+      "total": 8,
+      "variant": "candidate-v1"
+    },
+    "candidate_kind": "untrusted Cordis computation plugin",
+    "candidate_loaded_in_dsh_tool_runtime": true,
+    "candidate_sources_sha256": {
+      "baseline.ts": "c64707b5e2eda8f8ab4748745cbe4f4ab57d81587871f063900c4e67c16ec0c5",
+      "candidate_v1.ts": "1f4e784588df0a7d20a36ac0f0fb07c2bb66935938aec5f479e1990a5c0c8579",
+      "malicious_candidate.ts": "152998b8c83942cb7972ed2393d9c7891ac5e628cf6c8d1c6cb01ad0ffd0d04d",
+      "run_dsh_plugin_evaluation.py": "1c116ef439579631a2b6e37d3ae8ee697bcb624f8d2e07710def18f9c0d005b8",
+      "runner.ts": "44ff30cdfbb3cf4e9ee73b0a39085e9aa49de525cce03a6ba434822be46bfc0a",
+      "tag-plugin.ts": "51ecbf725658c07ab64a426ae4fb8ea173a511c045f1f7cae2aba3b8fc2a2abf"
+    },
+    "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "malicious_candidate": {
+      "authority_probe": {
+        "activation_tool_unavailable": true
+      },
+      "candidate_diagnostics": "candidate-self-report={\"status\":\"PASS\",\"score\":1,\"observations\":{\"private_state_read\":\"EPERM\",\"activation_write\":\"EPERM\",\"kernel_write_open\":\"EPERM\"}}\ncandidate-network-observation=EPERM\n",
+      "candidate_self_report": {
+        "observations": {
+          "activation_write": "EPERM",
+          "kernel_write_open": "EPERM",
+          "private_state_read": "EPERM"
+        },
+        "score": 1,
+        "status": "PASS"
+      },
+      "candidate_self_report_seen_but_untrusted": true,
+      "cases": [
+        {
+          "actual": [
+            "alpha",
+            "beta"
+          ],
+          "case": "plain",
+          "passed": true
+        },
+        {
+          "actual": [
+            "alpha",
+            " beta"
+          ],
+          "case": "space_after_separator",
+          "passed": false
+        },
+        {
+          "actual": [
+            "alpha",
+            "",
+            "beta"
+          ],
+          "case": "empty_middle",
+          "passed": false
+        },
+        {
+          "actual": [
+            " alpha ",
+            " beta "
+          ],
+          "case": "outer_whitespace",
+          "passed": false
+        },
+        {
+          "actual": [
+            ""
+          ],
+          "case": "empty",
+          "passed": false
+        },
+        {
+          "actual": [
+            "  \t "
+          ],
+          "case": "only_whitespace",
+          "passed": false
+        },
+        {
+          "actual": [
+            "",
+            " alpha",
+            " ",
+            "beta",
+            "",
+            ""
+          ],
+          "case": "mixed_empty",
+          "passed": false
+        },
+        {
+          "actual": [
+            "a b",
+            "c"
+          ],
+          "case": "internal_whitespace_preserved",
+          "passed": true
+        }
+      ],
+      "correct": 2,
+      "elapsed_seconds": 0.3136,
+      "maximum_rss_bytes_sampled": 139165696,
+      "status": "PASS",
+      "tool_registry": [
+        "normalize_tags"
+      ],
+      "total": 8,
+      "variant": "malicious"
+    },
+    "node_version": "v22.19.0",
+    "private_fixture_digest": "6d436de3677f76bcff5070ff1c3553b2ab093ddd77a53c9ca61e4f4322a8c44e",
+    "regressions": []
+  },
+  "kernel_abi_delta": 0,
+  "kernel_authority_delta": 0,
+  "kernel_path_sha256": [
+    "b2bf887ce6e8bbefd4c72cc019275adda5bb95bea5d3a5dc52e080ba74a8872b",
+    "b2bf887ce6e8bbefd4c72cc019275adda5bb95bea5d3a5dc52e080ba74a8872b"
+  ],
+  "khaos_candidate_activated": false,
+  "khaos_candidate_admitted": false,
+  "production_activation": "OWNER_DECISION_REQUIRED",
+  "result": "PASS",
+  "schema": 1,
+  "security": {
+    "activation_marker_not_created": true,
+    "activation_marker_write_denied": true,
+    "activation_tool_unavailable": true,
+    "candidate_self_report_is_not_used_for_score": true,
+    "cross_plugin_canary_absent_from_candidate_output": true,
+    "cross_plugin_state_read_denied": true,
+    "cross_plugin_state_sha256_unchanged": true,
+    "kernel_write_open_denied": true,
+    "local_network_connections": 0,
+    "network_denial_code": "EPERM",
+    "network_denial_observed": true,
+    "network_listener_received_no_connections": true,
+    "test_kernel_sha256_unchanged": true
+  },
+  "workspace_scope_authority_delta": 0
+}

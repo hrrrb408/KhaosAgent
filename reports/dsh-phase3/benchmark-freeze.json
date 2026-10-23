@@ -1,0 +1,89 @@
+{
+  "dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+  "expected_trials": 8,
+  "frozen_before_real_model_trials": true,
+  "hidden_tests_are_created_outside_model_workspace": true,
+  "limits": {
+    "max_edits_per_task": 3,
+    "max_task_seconds": 600,
+    "max_tool_operations_per_task": 8,
+    "max_write_scope_operations_per_task": 3
+  },
+  "oracle_sources_sha256": {
+    "experiments/dsh_phase3/benchmark.py": "42049b6bf7352a9535824fdac158926ff110d297bbace712f4d1e317108bed1d",
+    "experiments/dsh_phase3/test_benchmark.py": "217f48528857e80fd0d229b191d54aca79f78ac116de28789d09e30f12706f73"
+  },
+  "schema": "khaos-dsh-phase3-benchmark-freeze-v1",
+  "task_fixtures": {
+    "A": {
+      "hidden_test_sha256": "3c3a8dc55571d0ce2022caa95770380d14f77f7d4bccbd97286b4450d92f2b3a",
+      "prompt_sha256": "a387aaeb7fd285334f27eb0cb8b405fccd529c39523a126785edd27cda80bd94",
+      "public_fixture_sha256": {
+        "fee.py": "f9d50dd40515ba0c09b5520a596820120b3cad4a114946cda1b91b15807059bd",
+        "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d"
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "title": "Simple Edit",
+      "write_scope": [
+        "fee.py"
+      ]
+    },
+    "B": {
+      "hidden_test_sha256": "d2af6b495c1e2f88b0d9df2d9f479072f07bf54c396314cd845aedbe16c46347",
+      "prompt_sha256": "327f1557176d723c2216346830dcac41a6d1da1b9ace43dd107c6d1983edfd2b",
+      "public_fixture_sha256": {
+        "email_tools.py": "c8017d2e859f9a34236dbe33c6f1983a840f854fb2fc38a69918a5eb2aaae3e7",
+        "test_public.py": "b2a53222a6e7958dffae4b90ac4b120bed527fbd16f1561cffbb16c8b527936b"
+      },
+      "read_scope": [
+        "email_tools.py",
+        "test_public.py"
+      ],
+      "title": "Bug Fix",
+      "write_scope": [
+        "email_tools.py"
+      ]
+    },
+    "C": {
+      "hidden_test_sha256": "951f294811edb1897781f87b92951ac260040d5010b3b682d7fd68351a6bbbb2",
+      "prompt_sha256": "8360c1b570cd47af38416b3fc9a2d8218dbe39942f950af5eec1903f7ebf472a",
+      "public_fixture_sha256": {
+        "progress.py": "e81669abefbc4ea21a0744eac14e92e861b93198f0586a7e899adaf3de504b6f",
+        "test_public.py": "5ad37d7d54effec14a558f50fbf25651e00cd4cf114a5fcdfcc70fe773b849c7"
+      },
+      "read_scope": [
+        "progress.py",
+        "test_public.py"
+      ],
+      "title": "Test Failure Repair",
+      "write_scope": [
+        "progress.py"
+      ]
+    },
+    "D": {
+      "hidden_test_sha256": "f75589ea346ca436d115bb762e18603eb35651cc2fcae9d5dd0c93f94915bb90",
+      "prompt_sha256": "70107a056bdced4452ef348419b892c1b181d1bb81862bbb2175d07180964a2f",
+      "public_fixture_sha256": {
+        "inventory.py": "35ae51e186d75a4f0d4fd9e265963d0ac6fe2bebc56b038887fe2bfcf18f6247",
+        "test_public.py": "ca44bbdc1a4e1f2311214a85a9e054740a423cbda52706cda214db6d28312766"
+      },
+      "read_scope": [
+        "inventory.py",
+        "test_public.py"
+      ],
+      "title": "Multi-Step Coding",
+      "write_scope": [
+        "inventory.py"
+      ]
+    }
+  },
+  "task_ids": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ]
+}

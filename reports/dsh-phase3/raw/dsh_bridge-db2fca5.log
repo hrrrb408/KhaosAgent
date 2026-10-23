@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: uses the DSH route, fixed model, bounded output, and one Khaos tool
+ok 1 - uses the DSH route, fixed model, bounded output, and one Khaos tool
+  ---
+  duration_ms: 1.047042
+  type: 'test'
+  ...
+# Subtest: leaves GLM reasoning effort at the provider default
+ok 2 - leaves GLM reasoning effort at the provider default
+  ---
+  duration_ms: 0.076625
+  type: 'test'
+  ...
+# Subtest: rejects unsupported models, completion budgets, request sizes, and tools before transport
+ok 3 - rejects unsupported models, completion budgets, request sizes, and tools before transport
+  ---
+  duration_ms: 0.38575
+  type: 'test'
+  ...
+# Subtest: rejects malformed and oversized provider responses
+ok 4 - rejects malformed and oversized provider responses
+  ---
+  duration_ms: 0.832834
+  type: 'test'
+  ...
+# Subtest: sanitizes provider errors while retaining bounded timing
+ok 5 - sanitizes provider errors while retaining bounded timing
+  ---
+  duration_ms: 0.204834
+  type: 'test'
+  ...
+# Subtest: does not submit a pre-cancelled request
+ok 6 - does not submit a pre-cancelled request
+  ---
+  duration_ms: 0.074166
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 124.771833

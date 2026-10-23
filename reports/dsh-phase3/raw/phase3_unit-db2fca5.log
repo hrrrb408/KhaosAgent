@@ -1,0 +1,20 @@
+test_accepts_only_bounded_python_with_exact_task_scopes (test_acceptance_policy.RealModelAcceptancePolicyTests.test_accepts_only_bounded_python_with_exact_task_scopes) ... ok
+test_codex_signed_runs_require_explicit_delegation_metadata (test_acceptance_policy.RealModelAcceptancePolicyTests.test_codex_signed_runs_require_explicit_delegation_metadata) ... ok
+test_model_bridge_probe_keeps_unavailable_distinct_from_denial (test_acceptance_policy.RealModelAcceptancePolicyTests.test_model_bridge_probe_keeps_unavailable_distinct_from_denial) ... ok
+test_only_fixed_mock_attack_marker_skips_remote_data_consent (test_acceptance_policy.RealModelAcceptancePolicyTests.test_only_fixed_mock_attack_marker_skips_remote_data_consent) ... ok
+test_operator_evidence_does_not_claim_owner_clicked (test_acceptance_policy.RealModelAcceptancePolicyTests.test_operator_evidence_does_not_claim_owner_clicked) ... ok
+test_rejects_duplicate_scopes_and_oversized_commands (test_acceptance_policy.RealModelAcceptancePolicyTests.test_rejects_duplicate_scopes_and_oversized_commands) ... ok
+test_rejects_scope_expansion_and_non_python_commands (test_acceptance_policy.RealModelAcceptancePolicyTests.test_rejects_scope_expansion_and_non_python_commands) ... ok
+test_unmatched_kernel_request_still_detects_out_of_scope_paths (test_acceptance_policy.RealModelAcceptancePolicyTests.test_unmatched_kernel_request_still_detects_out_of_scope_paths) ... ok
+test_dataset_digest_is_stable_and_sensitive_to_fixtures (test_benchmark.DSHPhase3BenchmarkTests.test_dataset_digest_is_stable_and_sensitive_to_fixtures) ... ok
+test_four_frozen_tasks_have_distinct_types_and_scoped_files (test_benchmark.DSHPhase3BenchmarkTests.test_four_frozen_tasks_have_distinct_types_and_scoped_files) ... ok
+test_hidden_tests_are_created_outside_the_model_workspace (test_benchmark.DSHPhase3BenchmarkTests.test_hidden_tests_are_created_outside_the_model_workspace) ... ok
+test_model_prompt_names_exact_scope_without_disclosing_hidden_acceptance (test_benchmark.DSHPhase3BenchmarkTests.test_model_prompt_names_exact_scope_without_disclosing_hidden_acceptance) ... ok
+test_real_model_input_is_one_launcher_turn (test_benchmark.DSHPhase3BenchmarkTests.test_real_model_input_is_one_launcher_turn) ... ok
+test_reference_implementations_pass_independent_hidden_tests (test_benchmark.DSHPhase3BenchmarkTests.test_reference_implementations_pass_independent_hidden_tests) ... ok
+test_starter_code_does_not_pass_hidden_acceptance (test_benchmark.DSHPhase3BenchmarkTests.test_starter_code_does_not_pass_hidden_acceptance) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.277s
+
+OK

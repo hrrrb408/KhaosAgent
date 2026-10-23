@@ -1,0 +1,85 @@
+{
+  "benchmark_files_changed_since_original_freeze": [
+    "experiments/dsh_phase3/benchmark.py",
+    "experiments/dsh_phase3/test_benchmark.py"
+  ],
+  "benchmark_task_spec_unchanged": true,
+  "change_since_original_freeze": "Only the real-model task line prefix/whitespace materialization helper and its regression test were added after the task fixtures. Task titles, request text, public fixtures, read/write scopes, hidden acceptance source, and dataset digest are unchanged.",
+  "dataset_digest_matches_original_source": true,
+  "dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+  "effective_source_hashes": {
+    "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+    "experiments/dsh_phase3/test_benchmark.py": "8dc4acbd1e266fa21915e4fc9a535a2727395ad3d2145df4a11381d5aacd3858"
+  },
+  "evidence_limit": "The original freeze manifest did not bind the effective one-line prompt transform before trials. Supplemental hashes are a post-hoc provenance correction, not contemporaneous freeze evidence.",
+  "freeze_manifest_created_commit": "db2fca5",
+  "hidden_test_hashes": {
+    "A": {
+      "current_hidden_sha256": "3c3a8dc55571d0ce2022caa95770380d14f77f7d4bccbd97286b4450d92f2b3a",
+      "frozen_expected_sha256": "3c3a8dc55571d0ce2022caa95770380d14f77f7d4bccbd97286b4450d92f2b3a",
+      "matches": true
+    },
+    "B": {
+      "current_hidden_sha256": "d2af6b495c1e2f88b0d9df2d9f479072f07bf54c396314cd845aedbe16c46347",
+      "frozen_expected_sha256": "d2af6b495c1e2f88b0d9df2d9f479072f07bf54c396314cd845aedbe16c46347",
+      "matches": true
+    },
+    "C": {
+      "current_hidden_sha256": "951f294811edb1897781f87b92951ac260040d5010b3b682d7fd68351a6bbbb2",
+      "frozen_expected_sha256": "951f294811edb1897781f87b92951ac260040d5010b3b682d7fd68351a6bbbb2",
+      "matches": true
+    },
+    "D": {
+      "current_hidden_sha256": "f75589ea346ca436d115bb762e18603eb35651cc2fcae9d5dd0c93f94915bb90",
+      "frozen_expected_sha256": "f75589ea346ca436d115bb762e18603eb35651cc2fcae9d5dd0c93f94915bb90",
+      "matches": true
+    }
+  },
+  "input_transform_commit": "9eb3cb5d89db95d530ed520da5a6502aacecb56a",
+  "original_freeze_source_commit": "9511a04",
+  "primary_trial_source_shas": [
+    "26d6747fb7f371e98a89f1cc8a438a9a6146aace",
+    "55ac27c5553ea91c64d5c47ad85907008079dc08"
+  ],
+  "prior_source_hashes_recorded_by_freeze": {
+    "experiments/dsh_phase3/benchmark.py": "42049b6bf7352a9535824fdac158926ff110d297bbace712f4d1e317108bed1d",
+    "experiments/dsh_phase3/test_benchmark.py": "217f48528857e80fd0d229b191d54aca79f78ac116de28789d09e30f12706f73"
+  },
+  "problem": "benchmark-freeze.json retained the original oracle source hashes after the one-line Launcher input wrapper was added; its recorded benchmark.py and test_benchmark.py hashes therefore do not match the source used by counted trials.",
+  "recorded_on": "2026-10-23",
+  "rerun_reason": "The source metadata was stale before all counted trials; the same effective task input and unchanged hidden oracles were used for every counted trial. No benchmark or hidden-test mutation occurred after a counted trial.",
+  "rerun_required": false,
+  "schema": "khaos-dsh-phase3-benchmark-freeze-audit-v1",
+  "status": "PARTIAL_METADATA_CORRECTION",
+  "task_prompt_hashes": {
+    "A": {
+      "effective_model_input_sha256": "5d7ac571400b074e004a4f9dde99440b420de2b6f1e77bbd8399c95348f60c84",
+      "frozen_expected_prompt_sha256": "a387aaeb7fd285334f27eb0cb8b405fccd529c39523a126785edd27cda80bd94",
+      "matches": true,
+      "scoped_task_prompt_sha256": "c850dda65c1bef933513b8e4e05c1b8ce08ebdcb5c10b0dd7707d9160af8700b",
+      "task_request_text_sha256": "a387aaeb7fd285334f27eb0cb8b405fccd529c39523a126785edd27cda80bd94"
+    },
+    "B": {
+      "effective_model_input_sha256": "df6b437643b52a6d92ca25de9c86d667d18a46262ae43d1edd514e235c1b4de8",
+      "frozen_expected_prompt_sha256": "327f1557176d723c2216346830dcac41a6d1da1b9ace43dd107c6d1983edfd2b",
+      "matches": true,
+      "scoped_task_prompt_sha256": "b950e9ed9ed9a30a9b30fa00c6393d783613584737f1ecb133ada2df1dfd7735",
+      "task_request_text_sha256": "327f1557176d723c2216346830dcac41a6d1da1b9ace43dd107c6d1983edfd2b"
+    },
+    "C": {
+      "effective_model_input_sha256": "5eb2f0982e2972632d87057117de72031a5f3779fe8dd868d300c9dcfb93e6d7",
+      "frozen_expected_prompt_sha256": "8360c1b570cd47af38416b3fc9a2d8218dbe39942f950af5eec1903f7ebf472a",
+      "matches": true,
+      "scoped_task_prompt_sha256": "3a3cd1e693253e4e8b4cd0a4e6c7f05868a6e7f8d284eab1a7fb90c4a6f05c30",
+      "task_request_text_sha256": "8360c1b570cd47af38416b3fc9a2d8218dbe39942f950af5eec1903f7ebf472a"
+    },
+    "D": {
+      "effective_model_input_sha256": "c8a74325c969ab0269f549b092755e9376694942e8c72694aa60562d3f6944c2",
+      "frozen_expected_prompt_sha256": "70107a056bdced4452ef348419b892c1b181d1bb81862bbb2175d07180964a2f",
+      "matches": true,
+      "scoped_task_prompt_sha256": "656dae3f3f3863664eb5676d32702432c966e4c0f7ab72b9ccb0332e50726ab9",
+      "task_request_text_sha256": "70107a056bdced4452ef348419b892c1b181d1bb81862bbb2175d07180964a2f"
+    }
+  },
+  "trial_effect": "All eight counted trials used the post-wrapper benchmark source. A-1 used source SHA 26d6747; the other seven used 55ac27c. The benchmark source is byte-identical at those two SHAs. The wrapper adds a fixed mode prefix and collapses task prompt whitespace to one line for the signed Launcher protocol."
+}

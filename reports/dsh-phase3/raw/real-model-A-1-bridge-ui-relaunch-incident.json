@@ -1,0 +1,13 @@
+{
+  "agent_operation": false,
+  "classification": "OUT_OF_SCOPE_OPERATOR_UI_LAUNCH",
+  "cleanup": "No-argument app closed; disposable scratch preserved.",
+  "created_file": "khaos-seed-writeback-smoke-ca39213b-32ba-4e2b-bd2c-c957248b4ca7.txt",
+  "created_file_sha256": "424af2cf1970670c0feb3cb8b563daafe1d9d97d5cd50882db21af67938711e4",
+  "kernel_message": "Kernel committed one file and direct Picker write was denied.",
+  "runner_execution": false,
+  "source_sha": "4775fa28a62387a1019755f0350d9c59285ba765",
+  "status": "SEPARATE_FROM_AGENT_TRIAL",
+  "trigger_assessment": "After the signed --agent process exited on MODEL_BRIDGE_UNAVAILABLE, a later accessibility observation relaunched the app without --agent; the default workspace smoke created this file.",
+  "workspace": "/private/var/folders/l3/00y511gj4q55gj2z6zdqzrs00000gn/T/khaos-dsh-xpc-attack-nugs8lyj/coding-workspace"
+}

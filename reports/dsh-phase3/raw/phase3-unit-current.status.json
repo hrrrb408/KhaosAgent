@@ -1,0 +1,9 @@
+{
+  "command": "python3 -m unittest discover -s experiments/dsh_phase3 -v",
+  "duration_seconds": 0.349,
+  "exit_code": 0,
+  "log": "reports/dsh-phase3/raw/phase3-unit-current.log",
+  "result": "PASS",
+  "source_sha": "55ac27c5553ea91c64d5c47ad85907008079dc08",
+  "tests_run": 18
+}
