@@ -981,6 +981,30 @@
       ]
     },
     {
+      "path": "tests/test_dsh_xpc_acceptance_builder.py",
+      "role": "build-governance",
+      "sha256": "205944c39aad963de103cd2ceb935a1743181a7e38b8e28878f6248651db8596",
+      "source_mode": "0o644",
+      "boundary": "test-only DSH acceptance builder regression; validates fixed Candidate B probe decoding and does not ship in runtime",
+      "tests": [
+        "tests/test_dsh_xpc_acceptance_builder.py",
+        "python3 -m unittest discover -s tests -p test_dsh_xpc_acceptance_builder.py -v",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_dsh_xpc_acceptance_runner.py",
+      "role": "build-governance",
+      "sha256": "460361ff8843cea56fb431bea7aeb0c309c61562f8d27200f836b941f9112304",
+      "source_mode": "0o644",
+      "boundary": "test-only signed DSH acceptance result verifier regression; validates observed runtime events and does not ship in runtime",
+      "tests": [
+        "tests/test_dsh_xpc_acceptance_runner.py",
+        "python3 -m unittest discover -s tests -p test_dsh_xpc_acceptance_runner.py -v",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
       "path": "tests/test_ipc.py",
       "role": "build-governance",
       "sha256": "8730eafdece9959cc1aa8a53e55fe17fddb7fbafeac4a61d8fc6583b6f987d01",

@@ -61,5 +61,5 @@ visibility, and no authority mapping from Cordis state.
   cancellation, Node child crash/recovery, and AgentHost XPC crash/recovery:
   all passed at Khaos source SHA 5abf5d34426304b77a0773c1b30eb8814f5aa44c.
   Per-run evidence is in this directory.
-- Canonical suite and Security Freeze exact-base results are recorded in
-  FINAL_DECISION.md after their final-SHA runs.
+- The canonical suite and local Security Freeze results are recorded in
+  FINAL_DECISION.md. The exact final-head GitHub checks are linked from PR #43.

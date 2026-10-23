@@ -27,12 +27,28 @@ authorization, not by the project owner. Owner review must therefore remain
 open. Technical Gate A also remains independent; this experiment does not
 close it.
 
-## Final-SHA repository validation
+## Repository validation
 
-Implementation and signed acceptance evidence are bound to source SHA
-5abf5d34426304b77a0773c1b30eb8814f5aa44c. The reporting-only commit and its
-final-SHA validation are recorded here after completion of the canonical test
-suite, local Security Freeze, exact PR #41 base check, and GitHub checks.
+The canonical command, python3 -m unittest discover -s tests -v, passed all
+411 tests in 824.946 seconds. This run used the c258575 report commit plus the
+then-current two-entry Security Freeze inventory and declaration in the
+working tree. The implementation and all signed UI evidence remain bound to
+source SHA 5abf5d34426304b77a0773c1b30eb8814f5aa44c; later edits are reports
+and governance metadata only.
+
+Security Freeze passed in both modes after the inventory update:
+
+- Default inventory check: verified, 0 sensitive changes.
+- Exact PR #41 HEAD b08ab11e01663d2b26304cb541efb5361dea0417: verified,
+  5 declared sensitive paths. The five are the two new test-only
+  build-governance inputs plus security/tcb-manifest.json,
+  security/freeze-baseline.json, and security/security-change.json. This is
+  governance inventory, not a runtime TCB or authority expansion.
+
+After the final report commit, the two local Freeze commands are rerun at that
+exact HEAD. The existing Draft PR #43 description records the required
+GitHub Seed CI and Security Freeze runs for its exact final head. A green check
+does not replace the independent review recorded below.
 
 ## Production and architecture deltas
 
