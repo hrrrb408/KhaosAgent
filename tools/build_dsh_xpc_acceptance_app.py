@@ -784,12 +784,91 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
     if transformed.count(normal_result) != 1:
         raise RuntimeError("expected one ordinary workspace result delivery")
     transformed = transformed.replace(normal_result, normal_result_new)
+
+    ordinary_approval = "\n".join((
+        '                title: "Approve this local Agent tool once?",',
+        '                details: command,',
+        '                workspace: selection.scopeURL,',
+    )) + "\n"
+    ordinary_approval_with_identity = "\n".join((
+        '                title: "Approve this local Agent tool once?",',
+        '                details: "Task ID: \\(taskID.uuidString.lowercased())\\n\\n\\(command)",',
+        '                workspace: selection.scopeURL,',
+    )) + "\n"
+    if transformed.count(ordinary_approval) != 1:
+        raise RuntimeError("expected one ordinary semantic approval dialog")
+    transformed = transformed.replace(ordinary_approval, ordinary_approval_with_identity)
+
+    candidate_approval = "\n".join((
+        '                workspacePath: selection.scopeURL.path,',
+        '                requestID: requestID.token,',
+    )) + "\n"
+    candidate_approval_with_identity = "\n".join((
+        '                workspacePath: selection.scopeURL.path,',
+        '                taskID: taskID,',
+        '                requestID: requestID.token,',
+    )) + "\n"
+    if transformed.count(candidate_approval) != 1:
+        raise RuntimeError("expected one Candidate B semantic approval dialog")
+    transformed = transformed.replace(candidate_approval, candidate_approval_with_identity)
     path.write_text(transformed, encoding="utf-8")
     return {
         "path": relative_path,
         "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
         "experimental_sha256": digest(path),
         "reason": "add payload-free task/request/approval/Kernel lifecycle events and pass result correlation to the experimental AgentHost; no execution or approval policy changes",
+    }
+
+
+def apply_experimental_candidate_approval_identity(source_root: Path) -> dict[str, str]:
+    relative_path = "khaos/macos/TrustedEditApproval.swift"
+    path = source_root / relative_path
+    original = path.read_text(encoding="utf-8")
+    transformed = original
+    signature = "\n".join((
+        "        workspacePath: String,",
+        "        requestID: String,",
+    )) + "\n"
+    signature_with_identity = "\n".join((
+        "        workspacePath: String,",
+        "        taskID: UUID,",
+        "        requestID: String,",
+    )) + "\n"
+    if transformed.count(signature) != 1:
+        raise RuntimeError("expected one Candidate B approval signature")
+    transformed = transformed.replace(signature, signature_with_identity)
+
+    summary_marker = "        let details = edit.completeDetails(\n"
+    identity = '        let operationIdentity = "Task ID: \\(taskID.uuidString.lowercased())\\n\\n"\n'
+    if transformed.count(summary_marker) != 1:
+        raise RuntimeError("expected one Candidate B details assembly")
+    transformed = transformed.replace(summary_marker, identity + summary_marker)
+
+    old_guard = "\n".join((
+        "        guard summary.utf8.count <= TrustedCandidateBPreview.maximumPreviewBytes,",
+        "              details.utf8.count <= TrustedCandidateBPreview.maximumDetailsBytes else {",
+    )) + "\n"
+    new_guard = "\n".join((
+        "        guard (operationIdentity + summary).utf8.count <= TrustedCandidateBPreview.maximumPreviewBytes,",
+        "              (operationIdentity + details).utf8.count <= TrustedCandidateBPreview.maximumDetailsBytes else {",
+    )) + "\n"
+    if transformed.count(old_guard) != 1:
+        raise RuntimeError("expected one bounded Candidate B view size check")
+    transformed = transformed.replace(old_guard, new_guard)
+
+    for view_name in ("summary", "details"):
+        old_view = f"alert.accessoryView = scrollableText({view_name})"
+        new_view = f"alert.accessoryView = scrollableText(operationIdentity + {view_name})"
+        if transformed.count(old_view) != 1:
+            raise RuntimeError(f"expected one Candidate B {view_name} review view")
+        transformed = transformed.replace(old_view, new_view)
+
+    path.write_text(transformed, encoding="utf-8")
+    return {
+        "path": relative_path,
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "experimental_sha256": digest(path),
+        "reason": "show the current experimental Task ID in both Candidate B review screens without changing edit validation or execution",
     }
 
 
@@ -963,6 +1042,8 @@ def main() -> int:
         source_hashes[telemetry_client_overlay["path"]] = telemetry_client_overlay["experimental_sha256"]
         launcher_trace_overlay = apply_experimental_launcher_semantic_trace(source_root)
         source_hashes[launcher_trace_overlay["path"]] = launcher_trace_overlay["experimental_sha256"]
+        candidate_approval_identity_overlay = apply_experimental_candidate_approval_identity(source_root)
+        source_hashes[candidate_approval_identity_overlay["path"]] = candidate_approval_identity_overlay["experimental_sha256"]
         disclosure_override = (
             apply_experimental_model_disclosure(source_root)
             if args.model_provider != "local" else None
