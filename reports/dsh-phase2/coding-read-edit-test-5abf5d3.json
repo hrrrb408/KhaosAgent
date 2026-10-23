@@ -1,0 +1,144 @@
+{
+  "agent_host_xpc_sha256": "ba692fda9ee3c061ddccd4f51ae65f6d1a6d6108410966c560f49162db8b0950",
+  "agenthost_xpc_recovery": null,
+  "build_record_sha256": "4dd7b6f1c067d2fc67d6ad37e699bd454d888e8313c56417a74c1e2af228a932",
+  "canaries_unchanged": true,
+  "cancellation_acknowledged": null,
+  "cancellation_barrier_reached": null,
+  "cancellation_barrier_released": null,
+  "cancellation_case": null,
+  "cancellation_events": null,
+  "cancellation_task_record": null,
+  "cordis_plugin_lifecycle": null,
+  "deep_code_signature_verified": true,
+  "descendant_pid": null,
+  "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+  "dsh_terminal_preserved_original_result": false,
+  "hostile_cordis_plugin": null,
+  "kernel_sha256_before_after": [
+    "f543393e1c602cb472c96ffe8e1ae2ebeee761682493f75ae3e60c2efe7baa64",
+    "f543393e1c602cb472c96ffe8e1ae2ebeee761682493f75ae3e60c2efe7baa64"
+  ],
+  "launcher_tool_proposal_requested": true,
+  "launcher_workspace_picker_requested": true,
+  "local_tcp_connections": 0,
+  "mode": "coding",
+  "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+  "node_pid": null,
+  "node_process_group_clean_after_xpc_teardown": null,
+  "node_rss_bytes": null,
+  "node_runtime_spawned_count": null,
+  "node_runtime_stopped_count": null,
+  "node_version": "v22.19.0",
+  "pr41_base_sha": "b08ab11e01663d2b26304cb541efb5361dea0417",
+  "result": "PASS",
+  "schema": 2,
+  "signed_app_bytes": 198808888,
+  "signed_ui_evidence": {
+    "authorization": {
+      "scope": "Khaos \u00d7 DSH Phase 2 signed experimental acceptances on disposable fixtures, including selecting the workspace and deciding only the exact operations displayed for each experiment.",
+      "source": "user message in the current Codex task",
+      "statement": "\u4ece\u73b0\u5728\u5f00\u59cb\uff0c\u5168\u90e8\u7531\u4f60\u7740\u624b\u5b8c\u6210\uff0c\u6211\u4e0d\u518d\u53c2\u4e0e\u5f00\u53d1\uff0c\u6211\u9700\u8981\u4f60\u7ee7\u7eed\u5b8c\u6210khaos\u7684\u5f00\u53d1\uff0c\u4fdd\u6301\u4ee3\u7801\u7684\u5065\u58ee\u6027\u548c\u7b80\u6d01\u4f18\u96c5\uff0c\u4e0d\u8981\u6709\u91cd\u590d\u7684\uff0c\u5c3d\u53ef\u80fd\u7684\u590d\u7528"
+    },
+    "candidate_preview_operations_approved": 0,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": false,
+        "bounded_result_bytes": 721,
+        "cancellation_requested": false,
+        "cumulative_runner_seconds": "10.077",
+        "executed_command_return_codes": [
+          0,
+          0,
+          0
+        ],
+        "proposals": 3,
+        "stop_reason": "Kernel completed request 399f9b5eab434e67a479f05a43d084b3, committed the accepted changeset, Runner return code=0",
+        "task_id": "cb24e9d9-aa49-430f-99c0-813dd16da35c",
+        "terminal_result_delivery": "not_applicable",
+        "workspace_requests": [
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 0
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "ff519a0058147a08d3d9cf89a578ec94cdf124548fdf5863c724a1e8a447a575",
+            "kernel_result": "output",
+            "read_scope": [
+              "example.py",
+              "test_example.py"
+            ],
+            "request_id": "733103a4c54f4bc68c62b911677135c1",
+            "runner_execution": "completed",
+            "runner_return_code": 0,
+            "workspace_session_id": "3402666f-1dbb-484e-8fde-88c580274af6",
+            "write_scope": [],
+            "xpc_connection_id": "90a54d11-f329-4f79-afa5-02d0dc4cf169"
+          },
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 1
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "7b55a64e15809522b8c55acff9d219e953286c27a99d46cd5ff7b10e0f6f1aee",
+            "kernel_result": "output",
+            "read_scope": [
+              "example.py"
+            ],
+            "request_id": "f6c8ba02bf504e3ea91380d693fadc00",
+            "runner_execution": "completed",
+            "runner_return_code": 0,
+            "workspace_session_id": "3402666f-1dbb-484e-8fde-88c580274af6",
+            "write_scope": [
+              "example.py"
+            ],
+            "xpc_connection_id": "82d96ee5-60ca-4f78-8083-8f39e5fefc4f"
+          },
+          {
+            "approval": "approved_ordinary",
+            "cancellation_requested": false,
+            "cancellation_result": "not_requested",
+            "changeset": {
+              "added": 0,
+              "deleted": 0,
+              "modified": 0
+            },
+            "commit_outcome": "committed",
+            "invocation_sha256": "bd19df6d8e6f02852e124ae1058c76357d14d4d0fd90d6e584886de9f63de5f4",
+            "kernel_result": "output",
+            "read_scope": [
+              "example.py",
+              "test_example.py"
+            ],
+            "request_id": "399f9b5eab434e67a479f05a43d084b3",
+            "runner_execution": "completed",
+            "runner_return_code": 0,
+            "workspace_session_id": "3402666f-1dbb-484e-8fde-88c580274af6",
+            "write_scope": [],
+            "xpc_connection_id": "5f949fae-d2f6-4b56-9b97-51e9aac5f2dc"
+          }
+        ]
+      }
+    ],
+    "operator": "codex_agent",
+    "runner_operations_approved": 3
+  },
+  "signing_certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+  "source_sha": "5abf5d34426304b77a0773c1b30eb8814f5aa44c",
+  "team_identifiers": {
+    "agent_host_xpc": "UBAP6LN5AM",
+    "app": "UBAP6LN5AM",
+    "kernel_xpc": "UBAP6LN5AM",
+    "snapshot_broker_xpc": "UBAP6LN5AM"
+  }
+}

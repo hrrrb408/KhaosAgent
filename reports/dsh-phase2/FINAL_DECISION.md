@@ -1,63 +1,41 @@
 # Khaos × DSH Phase 2: Decision
 
-Date: 2026-10-20
+Date: 2026-10-23
 
 ## Decision
 
-`CONDITIONAL GO` for continued isolated experimentation only. This does not
-authorize replacing the production AgentHost or starting a production
-migration.
+CONDITIONAL GO for continued isolated experimentation only. Do not replace the
+production AgentHost or begin production Harness Migration from this result.
 
-The latest real signed AgentHost XPC hostile-plugin attack passed at source
-SHA `6962a07338da4c5ce1ddc5fa5eb3c68a62aab826`; its evidence is
-`signed-xpc-attack-6962a07.json`. It verified direct and child-process
-workspace denials, credential denial, localhost and external network denial,
-Kernel write denial, oversized-scope rejection, unchanged canaries and Kernel
-hash, deep signature validity, and Node process-group cleanup. The bounded DSH
-adapter and Cordis lifecycle suite passed 9/9 on pinned DSH SHA
-`687f282e8625c6b8d11ff58211a90524be2e4317`.
+All nine signed acceptance modes passed on exact Khaos implementation source
+SHA 5abf5d34426304b77a0773c1b30eb8814f5aa44c: hostile-plugin XPC attack,
+Cordis lifecycle, deterministic Read → Edit → Test, fake-result handling,
+B32 cancellation, pre-commit cancellation, post-commit cancellation, Node
+child-crash recovery, and AgentHost XPC crash recovery. They use the pinned
+DSH SHA 687f282e8625c6b8d11ff58211a90524be2e4317 and signed Node v22.19.0
+runtime. Evidence is checked into reports/dsh-phase2/.
 
-The signed Cordis lifecycle acceptance passed at source SHA
-`81923b77e0c632291cdc317e396a62edca75fba1`; its evidence is
-`cordis-plugin-lifecycle-81923b7.json`. The signed app and all three XPC
-components reported the same Team ID. It required no Picker or Runner approval
-and does not prove workspace-operation or XPC crash/recovery behavior.
+The results demonstrate that these bounded DSH requests still pass through
+the existing Launcher and Kernel path, that the hostile plugin's tested OS
+operations were denied, and that the tested cancellation and crash scenarios
+retain their recorded Kernel outcomes. They do not establish real-model
+reliability, every possible macOS sandbox attack, or production suitability.
 
-The canonical Khaos suite passed at source SHA `6962a073`: 404 tests in
-844.086 seconds. Both `python3 tools/check_security_freeze.py` and the check
-against exact PR #41 base `b08ab11e01663d2b26304cb541efb5361dea0417` passed with
-zero sensitive changes. These local results are SHA-bound. Before this
-report-only revision, PR #43 head `56744ef9bcd5385df37a96c2b158de819765bdf4`
-passed exact-head GitHub Seed CI
-([run 39394236276](https://github.com/hrrrb408/KhaosAgent/actions/runs/39394236276),
-16m57s) and Security Freeze
-([run 39394236305](https://github.com/hrrrb408/KhaosAgent/actions/runs/39394236305)).
-The earlier checks on `8d920ca7971826072df3fd077e7ca8640e39a4b9` are
-historical. This report-only commit also requires exact-head checks; PR #43's
-description records the current head and its check runs after they complete.
+Independent Code Owner approval remains NOT PROVEN in SINGLE_MAINTAINER_MODE.
+The signed UI was operated by codex_agent under the user's explicit
+authorization, not by the project owner. Owner review must therefore remain
+open. Technical Gate A also remains independent; this experiment does not
+close it.
 
-The signed Read → Edit → Test acceptance app built at `a276538` but waited at
-the workspace Picker because the owner was unavailable to perform the required
-UI action. It timed out after 600 seconds with no workspace selected and no
-Runner request. The record is
-`failed_attempts/coding-read-edit-test-a276538.failed.json`; this is a failed
-attempt, not a pass, approval denial, or cancellation.
+## Final-SHA repository validation
 
-## Evidence still required
+Implementation and signed acceptance evidence are bound to source SHA
+5abf5d34426304b77a0773c1b30eb8814f5aa44c. The reporting-only commit and its
+final-SHA validation are recorded here after completion of the canonical test
+suite, local Security Freeze, exact PR #41 base check, and GitHub checks.
 
-- Signed B32, pre-commit, and post-commit cancellation with owner UI actions.
-- Signed Node child-crash/recovery and AgentHost XPC crash/recovery, each with
-  the later independently approved task.
-- Signed deterministic Read → Edit → Test completion and fake-result
-  acceptance.
-- Independent Code Owner review; `NOT_PROVEN` in single-maintainer mode.
+## Production and architecture deltas
 
-Until those checks are complete, Phase 2 is not a GO for formal Harness
-Migration. No claim is made that DSH is safe as a production AgentHost.
-
-## Authority, architecture, and TCB deltas
-
-```text
 Production code delta: 0
 Trusted code delta: 0
 Kernel Authority Delta: 0
@@ -68,10 +46,18 @@ New architecture concepts: 0
 New trusted processes: 0
 New IPC operations: 0
 New persistent state: 0
-Production dependencies: 0
-Experimental dependencies: pinned DSH + Node.js v22.19.0, test build only
+Production Dependency Delta: 0
+Experimental Dependency Delta: pinned DSH and Node.js v22.19.0 in the
+disposable signed acceptance app only
 Removed duplication / abstractions: 0
-```
 
-The DSH runtime and test Host override are untrusted/test-only. Trusted
-Candidate approval, Kernel execution, and commit validation remain unchanged.
+The harness changes and the Candidate B output-decoding regression fix are
+confined to experimental tooling, tests, and reports. The production security
+boundary is unchanged.
+
+## Pull request
+
+The existing PR #43 remains a draft and is the sole delivery PR. PRs #39–#42
+were not modified, no PR was merged, and no main branch merge was performed.
+Independent review, PR status, and exact-head GitHub checks are updated after
+the final reporting commit.

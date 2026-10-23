@@ -1,0 +1,182 @@
+{
+  "agent_host_xpc_sha256": "7d0f33a09cf3e661ea9fa42f3f34b716b1b00c51671e80ede4696ce1e2fa6a7f",
+  "agenthost_xpc_recovery": null,
+  "build_record_sha256": "9c2e624596d532fd23d9341ddd7357a6e85772e3808d81983573c92da41acce9",
+  "canaries_unchanged": true,
+  "cancellation_acknowledged": true,
+  "cancellation_barrier_reached": true,
+  "cancellation_barrier_released": true,
+  "cancellation_case": "pre-commit",
+  "cancellation_events": [
+    {
+      "request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b",
+      "stage": "WORKSPACE_RUN_SUBMISSION"
+    },
+    {
+      "pid": 99518,
+      "stage": "WORKSPACE_REQUEST_BRIDGE",
+      "workspace_request_id": "f79b1926458161975a057487c5644de3",
+      "xpc_request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b"
+    },
+    {
+      "pid": 99519,
+      "runner_request_id": "8eb1e69351876a52f2f61088418b7408",
+      "stage": "RUNNER_EXECUTION",
+      "workspace_request_id": "f79b1926458161975a057487c5644de3"
+    },
+    {
+      "baseline_file_sha256": {
+        "tags.py": "476ac287f5ed529f016a1ba705a336abb57f38156da8a097a2a0ddbed2e5f164"
+      },
+      "changed_paths": [
+        "tags.py"
+      ],
+      "pid": 99525,
+      "private_file_sha256": {
+        "tags.py": "8db3b1d5a79058bc0db32f9904c38162c6384ff813d41ab45b9db2348a264a63"
+      },
+      "stage": "PRIVATE_SNAPSHOT_CHANGED",
+      "workspace_request_id": "f79b1926458161975a057487c5644de3"
+    },
+    {
+      "pid": 99519,
+      "stage": "KERNEL_READY_PRE_ACCEPT",
+      "workspace_request_id": "f79b1926458161975a057487c5644de3"
+    },
+    {
+      "pid": 99518,
+      "stage": "WORKSPACE_CANCEL_FORWARDED",
+      "workspace_request_id": "f79b1926458161975a057487c5644de3",
+      "xpc_request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b"
+    },
+    {
+      "barrier": "KERNEL_READY_PRE_ACCEPT",
+      "pid": 99519,
+      "stage": "barrier_released"
+    },
+    {
+      "request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b",
+      "response_base64": "eyJlcnJvciI6eyJjb2RlIjoicHJvY2Vzc19jYW5jZWxsZWQifSwib2siOmZhbHNlLCJyZXF1ZXN0X2lkIjoiMWI0N2UzMTgzYzNiNDU1YThkMGQ5YWViMDZhNGRkNGIiLCJ2ZXJzaW9uIjo4fQ==",
+      "stage": "ORIGINAL_KERNEL_REPLY"
+    }
+  ],
+  "cancellation_task_record": {
+    "agent_host_connection_invalidated": true,
+    "bounded_result_bytes": 107,
+    "cancellation_requested": true,
+    "cumulative_runner_seconds": "23.538",
+    "executed_command_return_codes": [],
+    "proposals": 1,
+    "stop_reason": "user cancellation requested; cancellation handling=cancel_accepted; Kernel cancelled request 1b47e3183c3b455a8d0d9aeb06a4dd4b before commit; workspace changes were discarded",
+    "task_id": "9bee861f-4bdc-429e-b471-cdc1159bdd92",
+    "terminal_result_delivery": "delivered",
+    "workspace_requests": [
+      {
+        "approval": "approved_candidate_b_preview",
+        "cancellation_requested": true,
+        "cancellation_result": "cancel_accepted",
+        "changeset": {
+          "added": null,
+          "deleted": null,
+          "modified": null
+        },
+        "commit_outcome": "not_committed",
+        "invocation_sha256": "3c5fb1a2490cc63f61703db628105ae152ec43a63a07453ce6c9b252d9355a9d",
+        "kernel_result": "error:process_cancelled",
+        "read_scope": [
+          "tags.py"
+        ],
+        "request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b",
+        "runner_execution": "unknown",
+        "runner_return_code": null,
+        "workspace_session_id": "ed755dde-a8d2-4477-ab6a-a45325bcc0a0",
+        "write_scope": [
+          "tags.py"
+        ],
+        "xpc_connection_id": "c4f8029e-56bf-4579-989f-2e606afb147f"
+      }
+    ]
+  },
+  "cordis_plugin_lifecycle": null,
+  "deep_code_signature_verified": true,
+  "descendant_pid": null,
+  "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+  "dsh_terminal_preserved_original_result": true,
+  "hostile_cordis_plugin": null,
+  "kernel_sha256_before_after": [
+    "8b3eb32fafa2dee4064fc00db767a264aa20f0e29888e49c6dfcb6bbf8bd4f27",
+    "8b3eb32fafa2dee4064fc00db767a264aa20f0e29888e49c6dfcb6bbf8bd4f27"
+  ],
+  "launcher_tool_proposal_requested": true,
+  "launcher_workspace_picker_requested": true,
+  "local_tcp_connections": 0,
+  "mode": "cancellation",
+  "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+  "node_pid": null,
+  "node_process_group_clean_after_xpc_teardown": null,
+  "node_rss_bytes": null,
+  "node_runtime_spawned_count": null,
+  "node_runtime_stopped_count": null,
+  "node_version": "v22.19.0",
+  "pr41_base_sha": "b08ab11e01663d2b26304cb541efb5361dea0417",
+  "result": "PASS",
+  "schema": 2,
+  "signed_app_bytes": 198815809,
+  "signed_ui_evidence": {
+    "authorization": {
+      "scope": "Khaos \u00d7 DSH Phase 2 signed experimental acceptances on disposable fixtures, including selecting the workspace and deciding only the exact operations displayed for each experiment.",
+      "source": "user message in the current Codex task",
+      "statement": "\u4ece\u73b0\u5728\u5f00\u59cb\uff0c\u5168\u90e8\u7531\u4f60\u7740\u624b\u5b8c\u6210\uff0c\u6211\u4e0d\u518d\u53c2\u4e0e\u5f00\u53d1\uff0c\u6211\u9700\u8981\u4f60\u7ee7\u7eed\u5b8c\u6210khaos\u7684\u5f00\u53d1\uff0c\u4fdd\u6301\u4ee3\u7801\u7684\u5065\u58ee\u6027\u548c\u7b80\u6d01\u4f18\u96c5\uff0c\u4e0d\u8981\u6709\u91cd\u590d\u7684\uff0c\u5c3d\u53ef\u80fd\u7684\u590d\u7528"
+    },
+    "candidate_preview_operations_approved": 1,
+    "launcher_task_records": [
+      {
+        "agent_host_connection_invalidated": true,
+        "bounded_result_bytes": 107,
+        "cancellation_requested": true,
+        "cumulative_runner_seconds": "23.538",
+        "executed_command_return_codes": [],
+        "proposals": 1,
+        "stop_reason": "user cancellation requested; cancellation handling=cancel_accepted; Kernel cancelled request 1b47e3183c3b455a8d0d9aeb06a4dd4b before commit; workspace changes were discarded",
+        "task_id": "9bee861f-4bdc-429e-b471-cdc1159bdd92",
+        "terminal_result_delivery": "delivered",
+        "workspace_requests": [
+          {
+            "approval": "approved_candidate_b_preview",
+            "cancellation_requested": true,
+            "cancellation_result": "cancel_accepted",
+            "changeset": {
+              "added": null,
+              "deleted": null,
+              "modified": null
+            },
+            "commit_outcome": "not_committed",
+            "invocation_sha256": "3c5fb1a2490cc63f61703db628105ae152ec43a63a07453ce6c9b252d9355a9d",
+            "kernel_result": "error:process_cancelled",
+            "read_scope": [
+              "tags.py"
+            ],
+            "request_id": "1b47e3183c3b455a8d0d9aeb06a4dd4b",
+            "runner_execution": "unknown",
+            "runner_return_code": null,
+            "workspace_session_id": "ed755dde-a8d2-4477-ab6a-a45325bcc0a0",
+            "write_scope": [
+              "tags.py"
+            ],
+            "xpc_connection_id": "c4f8029e-56bf-4579-989f-2e606afb147f"
+          }
+        ]
+      }
+    ],
+    "operator": "codex_agent",
+    "runner_operations_approved": 0
+  },
+  "signing_certificate_sha1": "81E5B3D53290732C30A9D823874EBAB6E947AB55",
+  "source_sha": "5abf5d34426304b77a0773c1b30eb8814f5aa44c",
+  "team_identifiers": {
+    "agent_host_xpc": "UBAP6LN5AM",
+    "app": "UBAP6LN5AM",
+    "kernel_xpc": "UBAP6LN5AM",
+    "snapshot_broker_xpc": "UBAP6LN5AM"
+  }
+}
