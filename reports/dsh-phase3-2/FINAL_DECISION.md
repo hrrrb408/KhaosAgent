@@ -25,7 +25,7 @@
 | Security Freeze default inventory | PASS; all manifest file digests match |
 | Security Freeze PR #46 target base | PASS, base `8ddabbcfdfcc2af8899ca30a4717ec82c4014b21`, 5 declared sensitive governance paths |
 | Security Freeze Phase 3.2.1 start base | PASS with a temporary exact-base declaration; the committed declaration remains bound to the PR target because the checker accepts one base per declaration |
-| Final-head GitHub CI | PENDING; the prior green check was on SHA `d2fe95d8ef6792e9c8e297def9bf18f87914624d` and does not apply to the final report commit |
+| Final-head GitHub CI | External evidence; use the check attached to the exact current PR #46 head. Checks on earlier SHAs do not carry forward |
 | Owner Review / Independent Code Owner Review | PENDING / NOT_PERFORMED |
 
 The integrity gate is closed for the exercised fail/pass/zero-test/fake-success/unknown cases. The overall phase remains PARTIAL because the exact old Picker/snapshot identity was not retained and the focused AgentLoop did not terminate. No full Holdout or A–D replay was started.
@@ -85,5 +85,5 @@ Keep the semantic tools and bounded lowering for experimental use. The signed re
 - Holdout dataset SHA-256: `d163fd20cff2db44cb0dc5f5260542666b098bbce403a0aafd30fa8b3e46615d`.
 - DSH: `687f282e8625c6b8d11ff58211a90524be2e4317`; Node: `v22.19.0`.
 - Phase 3.2.1 local checks on code SHA `2a73f48d9291a11cbac3612410cbeb9e651cf540`: canonical suite (415 passed in 869.279 seconds); Phase 3.1 evaluator suite (10 passed); Phase 3.2 evaluator suite (11 passed); DSH XPC acceptance builder/runner suites (11 passed). Security Freeze default inventory and PR target base `8ddabbcfdfcc2af8899ca30a4717ec82c4014b21` passed. The additional `--base d2fe95d8ef6792e9c8e297def9bf18f87914624d` check passed with a temporary matching declaration; the committed declaration targets the PR base required by CI.
-- The fresh signed binary is bound to implementation SHA `2a73f48d9291a11cbac3612410cbeb9e651cf540`; documentation and freeze-digest bookkeeping added afterward do not alter the signed runtime inputs. Exact final-head GitHub CI remains pending until the Draft PR is updated.
+- The fresh signed binary is bound to implementation SHA `2a73f48d9291a11cbac3612410cbeb9e651cf540`; documentation and freeze-digest bookkeeping added afterward do not alter the signed runtime inputs. GitHub CI is external status bound to the exact PR head, so the current check attached to PR #46 is authoritative; this report does not copy a check result across commits.
 - Development: AUTONOMOUS. Experimental test operator: CODEX_AGENT. Owner Review: PENDING. Independent Code Owner Review: NOT_PERFORMED.
