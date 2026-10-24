@@ -1069,7 +1069,7 @@ def apply_experimental_workspace_identity_binding(
         var bookmarkIsStale = false
         let resolvedScopeURL = try? URL(
             resolvingBookmarkData: selection.bookmark,
-            options: [.withSecurityScope],
+            options: [],
             relativeTo: nil,
             bookmarkDataIsStale: &bookmarkIsStale
         )

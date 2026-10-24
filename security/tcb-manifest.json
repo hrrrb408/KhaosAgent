@@ -983,7 +983,7 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_builder.py",
       "role": "build-governance",
-      "sha256": "199a98fc943eb4b9031a9ca6e85fb62b6938c680ccd8ee0d6a019932998ca2fe",
+      "sha256": "40deac5d04d179246cd6ee1ab6ed8a6f49ab185df3b2e68c62ba7aca5cf02806",
       "source_mode": "0o644",
       "boundary": "test-only DSH acceptance builder regression; validates fixed Candidate B probe decoding and does not ship in runtime",
       "tests": [
