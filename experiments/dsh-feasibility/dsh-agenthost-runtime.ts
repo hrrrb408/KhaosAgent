@@ -17,7 +17,6 @@ import {
   type KhaosToolResult,
 } from './khaos-capability-adapter.ts'
 import { classifyAgentTerminal, PendingToolResultSlot } from './dsh-agent-lifecycle.ts'
-import type { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 import { createKhaosSemanticToolsPlugin, type KhaosCodingToolPolicy, type SemanticToolName } from './khaos-semantic-tools.ts'
 import { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 import { runCapabilityLifecycleProbe } from './dsh-capability-lifecycle-probe.ts'
