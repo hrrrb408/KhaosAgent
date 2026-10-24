@@ -135,7 +135,7 @@ private final class DSHRuntimeProcess {
     private var telemetrySessionID: String?
     private var telemetryBenchmarkTaskID: String?
     private var lastTelemetryRecord: [String: Any]?
-    private let maximumTelemetryReplyBytes = 40 * 1_024
+    private let maximumTelemetryExchangeBytes = 40 * 1_024
 
     init(modelBridgeAvailable: Bool) throws {
         let resources = Bundle.main.bundleURL.appendingPathComponent(
@@ -469,7 +469,7 @@ private final class DSHRuntimeProcess {
         defer { lock.unlock() }
         guard isRunning() else { throw DSHAgentHostError.childExited }
         try writeFrame(frame)
-        var replyTelemetry: [[String: Any]] = []
+        var replyTelemetryCount = 0
         var replyTelemetryBytes = 0
         while true {
             let readTimeout: Int
@@ -497,11 +497,11 @@ private final class DSHRuntimeProcess {
                         withJSONObject: record,
                         options: [.sortedKeys, .withoutEscapingSlashes]
                       ), encoded.count <= 4 * 1_024,
-                      replyTelemetry.count < 128,
-                      replyTelemetryBytes + encoded.count <= maximumTelemetryReplyBytes else {
+                      replyTelemetryCount < 128,
+                      replyTelemetryBytes + encoded.count <= maximumTelemetryExchangeBytes else {
                     throw DSHAgentHostError.invalidFrame
                 }
-                replyTelemetry.append(record)
+                replyTelemetryCount += 1
                 replyTelemetryBytes += encoded.count
                 fputs("dsh-telemetry=\(String(decoding: encoded, as: UTF8.self))\n", stderr)
                 fflush(stderr)
@@ -530,11 +530,7 @@ private final class DSHRuntimeProcess {
                 }
                 continue
             }
-            guard value["type"] as? String == "model_request" else {
-                var result = value
-                if !replyTelemetry.isEmpty { result["dsh_telemetry"] = replyTelemetry }
-                return result
-            }
+            guard value["type"] as? String == "model_request" else { return value }
             guard let requestID = value["request_id"] as? String,
                   !requestID.isEmpty, requestID.utf8.count <= 64 else {
                 throw DSHAgentHostError.invalidFrame
@@ -1063,23 +1059,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         default:
             return response(.failure("dsh_invalid_result"))
         }
-        let encoded = try AgentHostActionOutput.encodeAction(action, activePlugin: activePlugin)
-        guard phase31Task,
-              let records = event["dsh_telemetry"] as? [[String: Any]],
-              !records.isEmpty,
-              let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
-            return encoded
-        }
-        var responseObject = object
-        responseObject["dsh_telemetry"] = records
-        let responseData = try JSONSerialization.data(
-            withJSONObject: responseObject,
-            options: [.sortedKeys, .withoutEscapingSlashes]
-        )
-        guard responseData.count <= AgentHostProtocol.maximumFrameBytes else {
-            return response(.failure("dsh_telemetry_frame_too_large"))
-        }
-        return responseData
+        return try AgentHostActionOutput.encodeAction(action, activePlugin: activePlugin)
     }
 
     private func logSemanticProposal(_ correlation: [String: Any]) {
