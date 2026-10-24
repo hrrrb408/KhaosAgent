@@ -983,7 +983,7 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_builder.py",
       "role": "build-governance",
-      "sha256": "5e8ea5a37def1890b29f4dc99f987e3288f4bf63e13464295553eaef11df09f9",
+      "sha256": "17e49e38301a81bba87b986f097ecc7c4d269c1d7ebf8ea45a8da26e457c3f22",
       "source_mode": "0o644",
       "boundary": "test-only DSH acceptance builder regression; validates fixed Candidate B probe decoding and does not ship in runtime",
       "tests": [
@@ -995,7 +995,7 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_runner.py",
       "role": "build-governance",
-      "sha256": "36313b86dd1af3929fa7f9814a09412313315c27d57e4dcf560e12de42350db7",
+      "sha256": "51677f5ccefa8f89c325e1d0380cc86ba101bc7a747fcdd59bcab7a8ffae93ae",
       "source_mode": "0o644",
       "boundary": "test-only signed DSH acceptance result verifier regression; validates observed runtime events and does not ship in runtime",
       "tests": [
