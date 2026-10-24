@@ -529,6 +529,7 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
             "launcher_request_id", "launcher_approval_sha256", "approval_status", "kernel_result",
             "runner_status", "commit_status", "launcher_ok",
             "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
+            "tests_run", "failures", "errors", "skipped",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -536,7 +537,8 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
             "MODEL_OUTPUT_REJECTED", "TOOL_CALL_PARSED", "TOOL_ARGUMENT_VALIDATED", "TOOL_ARGUMENT_REJECTED",
             "TOOL_SUBMISSION_FAILED", "TOOL_PROPOSAL_LOWERED", "LAUNCHER_PROPOSAL_SUBMITTED",
             "APPROVAL_ACCEPTED", "APPROVAL_DENIED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
-            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "TOOL_RESULT_DELIVERED", "AGENT_NEXT_TURN_STARTED",
+            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "PUBLIC_TEST_RESULT_VERIFIED", "TOOL_RESULT_DELIVERED",
+            "AGENT_NEXT_TURN_STARTED",
             "SESSION_CONTINUITY_CHECK", "AGENT_TERMINATED",
         ]
         func boundedTelemetryInteger(_ value: Any?, maximum: Int) -> Bool {
@@ -562,6 +564,10 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
                   (record["tool_operations_remaining"] == nil || boundedTelemetryInteger(record["tool_operations_remaining"], maximum: 12)),
                   (record["write_operations_remaining"] == nil || boundedTelemetryInteger(record["write_operations_remaining"], maximum: 3)),
                   (record["repair_attempts_remaining"] == nil || boundedTelemetryInteger(record["repair_attempts_remaining"], maximum: 3)),
+                  (record["tests_run"] == nil || boundedTelemetryInteger(record["tests_run"], maximum: 10_000)),
+                  (record["failures"] == nil || boundedTelemetryInteger(record["failures"], maximum: 10_000)),
+                  (record["errors"] == nil || boundedTelemetryInteger(record["errors"], maximum: 10_000)),
+                  (record["skipped"] == nil || boundedTelemetryInteger(record["skipped"], maximum: 10_000)),
                   record.values.allSatisfy({
                       if let text = $0 as? String {
                           return text.utf8.count <= 256 && !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
@@ -572,6 +578,13 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
                     withJSONObject: record,
                     options: [.sortedKeys, .withoutEscapingSlashes]
                   ), encoded.count <= 4 * 1_024 else { return nil }
+            if event == "PUBLIC_TEST_RESULT_VERIFIED" {
+                guard record["tool_name"] as? String == "run_tests",
+                      let status = record["status"] as? String,
+                      ["passed", "failed", "invalid", "unverified", "mismatch"].contains(status) else {
+                    return nil
+                }
+            }
             totalBytes += encoded.count
             guard totalBytes <= 40 * 1_024 else { return nil }
             encodedRecords.append(encoded)
