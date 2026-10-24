@@ -12,9 +12,9 @@ import {
 
 const MAX_PATH_BYTES = 128
 const MAX_TEXT_BYTES = 4 * 1024
-const MAX_OPERATIONS = 8
-const MAX_WRITES = 3
-const MAX_REPAIRS = 3
+const MAX_ALLOWED_OPERATIONS = 12
+const MAX_ALLOWED_WRITES = 3
+const MAX_ALLOWED_REPAIRS = 3
 const READ_SCRIPT = 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),end="")'
 // Avoid directory discovery so the fixed test profile stays within file-scoped read authority.
 const TEST_SCRIPT = 'import pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); raise SystemExit(not result.wasSuccessful())'
@@ -22,15 +22,24 @@ const TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export type SemanticToolName = typeof TOOL_NAMES[number]
 
+interface SemanticToolResult extends KhaosToolResult {
+  readonly remaining_budget: {
+    readonly tool_operations: number
+    readonly write_operations: number
+    readonly repair_attempts: number
+  }
+}
+
 export interface KhaosCodingToolPolicy {
   readonly trialId: string
   readonly taskId: string
   readonly readFiles: readonly string[]
   readonly writeFiles: readonly string[]
   readonly fixedEditScript: string
+  readonly maxToolOperations: number
+  readonly maxWriteOperations: number
+  readonly maxRepairAttempts: number
 }
-
-type Phase = 'read' | 'edit' | 'verify' | 'repair' | 'complete'
 
 function bytes(value: string): number {
   return Buffer.byteLength(value, 'utf8')
@@ -99,19 +108,22 @@ function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex')
 }
 
-function operationSucceeded(result: KhaosToolResult): boolean {
-  return result.ok && (result.returncode === undefined || result.returncode === 0)
-}
-
 function validatePolicy(policy: KhaosCodingToolPolicy): void {
   const idValid = /^[A-Za-z0-9_.:-]{1,128}$/u.test(policy.trialId)
+  const taskIdValid = /^[A-Za-z0-9_.:-]{1,128}$/u.test(policy.taskId)
   const validList = (values: readonly string[]) => values.length > 0
     && values.length <= 8
     && new Set(values).size === values.length
     && values.every(safeRelativePath)
-  if (!idValid || !/^[A-D]$/u.test(policy.taskId)
+  if (!idValid || !taskIdValid
     || !validList(policy.readFiles) || !validList(policy.writeFiles)
     || !policy.writeFiles.every(path => policy.readFiles.includes(path))
+    || !Number.isSafeInteger(policy.maxToolOperations) || policy.maxToolOperations < 1
+    || policy.maxToolOperations > MAX_ALLOWED_OPERATIONS
+    || !Number.isSafeInteger(policy.maxWriteOperations) || policy.maxWriteOperations < 0
+    || policy.maxWriteOperations > MAX_ALLOWED_WRITES
+    || !Number.isSafeInteger(policy.maxRepairAttempts) || policy.maxRepairAttempts < 0
+    || policy.maxRepairAttempts > MAX_ALLOWED_REPAIRS
     || !policy.fixedEditScript.startsWith('exec(')
     || !policy.fixedEditScript.endsWith(')')
     || bytes(policy.fixedEditScript) > MAX_TEXT_BYTES) {
@@ -132,10 +144,20 @@ function outputSchema() {
         canContinue: { type: 'boolean', required: true },
         text: { type: 'string', required: true },
         returncode: { type: 'integer' },
+        remaining_budget: {
+          type: 'object',
+          properties: {
+            tool_operations: { type: 'integer', required: true },
+            write_operations: { type: 'integer', required: true },
+            repair_attempts: { type: 'integer', required: true },
+          },
+          additionalProperties: false,
+          required: true,
+        },
       },
       additionalProperties: false,
     },
-    render: (_args: unknown, result: KhaosToolResult) => [{ type: 'text' as const, text: JSON.stringify(result) }],
+    render: (_args: unknown, result: SemanticToolResult) => [{ type: 'text' as const, text: JSON.stringify(result) }],
   }
 }
 
@@ -166,22 +188,21 @@ export function createKhaosSemanticToolsPlugin(
 ) {
   validatePolicy(policy)
   const session = new KhaosProposalSession(port, () => undefined)
-  const readFiles = new Set(policy.readFiles)
   const seenCallIds = new Set<string>()
-  const completedReads = new Set<string>()
-  let phase: Phase = 'read'
+  let toolCallCount = 0
   let operationSequence = 0
   let writeOperations = 0
   let repairAttempts = 0
   let testRuns = 0
   let closed = false
 
+  const toolAllowedByPolicy = (name: SemanticToolName): boolean => name !== 'replace_text'
+    || (writeOperations < policy.maxWriteOperations
+      && (testRuns === 0 || repairAttempts < policy.maxRepairAttempts))
+
   const visibleTools = (): readonly SemanticToolName[] => {
-    if (closed || phase === 'complete') return []
-    if (phase === 'read') return ['read_file']
-    if (phase === 'edit') return ['replace_text']
-    if (phase === 'verify') return ['run_tests']
-    return ['read_file', 'replace_text']
+    if (closed || toolCallCount >= policy.maxToolOperations) return []
+    return TOOL_NAMES.filter(toolAllowedByPolicy)
   }
 
   const execute = async (
@@ -189,19 +210,21 @@ export function createKhaosSemanticToolsPlugin(
     args: unknown,
     callId: string,
     signal: AbortSignal,
-  ): Promise<KhaosToolResult> => {
+  ): Promise<SemanticToolResult> => {
     if (closed || session.isClosed) throw new Error('semantic_tool_session_closed')
+    if (toolCallCount >= policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
+    toolCallCount += 1
+    setVisibleTools(visibleTools())
     if (!/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId) || seenCallIds.has(callId)) {
       if (/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId)) {
         semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'duplicate_tool_call_id' })
       }
       throw new Error('duplicate_or_invalid_tool_call_id')
     }
-    if (seenCallIds.size >= MAX_OPERATIONS) throw new Error('semantic_operation_limit_exceeded')
     seenCallIds.add(callId)
-    if (!visibleTools().includes(toolName)) {
-      semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'tool_not_allowed_in_current_phase' })
-      throw new Error('tool_not_allowed_in_current_phase')
+    if (!toolAllowedByPolicy(toolName)) {
+      semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'tool_unavailable_or_budget_exhausted' })
+      throw new Error('tool_unavailable_or_budget_exhausted')
     }
     if (signal.aborted) throw new Error('semantic_tool_cancelled_before_submission')
 
@@ -209,17 +232,14 @@ export function createKhaosSemanticToolsPlugin(
     let pathCount = 0
     let proposal: KhaosShellProposal
     let correlation: KhaosProposalCorrelation
-    let readPath: string | undefined
     let testProfile = false
     try {
       if (toolName === 'read_file') {
         const record = exactObject(args, ['path'], 'read_file_arguments')
         if (typeof record.path !== 'string' || !safeRelativePath(record.path)
-          || !readFiles.has(record.path)
-          || (phase === 'read' && completedReads.has(record.path))) {
+          || !policy.readFiles.includes(record.path)) {
           throw new Error('path_not_in_read_scope')
         }
-        readPath = record.path
         argsBytes = bytes(record.path)
         pathCount = 1
         proposal = {
@@ -269,12 +289,11 @@ export function createKhaosSemanticToolsPlugin(
       }
       const nextSequence = operationSequence + 1
       const digest = proposalDigest(proposal)
-      if (operationSequence >= MAX_OPERATIONS) throw new Error('semantic_operation_limit_exceeded')
+      if (operationSequence >= policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
       if (toolName === 'replace_text') {
-        if (writeOperations >= MAX_WRITES) throw new Error('semantic_write_limit_exceeded')
-        if (testRuns > 0 && repairAttempts >= MAX_REPAIRS) throw new Error('semantic_repair_limit_exceeded')
+        if (writeOperations >= policy.maxWriteOperations) throw new Error('semantic_write_limit_exceeded')
+        if (testRuns > 0 && repairAttempts >= policy.maxRepairAttempts) throw new Error('semantic_repair_limit_exceeded')
       }
-      if (toolName === 'run_tests' && testRuns >= MAX_OPERATIONS) throw new Error('semantic_test_limit_exceeded')
       semanticEvent(telemetry, 'TOOL_ARGUMENT_VALIDATED', toolName, callId, {
         argument_bytes: argsBytes,
         file_count: pathCount,
@@ -311,6 +330,7 @@ export function createKhaosSemanticToolsPlugin(
         error_code: error instanceof Error && /^[a-z0-9_]{1,80}$/u.test(error.message)
           ? error.message : 'semantic_tool_rejected',
       })
+      setVisibleTools(visibleTools())
       throw error
     }
 
@@ -368,16 +388,6 @@ export function createKhaosSemanticToolsPlugin(
         launcher_result_sha256: telemetry.launcherResultDigest(callId) as string,
       })
     }
-    const succeeded = operationSucceeded(result)
-    if (toolName === 'read_file' && succeeded && readPath) completedReads.add(readPath)
-    if (toolName === 'replace_text') {
-      phase = succeeded ? 'verify' : (testRuns > 0 ? 'repair' : 'edit')
-    } else if (toolName === 'run_tests') {
-      phase = succeeded ? 'complete' : 'repair'
-    } else if (phase === 'read' && policy.readFiles.every(path => completedReads.has(path))) {
-      // Task C requires observing the intentionally failing public suite before its first repair.
-      phase = policy.taskId === 'C' ? 'verify' : 'edit'
-    }
     if (!result.canContinue) closed = true
     setVisibleTools(visibleTools())
     return {
@@ -385,6 +395,11 @@ export function createKhaosSemanticToolsPlugin(
       canContinue: result.canContinue,
       text: result.text,
       ...(result.returncode === undefined ? {} : { returncode: result.returncode }),
+      remaining_budget: {
+        tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
+        write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),
+        repair_attempts: Math.max(0, policy.maxRepairAttempts - repairAttempts),
+      },
     }
   }
 
@@ -416,6 +431,7 @@ export function createKhaosSemanticToolsPlugin(
         execute: (args, exec) => execute('run_tests', args, String(exec.callId), exec.signal),
       })),
     ]
+    setVisibleTools(visibleTools())
     ctx.effect(() => () => {
       closed = true
       session.close()

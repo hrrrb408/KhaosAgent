@@ -34,3 +34,29 @@ export function lastToolResultText(messages: readonly DshMessage[]): string {
   }
   return rendered
 }
+
+/** Read only the bounded budget metadata added by a semantic tool result. */
+export function semanticToolBudget(content: unknown): {
+  readonly toolOperations: number
+  readonly writeOperations: number
+  readonly repairAttempts: number
+} | undefined {
+  try {
+    const parsed = JSON.parse(textContent(content)) as { remaining_budget?: unknown } | null
+    const budget = parsed?.remaining_budget
+    if (budget === null || typeof budget !== 'object' || Array.isArray(budget)) return undefined
+    const value = budget as Record<string, unknown>
+    if (!Number.isSafeInteger(value.tool_operations) || (value.tool_operations as number) < 0
+      || !Number.isSafeInteger(value.write_operations) || (value.write_operations as number) < 0
+      || !Number.isSafeInteger(value.repair_attempts) || (value.repair_attempts as number) < 0) {
+      return undefined
+    }
+    return {
+      toolOperations: value.tool_operations as number,
+      writeOperations: value.write_operations as number,
+      repairAttempts: value.repair_attempts as number,
+    }
+  } catch {
+    return undefined
+  }
+}

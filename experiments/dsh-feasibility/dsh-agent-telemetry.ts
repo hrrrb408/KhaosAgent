@@ -39,6 +39,7 @@ const FIELDS = new Set([
   'agent_turn_id', 'agent_step_id', 'model_call_id', 'tool_call_id', 'tool_name',
   'operation_seq', 'invocation_sha256', 'argument_bytes', 'file_count',
   'write_operation', 'duration_ms', 'status', 'error_code', 'returncode',
+  'tool_operations_remaining', 'write_operations_remaining', 'repair_attempts_remaining',
   'can_continue', 'result_bytes', 'result_sha256', 'observed_tool_result',
   'launcher_result_sha256', 'dsh_event_seq', 'token_input', 'token_output', 'model_provider', 'model_id',
   'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
@@ -66,7 +67,7 @@ export class DshAgentTelemetry {
     readonly benchmarkTaskId: string,
     private readonly sink: (record: Readonly<Record<string, unknown>>) => void,
   ) {
-    if (!safeId(trialId) || !safeId(sessionId) || !/^[A-D]$/u.test(benchmarkTaskId)) {
+    if (!safeId(trialId) || !safeId(sessionId) || !safeId(benchmarkTaskId)) {
       throw new Error('invalid_telemetry_identity')
     }
   }
