@@ -897,7 +897,7 @@ def apply_experimental_candidate_approval_identity(source_root: Path) -> dict[st
     }
 
 
-def load_workspace_identity_manifest(path: Path) -> dict[str, object]:
+def load_workspace_identity_manifest(path: Path) -> tuple[dict[str, object], Path]:
     supplied_manifest = path.expanduser().absolute()
     manifest_info = supplied_manifest.lstat()
     if (
@@ -979,21 +979,25 @@ def load_workspace_identity_manifest(path: Path) -> dict[str, object]:
     if not isinstance(value.get("marker_sha256"), str) \
             or re.fullmatch(r"[0-9a-f]{64}", value["marker_sha256"]) is None:
         raise ValueError("workspace identity marker digest is invalid")
-    return {
-        "manifest_sha256": hashlib.sha256(raw).hexdigest(),
-        "trial_id": trial_id,
-        "workspace_path_sha256": path_digest,
-        "workspace_device": info.st_dev,
-        "workspace_inode": info.st_ino,
-        "marker_name": marker_name,
-        "marker_sha256": value["marker_sha256"],
-        "fixture_files": fixture_files,
-    }
+    return (
+        {
+            "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+            "trial_id": trial_id,
+            "workspace_path_sha256": path_digest,
+            "workspace_device": info.st_dev,
+            "workspace_inode": info.st_ino,
+            "marker_name": marker_name,
+            "marker_sha256": value["marker_sha256"],
+            "fixture_files": fixture_files,
+        },
+        selected,
+    )
 
 
 def apply_experimental_workspace_identity_binding(
     source_root: Path,
     identity: dict[str, object],
+    workspace_path: Path,
 ) -> dict[str, str]:
     relative_path = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
     path = source_root / relative_path
@@ -1008,6 +1012,7 @@ def apply_experimental_workspace_identity_binding(
     )
     helper = f'''
     private static let phase322TrialID = {json.dumps(identity["trial_id"])}
+    private static let phase322ExpectedWorkspacePath = {json.dumps(str(workspace_path))}
     private static let phase322ExpectedPathSHA256 = {json.dumps(identity["workspace_path_sha256"])}
     private static let phase322ExpectedDevice = UInt64({identity["workspace_device"]})
     private static let phase322ExpectedInode = UInt64({identity["workspace_inode"]})
@@ -1210,6 +1215,17 @@ def apply_experimental_workspace_identity_binding(
         raise RuntimeError("expected one Agent workspace selection binding point")
     transformed = transformed.replace(selection_marker, selection_replacement)
 
+    picker_marker = '''                let selected = try TrustedWorkspacePicker.selectWorkspace(
+                    message: "Choose the workspace for this reviewed Agent tool request."
+                )'''
+    picker_replacement = '''                let selected = try TrustedWorkspacePicker.selectWorkspace(
+                    initialDirectory: URL(fileURLWithPath: phase322ExpectedWorkspacePath, isDirectory: true),
+                    message: "Choose the workspace for this reviewed Agent tool request."
+                )'''
+    if transformed.count(picker_marker) != 1:
+        raise RuntimeError("expected one semantic workspace picker location")
+    transformed = transformed.replace(picker_marker, picker_replacement)
+
     approval_marker = '''        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")
         writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")
         let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
@@ -1293,11 +1309,14 @@ def main() -> int:
     args = parser.parse_args()
 
     workspace_identity = None
+    workspace_identity_path = None
     if args.workspace_identity_manifest is not None:
         if not args.semantic_tools:
             parser.error("workspace identity binding is only valid for semantic-tool experiments")
         try:
-            workspace_identity = load_workspace_identity_manifest(args.workspace_identity_manifest)
+            workspace_identity, workspace_identity_path = load_workspace_identity_manifest(
+                args.workspace_identity_manifest
+            )
         except (OSError, ValueError, json.JSONDecodeError) as error:
             parser.error(f"invalid disposable workspace identity manifest: {error}")
     elif args.semantic_tools:
@@ -1450,9 +1469,12 @@ def main() -> int:
         source_hashes[candidate_approval_identity_overlay["path"]] = candidate_approval_identity_overlay["experimental_sha256"]
         workspace_identity_overlay = None
         if workspace_identity is not None:
+            if workspace_identity_path is None:
+                raise RuntimeError("validated workspace identity path is unavailable")
             workspace_identity_overlay = apply_experimental_workspace_identity_binding(
                 source_root,
                 workspace_identity,
+                workspace_identity_path,
             )
             source_hashes[workspace_identity_overlay["path"]] = workspace_identity_overlay["experimental_sha256"]
         disclosure_override = (

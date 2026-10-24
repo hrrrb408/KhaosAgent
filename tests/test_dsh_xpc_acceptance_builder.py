@@ -90,8 +90,9 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
             manifest_path, generated = create_workspace_identity_manifest(workspace, "trial-a", root)
 
-            loaded = load_workspace_identity_manifest(manifest_path)
+            loaded, selected_path = load_workspace_identity_manifest(manifest_path)
             self.assertEqual(loaded, generated)
+            self.assertEqual(selected_path, workspace.resolve())
             self.assertEqual(manifest_path.stat().st_mode & 0o777, 0o600)
             self.assertNotIn("workspace_path", loaded)
 
@@ -106,20 +107,21 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             workspace.mkdir()
             (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
             manifest_path, identity = create_workspace_identity_manifest(workspace, "trial-overlay", root)
-            loaded = load_workspace_identity_manifest(manifest_path)
+            loaded, selected_path = load_workspace_identity_manifest(manifest_path)
             source_root = root / "sources"
             target = source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
             target.parent.mkdir(parents=True)
             shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", target)
 
             apply_experimental_launcher_semantic_trace(source_root)
-            overlay = apply_experimental_workspace_identity_binding(source_root, loaded)
+            overlay = apply_experimental_workspace_identity_binding(source_root, loaded, selected_path)
             source = target.read_text(encoding="utf-8")
 
         self.assertEqual(overlay["path"], "khaos/macos/TrustedWorkspaceLauncherMain.swift")
         self.assertIn('private static let phase322TrialID = "trial-overlay"', source)
         self.assertIn(identity["workspace_path_sha256"], source)
-        self.assertNotIn(str(workspace), source)
+        self.assertIn(str(workspace), source)
+        self.assertIn("initialDirectory: URL(fileURLWithPath: phase322ExpectedWorkspacePath", source)
         self.assertIn("approvalSHA256: approvalDigest", source)
         self.assertIn("no Kernel request was submitted", source)
         self.assertEqual(source.count('checkpoint: "after_approval"'), 1)
