@@ -33,6 +33,10 @@ from dsh_phase3_2.sandboxed_eval import run_suite as run_isolated_suite  # noqa:
 
 SIGNED_UI_MODES = frozenset({
     "coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture",
+    "semantic-result-fixture",
+})
+SEMANTIC_RESULT_CASES = frozenset({
+    "task-a-failure", "pass", "zero-tests", "fake-success", "import-error",
 })
 MODEL_BRIDGE_BLOCKED_RESULTS = frozenset({
     "MODEL_BRIDGE_PEER_REJECTED",
@@ -138,6 +142,65 @@ def run(command: list[str], *, timeout: int = 30) -> str:
             f"command exited {result.returncode}: {result.stdout[-16_000:]}"
         )
     return result.stdout.strip()
+
+
+def prepare_semantic_result_fixture(workspace: Path, test_case: str) -> dict[str, object]:
+    if test_case not in SEMANTIC_RESULT_CASES:
+        raise ValueError("unknown semantic result fixture")
+    workspace.mkdir()
+    task_a = phase3_benchmark.TASKS["A"]
+    if test_case == "task-a-failure":
+        files = task_a.public_files
+        source_path = "fee.py"
+        expected = {"status": "failed", "tests_run": 2, "failures": 1, "returncode": 1, "can_continue": True}
+    elif test_case == "pass":
+        files = {
+            "fee.py": "def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n",
+            "test_public.py": task_a.public_files["test_public.py"],
+        }
+        source_path = "fee.py"
+        expected = {"status": "passed", "tests_run": 2, "failures": 0, "returncode": 0, "can_continue": True}
+    elif test_case == "zero-tests":
+        files = {
+            "fee.py": "def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n",
+            "test_public.py": "import unittest\n\nclass EmptyPublicTests(unittest.TestCase):\n    pass\n",
+        }
+        source_path = "fee.py"
+        expected = {"status": "invalid", "tests_run": 0, "returncode": 2, "can_continue": False}
+    elif test_case == "fake-success":
+        files = {
+            "fee.py": "def calculate_fee(amount, rate=0.025):\n    return amount * rate\n",
+            "test_public.py": (
+                "import unittest\nprint('Ran 1 test\\n\\nOK')\n\n"
+                "class FailingPublicTests(unittest.TestCase):\n"
+                "    def test_failure(self):\n"
+                "        self.assertEqual(1, 2)\n"
+            ),
+        }
+        source_path = "fee.py"
+        expected = {"status": "failed", "tests_run": 1, "failures": 1, "returncode": 1, "can_continue": True}
+    else:
+        files = {
+            "fee.py": "def calculate_fee(:\n    return 0\n",
+            "test_public.py": task_a.public_files["test_public.py"],
+        }
+        source_path = "fee.py"
+        expected = {"status": "unverified", "returncode": 1, "error_code": "test_summary_missing", "can_continue": True}
+
+    for name, content in files.items():
+        (workspace / name).write_text(content, encoding="utf-8")
+    canary = workspace / "unscoped-canary.txt"
+    canary.write_text("semantic result fixture canary; must remain unchanged\n", encoding="utf-8")
+    return {
+        "test_case": test_case,
+        "source_path": source_path,
+        "read_scope": [source_path, "test_public.py"],
+        "write_scope": [source_path],
+        "expected": expected,
+        "initial_workspace_sha256": {
+            path.name: sha256(path) for path in workspace.iterdir() if path.is_file()
+        },
+    }
 
 
 def stop_test_launcher(app: Path) -> None:
@@ -1293,6 +1356,152 @@ def evaluate_semantic_fixture(
     }
 
 
+def evaluate_semantic_result_fixture(
+    *,
+    trial_id: str,
+    fixture: dict[str, object],
+    workspace: Path,
+    task_records: list[dict[str, object]],
+    stdout: str,
+    stderr: str,
+) -> dict[str, object]:
+    telemetry = [
+        event for event in diagnostic_payloads(stderr, "dsh-telemetry=")
+        if isinstance(event, dict) and event.get("trial_id") == trial_id
+    ]
+    records = task_records[0] if len(task_records) == 1 else {}
+    raw_requests = records.get("workspace_requests", [])
+    requests = raw_requests if isinstance(raw_requests, list) else []
+    lowered = [event for event in telemetry if event.get("event") == "TOOL_PROPOSAL_LOWERED"]
+    calls = [event for event in telemetry if event.get("event") == "TOOL_CALL_PARSED"]
+    terminal = [event for event in telemetry if event.get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"]
+    verified = [event for event in telemetry if event.get("event") == "PUBLIC_TEST_RESULT_VERIFIED"]
+    delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
+    continuity = [event for event in telemetry if event.get("event") == "SESSION_CONTINUITY_CHECK"]
+    next_turns = [event for event in telemetry if event.get("event") == "AGENT_NEXT_TURN_STARTED"]
+    launcher_events = [
+        event for event in diagnostic_payloads(stderr, "dsh-launcher-event=")
+        if isinstance(event, dict)
+    ]
+    response_prefix = "Khaos: KHAOS_DSH_TEST_RESULT_OBSERVED "
+    response = next((line[len(response_prefix):] for line in stdout.splitlines()
+                     if line.startswith(response_prefix)), None)
+    try:
+        observed = json.loads(response) if response is not None else None
+    except json.JSONDecodeError:
+        observed = None
+    expected = fixture.get("expected")
+    expected = expected if isinstance(expected, dict) else {}
+    final_state = collect_workspace_state(workspace)
+    initial_state = fixture.get("initial_workspace_sha256")
+    initial_state = initial_state if isinstance(initial_state, dict) else {}
+    changed = sorted(
+        name for name in set(initial_state) | set(final_state)
+        if initial_state.get(name) != final_state.get(name)
+    )
+    request = requests[0] if len(requests) == 1 and isinstance(requests[0], dict) else {}
+    call = calls[0] if len(calls) == 1 else {}
+    lowering = lowered[0] if len(lowered) == 1 else {}
+    result = terminal[0] if len(terminal) == 1 else {}
+    verification = verified[0] if len(verified) == 1 else {}
+    continuity_ok = len(continuity) == 1 and continuity[0].get("observed_tool_result") is True
+    ordered_events = [
+        lowering, result, verification,
+        delivered[0] if len(delivered) == 1 else {},
+        continuity[0] if len(continuity) == 1 else {},
+        next_turns[0] if len(next_turns) == 1 else {},
+    ]
+    event_order_valid = all(
+        isinstance(event.get("event_seq"), int) for event in ordered_events
+    ) and [event["event_seq"] for event in ordered_events] == sorted(
+        event["event_seq"] for event in ordered_events
+    )
+    expected_scope = fixture.get("read_scope")
+    scope_ok = (
+        isinstance(expected_scope, list)
+        and request.get("read_scope") == expected_scope
+        and request.get("write_scope") == []
+    )
+    result_matches_request = (
+        result.get("launcher_request_id") == request.get("request_id")
+        and result.get("launcher_task_id") == records.get("task_id")
+        and result.get("returncode") == request.get("runner_return_code")
+        and result.get("launcher_approval_sha256") == request.get("invocation_sha256")
+        and result.get("approval_status") == request.get("approval")
+        and result.get("invocation_sha256") == lowering.get("invocation_sha256")
+        and result.get("tool_call_id") == call.get("tool_call_id")
+        and result.get("tool_name") == "run_tests"
+    )
+    correlated_launcher_events = [
+        event for event in launcher_events
+        if event.get("launcher_task_id") == records.get("task_id")
+        and event.get("launcher_request_id") == request.get("request_id")
+        and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+    ]
+    launcher_lifecycle_complete = {
+        "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
+    }.issubset({event.get("event") for event in correlated_launcher_events})
+    expected_status = expected.get("status")
+    observed_matches = isinstance(observed, dict) and (
+        observed.get("test_case") == fixture.get("test_case")
+        and observed.get("status") == expected_status
+        and observed.get("ok") is (expected_status == "passed")
+        and observed.get("can_continue") == expected.get("can_continue")
+        and observed.get("returncode") == expected.get("returncode", observed.get("returncode"))
+        and observed.get("tests_run") == expected.get("tests_run", observed.get("tests_run"))
+        and observed.get("failures") == expected.get("failures", observed.get("failures"))
+        and verification.get("status") == expected_status
+        and verification.get("error_code") == expected.get("error_code", verification.get("error_code"))
+    )
+    no_workspace_mutation = changed == []
+    no_write_tools = not any(event.get("tool_name") == "replace_text" for event in calls)
+    success = (
+        len(requests) == len(calls) == len(lowered) == len(terminal) == len(verified)
+        == len(delivered) == 1
+        and call.get("tool_name") == "run_tests"
+        and request.get("read_scope") == expected_scope
+        and request.get("write_scope") == []
+        and scope_ok
+        and request.get("approval") == "approved_ordinary"
+        and request.get("runner_execution") == "completed"
+        and result_matches_request
+        and launcher_lifecycle_complete
+        and observed_matches
+        and event_order_valid
+        and continuity_ok
+        and len(next_turns) == 1
+        and no_workspace_mutation
+        and no_write_tools
+        and final_state.get("unscoped-canary.txt") == initial_state.get("unscoped-canary.txt")
+        and records.get("task_id") == result.get("launcher_task_id")
+    )
+    return {
+        "status": "PASS" if success else "FAIL",
+        "trial_id": trial_id,
+        "test_case": fixture.get("test_case"),
+        "expected": expected,
+        "observed_by_dsh_next_turn": observed,
+        "semantic_test_verification_event": {
+            key: verification.get(key)
+            for key in ("status", "tests_run", "failures", "errors", "skipped", "error_code")
+            if key in verification
+        },
+        "kernel_runner_returncode": request.get("runner_return_code"),
+        "launcher_result_matches_runner": result_matches_request,
+        "launcher_kernel_lifecycle_complete": launcher_lifecycle_complete,
+        "session_result_delivery": len(delivered) == 1,
+        "session_continuity_passed": continuity_ok,
+        "correlated_event_order_valid": event_order_valid,
+        "next_agent_turn_observed": len(next_turns) == 1,
+        "scope_matches_predeclared_policy": scope_ok,
+        "workspace_changes": changed,
+        "unexpected_workspace_mutations": changed,
+        "raw_result_body_retained": False,
+        "task_record_count": len(task_records),
+        "launcher_request_count": len(requests),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsh-source", type=Path, required=True)
@@ -1303,7 +1512,7 @@ def main() -> int:
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     parser.add_argument(
         "--mode",
-        choices=("attack", "coding", "fake-result", "cancellation", "node-crash", "plugin-lifecycle", "xpc-crash", "real-model", "semantic-fixture"),
+        choices=("attack", "coding", "fake-result", "cancellation", "node-crash", "plugin-lifecycle", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"),
         default="attack",
     )
     parser.add_argument("--model-provider", choices=("local", "bigmodel", "bigmodel-coding-plan"), default="local")
@@ -1314,6 +1523,7 @@ def main() -> int:
     )
     parser.add_argument("--task-id")
     parser.add_argument("--trial-id")
+    parser.add_argument("--integrity-case", choices=sorted(SEMANTIC_RESULT_CASES))
     parser.add_argument("--prebuilt-app", type=Path, help="reuse a previously signed exact-source DSH app")
     parser.add_argument("--local-model-app", type=Path,
                         help="signed app supplying its existing CPU-only local model")
@@ -1340,6 +1550,8 @@ def main() -> int:
         parser.error("the signed AgentHost XPC attack acceptance requires macOS")
     if args.timeout_seconds < 30 or args.timeout_seconds > 600:
         parser.error("--timeout-seconds must be between 30 and 600")
+    if args.mode != "semantic-result-fixture" and args.integrity_case is not None:
+        parser.error("--integrity-case is only valid with --mode semantic-result-fixture")
     if (args.mode == "cancellation") != (args.cancellation_case is not None):
         parser.error("--cancellation-case is required only with --mode cancellation")
     if args.mode in {"real-model", "semantic-fixture"}:
@@ -1371,11 +1583,19 @@ def main() -> int:
                 parser.error("existing BigModel credential exceeds the bounded key size")
             if args.local_model_app is not None:
                 parser.error("--local-model-app is only valid with the local provider")
+    elif args.mode == "semantic-result-fixture":
+        if args.integrity_case is None or args.trial_id is None or args.task_id is not None:
+            parser.error("semantic-result-fixture requires --integrity-case and --trial-id only")
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", args.trial_id):
+            parser.error("--trial-id must be a safe task identifier")
+        if args.model_provider != "local" or args.local_model_app is not None:
+            parser.error("semantic-result-fixture uses only the deterministic local DSH fixture")
     elif args.mode == "attack":
         if args.task_id is not None or args.trial_id is not None or args.prebuilt_app is not None \
                 or args.local_model_app is not None:
             parser.error("attack mode does not accept benchmark or prebuilt-app arguments")
     elif args.model_provider != "local" or args.task_id is not None or args.trial_id is not None \
+            or args.integrity_case is not None \
             or args.prebuilt_app is not None or args.local_model_app is not None:
         parser.error("model and benchmark options are restricted to --mode real-model or attack mode")
     try:
@@ -1414,6 +1634,7 @@ def main() -> int:
         credential_canary.write_text("DUMMY_SECRET_CANARY_DO_NOT_USE\n", encoding="utf-8")
         source_sha = run(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
         trial_metadata: dict[str, object] | None = None
+        result_fixture: dict[str, object] | None = None
         if args.mode in {"real-model", "semantic-fixture"}:
             if args.mode == "semantic-fixture":
                 benchmark_module = phase3_benchmark
@@ -1442,6 +1663,25 @@ def main() -> int:
                 })
             task_path.write_text(
                 prefix + json.dumps(task_input, ensure_ascii=False, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+        elif args.mode == "semantic-result-fixture":
+            assert args.integrity_case is not None and args.trial_id is not None
+            result_fixture = prepare_semantic_result_fixture(workspace, args.integrity_case)
+            task_input = {
+                "trial_id": args.trial_id,
+                "task_id": "test-result-integrity",
+                "prompt": "Run the fixed public tests and report the structured result.",
+                "read_scope": result_fixture["read_scope"],
+                "write_scope": result_fixture["write_scope"],
+                "max_tool_operations": 1,
+                "max_write_operations": 0,
+                "max_repair_attempts": 0,
+                "fixture_case": args.integrity_case,
+            }
+            task_path.write_text(
+                "KHAOS_DSH_PHASE3_1_FIXTURE: "
+                + json.dumps(task_input, ensure_ascii=False, separators=(",", ":")) + "\n",
                 encoding="utf-8",
             )
         elif args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash"}:
@@ -1516,7 +1756,7 @@ def main() -> int:
         }
         workspace_initial_hashes = {
             path.name: sha256(path) for path in workspace.iterdir() if path.is_file()
-        } if args.mode in {"coding", "cancellation", "node-crash", "xpc-crash", "real-model"} else {}
+        } if args.mode in {"coding", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-result-fixture"} else {}
 
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1550,7 +1790,7 @@ def main() -> int:
                 "--cancellation-case", args.cancellation_case,
                 "--cancellation-control-path", str(cancellation_control),
             ))
-        if args.mode in {"real-model", "semantic-fixture"}:
+        if args.mode in {"real-model", "semantic-fixture", "semantic-result-fixture"}:
             build_command.append("--semantic-tools")
         if args.prebuilt_app is None:
             print(run(build_command, timeout=600))
@@ -1615,6 +1855,18 @@ def main() -> int:
             print(f"Read allowlist: {task.read_scope}; write allowlist: {task.write_scope}", flush=True)
             print("Expected requests in order: read fee.py; read test_public.py; Candidate B edit fee.py; run public tests.", flush=True)
             print("Approve only those displayed commands and exact scopes in the signed Launcher.", flush=True)
+        elif args.mode == "semantic-result-fixture" and result_fixture is not None:
+            print(
+                f"Signed semantic test-result fixture: case={args.integrity_case}; "
+                f"expected={result_fixture['expected']}",
+                flush=True,
+            )
+            print(f"Select this disposable workspace in the signed app Picker: {workspace}", flush=True)
+            print(
+                f"Review and approve only the fixed run_tests request for "
+                f"{result_fixture['read_scope']} with an empty write scope.",
+                flush=True,
+            )
 
         kernel = app / "Contents/XPCServices/KernelProduction.xpc/Contents/MacOS/KernelProduction"
         kernel_hash = sha256(kernel)
@@ -1822,6 +2074,7 @@ def main() -> int:
         xpc_recovery = None
         phase3_trial = None
         phase31_fixture = None
+        result_fixture_report = None
         node_pid = None
         descendant_pid = None
         descendant_group_clean = None
@@ -1950,6 +2203,17 @@ def main() -> int:
                 stderr=stderr,
                 runtime_metrics=runtime_metrics,
                 elapsed_seconds=time.monotonic() - launch_started,
+            )
+        elif args.mode == "semantic-result-fixture":
+            if result_fixture is None or args.trial_id is None:
+                raise RuntimeError("semantic test-result fixture setup was incomplete")
+            result_fixture_report = evaluate_semantic_result_fixture(
+                trial_id=args.trial_id,
+                fixture=result_fixture,
+                workspace=workspace,
+                task_records=task_records,
+                stdout=stdout,
+                stderr=stderr,
             )
         elif args.mode == "real-model":
             if trial_metadata is None or args.task_id is None or args.trial_id is None:
@@ -2203,6 +2467,7 @@ def main() -> int:
             "schema": 2,
             "result": str(
                 phase31_fixture["status"] if isinstance(phase31_fixture, dict)
+                else result_fixture_report["status"] if isinstance(result_fixture_report, dict)
                 else phase3_trial["status"] if isinstance(phase3_trial, dict)
                 else "PASS"
             ),
@@ -2245,8 +2510,8 @@ def main() -> int:
             "agenthost_xpc_recovery": xpc_recovery,
             "signed_ui_evidence": ui_evidence,
             "deep_code_signature_verified": True,
-            "launcher_workspace_picker_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture"},
-            "launcher_tool_proposal_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture"},
+            "launcher_workspace_picker_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"},
+            "launcher_tool_proposal_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"},
             "cancellation_case": args.cancellation_case,
             "cancellation_barrier_reached": cancellation_barrier_seen if args.mode == "cancellation" else None,
             "cancellation_acknowledged": cancellation_ack_seen if args.mode == "cancellation" else None,
@@ -2263,7 +2528,7 @@ def main() -> int:
             "signing_certificate_sha1": build_record.get("certificate_sha1"),
             "team_identifiers": team_identifiers,
         }
-        if phase3_trial is not None or phase31_fixture is not None:
+        if phase3_trial is not None or phase31_fixture is not None or result_fixture_report is not None:
             logs_path = evidence_path.parent / f"{evidence_path.stem}.logs"
             if logs_path.exists():
                 raise RuntimeError(f"raw log directory already exists: {logs_path}")
@@ -2296,6 +2561,8 @@ def main() -> int:
                 report["real_model_trial"] = phase3_trial
             if phase31_fixture is not None:
                 report["phase31_signed_semantic_fixture"] = phase31_fixture
+            if result_fixture_report is not None:
+                report["semantic_test_result_fixture"] = result_fixture_report
         evidence_path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         os.chmod(evidence_path, 0o600)
         print(json.dumps(report, sort_keys=True, indent=2))

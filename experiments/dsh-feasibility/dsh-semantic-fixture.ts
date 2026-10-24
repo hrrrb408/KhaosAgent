@@ -33,3 +33,45 @@ export function semanticCodingResponses() {
     },
   ]
 }
+
+export type SemanticResultFixtureCase =
+  | 'task-a-failure'
+  | 'pass'
+  | 'zero-tests'
+  | 'fake-success'
+  | 'import-error'
+  | 'slow-cancel'
+
+export function semanticTestResultResponses(testCase: SemanticResultFixtureCase) {
+  return [
+    toolCallResponse(`phase321-run-${testCase}`, 'run_tests', { profile: 'public' }),
+    options => {
+      const value = JSON.parse(lastToolResult(options.messages)) as {
+        ok?: unknown
+        canContinue?: unknown
+        returncode?: unknown
+        test_result?: {
+          status?: unknown
+          tests_run?: unknown
+          failures?: unknown
+          errors?: unknown
+          skipped?: unknown
+          error_code?: unknown
+        }
+      }
+      const test = value.test_result ?? {}
+      return textResponse(`KHAOS_DSH_TEST_RESULT_OBSERVED ${JSON.stringify({
+        test_case: testCase,
+        ok: value.ok === true,
+        can_continue: value.canContinue === true,
+        returncode: Number.isSafeInteger(value.returncode) ? value.returncode : null,
+        status: typeof test.status === 'string' ? test.status : 'missing',
+        tests_run: Number.isSafeInteger(test.tests_run) ? test.tests_run : null,
+        failures: Number.isSafeInteger(test.failures) ? test.failures : null,
+        errors: Number.isSafeInteger(test.errors) ? test.errors : null,
+        skipped: Number.isSafeInteger(test.skipped) ? test.skipped : null,
+        error_code: typeof test.error_code === 'string' ? test.error_code : null,
+      })}`)
+    },
+  ]
+}

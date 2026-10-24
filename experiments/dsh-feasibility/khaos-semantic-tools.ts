@@ -17,7 +17,8 @@ const MAX_ALLOWED_WRITES = 3
 const MAX_ALLOWED_REPAIRS = 3
 const READ_SCRIPT = 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),end="")'
 // Avoid directory discovery so the fixed test profile stays within file-scoped read authority.
-const TEST_SCRIPT = 'import pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); raise SystemExit(not result.wasSuccessful())'
+const TEST_RESULT_MARKER = 'KHAOS_TEST_RESULT='
+const TEST_SCRIPT = 'import json,pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); successful=result.testsRun>0 and result.wasSuccessful(); print("KHAOS_TEST_RESULT="+json.dumps({"tests_run":result.testsRun,"failures":len(result.failures),"errors":len(result.errors),"skipped":len(result.skipped),"successful":successful},sort_keys=True,separators=(",",":"))); raise SystemExit(0 if successful else 2 if result.testsRun==0 else 1)'
 const TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export type SemanticToolName = typeof TOOL_NAMES[number]
@@ -28,6 +29,16 @@ interface SemanticToolResult extends KhaosToolResult {
     readonly write_operations: number
     readonly repair_attempts: number
   }
+  readonly test_result?: PublicTestVerification
+}
+
+export interface PublicTestVerification {
+  readonly status: 'passed' | 'failed' | 'invalid' | 'unverified' | 'mismatch'
+  readonly tests_run?: number
+  readonly failures?: number
+  readonly errors?: number
+  readonly skipped?: number
+  readonly error_code?: string
 }
 
 export interface KhaosCodingToolPolicy {
@@ -144,6 +155,18 @@ function outputSchema() {
         canContinue: { type: 'boolean', required: true },
         text: { type: 'string', required: true },
         returncode: { type: 'integer' },
+        test_result: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['passed', 'failed', 'invalid', 'unverified', 'mismatch'], required: true },
+            tests_run: { type: 'integer' },
+            failures: { type: 'integer' },
+            errors: { type: 'integer' },
+            skipped: { type: 'integer' },
+            error_code: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
         remaining_budget: {
           type: 'object',
           properties: {
@@ -158,6 +181,80 @@ function outputSchema() {
       additionalProperties: false,
     },
     render: (_args: unknown, result: SemanticToolResult) => [{ type: 'text' as const, text: JSON.stringify(result) }],
+  }
+}
+
+function exactResultRecord(value: unknown, expectedKeys: readonly string[]): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  return Object.keys(record).sort().join(',') === [...expectedKeys].sort().join(',')
+    ? record : undefined
+}
+
+function verifyPublicTestResult(result: KhaosToolResult): PublicTestVerification {
+  if (!Number.isSafeInteger(result.returncode)) {
+    return { status: 'unverified', error_code: 'runner_result_unknown' }
+  }
+  let output: Record<string, unknown> | undefined
+  try {
+    output = exactResultRecord(JSON.parse(result.text), [
+      'added', 'deleted', 'modified', 'returncode', 'stderr', 'stderr_truncated', 'stdout', 'stdout_truncated',
+    ])
+  } catch {
+    output = undefined
+  }
+  if (!output || output.returncode !== result.returncode
+    || typeof output.stdout !== 'string' || typeof output.stderr !== 'string'
+    || typeof output.stdout_truncated !== 'boolean' || typeof output.stderr_truncated !== 'boolean'
+    || !['added', 'modified', 'deleted'].every(key =>
+      Number.isSafeInteger(output?.[key]) && (output?.[key] as number) >= 0)) {
+    return { status: 'unverified', error_code: 'runner_result_unverified' }
+  }
+  if (output.stdout_truncated || output.stderr_truncated) {
+    return { status: 'unverified', error_code: 'runner_output_truncated' }
+  }
+  const marker = (output.stdout as string).split(/\r?\n/u)
+    .filter(line => line.startsWith(TEST_RESULT_MARKER)).at(-1)
+  if (!marker) return { status: 'unverified', error_code: 'test_summary_missing' }
+  let summary: Record<string, unknown> | undefined
+  try {
+    summary = exactResultRecord(JSON.parse(marker.slice(TEST_RESULT_MARKER.length)), [
+      'errors', 'failures', 'skipped', 'successful', 'tests_run',
+    ])
+  } catch {
+    summary = undefined
+  }
+  if (!summary
+    || !['tests_run', 'failures', 'errors', 'skipped'].every(key =>
+      Number.isSafeInteger(summary?.[key]) && (summary?.[key] as number) >= 0)
+    || typeof summary.successful !== 'boolean') {
+    return { status: 'unverified', error_code: 'test_summary_invalid' }
+  }
+  const testsRun = summary.tests_run as number
+  const failures = summary.failures as number
+  const errors = summary.errors as number
+  const skipped = summary.skipped as number
+  if (skipped > testsRun || failures + errors + skipped > testsRun) {
+    return { status: 'unverified', error_code: 'test_summary_invalid' }
+  }
+  if (testsRun === 0 || testsRun === skipped) {
+    return { status: 'invalid', tests_run: testsRun, failures, errors, skipped, error_code: 'zero_tests_executed' }
+  }
+  const summaryPassed = summary.successful === true && failures === 0 && errors === 0
+  const launcherPassed = result.returncode === 0 && result.ok
+  const summaryFailed = summary.successful === false && (failures > 0 || errors > 0)
+  const launcherFailed = result.returncode !== 0 && !result.ok
+  if ((summary.successful === false && !summaryFailed)
+    || summaryPassed !== launcherPassed || summaryFailed !== launcherFailed
+    || summaryPassed === summaryFailed) {
+    return { status: 'mismatch', tests_run: testsRun, failures, errors, skipped, error_code: 'test_result_mismatch' }
+  }
+  return {
+    status: summaryPassed ? 'passed' : 'failed',
+    tests_run: testsRun,
+    failures,
+    errors,
+    skipped,
   }
 }
 
@@ -388,13 +485,43 @@ export function createKhaosSemanticToolsPlugin(
         launcher_result_sha256: telemetry.launcherResultDigest(callId) as string,
       })
     }
-    if (!result.canContinue) closed = true
+    let effectiveOk = result.ok
+    let effectiveCanContinue = result.canContinue
+    let testResult: PublicTestVerification | undefined
+    if (toolName === 'run_tests') {
+      testResult = verifyPublicTestResult(result)
+      semanticEvent(telemetry, 'PUBLIC_TEST_RESULT_VERIFIED', toolName, callId, {
+        status: testResult.status,
+        ...(testResult.tests_run === undefined ? {} : { tests_run: testResult.tests_run }),
+        ...(testResult.failures === undefined ? {} : { failures: testResult.failures }),
+        ...(testResult.errors === undefined ? {} : { errors: testResult.errors }),
+        ...(testResult.skipped === undefined ? {} : { skipped: testResult.skipped }),
+        ...(testResult.error_code === undefined ? {} : { error_code: testResult.error_code }),
+      })
+      if (testResult.status === 'passed') {
+        effectiveOk = true
+      } else {
+        effectiveOk = false
+        const recoverableRunnerFailure = testResult.status === 'failed'
+          || (testResult.status === 'unverified'
+            && testResult.error_code === 'test_summary_missing'
+            && Number.isSafeInteger(result.returncode)
+            && result.returncode !== 0
+            && !result.ok)
+        if (!recoverableRunnerFailure) effectiveCanContinue = false
+      }
+    }
+    if (!effectiveCanContinue) {
+      closed = true
+      session.close()
+    }
     setVisibleTools(visibleTools())
     return {
-      ok: result.ok,
-      canContinue: result.canContinue,
+      ok: effectiveOk,
+      canContinue: effectiveCanContinue,
       text: result.text,
       ...(result.returncode === undefined ? {} : { returncode: result.returncode }),
+      ...(testResult === undefined ? {} : { test_result: testResult }),
       remaining_budget: {
         tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
         write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),
@@ -448,5 +575,6 @@ export const semanticToolTestSupport = {
   proposalDigest,
   readScript: READ_SCRIPT,
   testScript: TEST_SCRIPT,
+  verifyPublicTestResult,
   toolNames: TOOL_NAMES,
 }

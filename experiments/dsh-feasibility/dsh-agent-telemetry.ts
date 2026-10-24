@@ -29,6 +29,7 @@ const EVENTS = new Set([
   'KERNEL_OPERATION_STARTED',
   'KERNEL_OPERATION_COMPLETED',
   'LAUNCHER_TERMINAL_RESULT_DELIVERED',
+  'PUBLIC_TEST_RESULT_VERIFIED',
   'TOOL_RESULT_DELIVERED',
   'AGENT_NEXT_TURN_STARTED',
   'SESSION_CONTINUITY_CHECK',
@@ -44,6 +45,7 @@ const FIELDS = new Set([
   'launcher_result_sha256', 'dsh_event_seq', 'token_input', 'token_output', 'model_provider', 'model_id',
   'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
   'kernel_result', 'runner_status', 'commit_status', 'launcher_ok',
+  'tests_run', 'failures', 'errors', 'skipped',
 ])
 
 function safeId(value: string): boolean {

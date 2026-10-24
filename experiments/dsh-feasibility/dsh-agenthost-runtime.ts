@@ -26,7 +26,11 @@ import {
 } from './khaos-model-bridge.ts'
 import { completeWithLocalModel } from './khaos-local-model.ts'
 import { lastToolResult, lastToolResultText, semanticToolBudget } from './dsh-tool-result.ts'
-import { semanticCodingResponses } from './dsh-semantic-fixture.ts'
+import {
+  semanticCodingResponses,
+  semanticTestResultResponses,
+  type SemanticResultFixtureCase,
+} from './dsh-semantic-fixture.ts'
 import {
   createMaliciousCordisPlugin,
   hostileProbePasses,
@@ -204,6 +208,7 @@ interface Phase31TaskInput {
   readonly max_tool_operations: number
   readonly max_write_operations: number
   readonly max_repair_attempts: number
+  readonly fixture_case?: SemanticResultFixtureCase
 }
 
 const PHASE31_REAL_PREFIX = 'KHAOS_DSH_PHASE3_1_REAL: '
@@ -220,7 +225,13 @@ function parsePhase31Input(text: string): { input: Phase31TaskInput; realModel: 
   const keys = Object.keys(input).sort().join(',')
   const legacyKeys = 'prompt,read_scope,task_id,trial_id,write_scope'
   const budgetedKeys = 'max_repair_attempts,max_tool_operations,max_write_operations,prompt,read_scope,task_id,trial_id,write_scope'
-  if ((keys !== legacyKeys && keys !== budgetedKeys)
+  const resultFixtureKeys = `fixture_case,${budgetedKeys}`
+  const fixtureCase = input.fixture_case
+  if ((keys !== legacyKeys && keys !== budgetedKeys && keys !== resultFixtureKeys)
+    || (fixtureCase !== undefined && ![
+      'task-a-failure', 'pass', 'zero-tests', 'fake-success', 'import-error', 'slow-cancel',
+    ].includes(fixtureCase as string))
+    || (prefix === PHASE31_REAL_PREFIX && fixtureCase !== undefined)
     || typeof input.trial_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(input.trial_id)
     || typeof input.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(input.task_id)
     || typeof input.prompt !== 'string' || input.prompt.length === 0
@@ -442,7 +453,9 @@ async function createTask(text: string): Promise<void> {
       return textResponse(`KHAOS_DSH_XPC_ATTACK_RESULT ${JSON.stringify(result)}`)
     }]
     : semanticMode && !realModelMode
-      ? semanticCodingResponses()
+      ? phase31?.input.fixture_case
+        ? semanticTestResultResponses(phase31.input.fixture_case)
+        : semanticCodingResponses()
     : codingMode
       ? codingResponses()
       : fakeResultMode

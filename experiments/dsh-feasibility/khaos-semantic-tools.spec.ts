@@ -87,8 +87,108 @@ function toolNames(options: { tools?: readonly { name: string }[] }): string[] {
   return (options.tools ?? []).map(tool => tool.name)
 }
 
+function publicTestResult(input: {
+  readonly testsRun: number
+  readonly failures?: number
+  readonly errors?: number
+  readonly skipped?: number
+  readonly returncode: number
+  readonly ok: boolean
+  readonly stdoutExtra?: string
+  readonly stderr?: string
+}): KhaosToolResult {
+  const failures = input.failures ?? 0
+  const errors = input.errors ?? 0
+  const skipped = input.skipped ?? 0
+  const summary = {
+    tests_run: input.testsRun,
+    failures,
+    errors,
+    skipped,
+    successful: input.testsRun > 0 && failures === 0 && errors === 0,
+  }
+  return {
+    ok: input.ok,
+    canContinue: true,
+    returncode: input.returncode,
+    text: JSON.stringify({
+      added: 0,
+      deleted: 0,
+      modified: 0,
+      returncode: input.returncode,
+      stdout: `${input.stdoutExtra ?? ''}KHAOS_TEST_RESULT=${JSON.stringify(summary)}\n`,
+      stderr: input.stderr ?? (input.ok ? `Ran ${input.testsRun} test\n\nOK` : `Ran ${input.testsRun} test\n\nFAILED`),
+      stdout_truncated: false,
+      stderr_truncated: false,
+    }),
+  }
+}
+
 describe('Khaos semantic Cordis tools', () => {
-  it('continues the signed fixture when Launcher results omit optional return codes', async () => {
+  it('accepts only a non-empty, internally consistent public test result', () => {
+    expect(semanticToolTestSupport.verifyPublicTestResult(
+      publicTestResult({ testsRun: 2, returncode: 0, ok: true }),
+    )).toMatchObject({ status: 'passed', tests_run: 2 })
+    expect(semanticToolTestSupport.verifyPublicTestResult(
+      publicTestResult({
+        testsRun: 1,
+        failures: 1,
+        returncode: 1,
+        ok: false,
+        stdoutExtra: 'Ran 1 test\n\nOK\n',
+      }),
+    )).toMatchObject({ status: 'failed', failures: 1 })
+    expect(semanticToolTestSupport.verifyPublicTestResult(
+      publicTestResult({ testsRun: 0, returncode: 2, ok: false }),
+    )).toMatchObject({ status: 'invalid', error_code: 'zero_tests_executed' })
+    expect(semanticToolTestSupport.verifyPublicTestResult({
+      ok: true,
+      canContinue: true,
+      returncode: 0,
+      text: 'Ran 1 test\\n\\nOK',
+    })).toMatchObject({ status: 'unverified' })
+    expect(semanticToolTestSupport.verifyPublicTestResult({
+      ...publicTestResult({ testsRun: 1, failures: 1, returncode: 0, ok: true }),
+    })).toMatchObject({ status: 'mismatch', error_code: 'test_result_mismatch' })
+  })
+
+  it('fails closed when a test result is unknown instead of trusting success text', async () => {
+    const adapter = new MockAdapter([
+      toolCallResponse('unknown-test-result', 'run_tests', { profile: 'public' }),
+      options => {
+        const toolResult = JSON.parse(lastToolResult(options.messages))
+        expect(toolResult).toMatchObject({
+          ok: false,
+          canContinue: false,
+          returncode: 0,
+          test_result: { status: 'unverified' },
+        })
+        expect(toolNames(options)).toEqual([])
+        return textResponse('The test result was unverified; no pass is claimed.')
+      },
+    ])
+    const ctx = await createHarness(adapter)
+    const telemetry = new DshAgentTelemetry(policy.trialId, 'dsh-session-unknown-test-result', policy.taskId, () => undefined)
+    const submissions: KhaosShellProposal[] = []
+    try {
+      const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async proposal => {
+        submissions.push(proposal)
+        return { ok: true, canContinue: true, returncode: 0, text: 'Ran 1 test\\n\\nOK' }
+      })
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: 'Run the public tests.' }],
+        source: { kind: 'khaos-semantic-tools-test' },
+      }))
+      await waitForIdle(ctx, agent)
+      expect(submissions).toHaveLength(1)
+      expect(adapter.requests).toHaveLength(2)
+      await pluginFiber.dispose()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('continues the signed fixture with verified public-test counts', async () => {
     const adapter = new MockAdapter(semanticCodingResponses())
     const ctx = await createHarness(adapter)
     const telemetry = new DshAgentTelemetry(policy.trialId, 'dsh-session-stage-a-fixture', 'A', () => undefined)
@@ -98,7 +198,7 @@ describe('Khaos semantic Cordis tools', () => {
       { ok: true, canContinue: true, text: source },
       { ok: true, canContinue: true, text: 'def test_fee_is_rounded_to_cents(): pass' },
       { ok: true, canContinue: true, text: 'EDIT_APPLIED' },
-      { ok: true, canContinue: true, text: 'Ran 1 test\\n\\nOK' },
+      publicTestResult({ testsRun: 1, returncode: 0, ok: true }),
     ]
 
     try {
@@ -217,8 +317,12 @@ describe('Khaos semantic Cordis tools', () => {
       options => {
         const result = lastToolResult(options.messages)
         observedFailure.push(result)
-        expect(JSON.parse(result)).toMatchObject({ ok: false })
-        expect(JSON.parse(result).returncode).toBeUndefined()
+        expect(JSON.parse(result)).toMatchObject({
+          ok: false,
+          canContinue: true,
+          returncode: 1,
+          test_result: { status: 'failed', tests_run: 1, failures: 1 },
+        })
         expect(result).toContain('Ran 1 test')
         expect(result).toContain('OK')
         return toolCallResponse('semantic-repair', 'replace_text', {
@@ -241,9 +345,16 @@ describe('Khaos semantic Cordis tools', () => {
       { ok: true, canContinue: true, text: feeSource },
       { ok: true, canContinue: true, text: testSource },
       { ok: true, canContinue: true, text: 'EDIT_APPLIED' },
-      { ok: false, canContinue: true, text: 'Runner return code=1\nRan 1 test\nOK' },
+      publicTestResult({
+        testsRun: 1,
+        failures: 1,
+        returncode: 1,
+        ok: false,
+        stdoutExtra: 'fake success: Ran 1 test\nOK\n',
+        stderr: 'AssertionError: expected 2, got 1',
+      }),
       { ok: true, canContinue: true, text: 'EDIT_APPLIED' },
-      { ok: true, canContinue: true, text: 'Ran 1 test\nOK' },
+      publicTestResult({ testsRun: 1, returncode: 0, ok: true }),
     ]
 
     try {
@@ -287,6 +398,8 @@ describe('Khaos semantic Cordis tools', () => {
         type: 'text', text: 'Public verification passed.',
       })
       expect(telemetryRecords.filter(record => record.event === 'TOOL_PROPOSAL_LOWERED')).toHaveLength(6)
+      expect(telemetryRecords.filter(record => record.event === 'PUBLIC_TEST_RESULT_VERIFIED').map(record => record.status))
+        .toEqual(['failed', 'passed'])
       expect(telemetry.launcherResultDigest('semantic-read-fee'))
         .toBe(createHash('sha256').update(feeSource, 'utf8').digest('hex'))
 
@@ -330,10 +443,12 @@ describe('Khaos semantic Cordis tools', () => {
     const telemetry = new DshAgentTelemetry(taskC.trialId, 'dsh-session-task-c', taskC.taskId, () => undefined)
     const submissions: KhaosShellProposal[] = []
     const results: KhaosToolResult[] = [
-      { ok: false, canContinue: true, returncode: 1, text: 'Runner return code=1\nFAIL: ZeroTotal' },
+      publicTestResult({
+        testsRun: 1, failures: 1, returncode: 1, ok: false, stderr: 'FAIL: ZeroTotal',
+      }),
       { ok: true, canContinue: true, text: source },
       { ok: true, canContinue: true, text: 'EDIT_APPLIED' },
-      { ok: true, canContinue: true, text: 'PASS' },
+      publicTestResult({ testsRun: 1, returncode: 0, ok: true }),
     ]
     try {
       const { agent, pluginFiber } = await startSemanticAgent(ctx, taskC, telemetry, async proposal => {
