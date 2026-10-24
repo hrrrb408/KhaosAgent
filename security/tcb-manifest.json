@@ -1005,6 +1005,17 @@
       ]
     },
     {
+      "path": "tests/test_experimental_artifact_retention.py",
+      "role": "build-governance",
+      "sha256": "88f2fa01da3bc13b02f5bcca0b8ac1f4f402888c45dde661f7698a9eff120c87",
+      "source_mode": "0o644",
+      "boundary": "synthetic tests for experimental artifact inventory, preflight, and dry-run behavior; not runtime authority",
+      "tests": [
+        "tests/test_experimental_artifact_retention.py",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
       "path": "tests/test_ipc.py",
       "role": "build-governance",
       "sha256": "8730eafdece9959cc1aa8a53e55fe17fddb7fbafeac4a61d8fc6583b6f987d01",
