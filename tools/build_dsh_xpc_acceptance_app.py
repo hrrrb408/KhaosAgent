@@ -1211,6 +1211,7 @@ def apply_experimental_workspace_identity_binding(
     transformed = transformed.replace(selection_marker, selection_replacement)
 
     approval_marker = '''        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")
+        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")
         let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
 '''
     approval_replacement = '''        guard phase322ValidateWorkspaceIdentity(

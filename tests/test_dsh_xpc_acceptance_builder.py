@@ -112,6 +112,7 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             target.parent.mkdir(parents=True)
             shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", target)
 
+            apply_experimental_launcher_semantic_trace(source_root)
             overlay = apply_experimental_workspace_identity_binding(source_root, loaded)
             source = target.read_text(encoding="utf-8")
 
@@ -121,6 +122,7 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertNotIn(str(workspace), source)
         self.assertIn("approvalSHA256: approvalDigest", source)
         self.assertIn("no Kernel request was submitted", source)
+        self.assertEqual(source.count('checkpoint: "after_approval"'), 1)
 
 
 if __name__ == "__main__":
