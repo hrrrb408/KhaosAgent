@@ -122,6 +122,8 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertIn(identity["workspace_path_sha256"], source)
         self.assertIn(str(workspace), source)
         self.assertIn("initialDirectory: URL(fileURLWithPath: phase322ExpectedWorkspacePath", source)
+        self.assertIn("canonicalPath == phase322ExpectedWorkspacePath", source)
+        self.assertIn("Data(canonicalPath.utf8)", source)
         self.assertIn("approvalSHA256: approvalDigest", source)
         self.assertIn("no Kernel request was submitted", source)
         self.assertEqual(source.count('checkpoint: "after_approval"'), 1)

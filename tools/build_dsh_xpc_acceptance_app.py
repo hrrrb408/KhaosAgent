@@ -1071,13 +1071,13 @@ def apply_experimental_workspace_identity_binding(
             if scopeStarted {{ selection.scopeURL.stopAccessingSecurityScopedResource() }}
         }}
         let selectedPath = selection.scopeURL.standardizedFileURL.path
-        let selectedPathSHA256 = KernelWorkspaceXPC.sha256Hex(Data(selectedPath.utf8))
         let canonicalPath = selection.scopeURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let selectedPathSHA256 = KernelWorkspaceXPC.sha256Hex(Data(canonicalPath.utf8))
         var directoryInfo = stat()
         let directoryFD = selectedPath.withCString {{ Darwin.open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }}
         var valid = scopeStarted
             && directoryFD >= 0
-            && canonicalPath == selectedPath
+            && canonicalPath == phase322ExpectedWorkspacePath
             && selectedPathSHA256 == phase322ExpectedPathSHA256
         var markerSHA256 = "unavailable"
         var fixtureFilesVerified = false
