@@ -18,6 +18,22 @@ from dsh_phase3 import benchmark as phase3_benchmark  # noqa: E402
 from dsh_phase3_2 import benchmark as phase32_benchmark  # noqa: E402
 from dsh_phase3_2.sandboxed_eval import run_suite  # noqa: E402
 
+REQUIRED_SIGNED_TEST_SOURCES = {
+    "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift",
+    "experiments/dsh-feasibility/DSHModelBridgeProtocol.swift",
+    "experiments/dsh-feasibility/DSHModelBridgeService.swift",
+    "experiments/dsh-feasibility/dsh-agent-telemetry.ts",
+    "experiments/dsh-feasibility/dsh-agenthost-runtime.ts",
+    "experiments/dsh-feasibility/dsh-semantic-fixture.ts",
+    "experiments/dsh-feasibility/dsh-tool-result.ts",
+    "experiments/dsh-feasibility/khaos-capability-adapter.ts",
+    "experiments/dsh-feasibility/khaos-local-model.ts",
+    "experiments/dsh-feasibility/khaos-model-bridge.ts",
+    "experiments/dsh-feasibility/khaos-semantic-tools.ts",
+    "tools/build_dsh_xpc_acceptance_app.py",
+    "tools/run_dsh_xpc_attack_acceptance.py",
+}
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -39,6 +55,18 @@ def verify_frozen_sources(freeze: dict[str, Any]) -> None:
     ]
     if changed:
         raise ValueError(f"frozen evaluator inputs changed: {changed}")
+
+
+def signed_build_sources_match(build: dict[str, Any], freeze: dict[str, Any]) -> bool:
+    frozen_sources = freeze.get("source_sha256")
+    build_sources = build.get("test_only_sources_sha256")
+    if not isinstance(frozen_sources, dict) or not isinstance(build_sources, dict):
+        return False
+    return (
+        REQUIRED_SIGNED_TEST_SOURCES <= build_sources.keys()
+        and all(frozen_sources.get(name) == digest for name, digest in build_sources.items())
+        and build.get("builder_sha256") == frozen_sources.get("tools/build_dsh_xpc_acceptance_app.py")
+    )
 
 
 def read_events(stderr: str, trial_id: str, task_id: str) -> list[dict[str, Any]]:
@@ -170,17 +198,7 @@ def verify_trial(evidence_path: Path, freeze: dict[str, Any]) -> dict[str, objec
     build = build if isinstance(build, dict) else {}
     model_info = build.get("dsh_local_model", {})
     model_info = model_info if isinstance(model_info, dict) else {}
-    build_sources = build.get("test_only_sources_sha256", {})
-    frozen_sources = freeze.get("source_sha256", {})
-    build_sources_match = (
-        isinstance(build_sources, dict)
-        and bool(build_sources)
-        and all(frozen_sources.get(name) == digest for name, digest in build_sources.items())
-        and build.get("builder_sha256")
-        == frozen_sources.get("tools/build_dsh_xpc_acceptance_app.py")
-        and build.get("khaos_source_sha")
-        == freeze.get("experiment", {}).get("implementation_commit_sha")
-    )
+    build_sources_match = signed_build_sources_match(build, freeze)
     runtime_bound = (
         build.get("dsh_sha") == freeze["runtime"]["dsh_expected_sha"]
         and build.get("node_version") == freeze["runtime"]["node_version"]

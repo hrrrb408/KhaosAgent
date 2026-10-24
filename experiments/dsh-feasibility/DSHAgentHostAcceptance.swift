@@ -344,6 +344,7 @@ private final class DSHRuntimeProcess {
             "dsh_event_seq", "token_input", "token_output", "model_provider", "model_id",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256", "approval_status",
             "kernel_result", "runner_status", "commit_status", "launcher_ok",
+            "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -377,7 +378,7 @@ private final class DSHRuntimeProcess {
               let trialID = safeID(record["trial_id"]),
               let sessionID = safeID(record["dsh_session_id"]),
               let benchmarkTaskID = record["benchmark_task_id"] as? String,
-              ["A", "B", "C", "D"].contains(benchmarkTaskID),
+              safeID(benchmarkTaskID) != nil,
               boundedInteger("agent_turn_id", maximum: 1_000_000),
               boundedInteger("agent_step_id", maximum: 1_000_000),
               boundedInteger("operation_seq", maximum: 8),
@@ -387,7 +388,10 @@ private final class DSHRuntimeProcess {
               boundedInteger("result_bytes", maximum: 4 * 1_024),
               boundedInteger("dsh_event_seq", maximum: 1_000_000),
               boundedInteger("token_input", maximum: 1_000_000),
-              boundedInteger("token_output", maximum: 1_000_000) else {
+              boundedInteger("token_output", maximum: 1_000_000),
+              boundedInteger("tool_operations_remaining", maximum: 12),
+              boundedInteger("write_operations_remaining", maximum: 3),
+              boundedInteger("repair_attempts_remaining", maximum: 3) else {
             return false
         }
         if event == "SESSION_STARTED" {

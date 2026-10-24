@@ -132,6 +132,7 @@ describe('Khaos semantic Cordis tools', () => {
   })
 
   it('correlates the Launcher terminal result with DSH Session delivery without exposing trace fields', async () => {
+    const tracePolicy = { ...policy, taskId: 'holdout-03' }
     const adapter = new MockAdapter([
       toolCallResponse('trace-read', 'read_file', { path: 'fee.py' }),
       options => textResponse(`Observed ${lastToolResult(options.messages)}`),
@@ -139,10 +140,10 @@ describe('Khaos semantic Cordis tools', () => {
     const ctx = await createHarness(adapter)
     const telemetryRecords: Readonly<Record<string, unknown>>[] = []
     const telemetry = new DshAgentTelemetry(
-      'phase31-trace', 'dsh-session-trace', 'A', record => telemetryRecords.push(record),
+      'phase31-trace', 'dsh-session-trace', tracePolicy.taskId, record => telemetryRecords.push(record),
     )
     try {
-      const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async (_proposal, _signal, correlation) => {
+      const { agent, pluginFiber } = await startSemanticAgent(ctx, tracePolicy, telemetry, async (_proposal, _signal, correlation) => {
         if (!correlation) throw new Error('missing semantic correlation')
         return {
           ok: true,

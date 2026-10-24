@@ -11,10 +11,32 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "experiments"))
 
 from dsh_phase3_2.benchmark import Task  # noqa: E402
-from dsh_phase3_2.evaluate_trials import run_suite, verify_frozen_sources, workspace_delta  # noqa: E402
+from dsh_phase3_2.evaluate_trials import (
+    REQUIRED_SIGNED_TEST_SOURCES,
+    run_suite,
+    signed_build_sources_match,
+    verify_frozen_sources,
+    workspace_delta,
+)  # noqa: E402
 
 
 class IndependentEvaluatorTests(unittest.TestCase):
+    def test_signed_build_is_bound_to_frozen_inputs_not_a_later_commit_label(self) -> None:
+        names = REQUIRED_SIGNED_TEST_SOURCES
+        hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in names}
+        freeze = {"source_sha256": hashes}
+        build = {
+            "test_only_sources_sha256": hashes,
+            "builder_sha256": hashes["tools/build_dsh_xpc_acceptance_app.py"],
+            "khaos_source_sha": "later-commit-after-immutable-freeze",
+        }
+
+        self.assertTrue(signed_build_sources_match(build, freeze))
+        build["test_only_sources_sha256"] = dict(hashes, **{
+            "experiments/dsh-feasibility/khaos-semantic-tools.ts": "0" * 64,
+        })
+        self.assertFalse(signed_build_sources_match(build, freeze))
+
     def test_source_hash_check_rejects_paths_outside_repository(self) -> None:
         with self.assertRaisesRegex(ValueError, "frozen evaluator inputs changed"):
             verify_frozen_sources({"source_sha256": {"../outside": "0" * 64}})
