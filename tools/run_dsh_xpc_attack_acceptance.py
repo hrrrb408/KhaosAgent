@@ -203,6 +203,22 @@ def prepare_semantic_result_fixture(workspace: Path, test_case: str) -> dict[str
     }
 
 
+def semantic_result_observation(stdout: str) -> dict[str, object] | None:
+    prefix = "Khaos: KHAOS_DSH_TEST_RESULT_OBSERVED "
+    candidates = [
+        line[len("You: "):] if line.startswith("You: " + prefix) else line
+        for line in stdout.splitlines()
+        if line.startswith(prefix) or line.startswith("You: " + prefix)
+    ]
+    if len(candidates) != 1:
+        return None
+    try:
+        value = json.loads(candidates[0][len(prefix):])
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
 def stop_test_launcher(app: Path) -> None:
     expected = str(app / "Contents/MacOS/KhaosSeed")
     result = subprocess.run(
@@ -1383,13 +1399,7 @@ def evaluate_semantic_result_fixture(
         event for event in diagnostic_payloads(stderr, "dsh-launcher-event=")
         if isinstance(event, dict)
     ]
-    response_prefix = "Khaos: KHAOS_DSH_TEST_RESULT_OBSERVED "
-    response = next((line[len(response_prefix):] for line in stdout.splitlines()
-                     if line.startswith(response_prefix)), None)
-    try:
-        observed = json.loads(response) if response is not None else None
-    except json.JSONDecodeError:
-        observed = None
+    observed = semantic_result_observation(stdout)
     expected = fixture.get("expected")
     expected = expected if isinstance(expected, dict) else {}
     final_state = collect_workspace_state(workspace)
