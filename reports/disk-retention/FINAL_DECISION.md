@@ -22,8 +22,8 @@ Artifact Retention Hardening: PASS by code and unit tests; signed lifecycle exec
 Disk Preflight: PASS by synthetic capacity tests; no large build run
 Canonical Tests: PASS (449 tests, 826.008 seconds; UI/model flags and credentials cleared)
 Security Freeze: PASS (default and exact PR #46 base `7ed01f726387755181cfbadad33967f35d9d2f72`)
-Final-Head GitHub CI: PENDING
-Draft PR: PENDING
+Final-Head GitHub CI: PENDING at this report revision (PR #47 exact-head checks are authoritative)
+Draft PR: OPEN / DRAFT (#47; base PR #46 head `7ed01f726387755181cfbadad33967f35d9d2f72`)
 Owner Cleanup Approval: PENDING
 Production Kernel Changes: 0
 ```
