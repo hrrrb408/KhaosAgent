@@ -127,6 +127,9 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertIn("Data(canonicalPath.utf8)", source)
         self.assertIn("resolvingBookmarkData: selection.bookmark", source)
         self.assertIn("options: [],", source)
+        accepted = 'writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")'
+        self.assertEqual(source.count(accepted), 1)
+        self.assertLess(source.index(accepted), source.index("handle.start { observation in"))
         self.assertIn('"bookmark_resolved": resolvedScopeURL != nil', source)
         self.assertIn('"directory_identity_matches": directoryIdentityMatches', source)
         self.assertIn("approvalSHA256: approvalDigest", source)

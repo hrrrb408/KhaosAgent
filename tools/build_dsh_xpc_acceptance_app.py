@@ -1270,6 +1270,7 @@ def apply_experimental_workspace_identity_binding(
             )
         }
         writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")
+        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")
         let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
 '''
     if transformed.count(approval_marker) != 1:

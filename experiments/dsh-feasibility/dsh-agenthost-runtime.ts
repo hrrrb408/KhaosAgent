@@ -816,6 +816,16 @@ async function createTask(text: string): Promise<void> {
     const toolResults = messages
       .filter(message => message.role === 'tool')
       .map(message => message.content)
+    const unresolvedKernelResult = pendingResults.occupied
+      && pendingResults.correlation?.sessionId === dshSessionId
+    const rawTurnEndReason = lastTurnEndReason !== null && typeof lastTurnEndReason === 'object'
+      ? (lastTurnEndReason as { kind?: unknown }).kind ?? 'unknown' : 'unknown'
+    const turnEndReason = typeof rawTurnEndReason === 'string'
+      && /^[A-Za-z0-9_.:-]{1,128}$/u.test(rawTurnEndReason) ? rawTurnEndReason : 'unknown'
+    const lastMessageTextOnly = lastMessage?.role === 'assistant'
+      && lastMessage.content.length > 0
+      && lastMessage.content.every(block =>
+        block.type === 'text' && block.text.trim().length > 0)
     const diagnostics = {
       adapterRequestCount: modelAdapter?.usage().calls ?? mockAdapter.requests.length,
       assistantMessageCount: assistantMessages.length,
@@ -829,16 +839,13 @@ async function createTask(text: string): Promise<void> {
         turnEndReason: lastTurnEndReason,
         lastMessageRole: lastMessage?.role,
         lastMessageContent: lastMessage?.content,
-        unresolvedKernelResult: pendingResults.occupied
-          && pendingResults.correlation?.sessionId === dshSessionId,
+        unresolvedKernelResult,
         agentErrorCount: agentErrors.length,
         incompleteReason,
       }),
       incompleteReason: incompleteReason ?? null,
-      turnEndReason: lastTurnEndReason !== null && typeof lastTurnEndReason === 'object'
-        ? (lastTurnEndReason as { kind?: unknown }).kind ?? 'unknown' : 'unknown',
+      turnEndReason,
       turnEndSequence: lastTurnEndSequence ?? null,
-      lastMessageRole: lastMessage?.role ?? null,
     }
     const terminalStatus = diagnostics.terminalStatus
     if (telemetry) {
@@ -848,6 +855,13 @@ async function createTask(text: string): Promise<void> {
         agent_step_id: position.step,
         ...(position.modelCallId ? { model_call_id: position.modelCallId } : {}),
         status: terminalStatus,
+        ...(lastTurnEndSequence === undefined ? {} : { turn_end_sequence: lastTurnEndSequence }),
+        assistant_message_count: assistantMessages.length,
+        tool_result_count: toolResults.length,
+        turn_end_reason: turnEndReason,
+        last_message_role: lastMessage?.role ?? 'unknown',
+        last_message_text_only: lastMessageTextOnly,
+        unresolved_kernel_result: unresolvedKernelResult,
         ...(terminalStatus === 'result_unknown' ? { error_code: 'kernel_result_unresolved' } : {}),
         ...(terminalStatus === 'incomplete' ? { error_code: 'final_response_missing' } : {}),
         ...(terminalStatus === 'failed' ? { error_code: 'dsh_agent_failed' } : {}),

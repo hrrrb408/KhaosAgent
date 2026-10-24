@@ -14,30 +14,46 @@ from tools.run_dsh_xpc_attack_acceptance import (
 class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
     def test_semantic_fixture_completion_requires_committed_final_and_completed_turn(self):
         telemetry = [
-            {"event": "DSH_ASSISTANT_MESSAGE_COMMITTED", "status": "session_committed", "dsh_event_seq": 8},
-            {"event": "TURN_END_OBSERVED", "status": "completed", "dsh_event_seq": 9},
-            {"event": "AGENT_TERMINATED", "status": "completed"},
+            {"event": "TOOL_RESULT_DELIVERED", "event_seq": 1, "tool_call_id": "tool-1"},
+            {
+                "event": "DSH_ASSISTANT_MESSAGE_COMMITTED",
+                "event_seq": 2,
+                "status": "session_committed",
+                "dsh_event_seq": 8,
+            },
+            {"event": "TURN_END_OBSERVED", "event_seq": 3, "status": "completed", "dsh_event_seq": 9},
+            {
+                "event": "AGENT_TERMINATED",
+                "event_seq": 4,
+                "status": "completed",
+                "turn_end_sequence": 9,
+                "assistant_message_count": 1,
+                "tool_result_count": 1,
+                "turn_end_reason": "completed",
+                "last_message_role": "assistant",
+                "last_message_text_only": True,
+                "unresolved_kernel_result": False,
+            },
         ]
-        diagnostics = [{
-            "terminal_status": "completed",
-            "turn_end_reason": "completed",
-            "turn_end_sequence": 9,
-            "last_message_role": "assistant",
-            "last_message_block_types": ["text"],
-        }]
 
-        self.assertTrue(semantic_agent_completion_evidence(telemetry, diagnostics)["completed"])
-        self.assertFalse(semantic_agent_completion_evidence(
-            [*telemetry[:-1], {"event": "AGENT_TERMINATED", "status": "incomplete"}], diagnostics
-        )["completed"])
-        self.assertFalse(semantic_agent_completion_evidence(telemetry, [
-            {**diagnostics[0], "turn_end_sequence": 8},
+        self.assertTrue(semantic_agent_completion_evidence(telemetry)["completed"])
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {"event": "AGENT_TERMINATED", "status": "incomplete"},
         ])["completed"])
-        self.assertFalse(semantic_agent_completion_evidence(telemetry, [
-            {**diagnostics[0], "last_message_block_types": ["tool-call"]},
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {**telemetry[-1], "turn_end_sequence": 8},
         ])["completed"])
-        self.assertFalse(semantic_agent_completion_evidence(telemetry, [
-            {**diagnostics[0], "terminal_status": "incomplete", "incomplete_reason": "no_progress_limit"},
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {**telemetry[-1], "last_message_text_only": False},
+        ])["completed"])
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {**telemetry[-1], "unresolved_kernel_result": True},
+        ])["completed"])
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {**telemetry[-1], "assistant_message_count": 2},
+        ])["completed"])
+        self.assertFalse(semantic_agent_completion_evidence([
+            *telemetry[:-1], {**telemetry[-1], "tool_result_count": 0},
         ])["completed"])
 
     def test_signed_ui_evidence_binds_operator_authorization_requests_and_outcomes(self):

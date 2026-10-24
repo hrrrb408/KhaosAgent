@@ -1408,11 +1408,7 @@ def evaluate_semantic_fixture(
     lowered = [event for event in telemetry if event.get("event") == "TOOL_PROPOSAL_LOWERED"]
     delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
     continuity = [event for event in telemetry if event.get("event") == "SESSION_CONTINUITY_CHECK"]
-    loop_records = [
-        item for item in diagnostic_payloads(stderr, "dsh-agent-loop=")
-        if isinstance(item, dict)
-    ]
-    agent_completion = semantic_agent_completion_evidence(telemetry, loop_records)
+    agent_completion = semantic_agent_completion_evidence(telemetry)
     session_ids = {
         event.get("dsh_session_id") for event in telemetry
         if isinstance(event.get("dsh_session_id"), str)
@@ -1597,7 +1593,6 @@ def evaluate_semantic_fixture(
 
 def semantic_agent_completion_evidence(
     telemetry: list[dict[str, object]],
-    loop_records: list[dict[str, object]],
 ) -> dict[str, object]:
     termination_events = [event for event in telemetry if event.get("event") == "AGENT_TERMINATED"]
     turn_end_events = [event for event in telemetry if event.get("event") == "TURN_END_OBSERVED"]
@@ -1605,39 +1600,62 @@ def semantic_agent_completion_evidence(
         event for event in telemetry
         if event.get("event") == "DSH_ASSISTANT_MESSAGE_COMMITTED"
         and event.get("status") == "session_committed"
-        and isinstance(event.get("dsh_event_seq"), int)
+        and type(event.get("dsh_event_seq")) is int
     ]
-    diagnostics = loop_records[0] if len(loop_records) == 1 else {}
-    turn_end_sequence = diagnostics.get("turn_end_sequence")
+    terminal = termination_events[0] if len(termination_events) == 1 else {}
+    turn_end_sequence = terminal.get("turn_end_sequence")
     assistant_sequence = max((event["dsh_event_seq"] for event in committed), default=None)
+    delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
+    assistant_count = terminal.get("assistant_message_count")
+    tool_result_count = terminal.get("tool_result_count")
     turn_end_observed = (
         len(turn_end_events) == 1
         and turn_end_events[0].get("status") == "completed"
-        and isinstance(turn_end_events[0].get("dsh_event_seq"), int)
+        and type(turn_end_events[0].get("dsh_event_seq")) is int
         and turn_end_events[0].get("dsh_event_seq") == turn_end_sequence
     )
     final_message_committed = (
-        isinstance(assistant_sequence, int)
-        and isinstance(turn_end_sequence, int)
+        type(assistant_sequence) is int
+        and type(turn_end_sequence) is int
         and assistant_sequence < turn_end_sequence
-        and diagnostics.get("last_message_role") == "assistant"
-        and diagnostics.get("last_message_block_types") == ["text"]
+        and terminal.get("last_message_role") == "assistant"
+        and terminal.get("last_message_text_only") is True
+        and type(assistant_count) is int
+        and assistant_count == len(committed)
+        and type(tool_result_count) is int
+        and tool_result_count == len(delivered)
+    )
+    terminal_status = terminal.get("status")
+    turn_end_reason = terminal.get("turn_end_reason")
+    unresolved_kernel_result = terminal.get("unresolved_kernel_result")
+    terminal_follows_turn_end = (
+        len(termination_events) == len(turn_end_events) == 1
+        and type(termination_events[0].get("event_seq")) is int
+        and type(turn_end_events[0].get("event_seq")) is int
+        and termination_events[0]["event_seq"] > turn_end_events[0]["event_seq"]
     )
     return {
-        "terminal_status": diagnostics.get("terminal_status"),
-        "turn_end_reason": diagnostics.get("turn_end_reason"),
+        "terminal_status": terminal_status,
+        "turn_end_reason": turn_end_reason,
         "turn_end_sequence": turn_end_sequence,
         "final_assistant_message_sequence": assistant_sequence,
+        "assistant_message_count": assistant_count,
+        "tool_result_count": tool_result_count,
+        "unresolved_kernel_result": unresolved_kernel_result,
         "termination_event_count": len(termination_events),
         "turn_end_event_count": len(turn_end_events),
         "turn_end_observed": turn_end_observed,
+        "terminal_follows_turn_end": terminal_follows_turn_end,
         "final_assistant_message_committed": final_message_committed,
         "completed": (
-            diagnostics.get("terminal_status") == "completed"
-            and diagnostics.get("turn_end_reason") == "completed"
+            terminal_status == "completed"
+            and turn_end_reason == "completed"
+            and unresolved_kernel_result is False
             and len(termination_events) == 1
             and termination_events[0].get("status") == "completed"
             and turn_end_observed
+            and terminal_follows_turn_end
+            and turn_end_events[0].get("status") == turn_end_reason
             and final_message_committed
         ),
     }

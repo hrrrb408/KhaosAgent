@@ -344,6 +344,8 @@ private final class DSHRuntimeProcess {
             "dsh_event_seq", "token_input", "token_output", "model_provider", "model_id",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256", "approval_status",
             "kernel_result", "runner_status", "commit_status", "launcher_ok",
+            "turn_end_sequence", "assistant_message_count", "tool_result_count", "turn_end_reason",
+            "last_message_role", "last_message_text_only", "unresolved_kernel_result",
             "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
             "tests_run", "failures", "errors", "skipped",
         ]
@@ -389,6 +391,9 @@ private final class DSHRuntimeProcess {
               boundedInteger("duration_ms", maximum: 600_000),
               boundedInteger("result_bytes", maximum: 4 * 1_024),
               boundedInteger("dsh_event_seq", maximum: 1_000_000),
+              boundedInteger("turn_end_sequence", maximum: 1_000_000),
+              boundedInteger("assistant_message_count", maximum: 128),
+              boundedInteger("tool_result_count", maximum: 128),
               boundedInteger("token_input", maximum: 1_000_000),
               boundedInteger("token_output", maximum: 1_000_000),
               boundedInteger("tool_operations_remaining", maximum: 12),
@@ -428,12 +433,16 @@ private final class DSHRuntimeProcess {
             guard let digest = record[name] as? String,
                   digest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil else { return false }
         }
-        for name in ["write_operation", "can_continue", "observed_tool_result", "launcher_ok"] where record[name] != nil {
+        for name in [
+            "write_operation", "can_continue", "observed_tool_result", "launcher_ok",
+            "last_message_text_only", "unresolved_kernel_result",
+        ] where record[name] != nil {
             guard record[name] is Bool else { return false }
         }
         for name in [
             "status", "error_code", "model_provider", "model_id", "approval_status",
             "kernel_result", "runner_status", "commit_status",
+            "turn_end_reason", "last_message_role",
         ] where record[name] != nil {
             guard let value = record[name] as? String, value.utf8.count <= 128,
                   value.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil else { return false }
