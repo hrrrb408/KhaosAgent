@@ -1071,29 +1071,37 @@ def apply_experimental_workspace_identity_binding(
             if scopeStarted {{ selection.scopeURL.stopAccessingSecurityScopedResource() }}
         }}
         let selectedPath = selection.scopeURL.standardizedFileURL.path
-        let canonicalPath = selection.scopeURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let canonicalPath = selectedPath.withCString {{ source -> String? in
+            var resolvedPath = [CChar](repeating: 0, count: Int(PATH_MAX))
+            guard Darwin.realpath(source, &resolvedPath) != nil else {{ return nil }}
+            return String(cString: resolvedPath)
+        }} ?? ""
         let selectedPathSHA256 = KernelWorkspaceXPC.sha256Hex(Data(canonicalPath.utf8))
         var directoryInfo = stat()
         let directoryFD = selectedPath.withCString {{ Darwin.open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }}
+        let directoryOpened = directoryFD >= 0
         var valid = scopeStarted
-            && directoryFD >= 0
+            && directoryOpened
             && canonicalPath == phase322ExpectedWorkspacePath
             && selectedPathSHA256 == phase322ExpectedPathSHA256
+        var directoryIdentityMatches = false
         var markerSHA256 = "unavailable"
+        var markerReadable = false
         var fixtureFilesVerified = false
-        if directoryFD >= 0 {{
+        if directoryOpened {{
             defer {{ Darwin.close(directoryFD) }}
-            valid = valid
-                && Darwin.fstat(directoryFD, &directoryInfo) == 0
+            directoryIdentityMatches = Darwin.fstat(directoryFD, &directoryInfo) == 0
                 && directoryInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR)
                 && UInt64(directoryInfo.st_dev) == phase322ExpectedDevice
                 && UInt64(directoryInfo.st_ino) == phase322ExpectedInode
+            valid = valid && directoryIdentityMatches
             if let markerData = phase322ReadRegularFile(
                 directoryFD: directoryFD,
                 name: phase322MarkerName,
                 maximumBytes: 4_096
             ) {{
                 markerSHA256 = KernelWorkspaceXPC.sha256Hex(markerData)
+                markerReadable = true
             }}
             valid = valid && markerSHA256 == phase322ExpectedMarkerSHA256
 
@@ -1127,6 +1135,10 @@ def apply_experimental_workspace_identity_binding(
             "workspace_session_id": selection.identity.uuidString.lowercased(),
             "checkpoint": checkpoint,
             "selected_path_sha256": selectedPathSHA256,
+            "scope_access_started": scopeStarted,
+            "directory_opened": directoryOpened,
+            "directory_identity_matches": directoryIdentityMatches,
+            "marker_readable": markerReadable,
             "marker_sha256": markerSHA256,
             "fixture_files_verified": fixtureFilesVerified,
             "snapshot_identity": "NOT_AVAILABLE",
