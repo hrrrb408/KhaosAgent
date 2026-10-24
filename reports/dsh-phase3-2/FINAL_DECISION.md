@@ -1,5 +1,41 @@
 # Final Decision
 
+## Phase 3.2.2 Gate A completion addendum
+
+**Deterministic signed Gate A: PASS.** On source SHA `782097413789e3dc5d9e795cf9bbb799879ae303`, the signed repair fixture completed Read → Edit → Test, delivered the real initial rc=1 test failure into DSH Session, performed one fixed `fee.py` edit, passed public tests, and passed the independent hidden suite 3/3. Two further signed trials proved repeated-read termination (`no_progress_limit`) and tool-budget termination (`tool_budget_exhausted`); both ended incomplete as expected, with no unresolved Kernel result and no extra Launcher request after termination. All workspace identity bindings and event/result correlations passed. No model was invoked for these deterministic trials.
+
+The Stage A repair trial, repeated-read trial, and budget trial are documented with raw JSON SHA-256 values in [`GATE_A_COMPLETION_CLOSURE.md`](GATE_A_COMPLETION_CLOSURE.md). The earlier `stage-a-2-repair` result remains recorded as `FAIL`; its raw evidence is unchanged. Analysis isolated that result as an evaluator false failure: the semantic tool call correctly delivered an rc=1 test result, while the evaluator incorrectly treated the successful tool envelope as an error. The evaluator and its regression test were corrected, and a fresh signed repair run verified failure delivery and repair behavior.
+
+| Gate A measure | Result |
+|---|---|
+| Signed deterministic trials | 3; all acceptance expectations PASS |
+| Kernel/Runner operations | 7 |
+| Repair workflow | 4 operations; independent hidden tests 3/3 PASS |
+| Repeated-read guard | 2 signed reads; third repeated proposal stopped locally; terminal `no_progress_limit` |
+| Tool budget guard | 1 signed read; terminal `tool_budget_exhausted` |
+| Session result delivery / event order | 7/7 operations correlated and observed before next turn |
+| Workspace identity bindings | 7/7 requests PASS across 3 unique trial identities |
+| Model calls | 0; deterministic fixture only |
+| Unauthorized approvals / unexpected workspace mutations / Kernel authority violations | 0 / 0 / 0 |
+| Real-model and holdout evaluation in this addendum | NOT_RUN |
+
+The gate closes deterministic completion and lifecycle handling; it does not establish coding reliability for a real model. The prior Phase 3.2.1 focused real-model attempt and timeout remain historical, and no new real-model or holdout trial is counted here.
+
+### Local validation for this closure
+
+| Check | Result |
+|---|---|
+| Canonical `python3 -m unittest discover -s tests -v` | PASS, 420 tests in 834.297s; implementation HEAD `782097413789e3dc5d9e795cf9bbb799879ae303` |
+| DSH XPC acceptance runner tests | PASS, 10 tests |
+| DSH XPC acceptance builder tests | PASS, 6 tests |
+| `python3 tools/check_security_freeze.py` | PASS, sensitive changes 0 |
+| `python3 tools/check_security_freeze.py --base 8ddabbcfdfcc2af8899ca30a4717ec82c4014b21` | PASS, 5 declared governance/test paths |
+| Kernel authority / ABI / workspace-scope authority delta | 0 / 0 / 0 |
+| Production trusted runtime / dependency delta | 0 / 0 |
+| Owner Review / Independent Code Owner Review | PENDING / NOT_PERFORMED |
+
+PR #46 was a Draft on branch `experiment/khaos-dsh-phase3-2-generalization`. The last observed GitHub checks were green on remote SHA `2ceefa6276e191bc1e4d21d166c47d3c7a511124`; that SHA is not this closure commit and is not final-head CI evidence. The check runs attached to the pushed final PR head are authoritative; earlier SHA results are not carried forward.
+
 ## Phase 3.2.1 integrity-closure addendum
 
 **Phase 3.2.1 Engineering: PARTIAL.** The signed test-result blocker is closed for the controlled result matrix: the real failure, real pass, zero-test, fake-success, and unknown/import-error cases all produced the expected bounded DSH result and matched their signed Kernel/Launcher records. The fresh focused Task A signed public result also matched the independent public and hidden evaluators. The historical conflict is proven to be a workspace/snapshot identity mismatch before Runner execution, but its exact historical Picker path or snapshot-mapping subcomponent was not retained. The focused local-model run produced correct code, then repeated the same `read_file` request and timed out; it is not a completed AgentLoop trial.
