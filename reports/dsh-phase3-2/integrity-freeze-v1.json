@@ -1,0 +1,164 @@
+{
+  "execution_policy": {
+    "hidden_tests_in_workspace": false,
+    "independent_public_evaluator": "Original Phase 3 Task A public tests; run separately from signed Runner.",
+    "max_repair_attempts_per_case": 0,
+    "max_runner_operations_per_case": 1,
+    "max_wall_seconds_per_case": 600,
+    "max_write_operations_per_case": 0,
+    "network_data_transfer": false,
+    "profile": "public"
+  },
+  "fixtures": [
+    {
+      "case": "fake-success",
+      "expected": {
+        "can_continue": true,
+        "failures": 1,
+        "returncode": 1,
+        "status": "failed",
+        "tests_run": 1
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "source_path": "fee.py",
+      "workspace_files_sha256": {
+        "fee.py": "f9d50dd40515ba0c09b5520a596820120b3cad4a114946cda1b91b15807059bd",
+        "test_public.py": "d2993aa57105ff6ccad3ab776acffc592ac478f8719f3bb81ac02f5c12be0b0a",
+        "unscoped-canary.txt": "6854048d66be2306965ddcbb15cf32a5839ca8fbaa6b568fc4071c6d9ed70cbf"
+      },
+      "write_scope": []
+    },
+    {
+      "case": "import-error",
+      "expected": {
+        "can_continue": true,
+        "error_code": "test_summary_missing",
+        "returncode": 1,
+        "status": "unverified"
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "source_path": "fee.py",
+      "workspace_files_sha256": {
+        "fee.py": "5f80e472a0aad7f0ec93989367febfa5588e1b3c0aa3143514f3c8795fb2a715",
+        "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d",
+        "unscoped-canary.txt": "6854048d66be2306965ddcbb15cf32a5839ca8fbaa6b568fc4071c6d9ed70cbf"
+      },
+      "write_scope": []
+    },
+    {
+      "case": "pass",
+      "expected": {
+        "can_continue": true,
+        "failures": 0,
+        "returncode": 0,
+        "status": "passed",
+        "tests_run": 2
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "source_path": "fee.py",
+      "workspace_files_sha256": {
+        "fee.py": "1ee2095d9eb732157a927a62c76e4c67ac87850390666f7b6c09123d9174b4df",
+        "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d",
+        "unscoped-canary.txt": "6854048d66be2306965ddcbb15cf32a5839ca8fbaa6b568fc4071c6d9ed70cbf"
+      },
+      "write_scope": []
+    },
+    {
+      "case": "task-a-failure",
+      "expected": {
+        "can_continue": true,
+        "failures": 1,
+        "returncode": 1,
+        "status": "failed",
+        "tests_run": 2
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "source_path": "fee.py",
+      "workspace_files_sha256": {
+        "fee.py": "f9d50dd40515ba0c09b5520a596820120b3cad4a114946cda1b91b15807059bd",
+        "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d",
+        "unscoped-canary.txt": "6854048d66be2306965ddcbb15cf32a5839ca8fbaa6b568fc4071c6d9ed70cbf"
+      },
+      "write_scope": []
+    },
+    {
+      "case": "zero-tests",
+      "expected": {
+        "can_continue": false,
+        "returncode": 2,
+        "status": "invalid",
+        "tests_run": 0
+      },
+      "read_scope": [
+        "fee.py",
+        "test_public.py"
+      ],
+      "source_path": "fee.py",
+      "workspace_files_sha256": {
+        "fee.py": "1ee2095d9eb732157a927a62c76e4c67ac87850390666f7b6c09123d9174b4df",
+        "test_public.py": "25270cd3401d41a87c869987c2d112b6d3a76bc9185f02270983ee83a8b95588",
+        "unscoped-canary.txt": "6854048d66be2306965ddcbb15cf32a5839ca8fbaa6b568fc4071c6d9ed70cbf"
+      },
+      "write_scope": []
+    }
+  ],
+  "frozen_at_utc": "2026-10-24T03:42:42Z",
+  "operator": {
+    "authorization": "Owner-delegated disposable experiment",
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "ui_approval_policy": "Approve only one exact scoped run_tests request in the printed disposable workspace; empty write scope; reject any mismatch."
+  },
+  "predecessor": {
+    "phase32_original_failure_evidence_sha256": {
+      "stage-b-a-1.failed.json": "bce21ecc7b73b5ea916d494a50815125a8bf5e2129968ec64ed6858515f8626b",
+      "stage-b-a-2-independent.json": "d56dab75c3a5e83dc1a553e3bff8ce3d2cdc2ac4cc976f774cb16c9f489053a6",
+      "stage-b-a-2.failed.json": "a0e0b0835cd0c0808c5e3e8aa45e8410ae9afa4fa0bfd91195390558bc217584"
+    },
+    "phase32_v4_expected_sha256": "8c9685aba296d83cb3dd522ff9e7957a3074837cefd746f310689bd29c567e43",
+    "phase32_v4_freeze_sha256": "8c9685aba296d83cb3dd522ff9e7957a3074837cefd746f310689bd29c567e43",
+    "phase3_original_0_of_8_and_phase31_results_preserved": true
+  },
+  "purpose": "Reproduce the signed run_tests result conflict without changing Phase 3.2 inputs or results.",
+  "repository": {
+    "branch": "experiment/khaos-dsh-phase3-2-generalization",
+    "implementation_sha": "c6225920fdce79a34622c239dfc8354359d05322",
+    "phase321_start_sha": "d2fe95d8ef6792e9c8e297def9bf18f87914624d",
+    "pr": 46,
+    "pr_base_sha": "8ddabbcfdfcc2af8899ca30a4717ec82c4014b21"
+  },
+  "runtime": {
+    "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "model": "NOT_USED_DETERMINISTIC_FIXTURE",
+    "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+    "node_binary_sha256": "0d005c18e095027ca8f9fe1cc1126f767ee4ad7b004f4d6fb781ec4228a7c5d1",
+    "node_version": "v22.19.0",
+    "python_binary_sha256": "cd226e7546887d11c50f86ff8862269e928e0be4d3ec1fb6cf2b2bada0b324e6",
+    "python_executable": "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+    "python_version": "3.13.4 (main, Jun  3 2025, 15:34:24) [Clang 17.0.0 (clang-1700.0.13.3)]"
+  },
+  "schema": "khaos.dsh.phase3.2.1.integrity-freeze.v1",
+  "source_sha256": {
+    "experiments/dsh-feasibility/dsh-agent-telemetry.ts": "dde4fb1bea0e0c24232edfe9cd4ee9a4d2cb519e415787e6aefb5ddaa442dabc",
+    "experiments/dsh-feasibility/dsh-agenthost-runtime.ts": "e68d7dce9b4ab4a1d7977a92a20db8cecdbb41bf5fa5681716e739d7659fdf19",
+    "experiments/dsh-feasibility/dsh-semantic-fixture.ts": "71fb5c09885a7ace5caa8a62b4cc42cb857548c201952ec105dc467bd72a78a1",
+    "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts": "2ab3a968514e7e42ab289b8481782b0c31b4ab8d0b7c6f368761d83ff59a48fc",
+    "experiments/dsh-feasibility/khaos-semantic-tools.ts": "1581ca23b8bf5200100d02459979fa436d2fc2574ce424c3e8aae2da6e97e878",
+    "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+    "tools/build_dsh_xpc_acceptance_app.py": "346fe22293c18d6795b43310ec9b0551ba4ae3679e77d8792a2382538f7470ac",
+    "tools/run_dsh_xpc_attack_acceptance.py": "b63a1c1b0afc067acf4d3bb8d7fe86641a9dcc06c374da17b6110b0ca39f64b0"
+  },
+  "status": "FROZEN_BEFORE_SIGNED_RUNS"
+}
