@@ -63,3 +63,32 @@ Attempt 2 is recorded as one timed-out Task A attempt with failed independent ve
 | Node/model RSS, tokens, cost | NOT_MEASURED |
 
 Raw transcripts and private workspace paths remain in owner-only files under `/private/tmp/khaos-dsh-phase3-2-evidence`; they are not copied into Git.
+
+## Phase 3.2.1 addendum — signed result integrity closure
+
+The historical Phase 3.2 attempts above remain unchanged. New evidence recovered the first-divergence class for attempt 2: the signed Runner result and `read_file(fee.py)` hashes reproduce from the rounded Task A source, while the retained independently evaluated workspace still has the original unrounded source. The result conflict was therefore caused by a workspace/snapshot identity mismatch before Runner execution. The old selected Picker path and snapshot ID were not retained, so the exact UI-versus-Launcher subcomponent remains unknown. See `ROOT_CAUSE_AND_FIX.md` for the reproduction details.
+
+Five signed, one-operation result fixtures now exercise the real path and pass their independent acceptance checks:
+
+| Case | Task ID | Runner result | DSH observation | Evidence SHA-256 |
+|---|---|---|---|---|
+| A: original Task A failure | `c243ddb8-1fe0-444e-93e2-0d61416b8e78` | 2 tests, 1 failure, rc 1 | `failed`, result and next turn correlated | `d09179ea93976fea66586c63e73f1afa72929863bf7bc234c91ad7ab47c74589` |
+| B: corrected Task A pass | `4f1aa6c1-7708-49da-9aa4-32a7cedc06b5` | 2 tests, 0 failures, rc 0 | `passed`, result and next turn correlated | `60b15d6945115dd3e343ed1a82ed31a1aec0ba1058086f799d4bded5fd6b4bc5` |
+| C: zero tests | `7d44d8c4-a5d6-4a7b-b9eb-79564eb91115` | 0 tests, rc 2 | `invalid`, `zero_tests_executed`, `can_continue=false` | `12713fb2785d587b335ceb24aaac87952de2a4f344b5521b3e53a655c278a253` |
+| D: fake success text plus assertion failure | `1705c290-193a-41b5-95dc-d2e29d95f749` | 1 test, 1 failure, rc 1 | `failed`; printed `OK` did not produce a pass | `8b3c3dce8e4575a28e78fdd0712d600e3bfde5edd6fb703b571a37fd45e2c8fa` |
+| E/F: import error / unknown result | `d82c992d-355c-4a25-8550-05ffdb2aa1ec` | no valid test summary, rc 1 | `unverified`, `test_summary_missing`; no automatic pass | `d51b10dc9b4cd8a86b5855a1982bb079f6cac395ecca0bcbd14effdb768dde9c` |
+
+For every case, the Runner return code matched the Launcher record; the signed result was delivered to DSH Session and observed by the next turn; scopes matched the fixed fixture; unexpected workspace mutations were empty; and the Canary remained unchanged. The import-error case is the signed unknown-result coverage for Case F. Existing semantic-tool and XPC tests cover cancellation and late-result handling; a separate signed test-process cancellation was not run here.
+
+### Fresh focused local-model run
+
+- Trial: `phase321-focused-task-a-01`; source SHA `2a73f48d9291a11cbac3612410cbeb9e651cf540`; same frozen Task A, DSH, Node, and local model. Operator: `codex_agent`; owner-delegated disposable experiment; owner personally clicked: `NO`.
+- The Picker's stale initial Go To path was `…bn09_1k9/coding-workspace`; Codex navigated to the exact Runner-printed `…omcze7ba/coding-workspace` and verified `fee.py`, `test_public.py`, and Canary hashes before selection.
+- Task ID: `28322cef-9251-4229-8a6f-544421e22e72`; DSH Session: `khaos-phase31-0a215af2-74f4-4121-a916-0de10a32d940`.
+- The model proposed the correct one-file `fee.py` edit. Its signed public `run_tests` request ID was `11da042c79d04e85bd9db990f7ab49c9`, request digest `c2ff3374e81b7a93f55ea7fdcfb2d4566a4fb68f3a47537ae7014c399956f785`, invocation digest `03fe7f35ff86ee14b5656b4c73f7292ad101fe32326a2f6e874b6e5e333ab424`, and Runner result digest `f9ecbf8bc5b643f10094c443ca90b42ac093cd9aabcaf7d44c663d96ed043782`. The signed bounded result event recorded 2 tests, 0 failures, 0 errors, 0 skipped. The next DSH turn observed that result.
+- Independent read-only, network-denied evaluation passed the public suite (2 tests) and hidden suite (3 tests). Only `fee.py` changed; no unexpected workspace mutation, no symlink, and the Canary stayed unchanged.
+- The AgentLoop timed out at the configured 600-second limit after 8 model responses/proposals. Seven operations have complete Launcher → Kernel → DSH Session → next-turn chains. Operation 8 was a repeated read of `fee.py`; it was approved and Kernel-completed, but its result was not observed in DSH Session before timeout. The model repeated the same read invocation five additional times after its initial read; no ninth operation was approved. No `AGENT_TERMINATED` event was recorded.
+- This is **not** a completed AgentLoop trial and is not counted as a trial success. It does show consistent signed and independent test results on the correctly selected workspace. The coding output passed independent verification, while loop completion remains a failure.
+- Failed-attempt JSON SHA-256: `12c6e2fbc7827425ed94395384eb7f462b924da5038d056a8aa90746dacf7e04`. Raw signed stderr SHA-256: `a0572c862f411e61e649b34fd0ed246d4a316c8193a85bcae5512e2c5048d2df`. Raw files remain under owner-only `/private/tmp/khaos-dsh-phase3-2-1-evidence/` and `/private/var/folders/.../khaos-dsh-xpc-attack-omcze7ba/`.
+
+The integrity blocker is closed for the controlled signed fail/pass/zero-test/fake-success/unknown cases. Full Holdout and A–D replay remain `NOT_RUN`. The focused model's repeated-read/timeout behavior is a separate unresolved AgentLoop reliability issue.

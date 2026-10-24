@@ -1,5 +1,28 @@
 # Coding Reliability Comparison
 
+## Phase 3.2.1 addendum
+
+The Phase 3.2 table and narrative below remain the historical results for that phase. Phase 3.2.1 adds a signed result-integrity matrix and one focused local-model Task A run:
+
+| Measure | Phase 3.2.1 evidence |
+|---|---:|
+| Signed result fixtures | 5/5 pass: real fail, real pass, zero tests, fake success text, import error/unknown |
+| Signed test result / independent result consistency | Pass for the fixture matrix and focused Task A public/hidden evaluation |
+| Focused real-model Task A attempts | 1; AgentLoop timeout, not a completed trial |
+| Model calls / parsed semantic proposals | 8 / 8 |
+| Proposals | 6 `read_file`, 1 `replace_text`, 1 `run_tests` |
+| Kernel operation completions | 8 (7 ordinary Runner operations plus 1 Candidate B edit preview) |
+| DSH Session result chains | 7/8; final read result did not reach DSH Session before timeout |
+| Focused Task A code result | Correct edit; signed public 2/2 and independent hidden 3/3 passed |
+| Task A AgentLoop completion | Timeout at 600 seconds; no `AGENT_TERMINATED` |
+| Unauthorized approvals / unexpected workspace changes | 0 / 0 |
+
+The prior attempt's signed success/independent failure conflict is now proven to be a workspace/snapshot identity mismatch before Runner execution. Its exact historical Picker path or snapshot ID is unavailable, so the specific Picker-versus-Launcher subcomponent remains unknown. New fixtures bind test counts, status, request digest, signed result digest, and DSH Session observation. No Kernel authority or ABI change was made.
+
+The focused local model did produce the expected rounded `fee.py` edit and the signed public-test result matched both independent evaluators. It then repeatedly requested the same `read_file(fee.py)` invocation and timed out. That run is not counted as a completed AgentLoop trial or benchmark success. It demonstrates result integrity and successful code output, but not reliable loop termination or a general coding-reliability rate.
+
+Full Holdout and A–D replay remain `NOT_RUN`; the 3.2.1 result-integrity closure did not restart them. See `TEST_RESULT_INTEGRITY_AUDIT.md`, `SIGNED_FAILURE_ACCEPTANCE.md`, and `ROOT_CAUSE_AND_FIX.md` for the bound records.
+
 ## Aggregate comparison
 
 | Measure | Phase 3 baseline | Phase 3.1 semantic tools | Phase 3.2 generalization |
