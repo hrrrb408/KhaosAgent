@@ -31,6 +31,10 @@ from run_dsh_signed_runtime_probe import (  # noqa: E402
     digest,
     output,
 )
+from experimental_artifact_retention import (  # noqa: E402
+    disk_space_preflight,
+    local_model_size,
+)
 
 
 KHAOS_BASE_SHA = "b08ab11e01663d2b26304cb541efb5361dea0417"
@@ -114,6 +118,24 @@ def local_model_inputs(app_path: Path) -> tuple[Path, Path, Path, dict[str, obje
         "compute_backend": "CPU only; no Metal framework dependency",
     }
     return executable, model, license_file, metadata
+
+
+def preflight_local_model_build(
+    app_path: Path,
+    output_parent: Path,
+) -> dict[str, int | str | bool]:
+    source_app = app_path.expanduser().resolve(strict=True)
+    model_path = (
+        source_app
+        / "Contents/XPCServices/KhaosAgentHost.xpc/Contents/Resources/agent-model.gguf"
+    )
+    report = disk_space_preflight(local_model_size(model_path), output_parent)
+    if report["status"] != "PASS":
+        raise RuntimeError(
+            "INSUFFICIENT_DISK_SPACE: need "
+            f"{report['required_free_bytes']} bytes, have {report['free_bytes']} bytes"
+        )
+    return report
 
 
 def apply_experimental_model_disclosure(source_root: Path) -> dict[str, str]:
@@ -1375,10 +1397,16 @@ def main() -> int:
     identity = seed_builder._require_signing_identity(args.signing_identity, args.keychain)
     if args.model_provider != "local" and args.local_model_app is not None:
         parser.error("--local-model-app is supported only with the local provider")
-    local_model = local_model_inputs(args.local_model_app) if args.local_model_app is not None else None
     output_app = args.output_app.expanduser().absolute()
     if output_app.suffix != ".app" or os.path.lexists(output_app):
         parser.error("--output-app must be a new .app path")
+    disk_preflight: dict[str, int | str | bool] = {"status": "NOT_REQUIRED"}
+    if args.local_model_app is not None:
+        try:
+            disk_preflight = preflight_local_model_build(args.local_model_app, output_app.parent)
+        except (OSError, ValueError, RuntimeError) as error:
+            parser.error(f"local-model disk preflight failed: {error}")
+    local_model = local_model_inputs(args.local_model_app) if args.local_model_app is not None else None
     output_app.parent.mkdir(parents=True, exist_ok=True)
     probe_paths = {
         "KhaosDSHProbeWorkspaceReadPath": args.probe_workspace_read_path.resolve(strict=True),
@@ -1587,6 +1615,7 @@ def main() -> int:
             "cancellation_overlay_sha256": cancellation_overlay_hashes,
             "semantic_tools": args.semantic_tools,
             "dsh_model_provider": args.model_provider,
+            "disk_preflight": disk_preflight,
             "dsh_model_id": EXPERIMENTAL_MODEL_ID if args.model_provider != "local"
                 else (LOCAL_MODEL_ID if local_model is not None else None),
             "dsh_local_model": None if local_model is None else local_model[3],

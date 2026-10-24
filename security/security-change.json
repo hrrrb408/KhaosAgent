@@ -1,16 +1,15 @@
 {
-  "base": "8ddabbcfdfcc2af8899ca30a4717ec82c4014b21",
+  "base": "7ed01f726387755181cfbadad33967f35d9d2f72",
   "files": [
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
-    "tests/test_dsh_xpc_acceptance_builder.py",
-    "tests/test_dsh_xpc_acceptance_runner.py"
+    "tests/test_experimental_artifact_retention.py"
   ],
-  "motivation": "Bind the DSH completion, no-progress, late-result, workspace-identity acceptance changes and their protected tests to the exact PR #46 target base. Refresh only the hashes for the existing test-only build-governance files and manifest digest; no production runtime behavior or security expectation changes.",
-  "invariants": "DSH, Cordis, model output, fixtures, and experimental telemetry remain untrusted. Trusted Launcher, Security Kernel, exact scopes, approval, sandbox execution, commit validation, and Kernel ABI are unchanged. The disposable-workspace identity checks are injected only into the experimental signed acceptance build and do not establish a new production authority boundary.",
-  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 production trusted-runtime delta. Experimental lifecycle state and telemetry remain in the untrusted AgentHost or test-only build overlay. No new production trusted process, IPC operation, persistent state, or dependency.",
-  "real_os_tests": "Phase 3.2.2 Gate A signed completion closed on source SHA 782097413789e3dc5d9e795cf9bbb799879ae303: repair Read/Edit/Test PASS (4 Runner operations; independent hidden 3/3 PASS), repeated-read fail-closed no_progress_limit PASS (2 Runner reads; third repeat never submitted), and tool-budget fail-closed tool_budget_exhausted PASS (1 Runner read). All request workspace-identity bindings, DSH Session delivery/order checks, and Launcher/Kernel result correlations passed; no model was configured. Owner-only evidence JSON and hashes are in reports/dsh-phase3-2/GATE_A_COMPLETION_CLOSURE.md. Earlier stage-a-2 evaluator false FAIL is preserved; evaluator classification regression is covered. Canonical suite passed 420 tests in 834.297 seconds; Security Freeze default and exact PR base checks passed. Final-head GitHub CI is the separate check attached to the pushed final PR SHA.",
-  "trusted_delta": "No production Security Kernel, Kernel ABI, production AgentHost, or production trusted runtime changed. Workspace identity enforcement is an experimental source overlay compiled into a disposable signed acceptance app; it is not a production Launcher change. Keep the runtime TCB inventory and authority baseline unchanged.",
-  "baseline_decision": "Bind this declaration to the exact PR #46 target base 8ddabbcfdfcc2af8899ca30a4717ec82c4014b21 and the exact protected file set. Refresh the two reviewed test hashes and manifest digest without changing runtime TCB entries. This is a review aid, not approval; Owner Review remains pending and Independent Code Owner Review is not performed."
+  "motivation": "Add synthetic regression coverage for exact artifact manifests, evidence-first retention, and disk preflight on the independent M-Disk.1 branch stacked on the exact PR #46 head.",
+  "invariants": "The manifest auditor is read-only and has no historical deletion path. The test file validates metadata, path identity, evidence gates, process references, and preflight behavior with small fixtures. Khaos Kernel, ABI, workspace authority, signed production products, and plugin scopes are unchanged.",
+  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 production trusted-runtime delta, 0 production dependency delta. No historical artifact was removed, moved, truncated, or overwritten.",
+  "real_os_tests": "The final canonical suite passed 449 tests in 826.008 seconds; it includes the repository's real macOS Seatbelt tests and headless signed Seed XPC check. The 29 new retention tests, 6 existing DSH builder tests, and 10 existing DSH runner tests passed. No large GGUF build, signed DSH model App, or interactive DSH lifecycle run was performed. Default and exact-base Security Freeze checks passed; final-head GitHub CI is tracked by the Draft PR.",
+  "trusted_delta": "No production trusted code changed. Changes are limited to experimental Python tooling, build-governance test inventory, and reports. No new trusted process, IPC operation, persistent production state, or dependency.",
+  "baseline_decision": "Bind the M-Disk.1 protected test and Security Freeze metadata to exact PR #46 HEAD 7ed01f726387755181cfbadad33967f35d9d2f72. This declaration is a review aid, not an approval; cleanup authorization remains pending and no candidate is currently eligible."
 }
