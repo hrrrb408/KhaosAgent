@@ -1,5 +1,7 @@
 # DSH Build Lifecycle Hardening
 
+The sections `Changes` and `Evidence from this task` below preserve the M-Disk.1 snapshot. Current M-Disk.1.1 follow-up evidence is recorded at the end.
+
 ## Changes
 
 `tools/build_dsh_xpc_acceptance_app.py` now validates a local model's type, link count, and size using filesystem metadata, then checks the output volume before `local_model_inputs()` verifies the App signature or hashes the GGUF. The threshold is one model copy plus 2 GiB staging allowance plus 10% headroom. It fails with `INSUFFICIENT_DISK_SPACE` before reading the model contents. The normal build record stores the preflight result. No full model App was built in this task.
@@ -25,3 +27,15 @@ The runner records the scratch root's Device/Inode and includes the exact local 
 Changes are confined to experimental build/acceptance tools, a read-only audit utility, tests, and reports. No signed DSH lifecycle run or large-model build was performed. The production Security Kernel, Kernel ABI, workspace authority, production AgentHost, signatures, entitlements, sandbox, and dependencies are unchanged.
 
 The failure capture is deliberately bounded. Oversized logs/workspaces, missing required files, unsupported filesystem entries, or incomplete cancellation evidence keep the scratch for manual review. A large historical scratch cannot be cleaned on the basis of its name or failure status alone.
+
+## M-Disk.1.1 signed evidence addendum
+
+The M-Disk.1.1 signed small-App evidence is detailed in `SIGNED_RETENTION_ACCEPTANCE.md`. Read/Edit/Test, failure-result, import-error, Node-crash recovery, pre-commit cancellation, post-commit XPC-crash recovery, and the bounded approval-timeout case were exercised. One earlier XPC attempt was actually stopped at a cancelled workspace Picker; it did not reach a Kernel operation. A later recovery run used the clean source worktree, proved a committed edit followed by a fresh-task read after an XPC transport failure, and preserved its result. A build preflight from the dirty report worktree failed before App launch and left a small incomplete-evidence Scratch retained. No GGUF or full large model App was copied. Signed lifecycle coverage remains partial because archive-failure, identity-substitution, and live/unavailable-reference refusal cases have unit coverage only.
+
+## M-Disk.1.1 Follow-up
+
+The exact historical source pin is `pnpm 11.28.5`; the prior report's `10.17.1` assertion was incorrect. A small deterministic App built and passed deep signature verification using the pinned path. This verifies a build path only, not a full model-bearing App rebuild.
+
+Archive failure, identity/symlink/hardlink change, active process references, and unavailable reference checks remain deterministic unit evidence, not signed UI evidence. Signed lifecycle status is `PARTIAL`, not `PASS`.
+
+The post-acceptance canonical suite passed 449 tests in 818.730 seconds with the opt-in UI/model flags and credentials cleared from its process environment. Retention, builder, and runner focused suites passed 29, 6, and 10 tests respectively. A new post-canonical Dry Run rechecked the exact V2 Manifest: 24 ready for owner review, 3 refused, all reference checks clear, zero mutations, APFS-exclusive reclaim unknown. The follow-up changes relative to the M-Disk.1 starting SHA are reports only; no source or test files changed.

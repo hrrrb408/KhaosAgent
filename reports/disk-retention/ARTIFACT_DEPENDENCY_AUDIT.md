@@ -26,3 +26,9 @@ The other 24 exact scratch roots total 3.174 GB by `st_blocks`. They have no `ls
 The pinned DSH checkout is a Git repository root and an input needed for future builds; it is protected inventory, not a cleanup candidate. The Node archive is likewise retained. The three Qwen model files and their two signed apps remain protected because their contents were not rehashed. The Phase 3 model source app remains protected and was not rehashed in this audit; its previously recorded model SHA and current inode/size/mtime identity are unchanged from the earlier audit.
 
 No candidate reached `SAFE_CANDIDATE`. No file is confirmed to have no use. A later cleanup decision would require restoring or otherwise verifying the pinned package manager, rerunning a deterministic build-input check, capturing a fresh manifest, rechecking open references, and owner approval bound to that exact manifest SHA.
+
+## M-Disk.1.1 dated correction
+
+The preceding text is the 2026-10-24 M-Disk.1 snapshot. The follow-up inspected exact historical source and corrected the toolchain claim: source pins `pnpm 11.28.5`, not `10.17.1`. Of the 24 small roots, 21 now have a trial/evidence association and three are explicitly unresolved. The new reports `PINNED_TOOLCHAIN_RECOVERY.md`, `LARGE_ARTIFACT_REBUILDABILITY.md`, and `SCRATCH_DEPENDENCY_CLOSURE.md` record this evidence. The V1 manifest remains unchanged and its 0/27 result is not the V2 result.
+
+The final post-acceptance Manifest V2 Dry Run reports 24 `READY_PENDING_OWNER_APPROVAL` and 3 `REFUSE`, with `mutations_performed: 0`. Its manifest SHA-256 is `9f67da45231da9c85a36597e27bf7a400dd5fff95291df9dbc4417b84fc353f5`; the Dry Run SHA-256 is `78521525eed63cbd85b986c01aecce3154576469a596713b4500be846f0f320e`. No historical files were deleted. APFS-exclusive reclaim remains unknown. Exact identity and digest are also recorded in `CLEANUP_MANIFEST_V2_AUDIT.md` and the owner-only evidence.

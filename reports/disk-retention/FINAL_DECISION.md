@@ -52,3 +52,52 @@ Removed duplication / abstractions: shared metadata inventory, manifest validati
 ```
 
 Security Kernel, Kernel ABI, workspace scope authority, production trusted runtime, and production dependencies remain unchanged.
+
+## M-Disk.1.1 update — 2026-10-24
+
+This section is the current follow-up result. The preceding M-Disk.1 entry is retained as its dated historical snapshot.
+
+```text
+M-Disk.1.1 Engineering: PARTIAL
+Pinned pnpm 10.17.1: NOT THE HISTORICAL SOURCE PIN
+Historical pnpm 11.28.5: VERIFIED; frozen offline install unchanged
+Large Scratch Rebuildability: BUILD_PATH_VERIFIED (small signed App only; no full model App rebuild)
+Large Scratch Dependency Mapping: 3 / 3
+Small Scratch Dependency Mapping: 21 mapped / 3 unresolved, among 24 examined
+Signed Retention Lifecycle: PARTIAL
+Successful signed scenario groups: 6 (Read/Edit/Test, Runner failure, import error, Node recovery, cancellation, XPC recovery)
+Signed refusal/timeout evidence: 2 (cancelled Picker; bounded approval timeout)
+Signed-only lifecycle gaps: archive failure, identity substitution, live/unavailable reference refusal (unit-tested only)
+Evidence Preservation: PASS for completed runs and timeout; incomplete preflight failure retained
+Manifest V2 SHA-256: 9f67da45231da9c85a36597e27bf7a400dd5fff95291df9dbc4417b84fc353f5
+Post-acceptance Dry Run SHA-256: 78521525eed63cbd85b986c01aecce3154576469a596713b4500be846f0f320e
+Post-canonical Dry Run SHA-256: 5eef8ab180130fc1dcbb13602ea8d90e3e46aba333956d6ffee60339f5955a16
+Dry Run: 24 READY_PENDING_OWNER_APPROVAL / 3 REFUSE / 0 mutations
+Nominal Candidate Size: 59,281,473,944 logical bytes / 59,434,573,824 st_blocks bytes
+Actual APFS Reclaim: UNKNOWN (shared extents not measured)
+Historical Files Deleted: 0
+Data Volume: 926 GiB total / 513 GiB used / 388 GiB available
+APFS Container: 994.7 GB ceiling / 577,539,485,696 bytes in use / 417,123,098,624 bytes not allocated
+Local Snapshots: none observed
+Canonical Tests: PASS (449 tests, 818.730 seconds; exit 0)
+Canonical Log SHA-256: ee147f60598dcd94a669ee8a29c572e106e90b4b137b76553cde11565a842a12
+Focused Tests: PASS (retention 29, builder 6, runner 10)
+Security Freeze: PASS (default sensitive changes 0; exact PR #46 base check 4 cumulative declared sensitive paths)
+Exact-head GitHub CI: PENDING final report commit
+PR #47: OPEN / DRAFT; exact base 7ed01f726387755181cfbadad33967f35d9d2f72
+Owner Cleanup Approval: PENDING
+Kernel Authority / ABI / Workspace Scope / Production Runtime / Production Dependencies Delta: 0
+Production Harness Migration: NOT AUTHORIZED
+Historical cleanup: NOT AUTHORIZED; performed: NO
+Phase 3.2.2 large real-model Gate B/C: KEEP PAUSED pending exact-head CI and lifecycle-gap closure or explicit acceptance
+```
+
+The requested pnpm 10.17.1 did not match the actual historical source pin. Exact-source audit established 11.28.5 and verified its executable, Node 22.19.0 archive checksum, DSH commit, and unchanged lockfile through a frozen offline install. A small deterministic signed App was built and deep signature verification passed. All three large build paths are `BUILD_PATH_VERIFIED`, not `FULL_REBUILD_PROVEN`; no GGUF was recopied.
+
+All 27 historic roots remain unchanged in a post-acceptance metadata comparison; the post-canonical Dry Run revalidated every exact root and found all process-reference checks clear. The V2 Dry Run identifies 24 exact cleanup candidates, including all three large Apps, but all remain pending separate owner approval. Three tiny result fixtures lack source/build linkage and are refused. `st_blocks` is not APFS-exclusive space; expected physical reclaim is not measurable from this audit.
+
+The signed lifecycle is partial. A clean-worktree XPC recovery run proved a committed edit remained recorded across one result-delivery transport failure and a fresh task then read the edited file. An earlier XPC attempt stopped at a cancelled workspace Picker and did not reach a Kernel operation; a separate bounded approval-timeout run approved nothing and preserved its failure evidence. A recovery build rejected from the dirty report worktree never launched an App and left a small incomplete-evidence Scratch retained. Archive failure, identity substitution, and live/unavailable-reference refusal have unit coverage only.
+
+The full canonical suite passed 449 tests in 818.730 seconds. The two post-acceptance and post-canonical Dry Runs each checked 27 candidates, returned 24 pending owner approval and three refused, and performed zero mutations. The post-canonical output has null estimated reclaim and expected exit code 2 because three entries are refused. Current disk availability is 388 GiB on the Data volume and 417.1 GB not allocated in the APFS container; these overlapping views are not additive. Between the pre-canonical and post-canonical APFS samples, container in-use capacity rose by 62,234,624 bytes (about 59.4 MiB); that interval change is not attributed solely to the tests. No local snapshots were found. Historical files remain untouched.
+
+The M-Disk.1.1 follow-up delta from starting HEAD `5b2ef3eedaaa59392b6e710f87b4556c02cf8960` is documentation only: nine report files and no source, test, security declaration, manifest, or runtime changes. The overall PR #47 still contains its prior experimental Python retention tooling and tests; it does not change production Kernel authority or runtime. A 32 MiB clean detached build worktree and a 24 MiB verified Node toolchain/archive directory remain under temporary storage outside the 27 historical candidates; they were not cleaned. One separate 24 KiB incomplete-evidence preflight Scratch is retained for diagnosis. Keep large Phase 3.2.2 Gate B/C model runs paused until exact-head CI is green and remaining signed lifecycle gaps are closed or explicitly accepted. No cleanup or production-migration authorization is inferred.
