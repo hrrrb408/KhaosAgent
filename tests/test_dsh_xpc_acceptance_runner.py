@@ -5,6 +5,7 @@ from tools.run_dsh_xpc_attack_acceptance import (
     evaluate_workspace_identity_binding,
     launcher_task_records,
     semantic_agent_completion_evidence,
+    semantic_operation_result_matches,
     semantic_result_observation,
     signed_ui_evidence,
     validate_operator,
@@ -12,6 +13,30 @@ from tools.run_dsh_xpc_attack_acceptance import (
 
 
 class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
+    def test_nonzero_public_test_result_is_delivered_as_a_successful_tool_call(self):
+        tool_result = {"status": "ok", "tool_call_id": "test-before"}
+        failed_test = {
+            "tool_name": "run_tests",
+            "tool_call_id": "test-before",
+            "status": "failed",
+        }
+
+        self.assertTrue(
+            semantic_operation_result_matches("run_tests", "test-before", 1, tool_result, failed_test)
+        )
+        self.assertFalse(
+            semantic_operation_result_matches("run_tests", "test-before", 0, tool_result, failed_test)
+        )
+        self.assertFalse(
+            semantic_operation_result_matches("run_tests", "test-before", 1, tool_result, None)
+        )
+        self.assertFalse(
+            semantic_operation_result_matches(
+                "run_tests", "test-before", 1, tool_result,
+                {**failed_test, "tool_call_id": "another-call"},
+            )
+        )
+
     def test_semantic_fixture_completion_requires_committed_final_and_completed_turn(self):
         telemetry = [
             {"event": "TOOL_RESULT_DELIVERED", "event_seq": 1, "tool_call_id": "tool-1"},

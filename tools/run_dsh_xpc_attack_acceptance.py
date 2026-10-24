@@ -1663,6 +1663,26 @@ def semantic_agent_completion_evidence(
     }
 
 
+def semantic_operation_result_matches(
+    tool_name: str,
+    tool_call_id: object,
+    expected_return_code: int,
+    tool_result: dict[str, object],
+    public_test_result: dict[str, object] | None,
+) -> bool:
+    if tool_result.get("status") != "ok" or tool_result.get("tool_call_id") != tool_call_id:
+        return False
+    if tool_name != "run_tests":
+        return public_test_result is None
+    if expected_return_code not in (0, 1) or not isinstance(public_test_result, dict):
+        return False
+    return (
+        public_test_result.get("tool_name") == "run_tests"
+        and public_test_result.get("tool_call_id") == tool_call_id
+        and public_test_result.get("status") == ("passed" if expected_return_code == 0 else "failed")
+    )
+
+
 def evaluate_semantic_loop_fixture(
     *,
     fixture_case: str,
@@ -1744,6 +1764,10 @@ def evaluate_semantic_loop_fixture(
         lowering = next((event for event in lowered if event.get("operation_seq") == sequence), {})
         result = next((event for event in terminal if event.get("operation_seq") == sequence), {})
         tool_result = next((event for event in kernel_delivered if event.get("tool_call_id") == call_id), {})
+        public_test_result = next(
+            (event for event in test_results if event.get("tool_call_id") == call_id),
+            None,
+        )
         session_check = next((event for event in kernel_continuity if event.get("tool_call_id") == call_id), {})
         next_turn = next((event for event in kernel_next_turns if event.get("tool_call_id") == call_id), {})
         request = requests[sequence - 1] if sequence <= len(requests) else {}
@@ -1794,12 +1818,15 @@ def evaluate_semantic_loop_fixture(
             and request.get("runner_execution") == "completed"
             and request.get("runner_return_code") == expected_return_codes[sequence - 1]
         )
-        expected_tool_status = (
-            "error" if name == "run_tests" and expected_return_codes[sequence - 1] != 0 else "ok"
-        )
         result_delivered = (
             call.get("tool_name") == name
-            and tool_result.get("status") == expected_tool_status
+            and semantic_operation_result_matches(
+                name,
+                call_id,
+                expected_return_codes[sequence - 1],
+                tool_result,
+                public_test_result,
+            )
             and session_check.get("observed_tool_result") is True
             and next_turn.get("tool_call_id") == call_id
             and order_valid
