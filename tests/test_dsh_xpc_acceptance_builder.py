@@ -125,6 +125,8 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertIn("canonicalPath == phase322ExpectedWorkspacePath", source)
         self.assertIn("Darwin.realpath(source, &resolvedPath)", source)
         self.assertIn("Data(canonicalPath.utf8)", source)
+        self.assertIn("resolvingBookmarkData: selection.bookmark", source)
+        self.assertIn('"bookmark_resolved": resolvedScopeURL != nil', source)
         self.assertIn('"directory_identity_matches": directoryIdentityMatches', source)
         self.assertIn("approvalSHA256: approvalDigest", source)
         self.assertIn("no Kernel request was submitted", source)

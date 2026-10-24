@@ -1066,11 +1066,19 @@ def apply_experimental_workspace_identity_binding(
         approvalSHA256: String? = nil,
         verifyInitialFiles: Bool
     ) -> Bool {{
-        let scopeStarted = selection.scopeURL.startAccessingSecurityScopedResource()
+        var bookmarkIsStale = false
+        let resolvedScopeURL = try? URL(
+            resolvingBookmarkData: selection.bookmark,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &bookmarkIsStale
+        )
+        let workspaceURL = resolvedScopeURL ?? selection.scopeURL
+        let scopeStarted = !bookmarkIsStale && workspaceURL.startAccessingSecurityScopedResource()
         defer {{
-            if scopeStarted {{ selection.scopeURL.stopAccessingSecurityScopedResource() }}
+            if scopeStarted {{ workspaceURL.stopAccessingSecurityScopedResource() }}
         }}
-        let selectedPath = selection.scopeURL.standardizedFileURL.path
+        let selectedPath = workspaceURL.standardizedFileURL.path
         let canonicalPath = selectedPath.withCString {{ source -> String? in
             var resolvedPath = [CChar](repeating: 0, count: Int(PATH_MAX))
             guard Darwin.realpath(source, &resolvedPath) != nil else {{ return nil }}
@@ -1135,6 +1143,8 @@ def apply_experimental_workspace_identity_binding(
             "workspace_session_id": selection.identity.uuidString.lowercased(),
             "checkpoint": checkpoint,
             "selected_path_sha256": selectedPathSHA256,
+            "bookmark_resolved": resolvedScopeURL != nil,
+            "bookmark_stale": bookmarkIsStale,
             "scope_access_started": scopeStarted,
             "directory_opened": directoryOpened,
             "directory_identity_matches": directoryIdentityMatches,
