@@ -2,9 +2,9 @@
 
 ## Decision
 
-**Phase 3.2 Engineering: PARTIAL.** The semantic interface completed a signed deterministic Read → Edit → Test workflow, and the eight-task holdout, frozen-input manifest, independent evaluator, and evaluator regression tests are implemented. The Stage B focused real-model gate did not complete: a model response and semantic read proposal were observed, but CUA could not bind to and verify the modal signed Picker. No workspace was selected and no operation was approved. Therefore the planned 16 holdout trials, 8 A–D replay trials, and 2 Task D replays were not run.
+**Phase 3.2 Engineering: PARTIAL.** The semantic interface completed a signed deterministic Read → Edit → Test workflow, and the eight-task holdout, frozen-input manifest, independent evaluator, and evaluator regression tests are implemented. Two Stage B Task A attempts ran. The first stopped before workspace selection. The second completed six approved signed Kernel/Runner operations and delivered each result through DSH Session, but timed out before AgentLoop termination. Independent public and hidden checks both failed on the unchanged workspace. Two signed `run_tests` results reported exit code 0, which conflicts with those independent failures. This discrepancy remains unresolved, so the test-result path is not considered validated. The 16 holdout trials, remaining A–D trials, and 2 Task D replays were not run.
 
-**Coding reliability: NOT_PROVEN.** Phase 3.2 has zero completed real-model trials. Its model success rate, repair success, first-pass success, and generalization rate are not measurable. Phase 3.1 remains at 6/8 hidden-test successes, 4/8 first-pass successes, and 2/2 Task C repairs; its Task D success remains 0/2. Those are historical results, not Phase 3.2 results.
+**Coding reliability: NOT_PROVEN.** Phase 3.2 has zero completed AgentLoop trials and one Task A attempt with independent verification, which failed. The second attempt produced 7/7 parsed/lowered semantic proposals, 6 approved operations, 6/6 Session result deliveries and continuity checks, and no edit proposal. The independent failure and the conflicting signed test return codes prevent attributing the outcome solely to model reasoning or claiming that `run_tests` reliably reports failures. Phase 3.1 remains at 6/8 hidden-test successes, 4/8 first-pass successes, and 2/2 Task C repairs; its Task D success remains 0/2. Those are historical results, not Phase 3.2 results.
 
 ## Evidence summary
 
@@ -13,14 +13,21 @@
 | Semantic tools through existing Cordis registry | Implemented and reused |
 | Signed deterministic Read → Edit → Test | PASS, 4 correlated operations |
 | Independent hidden verification for Stage A | PASS, 3 tests |
-| Stage B real-model focused gate | FAILED_ATTEMPT before workspace selection/approval |
-| Completed real-model trials in Phase 3.2 | 0 |
+| Stage B real-model focused gate | FAILED_ATTEMPT: 2 attempts; 1 stopped before selection, 1 timed out after 6 operations and failed independent verification |
+| Completed real-model AgentLoop trials in Phase 3.2 | 0 |
+| Stage B local model calls / responses | 8 / 8 across two attempts |
+| Independently evaluated Task A attempts | 0/1 passed; public and hidden checks failed |
+| Semantic tool proposals parsed/lowered | 8/8 across both attempts |
+| Session result delivery / continuity | 6/6 for Attempt 2's completed operations |
+| Signed `run_tests` result consistency | UNRESOLVED: two signed return codes were 0; independent public/hidden results were 1 |
 | H01–H08 holdout | NOT_RUN, 0/16 |
-| A–D replay | NOT_RUN, 0/8 |
+| A–D replay | NOT_COMPLETED, Task A attempted twice; remaining runs NOT_RUN |
 | Unauthorized approvals | 0 observed |
 | Unexpected workspace changes | 0 observed |
 | Kernel authority / ABI / scope delta | 0 / 0 / 0 |
 | Production trusted runtime / dependency delta | 0 / 0 |
+| Attempt 2 model latency | 40,252 ms mean across 7 calls |
+| Model-call errors | 0 observed; all 8 calls returned |
 | Node/model RSS, token usage, and cost | NOT_MEASURED |
 | Deterministic Stage A wall time | 121.2202 s including UI; not a model benchmark |
 | Canonical tests | PASS, 412 tests in 871.484 seconds |
@@ -35,7 +42,7 @@
 
 ## Recommendation
 
-Keep the semantic tools and bounded lowering. Do not infer a real-model reliability gain from the deterministic Stage A pass or the single incomplete Stage B proposal. The signed UI binding failure needs a reproducible, inspectable automation path before the focused Task A gate can continue. Once that gate completes, run the frozen plan without changing tasks, scopes, hidden tests, model identity, or budgets. Do not migrate the production AgentHost on current Phase 3.2 evidence.
+Keep the semantic tools and bounded lowering for experimental use. First reproduce and resolve the signed `run_tests` return-code conflict in the existing trusted execution path, then rerun the focused Task A gate from a clean frozen workspace. Do not continue to the larger holdout until signed failure results agree with independent verification. Preserve the frozen tasks, scopes, hidden tests, model identity, and budgets. Do not migrate the production AgentHost on current Phase 3.2 evidence.
 
 ## Provenance
 

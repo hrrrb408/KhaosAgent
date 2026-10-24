@@ -18,7 +18,9 @@ The holdout contains eight different synthetic coding tasks: H01 whitespace-norm
 
 The holdout budget is 12 tool operations, 3 writes, 3 repair attempts, and 600 seconds per trial. Phase 3.1 A–D replay retains its original prompts, fixtures, hidden tests, and scopes, with limits of 8 operations, 3 writes, 3 repairs, and 600 seconds. Hidden tests are run only by the independent verifier on a disposable copy.
 
-The frozen plan calls for 16 H01–H08 trials, 8 A–D comparison trials, 2 focused Task A trials before the full holdout, and 2 Task D replays: 28 planned trials, with at least 24 overall. The focused Task A gate did not complete, so the holdout and replay trials were not started.
+The frozen plan calls for 16 H01–H08 trials, 8 A–D comparison trials, 2 focused Task A trials before the full holdout, and 2 Task D replays: 28 planned trials, with at least 24 overall. Two focused Task A attempts were made. Attempt 1 stopped at the workspace Picker before an operation. Attempt 2 completed six approved Kernel/Runner operations, then timed out before AgentLoop termination. Independent public and hidden tests failed on its unchanged workspace, while the two signed `run_tests` operations reported return code 0. This unresolved evidence conflict means Stage B did not pass; the holdout and remaining replay trials were not started.
+
+The Phase 3.2 report records both attempts without changing the v4 freeze or the prior Phase 3/3.1 results. Attempt 2 is an independently evaluated failed timeout, not a completed AgentLoop trial. Its model produced 7 semantic proposals and all 7 passed DSH parsing and lowering; 6 approved results were observed in the correlated DSH Session. No edit proposal or unauthorized approval occurred.
 
 | Holdout task | Result |
 |---|---|
