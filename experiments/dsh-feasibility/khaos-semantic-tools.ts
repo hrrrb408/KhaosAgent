@@ -299,6 +299,7 @@ export function createKhaosSemanticToolsPlugin(
   telemetry: DshAgentTelemetry,
   setVisibleTools: (names: readonly SemanticToolName[]) => void,
   onNoProgressLimit?: () => void,
+  onToolBudgetExhausted?: () => void,
 ) {
   validatePolicy(policy)
   const session = new KhaosProposalSession(port, () => undefined)
@@ -588,6 +589,10 @@ export function createKhaosSemanticToolsPlugin(
     if (!effectiveCanContinue) {
       closed = true
       session.close()
+    }
+    if (toolCallCount >= policy.maxToolOperations
+      && !(toolName === 'run_tests' && testResult?.status === 'passed')) {
+      onToolBudgetExhausted?.()
     }
     setVisibleTools(visibleTools())
     return {

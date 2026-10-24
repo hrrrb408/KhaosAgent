@@ -1,0 +1,141 @@
+{
+  "cases": {
+    "budget-exhaustion": {
+      "expected_error_code": "tool_budget_exhausted",
+      "expected_signed_operations": [
+        {
+          "path": "fee.py",
+          "tool": "read_file"
+        }
+      ],
+      "expected_terminal": "incomplete",
+      "expected_workspace_changes": [],
+      "max_repair_attempts": 0,
+      "max_tool_operations": 1,
+      "max_wall_time_seconds": 600,
+      "max_write_operations": 0,
+      "trial_id": "stage-a-4"
+    },
+    "repair": {
+      "expected_hidden_verification": "PASS",
+      "expected_signed_operations": [
+        {
+          "result": "failed",
+          "returncode": 1,
+          "tool": "run_tests"
+        },
+        {
+          "path": "fee.py",
+          "tool": "read_file"
+        },
+        {
+          "path": "fee.py",
+          "tool": "replace_text"
+        },
+        {
+          "result": "passed",
+          "returncode": 0,
+          "tool": "run_tests"
+        }
+      ],
+      "expected_terminal": "completed",
+      "max_repair_attempts": 1,
+      "max_tool_operations": 4,
+      "max_wall_time_seconds": 600,
+      "max_write_operations": 1,
+      "trial_id": "stage-a-2"
+    },
+    "repeated-read": {
+      "expected_error_code": "no_progress_limit",
+      "expected_local_no_launcher_retries": 1,
+      "expected_no_progress_statuses": [
+        "recovery_feedback",
+        "final_only"
+      ],
+      "expected_signed_operations": [
+        {
+          "path": "fee.py",
+          "tool": "read_file"
+        },
+        {
+          "path": "fee.py",
+          "tool": "read_file"
+        }
+      ],
+      "expected_terminal": "incomplete",
+      "expected_workspace_changes": [],
+      "max_repair_attempts": 0,
+      "max_tool_operations": 4,
+      "max_wall_time_seconds": 600,
+      "max_write_operations": 0,
+      "trial_id": "stage-a-3"
+    }
+  },
+  "dataset": {
+    "hidden_test_outside_selected_workspace": true,
+    "hidden_test_sha256": "3c3a8dc55571d0ce2022caa95770380d14f77f7d4bccbd97286b4450d92f2b3a",
+    "id": "phase31-replay",
+    "original_task_prompt_preserved": true,
+    "prompt_sha256": "a387aaeb7fd285334f27eb0cb8b405fccd529c39523a126785edd27cda80bd94",
+    "public_file_sha256": {
+      "fee.py": "f9d50dd40515ba0c09b5520a596820120b3cad4a114946cda1b91b15807059bd",
+      "test_public.py": "870c0ab16d7f10fdf01569b0487a488a66efb74b061f83504e183588da50fd4d"
+    },
+    "read_scope": [
+      "fee.py",
+      "test_public.py"
+    ],
+    "task_dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+    "task_id": "A",
+    "write_scope": [
+      "fee.py"
+    ]
+  },
+  "deltas_expected": {
+    "kernel_abi": 0,
+    "kernel_authority": 0,
+    "production_dependencies": 0,
+    "production_trusted_runtime": 0,
+    "workspace_scope_authority": 0
+  },
+  "frozen_at_utc": "2026-10-24T07:59:13Z",
+  "operator": {
+    "approval_operator": "codex_agent",
+    "authorization": "Owner-delegated disposable experiment",
+    "owner_personally_clicked": false
+  },
+  "parent": {
+    "implementation_sha": "1ba889cf9114ac14bc47ca8cbcf6fd52640d67c3",
+    "integrity_freeze": "reports/dsh-phase3-2/integrity-freeze-v4.json",
+    "integrity_freeze_sha256": "d801025b3378d1e30a86095ad6eebf7fee7d09eadcd50b27fab350a32397f7a3",
+    "phase31_benchmark_freeze": "reports/dsh-phase3-1/benchmark-freeze.json",
+    "phase31_benchmark_freeze_sha256": "ff0075a1f44b21be91e685c153a6fb22bb4f02301a62496e930bbc81de35f65d"
+  },
+  "runtime": {
+    "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "model": "NOT_USED_DETERMINISTIC_FIXTURE",
+    "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+    "node_binary_sha256": "0d005c18e095027ca8f9fe1cc1126f767ee4ad7b004f4d6fb781ec4228a7c5d1",
+    "node_version": "v22.19.0",
+    "remote_data_transfer": false
+  },
+  "schema": "khaos.dsh.phase3.2.2.gate-a-freeze.v1",
+  "source_sha256": {
+    "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift": "3a4a6766ba73514caca8dabea668b08cc89f302f4884736f7bf71ce09a1b10f7",
+    "experiments/dsh-feasibility/dsh-agent-lifecycle.test.ts": "9e9d8fff2c5e556f725fed16f27b331cbc910a79be3abc4f79216c4ad062010b",
+    "experiments/dsh-feasibility/dsh-agent-lifecycle.ts": "0b579842ff1fb26b59869d7b5952d8885d9f28ae9564604ceee8360b8a4816e2",
+    "experiments/dsh-feasibility/dsh-agent-telemetry.ts": "120e7a0eed34ef940baa5c2b2535b2fc4013fd74bff470e75f196bda794d7f9f",
+    "experiments/dsh-feasibility/dsh-agenthost-runtime.ts": "79ff8167602fa54c908fd8dd452af8de77038705f0ea7874a6118954e0d33e25",
+    "experiments/dsh-feasibility/dsh-semantic-fixture.ts": "6984477c6c3f78fe9213799632a3ed4840b0ae2ff28c1f9c0771c9a09e6344f0",
+    "experiments/dsh-feasibility/khaos-capability-adapter.ts": "4ef0003ee45fa96bc5370362b131af38bf2982f537968b893660c2378cf68db7",
+    "experiments/dsh-feasibility/khaos-model-bridge.ts": "9381551b9d282ef8c43c898a69abe0117c27affc228060ffcf5bd42da7bdaa0f",
+    "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts": "cd5a0ed69b91a176b083283082a64a5fb79e48f5ed8e6e9fedfc666d095e1a53",
+    "experiments/dsh-feasibility/khaos-semantic-tools.ts": "503c2dcdf5449aab492eea7f2b4c842a6109e3410fd6d494386fbe25d6d00cce",
+    "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+    "tests/test_dsh_xpc_acceptance_builder.py": "17e49e38301a81bba87b986f097ecc7c4d269c1d7ebf8ea45a8da26e457c3f22",
+    "tests/test_dsh_xpc_acceptance_runner.py": "51677f5ccefa8f89c325e1d0380cc86ba101bc7a747fcdd59bcab7a8ffae93ae",
+    "tools/build_dsh_xpc_acceptance_app.py": "46d1ef5067336e9192dd8ca3a871fadf301fe62de389c5a2fb538eb65d8159fa",
+    "tools/run_dsh_xpc_attack_acceptance.py": "f154188af67a20d123324f24266d9168a5b8eca2a0b4b24124b653668324ad29"
+  },
+  "status": "FROZEN_BEFORE_SIGNED_RUNS"
+}

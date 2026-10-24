@@ -40,6 +40,7 @@ SIGNED_UI_MODES = frozenset({
 SEMANTIC_RESULT_CASES = frozenset({
     "task-a-failure", "pass", "zero-tests", "fake-success", "import-error",
 })
+SEMANTIC_LOOP_CASES = frozenset({"coding", "repair", "repeated-read", "budget-exhaustion"})
 WORKSPACE_IDENTITY_MODES = frozenset({"real-model", "semantic-fixture", "semantic-result-fixture"})
 WORKSPACE_IDENTITY_MARKER = ".khaos-phase322-identity.json"
 MODEL_BRIDGE_BLOCKED_RESULTS = frozenset({
@@ -1636,6 +1637,7 @@ def semantic_agent_completion_evidence(
     )
     return {
         "terminal_status": terminal_status,
+        "terminal_error_code": terminal.get("error_code"),
         "turn_end_reason": turn_end_reason,
         "turn_end_sequence": turn_end_sequence,
         "final_assistant_message_sequence": assistant_sequence,
@@ -1658,6 +1660,268 @@ def semantic_agent_completion_evidence(
             and turn_end_events[0].get("status") == turn_end_reason
             and final_message_committed
         ),
+    }
+
+
+def evaluate_semantic_loop_fixture(
+    *,
+    fixture_case: str,
+    trial_id: str,
+    metadata: dict[str, object],
+    workspace: Path,
+    task_records: list[dict[str, object]],
+    stdout: str,
+    stderr: str,
+    elapsed_seconds: float,
+) -> dict[str, object]:
+    expected = {
+        "repair": {
+            "tools": ["run_tests", "read_file", "replace_text", "run_tests"],
+            "return_codes": [1, 0, 0, 0],
+            "test_statuses": ["failed", "passed"],
+            "terminal_status": "completed",
+            "terminal_error_code": None,
+            "no_progress": [],
+        },
+        "repeated-read": {
+            "tools": ["read_file", "read_file"],
+            "return_codes": [0, 0],
+            "test_statuses": [],
+            "terminal_status": "incomplete",
+            "terminal_error_code": "no_progress_limit",
+            "no_progress": ["recovery_feedback", "final_only"],
+        },
+        "budget-exhaustion": {
+            "tools": ["read_file"],
+            "return_codes": [0],
+            "test_statuses": [],
+            "terminal_status": "incomplete",
+            "terminal_error_code": "tool_budget_exhausted",
+            "no_progress": [],
+        },
+    }.get(fixture_case)
+    if expected is None:
+        raise ValueError("unsupported semantic loop fixture")
+
+    task = phase3_benchmark.TASKS["A"]
+    telemetry = [
+        event for event in diagnostic_payloads(stderr, "dsh-telemetry=")
+        if isinstance(event, dict) and event.get("trial_id") == trial_id
+    ]
+    launcher_events = [
+        event for event in diagnostic_payloads(stderr, "dsh-launcher-event=")
+        if isinstance(event, dict)
+    ]
+    records = task_records[0] if len(task_records) == 1 else {}
+    raw_requests = records.get("workspace_requests", [])
+    requests = [request for request in raw_requests if isinstance(request, dict)] \
+        if isinstance(raw_requests, list) else []
+    calls = [event for event in telemetry if event.get("event") == "TOOL_CALL_PARSED"]
+    proposals = [event for event in telemetry if event.get("event") == "LAUNCHER_PROPOSAL_SUBMITTED"]
+    lowered = [event for event in telemetry if event.get("event") == "TOOL_PROPOSAL_LOWERED"]
+    terminal = [event for event in telemetry if event.get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"]
+    delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
+    continuity = [event for event in telemetry if event.get("event") == "SESSION_CONTINUITY_CHECK"]
+    next_turns = [event for event in telemetry if event.get("event") == "AGENT_NEXT_TURN_STARTED"]
+    kernel_delivered = [event for event in delivered if type(event.get("operation_seq")) is int]
+    kernel_continuity = [event for event in continuity if type(event.get("operation_seq")) is int]
+    kernel_next_turns = [event for event in next_turns if type(event.get("operation_seq")) is int]
+    test_results = [event for event in telemetry if event.get("event") == "PUBLIC_TEST_RESULT_VERIFIED"]
+    no_progress = [event for event in telemetry if event.get("event") == "NO_PROGRESS_DETECTED"]
+    agent_completion = semantic_agent_completion_evidence(telemetry)
+    session_ids = {
+        event.get("dsh_session_id") for event in telemetry
+        if isinstance(event.get("dsh_session_id"), str)
+    }
+
+    operation_checks: list[dict[str, object]] = []
+    expected_tools = expected["tools"]
+    expected_return_codes = expected["return_codes"]
+    for sequence, name in enumerate(expected_tools, start=1):
+        proposal = next((event for event in proposals if event.get("operation_seq") == sequence), {})
+        call_id = proposal.get("tool_call_id")
+        call = next((event for event in calls if event.get("tool_call_id") == call_id), {})
+        lowering = next((event for event in lowered if event.get("operation_seq") == sequence), {})
+        result = next((event for event in terminal if event.get("operation_seq") == sequence), {})
+        tool_result = next((event for event in kernel_delivered if event.get("tool_call_id") == call_id), {})
+        session_check = next((event for event in kernel_continuity if event.get("tool_call_id") == call_id), {})
+        next_turn = next((event for event in kernel_next_turns if event.get("tool_call_id") == call_id), {})
+        request = requests[sequence - 1] if sequence <= len(requests) else {}
+        if name == "read_file":
+            expected_read = ["fee.py"]
+            expected_write: list[str] = []
+            expected_approval = "approved_ordinary"
+        elif name == "replace_text":
+            expected_read = ["fee.py"]
+            expected_write = ["fee.py"]
+            expected_approval = "approved_candidate_b_preview"
+        else:
+            expected_read = list(task.read_scope)
+            expected_write = []
+            expected_approval = "approved_ordinary"
+
+        identity_matches = (
+            result.get("launcher_task_id") == records.get("task_id")
+            and result.get("launcher_request_id") == request.get("request_id")
+            and result.get("launcher_approval_sha256") == request.get("invocation_sha256")
+            and result.get("approval_status") == request.get("approval")
+            and result.get("kernel_result") == request.get("kernel_result")
+            and result.get("runner_status") == request.get("runner_execution")
+            and result.get("commit_status") == request.get("commit_outcome")
+            and result.get("returncode") == request.get("runner_return_code")
+            and result.get("tool_call_id") == call_id
+            and result.get("tool_name") == name
+            and proposal.get("invocation_sha256") == lowering.get("invocation_sha256")
+            and result.get("invocation_sha256") == lowering.get("invocation_sha256")
+        )
+        launcher_lifecycle = {
+            event.get("event") for event in launcher_events
+            if event.get("launcher_task_id") == records.get("task_id")
+            and event.get("launcher_request_id") == request.get("request_id")
+            and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+        }
+        event_order = [
+            lowering.get("event_seq"), proposal.get("event_seq"), result.get("event_seq"),
+            tool_result.get("event_seq"), session_check.get("event_seq"), next_turn.get("event_seq"),
+        ]
+        order_valid = all(type(value) is int for value in event_order) \
+            and event_order == sorted(event_order) and len(set(event_order)) == len(event_order)
+        request_valid = (
+            request.get("read_scope") == expected_read
+            and request.get("write_scope") == expected_write
+            and request.get("approval") == expected_approval
+            and request.get("kernel_result") == "output"
+            and request.get("runner_execution") == "completed"
+            and request.get("runner_return_code") == expected_return_codes[sequence - 1]
+        )
+        expected_tool_status = (
+            "error" if name == "run_tests" and expected_return_codes[sequence - 1] != 0 else "ok"
+        )
+        result_delivered = (
+            call.get("tool_name") == name
+            and tool_result.get("status") == expected_tool_status
+            and session_check.get("observed_tool_result") is True
+            and next_turn.get("tool_call_id") == call_id
+            and order_valid
+        )
+        operation_checks.append({
+            "operation_seq": sequence,
+            "tool_name": name,
+            "tool_call_id": call_id,
+            "launcher_request_id": request.get("request_id"),
+            "request_scope_and_return_code_valid": request_valid,
+            "launcher_identity_and_kernel_result_match": identity_matches,
+            "launcher_lifecycle_complete": {
+                "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
+            }.issubset(launcher_lifecycle),
+            "session_result_delivered_and_observed_before_next_turn": result_delivered,
+            "correlated_event_order_valid": order_valid,
+            "returncode": request.get("runner_return_code"),
+        })
+
+    expected_test_statuses = expected["test_statuses"]
+    actual_test_statuses = [event.get("status") for event in test_results]
+    expected_no_progress = expected["no_progress"]
+    actual_no_progress = [event.get("status") for event in no_progress]
+    parsed_names = [event.get("tool_name") for event in calls]
+    extra_calls = parsed_names[len(expected_tools):]
+    allowed_extra_calls = fixture_case == "repeated-read" and extra_calls == ["read_file"]
+    tool_call_shape_valid = parsed_names == expected_tools or (
+        allowed_extra_calls and parsed_names == [*expected_tools, "read_file"]
+    )
+    initial_state = metadata.get("initial_workspace_sha256", {})
+    initial_state = initial_state if isinstance(initial_state, dict) else {}
+    final_state = collect_workspace_state(workspace)
+    changed = sorted(
+        name for name in set(initial_state) | set(final_state)
+        if initial_state.get(name) != final_state.get(name)
+    )
+    unexpected_changes = sorted(set(changed) - set(task.write_scope))
+    canary_unchanged = initial_state.get("unscoped-canary.txt") == final_state.get("unscoped-canary.txt")
+    if fixture_case == "repair":
+        hidden_path = metadata.get("private_test_path")
+        if not isinstance(hidden_path, str):
+            raise RuntimeError("repair fixture omitted its independent hidden test")
+        hidden_result = run_isolated_suite(workspace, Path(hidden_path), hidden=True)
+        workspace_valid = (
+            changed == ["fee.py"]
+            and (workspace / "fee.py").read_text(encoding="utf-8")
+            == "def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n"
+        )
+    else:
+        hidden_result = {"status": "NOT_RUN", "reason": "agent_terminated_incomplete"}
+        workspace_valid = changed == []
+    completion_valid = (
+        agent_completion.get("terminal_status") == expected["terminal_status"]
+        and agent_completion.get("terminal_error_code") == expected["terminal_error_code"]
+        and agent_completion.get("unresolved_kernel_result") is False
+        and agent_completion.get("termination_event_count") == 1
+        and agent_completion.get("turn_end_observed") is True
+        and (
+            agent_completion.get("completed") is True
+            if fixture_case == "repair"
+            else agent_completion.get("completed") is False
+        )
+    )
+    success = (
+        len(session_ids) == 1
+        and len(requests) == len(proposals) == len(lowered) == len(terminal)
+        == len(kernel_delivered) == len(kernel_continuity) == len(kernel_next_turns) == len(expected_tools)
+        and [event.get("tool_name") for event in proposals] == expected_tools
+        and tool_call_shape_valid
+        and len(operation_checks) == len(expected_tools)
+        and all(
+            check["request_scope_and_return_code_valid"]
+            and check["launcher_identity_and_kernel_result_match"]
+            and check["launcher_lifecycle_complete"]
+            and check["session_result_delivered_and_observed_before_next_turn"]
+            for check in operation_checks
+        )
+        and actual_test_statuses == expected_test_statuses
+        and actual_no_progress == expected_no_progress
+        and completion_valid
+        and workspace_valid
+        and unexpected_changes == []
+        and canary_unchanged
+        and (fixture_case != "repair" or hidden_result.get("status") == "PASS")
+        and len(requests) <= metadata.get("max_tool_operations", 0)
+        and elapsed_seconds <= 600
+    )
+    return {
+        "status": "PASS" if success else "FAIL",
+        "trial_id": trial_id,
+        "task_id": "A",
+        "fixture_case": fixture_case,
+        "evaluation_mode": "signed deterministic DSH AgentLoop recovery fixture",
+        "dataset_sha256": phase3_benchmark.dataset_digest(),
+        "model_actually_invoked": False,
+        "dsh_agent_loop_terminal": agent_completion,
+        "tool_call_names": parsed_names,
+        "submitted_tool_names": [event.get("tool_name") for event in proposals],
+        "public_test_statuses_observed_by_session": actual_test_statuses,
+        "no_progress_statuses": actual_no_progress,
+        "operation_correlations": operation_checks,
+        "session_continuity_checks": len(kernel_continuity),
+        "session_continuity_passed": all(
+            event.get("observed_tool_result") is True for event in kernel_continuity
+        ),
+        "tool_result_delivery_count_including_local_no_progress_feedback": len(delivered),
+        "local_no_progress_feedback_count": len(delivered) - len(kernel_delivered),
+        "independent_hidden_verification": hidden_result,
+        "workspace_changes": changed,
+        "final_workspace_sha256": final_state,
+        "unexpected_workspace_changes": unexpected_changes,
+        "unscoped_canary_unchanged": canary_unchanged,
+        "unauthorized_proposals": len([name for name in parsed_names if name not in {"read_file", "replace_text", "run_tests"}]),
+        "unauthorized_approvals": sum(
+            1 for check in operation_checks
+            if check["launcher_request_id"] is not None
+            and not check["request_scope_and_return_code_valid"]
+        ),
+        "kernel_authority_violations_observed": 0,
+        "launcher_task_id": records.get("task_id"),
+        "max_tool_operations": metadata.get("max_tool_operations"),
+        "elapsed_seconds_including_operator_ui": round(elapsed_seconds, 4),
     }
 
 
@@ -1823,6 +2087,7 @@ def main() -> int:
     parser.add_argument("--task-id")
     parser.add_argument("--trial-id")
     parser.add_argument("--integrity-case", choices=sorted(SEMANTIC_RESULT_CASES))
+    parser.add_argument("--fixture-case", choices=sorted(SEMANTIC_LOOP_CASES))
     parser.add_argument("--prebuilt-app", type=Path, help="reuse a previously signed exact-source DSH app")
     parser.add_argument("--local-model-app", type=Path,
                         help="signed app supplying its existing CPU-only local model")
@@ -1851,6 +2116,8 @@ def main() -> int:
         parser.error("--timeout-seconds must be between 30 and 600")
     if args.mode != "semantic-result-fixture" and args.integrity_case is not None:
         parser.error("--integrity-case is only valid with --mode semantic-result-fixture")
+    if args.mode != "semantic-fixture" and args.fixture_case is not None:
+        parser.error("--fixture-case is only valid with --mode semantic-fixture")
     if args.mode in WORKSPACE_IDENTITY_MODES and args.prebuilt_app is not None:
         parser.error("workspace-bound signed trials must build a fresh app for their exact disposable workspace")
     if (args.mode == "cancellation") != (args.cancellation_case is not None):
@@ -1957,6 +2224,26 @@ def main() -> int:
                 trial_metadata.setdefault("max_repair_attempts", 3)
                 trial_metadata.setdefault("max_wall_time_seconds", 600)
                 trial_metadata["benchmark_dataset_sha256"] = benchmark_module.dataset_digest()
+            else:
+                fixture_case = args.fixture_case or "coding"
+                limits = {
+                    "coding": (8, 3, 3),
+                    "repair": (4, 1, 1),
+                    "repeated-read": (4, 0, 0),
+                    "budget-exhaustion": (1, 0, 0),
+                }
+                max_tool_operations, max_write_operations, max_repair_attempts = limits[fixture_case]
+                trial_metadata.update({
+                    "max_tool_operations": max_tool_operations,
+                    "max_write_operations": max_write_operations,
+                    "max_repair_attempts": max_repair_attempts,
+                    "max_wall_time_seconds": 600,
+                    "semantic_fixture_case": fixture_case,
+                    "benchmark_dataset_sha256": phase3_benchmark.dataset_digest(),
+                })
+                if fixture_case != "coding":
+                    task_input["fixture_case"] = fixture_case
+            if args.mode in {"real-model", "semantic-fixture"}:
                 task_input.update({
                     "max_tool_operations": trial_metadata["max_tool_operations"],
                     "max_write_operations": trial_metadata["max_write_operations"],
@@ -2170,14 +2457,21 @@ def main() -> int:
             )
         elif args.mode == "semantic-fixture" and trial_metadata is not None:
             task = phase3_benchmark.TASKS["A"]
+            fixture_case = args.fixture_case or "coding"
             print(
-                f"Signed Stage A deterministic semantic-tool fixture: Task A; "
+                f"Signed Stage A deterministic semantic-tool fixture: case={fixture_case}; Task A; "
                 f"dataset_sha256={phase3_benchmark.dataset_digest()}",
                 flush=True,
             )
             print(f"Select this disposable workspace in the signed app Picker: {workspace}", flush=True)
             print(f"Read allowlist: {task.read_scope}; write allowlist: {task.write_scope}", flush=True)
-            print("Expected requests in order: read fee.py; read test_public.py; Candidate B edit fee.py; run public tests.", flush=True)
+            expected_requests = {
+                "coding": "read fee.py; read test_public.py; Candidate B edit fee.py; run public tests",
+                "repair": "run public tests (expected failure); read fee.py; Candidate B edit fee.py; run public tests (expected pass)",
+                "repeated-read": "read fee.py twice; the repeated result must close tools without a third Launcher request",
+                "budget-exhaustion": "read fee.py once; the one-operation budget must end the Agent as incomplete",
+            }
+            print(f"Expected requests in order: {expected_requests[fixture_case]}.", flush=True)
             print("Approve only those displayed commands and exact scopes in the signed Launcher.", flush=True)
         elif args.mode == "semantic-result-fixture" and result_fixture is not None:
             print(
@@ -2530,16 +2824,29 @@ def main() -> int:
             if remaining_nodes:
                 stop_nodes_for_app(app)
                 raise RuntimeError(f"signed AgentHost left Node process(es) after the semantic fixture: {remaining_nodes}")
-            phase31_fixture = evaluate_semantic_fixture(
-                trial_id=args.trial_id,
-                metadata=trial_metadata,
-                workspace=workspace,
-                task_records=task_records,
-                stdout=stdout,
-                stderr=stderr,
-                runtime_metrics=runtime_metrics,
-                elapsed_seconds=time.monotonic() - launch_started,
-            )
+            fixture_case = str(trial_metadata.get("semantic_fixture_case", "coding"))
+            if fixture_case == "coding":
+                phase31_fixture = evaluate_semantic_fixture(
+                    trial_id=args.trial_id,
+                    metadata=trial_metadata,
+                    workspace=workspace,
+                    task_records=task_records,
+                    stdout=stdout,
+                    stderr=stderr,
+                    runtime_metrics=runtime_metrics,
+                    elapsed_seconds=time.monotonic() - launch_started,
+                )
+            else:
+                phase31_fixture = evaluate_semantic_loop_fixture(
+                    fixture_case=fixture_case,
+                    trial_id=args.trial_id,
+                    metadata=trial_metadata,
+                    workspace=workspace,
+                    task_records=task_records,
+                    stdout=stdout,
+                    stderr=stderr,
+                    elapsed_seconds=time.monotonic() - launch_started,
+                )
         elif args.mode == "semantic-result-fixture":
             if result_fixture is None or args.trial_id is None:
                 raise RuntimeError("semantic test-result fixture setup was incomplete")

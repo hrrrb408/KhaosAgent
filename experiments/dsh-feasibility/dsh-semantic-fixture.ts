@@ -37,6 +37,8 @@ export function semanticCodingResponses() {
   ]
 }
 
+export type SemanticLoopFixtureCase = 'coding' | 'repair' | 'repeated-read' | 'budget-exhaustion'
+
 export type SemanticResultFixtureCase =
   | 'task-a-failure'
   | 'pass'
@@ -44,6 +46,110 @@ export type SemanticResultFixtureCase =
   | 'fake-success'
   | 'import-error'
   | 'slow-cancel'
+
+export type SemanticFixtureCase = SemanticLoopFixtureCase | SemanticResultFixtureCase
+
+const RESULT_FIXTURE_CASES: readonly SemanticResultFixtureCase[] = [
+  'task-a-failure', 'pass', 'zero-tests', 'fake-success', 'import-error', 'slow-cancel',
+]
+const LOOP_FIXTURE_CASES: readonly SemanticLoopFixtureCase[] = [
+  'coding', 'repair', 'repeated-read', 'budget-exhaustion',
+]
+
+export function isSemanticFixtureCase(value: unknown): value is SemanticFixtureCase {
+  return typeof value === 'string' && [
+    ...RESULT_FIXTURE_CASES, ...LOOP_FIXTURE_CASES,
+  ].includes(value as SemanticFixtureCase)
+}
+
+export function isSemanticResultFixtureCase(
+  value: SemanticFixtureCase | undefined,
+): value is SemanticResultFixtureCase {
+  return value !== undefined && RESULT_FIXTURE_CASES.includes(value as SemanticResultFixtureCase)
+}
+
+function semanticRepairResponses() {
+  return [
+    toolCallResponse('phase322-repair-test-before', 'run_tests', { profile: 'public' }),
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as {
+        ok?: unknown
+        returncode?: unknown
+        test_result?: { status?: unknown }
+      }
+      return result.ok === false && result.returncode === 1 && result.test_result?.status === 'failed'
+        ? toolCallResponse('phase322-repair-read-fee', 'read_file', { path: 'fee.py' })
+        : textResponse('The initial public test failure was not observed; no repair is claimed.')
+    },
+    options => lastToolResultText(options.messages).includes('return amount * rate')
+      ? toolCallResponse('phase322-repair-edit-fee', 'replace_text', {
+        path: 'fee.py',
+        oldText: 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n',
+        newText: 'def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n',
+      })
+      : textResponse('The source read did not match the failing implementation; no repair is claimed.'),
+    options => {
+      const edit = JSON.parse(lastToolResult(options.messages)) as { ok?: unknown }
+      return edit.ok === true
+        ? toolCallResponse('phase322-repair-test-after', 'run_tests', { profile: 'public' })
+        : textResponse('The controlled edit did not complete; no test pass is claimed.')
+    },
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as {
+        ok?: unknown
+        test_result?: { status?: unknown }
+      }
+      return result.ok === true && result.test_result?.status === 'passed'
+        ? textResponse('The initial public test failure was repaired and the public tests passed.')
+        : textResponse('The repaired public tests did not pass; no success is claimed.')
+    },
+  ]
+}
+
+function repeatedReadResponses() {
+  return [
+    toolCallResponse('phase322-repeat-read-1', 'read_file', { path: 'fee.py' }),
+    options => lastToolResultText(options.messages).includes('return amount * rate')
+      ? toolCallResponse('phase322-repeat-read-2', 'read_file', { path: 'fee.py' })
+      : textResponse('The first source observation was unexpected; task remains incomplete.'),
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as { no_progress?: unknown }
+      return result.no_progress === 'recovery_feedback'
+        ? toolCallResponse('phase322-repeat-read-3', 'read_file', { path: 'fee.py' })
+        : textResponse('The repeated observation did not produce recovery feedback; task remains incomplete.')
+    },
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as { no_progress?: unknown }
+      return result.no_progress === 'final_only'
+        ? textResponse('Repeated identical observations did not verify the coding task; it remains incomplete.')
+        : textResponse('The repeated observation was not closed safely; task remains incomplete.')
+    },
+  ]
+}
+
+function budgetExhaustionResponses() {
+  return [
+    toolCallResponse('phase322-budget-read', 'read_file', { path: 'fee.py' }),
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as {
+        remaining_budget?: { tool_operations?: unknown }
+      }
+      return result.remaining_budget?.tool_operations === 0
+        ? textResponse('The tool-operation budget is exhausted before verification; task remains incomplete.')
+        : textResponse('The operation budget was not exhausted; no completion is claimed.')
+    },
+  ]
+}
+
+export function semanticFixtureResponses(testCase: SemanticFixtureCase) {
+  if (isSemanticResultFixtureCase(testCase)) return semanticTestResultResponses(testCase)
+  switch (testCase) {
+    case 'repair': return semanticRepairResponses()
+    case 'repeated-read': return repeatedReadResponses()
+    case 'budget-exhaustion': return budgetExhaustionResponses()
+    case 'coding': return semanticCodingResponses()
+  }
+}
 
 export function semanticTestResultResponses(testCase: SemanticResultFixtureCase) {
   return [

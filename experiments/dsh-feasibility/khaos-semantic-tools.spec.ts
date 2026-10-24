@@ -9,7 +9,7 @@ import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-test
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
 import { lastToolResult, lastToolResultText, semanticToolBudget } from './dsh-tool-result.ts'
-import { semanticCodingResponses } from './dsh-semantic-fixture.ts'
+import { semanticCodingResponses, semanticFixtureResponses } from './dsh-semantic-fixture.ts'
 import { localModelTestSupport } from './khaos-local-model.ts'
 import {
   createKhaosSemanticToolsPlugin,
@@ -48,6 +48,8 @@ async function startSemanticAgent(
   policy: KhaosCodingToolPolicy,
   telemetry: DshAgentTelemetry,
   submitProposal: KhaosLauncherPort['submitProposal'],
+  onNoProgressLimit?: () => void,
+  onToolBudgetExhausted?: () => void,
 ): Promise<{ agent: Agent; pluginFiber: { dispose(): Promise<void> } }> {
   let setVisibleTools: (names: readonly ('read_file' | 'replace_text' | 'run_tests')[]) => void = () => undefined
   const pluginFiber = await ctx.plugin(createKhaosSemanticToolsPlugin(
@@ -55,6 +57,8 @@ async function startSemanticAgent(
     policy,
     telemetry,
     names => setVisibleTools(names),
+    onNoProgressLimit,
+    onToolBudgetExhausted,
   ))
   const agent = await ctx.agentLoop.create(SessionId('semantic-' + policy.trialId), {
     provider: 'mock',
@@ -191,7 +195,8 @@ describe('Khaos semantic Cordis tools', () => {
   it('continues the signed fixture with verified public-test counts', async () => {
     const adapter = new MockAdapter(semanticCodingResponses())
     const ctx = await createHarness(adapter)
-    const telemetry = new DshAgentTelemetry(policy.trialId, 'dsh-session-stage-a-fixture', 'A', () => undefined)
+    const boundedPolicy = { ...policy, maxToolOperations: 4 }
+    const telemetry = new DshAgentTelemetry(boundedPolicy.trialId, 'dsh-session-stage-a-fixture', 'A', () => undefined)
     const source = 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n'
     const submissions: KhaosShellProposal[] = []
     const results: KhaosToolResult[] = [
@@ -200,14 +205,15 @@ describe('Khaos semantic Cordis tools', () => {
       { ok: true, canContinue: true, text: 'EDIT_APPLIED' },
       publicTestResult({ testsRun: 1, returncode: 0, ok: true }),
     ]
+    let incompleteReason: string | undefined
 
     try {
-      const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async proposal => {
+      const { agent, pluginFiber } = await startSemanticAgent(ctx, boundedPolicy, telemetry, async proposal => {
         submissions.push(proposal)
         const result = results.shift()
         if (!result) throw new Error('unexpected_tool_submission')
         return result
-      })
+      }, undefined, () => { incompleteReason = 'tool_budget_exhausted' })
       agent.followup(createUserMessage({
         content: [{ type: 'text', text: 'Read fee.py and test_public.py, then edit and run public tests.' }],
         source: { kind: 'khaos-semantic-tools-test' },
@@ -219,8 +225,9 @@ describe('Khaos semantic Cordis tools', () => {
         'python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'fee.py',
       ])
       expect(adapter.requests.map(toolNames)).toEqual(
-        Array.from({ length: 5 }, () => [...semanticToolTestSupport.toolNames]),
+        [...Array.from({ length: 4 }, () => [...semanticToolTestSupport.toolNames]), []],
       )
+      expect(incompleteReason).toBeUndefined()
       expect(agent.session.deriveMessages().at(-1)?.content).toContainEqual({
         type: 'text', text: 'The actual public tests passed after the controlled edit.',
       })
@@ -231,30 +238,75 @@ describe('Khaos semantic Cordis tools', () => {
     }
   })
 
+  it('uses a real failed Session test result to choose the bounded repair sequence', async () => {
+    const boundedPolicy = {
+      ...policy,
+      trialId: 'phase32-repair-fixture',
+      maxToolOperations: 4,
+      maxWriteOperations: 1,
+      maxRepairAttempts: 1,
+    }
+    const adapter = new MockAdapter(semanticFixtureResponses('repair'))
+    const ctx = await createHarness(adapter)
+    const telemetry = new DshAgentTelemetry(
+      boundedPolicy.trialId, 'dsh-session-repair-fixture', boundedPolicy.taskId, () => undefined,
+    )
+    const source = 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n'
+    const submissions: KhaosShellProposal[] = []
+    const results: KhaosToolResult[] = [
+      publicTestResult({ testsRun: 2, failures: 1, returncode: 1, ok: false }),
+      { ok: true, canContinue: true, text: source, returncode: 0 },
+      { ok: true, canContinue: true, text: 'EDIT_APPLIED', returncode: 0 },
+      publicTestResult({ testsRun: 2, returncode: 0, ok: true }),
+    ]
+
+    try {
+      const { agent, pluginFiber } = await startSemanticAgent(
+        ctx, boundedPolicy, telemetry, async proposal => {
+          submissions.push(proposal)
+          const result = results.shift()
+          if (!result) throw new Error('unexpected_tool_submission')
+          return result
+        },
+      )
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: 'Test the code, inspect a failure, fix it, and verify.' }],
+        source: { kind: 'khaos-semantic-tools-test' },
+      }))
+      await waitForIdle(ctx, agent)
+
+      expect(submissions.map(item => item.argv)).toEqual([
+        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'fee.py'],
+        ['python3', '-I', '-B', '-c', semanticToolTestSupport.readScript, 'fee.py'],
+        [
+          'python3', '-I', '-B', '-c', boundedPolicy.fixedEditScript, 'fee.py',
+          JSON.stringify(source),
+          JSON.stringify('def calculate_fee(amount, rate=0.025):\n    return round(amount * rate, 2)\n'),
+        ],
+        ['python3', '-I', '-B', '-c', semanticToolTestSupport.testScript, 'fee.py'],
+      ])
+      expect(submissions.map(item => item.writeScope)).toEqual([
+        [], [], ['fee.py'], [],
+      ])
+      expect(adapter.requests.map(toolNames)).toEqual([
+        ...Array.from({ length: 3 }, () => [...semanticToolTestSupport.toolNames]),
+        ['read_file', 'run_tests'],
+        [],
+      ])
+      expect(agent.session.deriveMessages().at(-1)?.content).toContainEqual({
+        type: 'text', text: 'The initial public test failure was repaired and the public tests passed.',
+      })
+      expect(results).toEqual([])
+      await pluginFiber.dispose()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('gives one recovery turn for an identical result, then closes repeated no-progress calls', async () => {
     const records: Readonly<Record<string, unknown>>[] = []
-    const adapter = new MockAdapter([
-      toolCallResponse('repeat-read-1', 'read_file', { path: 'fee.py' }),
-      options => {
-        expect(lastToolResultText(options.messages)).toBe('same source')
-        return toolCallResponse('repeat-read-2', 'read_file', { path: 'fee.py' })
-      },
-      options => {
-        expect(JSON.parse(lastToolResult(options.messages))).toMatchObject({
-          no_progress: 'recovery_feedback',
-          recovery_feedback: expect.stringContaining('different useful operation'),
-        })
-        return toolCallResponse('repeat-read-3', 'read_file', { path: 'fee.py' })
-      },
-      options => {
-        expect(JSON.parse(lastToolResult(options.messages))).toMatchObject({
-          no_progress: 'final_only',
-          canContinue: true,
-        })
-        expect(toolNames(options)).toEqual([])
-        return textResponse('The unchanged result was not treated as verified task success.')
-      },
-    ])
+    let incompleteReason: string | undefined
+    const adapter = new MockAdapter(semanticFixtureResponses('repeated-read'))
     const ctx = await createHarness(adapter)
     const telemetry = new DshAgentTelemetry(
       policy.trialId, 'dsh-session-repeated-read', policy.taskId, record => records.push(record),
@@ -265,8 +317,13 @@ describe('Khaos semantic Cordis tools', () => {
       const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async proposal => {
         submissions.push(proposal)
         reads += 1
-        return { ok: true, canContinue: true, text: 'same source', returncode: 0 }
-      })
+        return {
+          ok: true,
+          canContinue: true,
+          text: 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n',
+          returncode: 0,
+        }
+      }, () => { incompleteReason = 'no_progress_limit' })
       agent.followup(createUserMessage({
         content: [{ type: 'text', text: 'Inspect fee.py.' }],
         source: { kind: 'khaos-semantic-tools-test' },
@@ -275,6 +332,7 @@ describe('Khaos semantic Cordis tools', () => {
 
       expect(submissions).toHaveLength(2)
       expect(reads).toBe(2)
+      expect(incompleteReason).toBe('no_progress_limit')
       expect(records.filter(record => record.event === 'NO_PROGRESS_DETECTED').map(record => record.status))
         .toEqual(['recovery_feedback', 'final_only'])
       expect(adapter.requests.map(toolNames)).toEqual([
@@ -577,23 +635,23 @@ describe('Khaos semantic Cordis tools', () => {
       taskId: 'holdout-budget',
       maxToolOperations: 1,
     }
-    const adapter = new MockAdapter([
-      toolCallResponse('budget-read', 'read_file', { path: 'fee.py' }),
-      options => {
-        expect(lastToolResult(options.messages)).toContain('actual source')
-        return textResponse('The operation budget is exhausted; task is incomplete.')
-      },
-    ])
+    const adapter = new MockAdapter(semanticFixtureResponses('budget-exhaustion'))
     const ctx = await createHarness(adapter)
     const telemetry = new DshAgentTelemetry(
       boundedPolicy.trialId, 'dsh-session-budget-limit', boundedPolicy.taskId, () => undefined,
     )
     const submissions: KhaosShellProposal[] = []
+    let incompleteReason: string | undefined
     try {
       const { agent, pluginFiber } = await startSemanticAgent(ctx, boundedPolicy, telemetry, async proposal => {
         submissions.push(proposal)
-        return { ok: true, canContinue: true, text: 'actual source', returncode: 0 }
-      })
+        return {
+          ok: true,
+          canContinue: true,
+          text: 'def calculate_fee(amount, rate=0.025):\n    return amount * rate\n',
+          returncode: 0,
+        }
+      }, undefined, () => { incompleteReason = 'tool_budget_exhausted' })
       agent.followup(createUserMessage({
         content: [{ type: 'text', text: 'Read the source.' }],
         source: { kind: 'khaos-semantic-tools-test' },
@@ -601,11 +659,12 @@ describe('Khaos semantic Cordis tools', () => {
       await waitForIdle(ctx, agent)
 
       expect(submissions).toHaveLength(1)
+      expect(incompleteReason).toBe('tool_budget_exhausted')
       expect(adapter.requests.map(toolNames)).toEqual([
         [...semanticToolTestSupport.toolNames], [],
       ])
       expect(agent.session.deriveMessages().at(-1)?.content).toContainEqual({
-        type: 'text', text: 'The operation budget is exhausted; task is incomplete.',
+        type: 'text', text: 'The tool-operation budget is exhausted before verification; task remains incomplete.',
       })
       await pluginFiber.dispose()
     } finally {

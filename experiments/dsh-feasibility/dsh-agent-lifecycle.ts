@@ -88,7 +88,7 @@ export interface AgentTerminalInput {
   readonly lastMessageContent: unknown
   readonly unresolvedKernelResult: boolean
   readonly agentErrorCount: number
-  readonly incompleteReason?: 'no_progress_limit'
+  readonly incompleteReason?: 'no_progress_limit' | 'tool_budget_exhausted'
 }
 
 export type AgentTerminalStatus = 'completed' | 'incomplete' | 'result_unknown' | 'cancelled' | 'failed'
@@ -101,7 +101,7 @@ export function classifyAgentTerminal(input: AgentTerminalInput): AgentTerminalS
     ? (reason as { kind?: unknown }).kind : undefined
   if (reasonKind === 'aborted') return 'cancelled'
   if (reasonKind === 'error' || input.agentErrorCount > 0) return 'failed'
-  if (input.incompleteReason === 'no_progress_limit') return 'incomplete'
+  if (input.incompleteReason !== undefined) return 'incomplete'
   if (reasonKind !== 'completed' || input.lastMessageRole !== 'assistant') return 'incomplete'
   if (!Array.isArray(input.lastMessageContent) || input.lastMessageContent.length === 0) return 'incomplete'
   const finalText = input.lastMessageContent.every(block =>

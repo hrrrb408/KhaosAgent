@@ -28,8 +28,11 @@ import {
 import { completeWithLocalModel } from './khaos-local-model.ts'
 import { lastToolResult, lastToolResultText, semanticToolBudget } from './dsh-tool-result.ts'
 import {
-  semanticCodingResponses,
+  isSemanticFixtureCase,
+  isSemanticResultFixtureCase,
+  semanticFixtureResponses,
   semanticTestResultResponses,
+  type SemanticFixtureCase,
   type SemanticResultFixtureCase,
 } from './dsh-semantic-fixture.ts'
 import {
@@ -216,7 +219,7 @@ interface Phase31TaskInput {
   readonly max_tool_operations: number
   readonly max_write_operations: number
   readonly max_repair_attempts: number
-  readonly fixture_case?: SemanticResultFixtureCase
+  readonly fixture_case?: SemanticFixtureCase
 }
 
 const PHASE31_REAL_PREFIX = 'KHAOS_DSH_PHASE3_1_REAL: '
@@ -236,9 +239,7 @@ function parsePhase31Input(text: string): { input: Phase31TaskInput; realModel: 
   const resultFixtureKeys = `fixture_case,${budgetedKeys}`
   const fixtureCase = input.fixture_case
   if ((keys !== legacyKeys && keys !== budgetedKeys && keys !== resultFixtureKeys)
-    || (fixtureCase !== undefined && ![
-      'task-a-failure', 'pass', 'zero-tests', 'fake-success', 'import-error', 'slow-cancel',
-    ].includes(fixtureCase as string))
+    || (fixtureCase !== undefined && !isSemanticFixtureCase(fixtureCase))
     || (prefix === PHASE31_REAL_PREFIX && fixtureCase !== undefined)
     || typeof input.trial_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(input.trial_id)
     || typeof input.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/u.test(input.task_id)
@@ -451,6 +452,7 @@ async function createTask(text: string): Promise<void> {
     }))
   }
 
+  const fixtureCase = phase31?.input.fixture_case
   const mockAdapter = new MockAdapter(attackMode
     ? [oversizedScopeProposal(), options => {
       const evidence = hostileEvidence
@@ -463,9 +465,9 @@ async function createTask(text: string): Promise<void> {
       return textResponse(`KHAOS_DSH_XPC_ATTACK_RESULT ${JSON.stringify(result)}`)
     }]
     : semanticMode && !realModelMode
-      ? phase31?.input.fixture_case
-        ? semanticTestResultResponses(phase31.input.fixture_case)
-        : semanticCodingResponses()
+      ? isSemanticResultFixtureCase(fixtureCase)
+        ? semanticTestResultResponses(fixtureCase)
+        : semanticFixtureResponses(fixtureCase ?? 'coding')
     : codingMode
       ? codingResponses()
       : fakeResultMode
@@ -559,7 +561,7 @@ async function createTask(text: string): Promise<void> {
     return
   }
   let rejectedProposalCount = 0
-  let incompleteReason: 'no_progress_limit' | undefined
+  let incompleteReason: 'no_progress_limit' | 'tool_budget_exhausted' | undefined
   let lastTurnEndReason: unknown
   let lastTurnEndSequence: number | undefined
   const submitProposal = (
@@ -646,6 +648,7 @@ async function createTask(text: string): Promise<void> {
       telemetry as DshAgentTelemetry,
       setVisibleTools,
       () => { incompleteReason = 'no_progress_limit' },
+      () => { incompleteReason = 'tool_budget_exhausted' },
     ))
     : await ctx.plugin(createKhaosCapabilityPlugin({
       reportRejectedProposal() {
@@ -863,7 +866,9 @@ async function createTask(text: string): Promise<void> {
         last_message_text_only: lastMessageTextOnly,
         unresolved_kernel_result: unresolvedKernelResult,
         ...(terminalStatus === 'result_unknown' ? { error_code: 'kernel_result_unresolved' } : {}),
-        ...(terminalStatus === 'incomplete' ? { error_code: 'final_response_missing' } : {}),
+        ...(terminalStatus === 'incomplete' ? {
+          error_code: incompleteReason ?? 'final_response_missing',
+        } : {}),
         ...(terminalStatus === 'failed' ? { error_code: 'dsh_agent_failed' } : {}),
       })
     }

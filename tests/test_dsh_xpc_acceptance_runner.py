@@ -37,9 +37,19 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
         ]
 
         self.assertTrue(semantic_agent_completion_evidence(telemetry)["completed"])
+        self.assertIsNone(semantic_agent_completion_evidence(telemetry)["terminal_error_code"])
         self.assertFalse(semantic_agent_completion_evidence([
             *telemetry[:-1], {"event": "AGENT_TERMINATED", "status": "incomplete"},
         ])["completed"])
+        budget_terminal = semantic_agent_completion_evidence([
+            *telemetry[:-1], {
+                **telemetry[-1],
+                "status": "incomplete",
+                "error_code": "tool_budget_exhausted",
+            },
+        ])
+        self.assertEqual(budget_terminal["terminal_status"], "incomplete")
+        self.assertEqual(budget_terminal["terminal_error_code"], "tool_budget_exhausted")
         self.assertFalse(semantic_agent_completion_evidence([
             *telemetry[:-1], {**telemetry[-1], "turn_end_sequence": 8},
         ])["completed"])

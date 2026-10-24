@@ -17,6 +17,14 @@ test('only a completed DSH turn with a final text message is completed', () => {
     lastMessageContent: [{ type: 'text', text: 'Done.' }],
     unresolvedKernelResult: false,
     agentErrorCount: 0,
+    incompleteReason: 'tool_budget_exhausted',
+  }), 'incomplete')
+  assert.equal(classifyAgentTerminal({
+    turnEndReason: { kind: 'completed' },
+    lastMessageRole: 'assistant',
+    lastMessageContent: [{ type: 'text', text: 'Done.' }],
+    unresolvedKernelResult: false,
+    agentErrorCount: 0,
   }), 'completed')
   assert.equal(classifyAgentTerminal({
     turnEndReason: { kind: 'completed' },
