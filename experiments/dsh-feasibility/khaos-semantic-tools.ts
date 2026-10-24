@@ -30,6 +30,9 @@ interface SemanticToolResult extends KhaosToolResult {
     readonly repair_attempts: number
   }
   readonly test_result?: PublicTestVerification
+  readonly public_test_completion_hint?: string
+  readonly no_progress?: 'recovery_feedback' | 'final_only'
+  readonly recovery_feedback?: string
 }
 
 export interface PublicTestVerification {
@@ -146,6 +149,16 @@ function proposalDigest(proposal: KhaosShellProposal): string {
   return sha256(JSON.stringify({ argv: proposal.argv, readScope: proposal.readScope, writeScope: proposal.writeScope }))
 }
 
+function observationDigest(result: KhaosToolResult): string {
+  return sha256(JSON.stringify({
+    ok: result.ok,
+    canContinue: result.canContinue,
+    returncode: result.returncode ?? null,
+    commitStatus: result.launcherTrace?.commit_status ?? null,
+    text: result.text,
+  }))
+}
+
 function outputSchema() {
   return {
     schema: {
@@ -167,6 +180,9 @@ function outputSchema() {
           },
           additionalProperties: false,
         },
+        public_test_completion_hint: { type: 'string' },
+        no_progress: { type: 'string', enum: ['recovery_feedback', 'final_only'] },
+        recovery_feedback: { type: 'string' },
         remaining_budget: {
           type: 'object',
           properties: {
@@ -282,6 +298,7 @@ export function createKhaosSemanticToolsPlugin(
   policy: KhaosCodingToolPolicy,
   telemetry: DshAgentTelemetry,
   setVisibleTools: (names: readonly SemanticToolName[]) => void,
+  onNoProgressLimit?: () => void,
 ) {
   validatePolicy(policy)
   const session = new KhaosProposalSession(port, () => undefined)
@@ -291,6 +308,14 @@ export function createKhaosSemanticToolsPlugin(
   let writeOperations = 0
   let repairAttempts = 0
   let testRuns = 0
+  let workspaceRevision = 0
+  let lastObservation: {
+    readonly invocationSHA256: string
+    readonly resultSHA256: string
+    readonly workspaceRevision: number
+    readonly repeatedResultObserved: boolean
+  } | undefined
+  let finalOnly = false
   let closed = false
 
   const toolAllowedByPolicy = (name: SemanticToolName): boolean => name !== 'replace_text'
@@ -298,7 +323,7 @@ export function createKhaosSemanticToolsPlugin(
       && (testRuns === 0 || repairAttempts < policy.maxRepairAttempts))
 
   const visibleTools = (): readonly SemanticToolName[] => {
-    if (closed || toolCallCount >= policy.maxToolOperations) return []
+    if (closed || finalOnly || toolCallCount >= policy.maxToolOperations) return []
     return TOOL_NAMES.filter(toolAllowedByPolicy)
   }
 
@@ -384,9 +409,37 @@ export function createKhaosSemanticToolsPlugin(
         pathCount = policy.readFiles.length
         testProfile = true
       }
-      const nextSequence = operationSequence + 1
       const digest = proposalDigest(proposal)
-      if (operationSequence >= policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
+      const repeatedResult = lastObservation?.invocationSHA256 === digest
+        && lastObservation.workspaceRevision === workspaceRevision
+        && lastObservation.repeatedResultObserved
+      if (repeatedResult) {
+        finalOnly = true
+        onNoProgressLimit?.()
+        semanticEvent(telemetry, 'NO_PROGRESS_DETECTED', toolName, callId, {
+          invocation_sha256: digest,
+          result_sha256: lastObservation?.resultSHA256 as string,
+          status: 'final_only',
+        })
+        setVisibleTools([])
+        return {
+          ok: false,
+          canContinue: true,
+          text: 'The same operation already returned the same result twice without a workspace change. It was not submitted again. Give a concise final response; do not claim unverified success.',
+          no_progress: 'final_only',
+          remaining_budget: {
+            tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
+            write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),
+            repair_attempts: Math.max(0, policy.maxRepairAttempts - repairAttempts),
+          },
+        }
+      }
+      if (lastObservation?.invocationSHA256 !== digest
+        || lastObservation.workspaceRevision !== workspaceRevision) {
+        lastObservation = undefined
+      }
+      const nextSequence = operationSequence + 1
+      if (nextSequence > policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
       if (toolName === 'replace_text') {
         if (writeOperations >= policy.maxWriteOperations) throw new Error('semantic_write_limit_exceeded')
         if (testRuns > 0 && repairAttempts >= policy.maxRepairAttempts) throw new Error('semantic_repair_limit_exceeded')
@@ -432,6 +485,7 @@ export function createKhaosSemanticToolsPlugin(
     }
 
     let result: KhaosToolResult
+    const invocationSHA256 = proposalDigest(proposal)
     try {
       result = await session.submit(proposal, callId, signal, correlation)
     } catch (error) {
@@ -444,6 +498,26 @@ export function createKhaosSemanticToolsPlugin(
           ? error.message : 'launcher_submission_failed',
       })
       throw error
+    }
+    const commitStatus = result.launcherTrace?.commit_status
+    if (toolName === 'replace_text' && commitStatus === 'committed') workspaceRevision += 1
+    const resultSHA256 = observationDigest(result)
+    const sameObservation = lastObservation?.invocationSHA256 === invocationSHA256
+      && lastObservation.workspaceRevision === workspaceRevision
+      && lastObservation.resultSHA256 === resultSHA256
+    const noProgress = sameObservation ? 'recovery_feedback' : undefined
+    if (noProgress) {
+      semanticEvent(telemetry, 'NO_PROGRESS_DETECTED', toolName, callId, {
+        invocation_sha256: invocationSHA256,
+        result_sha256: resultSHA256,
+        status: noProgress,
+      })
+    }
+    lastObservation = {
+      invocationSHA256,
+      resultSHA256,
+      workspaceRevision,
+      repeatedResultObserved: sameObservation,
     }
     telemetry.markLauncherResultReceived(callId, result.text)
     const launcherTrace = result.launcherTrace
@@ -522,6 +596,13 @@ export function createKhaosSemanticToolsPlugin(
       text: result.text,
       ...(result.returncode === undefined ? {} : { returncode: result.returncode }),
       ...(testResult === undefined ? {} : { test_result: testResult }),
+      ...(testResult?.status === 'passed' ? {
+        public_test_completion_hint: 'The public tests passed. Decide whether more authorized work is useful; if complete, give a final response. This does not verify hidden tests.',
+      } : {}),
+      ...(noProgress === undefined ? {} : {
+        no_progress: noProgress,
+        recovery_feedback: 'This identical request returned the same result without a workspace change. Use this result to choose one different useful operation or finish; do not repeat it unchanged.',
+      }),
       remaining_budget: {
         tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
         write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),

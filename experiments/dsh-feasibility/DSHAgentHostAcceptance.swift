@@ -356,6 +356,7 @@ private final class DSHRuntimeProcess {
             "LAUNCHER_PROPOSAL_SUBMITTED", "APPROVAL_ACCEPTED", "APPROVAL_DENIED",
             "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
             "LAUNCHER_TERMINAL_RESULT_DELIVERED", "PUBLIC_TEST_RESULT_VERIFIED", "TOOL_RESULT_DELIVERED",
+            "TOOL_OPERATION_ABORTED", "TOOL_RESULT_DISCARDED", "NO_PROGRESS_DETECTED", "TURN_END_OBSERVED",
             "AGENT_NEXT_TURN_STARTED", "SESSION_CONTINUITY_CHECK",
             "DSH_ASSISTANT_MESSAGE_COMMITTED", "AGENT_TERMINATED",
         ]
@@ -1020,6 +1021,10 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     "tool_result_count": diagnostics["toolResultCount"] ?? NSNull(),
                     "last_message_role": diagnostics["lastMessageRole"] ?? NSNull(),
                     "last_message_block_types": diagnostics["lastMessageBlockTypes"] ?? NSNull(),
+                    "terminal_status": diagnostics["terminalStatus"] ?? NSNull(),
+                    "incomplete_reason": diagnostics["incompleteReason"] ?? NSNull(),
+                    "turn_end_reason": diagnostics["turnEndReason"] ?? NSNull(),
+                    "turn_end_sequence": diagnostics["turnEndSequence"] ?? NSNull(),
                     "adapter_rejected_proposal_count": diagnostics["adapterRejectedProposalCount"] ?? NSNull(),
                     "agent_error_count": (diagnostics["agentErrors"] as? [Any])?.count ?? 0,
                 ]

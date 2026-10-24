@@ -8,7 +8,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { MockAdapter, textResponse, toolCallResponse } from '../mock-adapter.ts'
 import { DshAgentTelemetry } from './dsh-agent-telemetry.ts'
-import { lastToolResult, semanticToolBudget } from './dsh-tool-result.ts'
+import { lastToolResult, lastToolResultText, semanticToolBudget } from './dsh-tool-result.ts'
 import { semanticCodingResponses } from './dsh-semantic-fixture.ts'
 import { localModelTestSupport } from './khaos-local-model.ts'
 import {
@@ -225,6 +225,97 @@ describe('Khaos semantic Cordis tools', () => {
         type: 'text', text: 'The actual public tests passed after the controlled edit.',
       })
       expect(results).toEqual([])
+      await pluginFiber.dispose()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('gives one recovery turn for an identical result, then closes repeated no-progress calls', async () => {
+    const records: Readonly<Record<string, unknown>>[] = []
+    const adapter = new MockAdapter([
+      toolCallResponse('repeat-read-1', 'read_file', { path: 'fee.py' }),
+      options => {
+        expect(lastToolResultText(options.messages)).toBe('same source')
+        return toolCallResponse('repeat-read-2', 'read_file', { path: 'fee.py' })
+      },
+      options => {
+        expect(JSON.parse(lastToolResult(options.messages))).toMatchObject({
+          no_progress: 'recovery_feedback',
+          recovery_feedback: expect.stringContaining('different useful operation'),
+        })
+        return toolCallResponse('repeat-read-3', 'read_file', { path: 'fee.py' })
+      },
+      options => {
+        expect(JSON.parse(lastToolResult(options.messages))).toMatchObject({
+          no_progress: 'final_only',
+          canContinue: true,
+        })
+        expect(toolNames(options)).toEqual([])
+        return textResponse('The unchanged result was not treated as verified task success.')
+      },
+    ])
+    const ctx = await createHarness(adapter)
+    const telemetry = new DshAgentTelemetry(
+      policy.trialId, 'dsh-session-repeated-read', policy.taskId, record => records.push(record),
+    )
+    const submissions: KhaosShellProposal[] = []
+    let reads = 0
+    try {
+      const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async proposal => {
+        submissions.push(proposal)
+        reads += 1
+        return { ok: true, canContinue: true, text: 'same source', returncode: 0 }
+      })
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: 'Inspect fee.py.' }],
+        source: { kind: 'khaos-semantic-tools-test' },
+      }))
+      await waitForIdle(ctx, agent)
+
+      expect(submissions).toHaveLength(2)
+      expect(reads).toBe(2)
+      expect(records.filter(record => record.event === 'NO_PROGRESS_DETECTED').map(record => record.status))
+        .toEqual(['recovery_feedback', 'final_only'])
+      expect(adapter.requests.map(toolNames)).toEqual([
+        [...semanticToolTestSupport.toolNames],
+        [...semanticToolTestSupport.toolNames],
+        [...semanticToolTestSupport.toolNames],
+        [],
+      ])
+      await pluginFiber.dispose()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('treats a changed result as new information instead of no progress', async () => {
+    const adapter = new MockAdapter([
+      toolCallResponse('changed-read-1', 'read_file', { path: 'fee.py' }),
+      toolCallResponse('changed-read-2', 'read_file', { path: 'fee.py' }),
+      options => {
+        expect(lastToolResultText(options.messages)).toBe('updated source')
+        return textResponse('The changed observation was consumed.')
+      },
+    ])
+    const ctx = await createHarness(adapter)
+    const records: Readonly<Record<string, unknown>>[] = []
+    const telemetry = new DshAgentTelemetry(
+      policy.trialId, 'dsh-session-changed-read', policy.taskId, record => records.push(record),
+    )
+    let reads = 0
+    try {
+      const { agent, pluginFiber } = await startSemanticAgent(ctx, policy, telemetry, async () => {
+        reads += 1
+        return { ok: true, canContinue: true, text: reads === 1 ? 'old source' : 'updated source', returncode: 0 }
+      })
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: 'Inspect fee.py again.' }],
+        source: { kind: 'khaos-semantic-tools-test' },
+      }))
+      await waitForIdle(ctx, agent)
+      expect(reads).toBe(2)
+      expect(records.filter(record => record.event === 'NO_PROGRESS_DETECTED')).toEqual([])
       await pluginFiber.dispose()
     } finally {
       await ctx.fiber.dispose()

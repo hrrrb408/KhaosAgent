@@ -13,9 +13,11 @@ import os
 from pathlib import Path
 import platform
 import re
+import secrets
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -38,6 +40,8 @@ SIGNED_UI_MODES = frozenset({
 SEMANTIC_RESULT_CASES = frozenset({
     "task-a-failure", "pass", "zero-tests", "fake-success", "import-error",
 })
+WORKSPACE_IDENTITY_MODES = frozenset({"real-model", "semantic-fixture", "semantic-result-fixture"})
+WORKSPACE_IDENTITY_MARKER = ".khaos-phase322-identity.json"
 MODEL_BRIDGE_BLOCKED_RESULTS = frozenset({
     "MODEL_BRIDGE_PEER_REJECTED",
     "MODEL_BRIDGE_NOT_VISIBLE",
@@ -50,6 +54,101 @@ def sha256(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _write_all(descriptor: int, data: bytes) -> None:
+    remaining = memoryview(data)
+    while remaining:
+        written = os.write(descriptor, remaining)
+        if written <= 0:
+            raise OSError("short write while creating disposable experiment identity")
+        remaining = remaining[written:]
+
+
+def create_workspace_identity_manifest(
+    workspace: Path,
+    trial_id: str,
+    scratch: Path,
+) -> tuple[Path, dict[str, object]]:
+    canonical = workspace.resolve(strict=True)
+    directory = canonical.lstat()
+    if (
+        workspace.is_symlink()
+        or not stat.S_ISDIR(directory.st_mode)
+        or directory.st_uid != os.geteuid()
+    ):
+        raise RuntimeError("disposable workspace is not a real directory")
+    marker = canonical / WORKSPACE_IDENTITY_MARKER
+    if marker.exists() or marker.is_symlink():
+        raise RuntimeError("disposable workspace already contains the reserved identity marker")
+
+    fixture_files: dict[str, dict[str, object]] = {}
+    for path in sorted(canonical.iterdir(), key=lambda item: item.name):
+        info = path.lstat()
+        if (
+            not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", path.name)
+            or not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or info.st_size > 8 * 1_024 * 1_024
+        ):
+            raise RuntimeError("disposable workspace fixture contains an unsupported entry")
+        fixture_files[path.name] = {"sha256": sha256(path), "bytes": info.st_size}
+    if not 1 <= len(fixture_files) <= 16:
+        raise RuntimeError("disposable workspace fixture count is outside the signed binding limit")
+
+    marker_bytes = (
+        json.dumps(
+            {"trial_id": trial_id, "nonce": secrets.token_hex(32)},
+            sort_keys=True,
+            separators=(",", ":"),
+        ) + "\n"
+    ).encode("utf-8")
+    marker_fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        _write_all(marker_fd, marker_bytes)
+        os.fsync(marker_fd)
+        os.fchmod(marker_fd, 0o600)
+    finally:
+        os.close(marker_fd)
+    marker_digest = sha256(marker)
+    manifest: dict[str, object] = {
+        "schema_version": 1,
+        "trial_id": trial_id,
+        "workspace_path": str(canonical),
+        "workspace_path_sha256": hashlib.sha256(os.fsencode(str(canonical))).hexdigest(),
+        "workspace_device": directory.st_dev,
+        "workspace_inode": directory.st_ino,
+        "marker_name": WORKSPACE_IDENTITY_MARKER,
+        "marker_sha256": marker_digest,
+        "fixture_files": fixture_files,
+    }
+    manifest_bytes = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    manifest_path = scratch / f"workspace-identity-{trial_id}.json"
+    manifest_fd = os.open(manifest_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        _write_all(manifest_fd, manifest_bytes)
+        os.fsync(manifest_fd)
+        os.fchmod(manifest_fd, 0o600)
+    finally:
+        os.close(manifest_fd)
+    return manifest_path, {
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "trial_id": trial_id,
+        "workspace_path_sha256": manifest["workspace_path_sha256"],
+        "workspace_device": directory.st_dev,
+        "workspace_inode": directory.st_ino,
+        "marker_name": WORKSPACE_IDENTITY_MARKER,
+        "marker_sha256": marker_digest,
+        "fixture_files": fixture_files,
+    }
+
+
+def bind_identity_marker_to_initial_state(
+    baseline: object,
+    marker_sha256: str,
+) -> None:
+    if isinstance(baseline, dict):
+        baseline[WORKSPACE_IDENTITY_MARKER] = marker_sha256
 
 
 def launcher_task_records(stdout: str) -> list[dict[str, object]]:
@@ -412,6 +511,123 @@ def diagnostic_payloads(stderr: str, marker: str) -> list[object]:
         for line in stderr.splitlines()
         if line.startswith(marker)
     ]
+
+
+def evaluate_workspace_identity_binding(
+    *,
+    identity: dict[str, object],
+    task_records: list[dict[str, object]],
+    stderr: str,
+) -> dict[str, object]:
+    trial_id = identity.get("trial_id")
+    events = [
+        event for event in diagnostic_payloads(stderr, "dsh-workspace-identity=")
+        if isinstance(event, dict) and event.get("trial_id") == trial_id
+    ]
+    reasons: list[str] = []
+    record = task_records[0] if len(task_records) == 1 else {}
+    if len(task_records) != 1:
+        reasons.append("launcher_task_record_count")
+    raw_requests = record.get("workspace_requests", [])
+    requests = [item for item in raw_requests if isinstance(item, dict)] \
+        if isinstance(raw_requests, list) else []
+    if not requests:
+        reasons.append("no_correlated_launcher_requests")
+    expected_event_count = sum(
+        2 if str(request.get("kernel_result", "")).startswith("not_submitted")
+        else 3
+        for request in requests
+    )
+    if len(events) != expected_event_count:
+        reasons.append("identity_event_count_mismatch")
+
+    expected_path = identity.get("workspace_path_sha256")
+    expected_marker = identity.get("marker_sha256")
+    task_id = record.get("task_id")
+    bindings: list[dict[str, object]] = []
+    session_ids: set[str] = set()
+    consumed_event_indexes: set[int] = set()
+    for request in requests:
+        request_id = request.get("request_id")
+        session_id = request.get("workspace_session_id")
+        approval_sha256 = request.get("invocation_sha256")
+        matching = [
+            (index, event) for index, event in enumerate(events)
+            if event.get("launcher_task_id") == task_id
+            and event.get("launcher_request_id") == request_id
+            and event.get("workspace_session_id") == session_id
+        ]
+        before = [(index, event) for index, event in matching
+                  if event.get("checkpoint") == "before_approval"]
+        after_approval = [(index, event) for index, event in matching
+                          if event.get("checkpoint") == "after_approval"
+                          and event.get("approval_sha256") == approval_sha256]
+        after_kernel = [(index, event) for index, event in matching
+                        if event.get("checkpoint") == "after_kernel_result"
+                        and event.get("approval_sha256") == approval_sha256]
+        kernel_submitted = not str(request.get("kernel_result", "")).startswith("not_submitted")
+        expected_after_kernel = 1 if kernel_submitted else 0
+        ordered_checkpoints = [*before, *after_approval, *after_kernel]
+        pair_valid = (
+            isinstance(request_id, str)
+            and isinstance(session_id, str)
+            and isinstance(approval_sha256, str)
+            and len(before) == 1
+            and len(after_approval) == 1
+            and len(after_kernel) == expected_after_kernel
+            and [index for index, _ in ordered_checkpoints]
+                == sorted(index for index, _ in ordered_checkpoints)
+        )
+        for index, event in ordered_checkpoints:
+            consumed_event_indexes.add(index)
+            pair_valid = pair_valid and (
+                event.get("selected_path_sha256") == expected_path
+                and event.get("marker_sha256") == expected_marker
+                and event.get("fixture_files_verified") is True
+                and event.get("snapshot_identity") == "NOT_AVAILABLE"
+                and event.get("status") == "verified"
+            )
+        if isinstance(session_id, str):
+            session_ids.add(session_id)
+        if not pair_valid:
+            reasons.append("launcher_request_identity_mismatch")
+        bindings.append({
+            "launcher_request_id": request_id,
+            "workspace_session_id": session_id,
+            "approval_sha256": approval_sha256,
+            "pre_approval_verified": len(before) == 1,
+            "post_approval_verified": len(after_approval) == 1,
+            "post_kernel_result_verified": len(after_kernel) == expected_after_kernel,
+            "correlation_valid": pair_valid,
+        })
+    if consumed_event_indexes != set(range(len(events))):
+        reasons.append("unmatched_identity_event")
+    if len(session_ids) != 1:
+        reasons.append("workspace_session_identity_not_unique")
+
+    fixture_files = identity.get("fixture_files")
+    inventory_digest = hashlib.sha256(
+        json.dumps(fixture_files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {
+        "status": "PASS" if not reasons else "FAIL",
+        "trial_id": trial_id,
+        "launcher_task_id": task_id,
+        "workspace_path_sha256": expected_path,
+        "workspace_device": identity.get("workspace_device"),
+        "workspace_inode": identity.get("workspace_inode"),
+        "identity_marker_sha256": expected_marker,
+        "fixture_count": len(fixture_files) if isinstance(fixture_files, dict) else 0,
+        "fixture_inventory_sha256": inventory_digest,
+        "manifest_sha256": identity.get("manifest_sha256"),
+        "snapshot_identity": "NOT_AVAILABLE",
+        "verified_request_count": sum(
+            1 for binding in bindings if binding["correlation_valid"] is True
+        ),
+        "workspace_session_ids": sorted(session_ids),
+        "request_bindings": bindings,
+        "failure_reasons": sorted(set(reasons)),
+    }
 
 
 def event_delta_ms(start: object, end: object) -> float | None:
@@ -1192,6 +1408,11 @@ def evaluate_semantic_fixture(
     lowered = [event for event in telemetry if event.get("event") == "TOOL_PROPOSAL_LOWERED"]
     delivered = [event for event in telemetry if event.get("event") == "TOOL_RESULT_DELIVERED"]
     continuity = [event for event in telemetry if event.get("event") == "SESSION_CONTINUITY_CHECK"]
+    loop_records = [
+        item for item in diagnostic_payloads(stderr, "dsh-agent-loop=")
+        if isinstance(item, dict)
+    ]
+    agent_completion = semantic_agent_completion_evidence(telemetry, loop_records)
     session_ids = {
         event.get("dsh_session_id") for event in telemetry
         if isinstance(event.get("dsh_session_id"), str)
@@ -1315,6 +1536,7 @@ def evaluate_semantic_fixture(
         and len(lowered) == len(expected_names)
         and len(terminal_results) == len(expected_names)
         and len(delivered) == len(expected_names)
+        and agent_completion["completed"]
         and continuity_ok
         and all(
             item["invocation_digest_matches_lowering_and_dsh_proposal"]
@@ -1342,7 +1564,8 @@ def evaluate_semantic_fixture(
         "evaluation_mode": "signed deterministic DSH AgentLoop fixture",
         "dataset_sha256": phase3_benchmark.dataset_digest(),
         "model_actually_invoked": False,
-        "dsh_agent_loop": bool(telemetry) and any(event.get("event") == "AGENT_TERMINATED" for event in telemetry),
+        "dsh_agent_loop": agent_completion["completed"],
+        "agent_completion": agent_completion,
         "semantic_tool_names": [event.get("tool_name") for event in calls],
         "semantic_call_count": len(calls),
         "session_continuity_checks": len(continuity),
@@ -1369,6 +1592,54 @@ def evaluate_semantic_fixture(
         "launcher_task_id": records.get("task_id"),
         "model_return_codes": public_results,
         "benchmark_original_sha256": phase3_benchmark.dataset_digest(),
+    }
+
+
+def semantic_agent_completion_evidence(
+    telemetry: list[dict[str, object]],
+    loop_records: list[dict[str, object]],
+) -> dict[str, object]:
+    termination_events = [event for event in telemetry if event.get("event") == "AGENT_TERMINATED"]
+    turn_end_events = [event for event in telemetry if event.get("event") == "TURN_END_OBSERVED"]
+    committed = [
+        event for event in telemetry
+        if event.get("event") == "DSH_ASSISTANT_MESSAGE_COMMITTED"
+        and event.get("status") == "session_committed"
+        and isinstance(event.get("dsh_event_seq"), int)
+    ]
+    diagnostics = loop_records[0] if len(loop_records) == 1 else {}
+    turn_end_sequence = diagnostics.get("turn_end_sequence")
+    assistant_sequence = max((event["dsh_event_seq"] for event in committed), default=None)
+    turn_end_observed = (
+        len(turn_end_events) == 1
+        and turn_end_events[0].get("status") == "completed"
+        and isinstance(turn_end_events[0].get("dsh_event_seq"), int)
+        and turn_end_events[0].get("dsh_event_seq") == turn_end_sequence
+    )
+    final_message_committed = (
+        isinstance(assistant_sequence, int)
+        and isinstance(turn_end_sequence, int)
+        and assistant_sequence < turn_end_sequence
+        and diagnostics.get("last_message_role") == "assistant"
+        and diagnostics.get("last_message_block_types") == ["text"]
+    )
+    return {
+        "terminal_status": diagnostics.get("terminal_status"),
+        "turn_end_reason": diagnostics.get("turn_end_reason"),
+        "turn_end_sequence": turn_end_sequence,
+        "final_assistant_message_sequence": assistant_sequence,
+        "termination_event_count": len(termination_events),
+        "turn_end_event_count": len(turn_end_events),
+        "turn_end_observed": turn_end_observed,
+        "final_assistant_message_committed": final_message_committed,
+        "completed": (
+            diagnostics.get("terminal_status") == "completed"
+            and diagnostics.get("turn_end_reason") == "completed"
+            and len(termination_events) == 1
+            and termination_events[0].get("status") == "completed"
+            and turn_end_observed
+            and final_message_committed
+        ),
     }
 
 
@@ -1562,6 +1833,8 @@ def main() -> int:
         parser.error("--timeout-seconds must be between 30 and 600")
     if args.mode != "semantic-result-fixture" and args.integrity_case is not None:
         parser.error("--integrity-case is only valid with --mode semantic-result-fixture")
+    if args.mode in WORKSPACE_IDENTITY_MODES and args.prebuilt_app is not None:
+        parser.error("workspace-bound signed trials must build a fresh app for their exact disposable workspace")
     if (args.mode == "cancellation") != (args.cancellation_case is not None):
         parser.error("--cancellation-case is required only with --mode cancellation")
     if args.mode in {"real-model", "semantic-fixture"}:
@@ -1759,6 +2032,26 @@ def main() -> int:
             task_path.write_text("KHAOS_DSH_PLUGIN_LIFECYCLE\n", encoding="utf-8")
         else:
             task_path.write_text("KHAOS_DSH_XPC_ATTACK\n", encoding="utf-8")
+        workspace_identity_manifest_path: Path | None = None
+        workspace_identity: dict[str, object] | None = None
+        if args.mode in WORKSPACE_IDENTITY_MODES:
+            if args.trial_id is None:
+                raise RuntimeError("workspace-bound signed trial omitted its trial identity")
+            workspace_identity_manifest_path, workspace_identity = create_workspace_identity_manifest(
+                workspace,
+                args.trial_id,
+                scratch,
+            )
+            if isinstance(trial_metadata, dict):
+                bind_identity_marker_to_initial_state(
+                    trial_metadata.get("initial_workspace_sha256"),
+                    str(workspace_identity["marker_sha256"]),
+                )
+            if isinstance(result_fixture, dict):
+                bind_identity_marker_to_initial_state(
+                    result_fixture.get("initial_workspace_sha256"),
+                    str(workspace_identity["marker_sha256"]),
+                )
         initial_hashes = {
             "workspace_read": sha256(read_canary),
             "workspace_write": sha256(write_canary),
@@ -1766,7 +2059,7 @@ def main() -> int:
         }
         workspace_initial_hashes = {
             path.name: sha256(path) for path in workspace.iterdir() if path.is_file()
-        } if args.mode in {"coding", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-result-fixture"} else {}
+        } if args.mode in {"coding", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"} else {}
 
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1802,6 +2095,9 @@ def main() -> int:
             ))
         if args.mode in {"real-model", "semantic-fixture", "semantic-result-fixture"}:
             build_command.append("--semantic-tools")
+            if workspace_identity_manifest_path is None:
+                raise RuntimeError("semantic signed trial omitted the workspace identity manifest")
+            build_command.extend(("--workspace-identity-manifest", str(workspace_identity_manifest_path)))
         if args.prebuilt_app is None:
             print(run(build_command, timeout=600))
         if args.mode in {"coding", "fake-result"}:
@@ -1886,6 +2182,11 @@ def main() -> int:
             raise RuntimeError("signed app build record does not bind to the current exact source SHA")
         if build_record.get("dsh_model_provider") != args.model_provider:
             raise RuntimeError("signed app provider does not match the requested experiment mode")
+        if (
+            workspace_identity is not None
+            and build_record.get("disposable_workspace_identity") != workspace_identity
+        ):
+            raise RuntimeError("signed app build record does not bind the exact disposable workspace identity")
         if args.mode == "real-model" and args.model_provider == "local" \
                 and build_record.get("dsh_model_id") != "bundled-cpu":
             raise RuntimeError("signed local-model app does not contain the configured CPU model")
@@ -2085,6 +2386,13 @@ def main() -> int:
         phase3_trial = None
         phase31_fixture = None
         result_fixture_report = None
+        workspace_identity_report = None
+        if workspace_identity is not None:
+            workspace_identity_report = evaluate_workspace_identity_binding(
+                identity=workspace_identity,
+                task_records=task_records,
+                stderr=stderr,
+            )
         node_pid = None
         descendant_pid = None
         descendant_group_clean = None
@@ -2445,6 +2753,10 @@ def main() -> int:
                     or len(task_record["workspace_requests"]) != 1:
                 raise RuntimeError("the signed fake-result check did not record its Kernel workspace request")
 
+        for evaluated in (phase3_trial, phase31_fixture, result_fixture_report):
+            if isinstance(evaluated, dict) and workspace_identity_report is not None:
+                evaluated["workspace_identity_binding"] = workspace_identity_report
+
         final_hashes = {
             "workspace_read": sha256(read_canary),
             "workspace_write": sha256(write_canary),
@@ -2473,14 +2785,17 @@ def main() -> int:
         if len(set(team_identifiers.values())) != 1:
             raise RuntimeError(f"signed components do not share one Team ID: {team_identifiers}")
 
+        acceptance_result = str(
+            phase31_fixture["status"] if isinstance(phase31_fixture, dict)
+            else result_fixture_report["status"] if isinstance(result_fixture_report, dict)
+            else phase3_trial["status"] if isinstance(phase3_trial, dict)
+            else "PASS"
+        )
+        if workspace_identity_report is not None and workspace_identity_report.get("status") != "PASS":
+            acceptance_result = "FAIL"
         report = {
             "schema": 2,
-            "result": str(
-                phase31_fixture["status"] if isinstance(phase31_fixture, dict)
-                else result_fixture_report["status"] if isinstance(result_fixture_report, dict)
-                else phase3_trial["status"] if isinstance(phase3_trial, dict)
-                else "PASS"
-            ),
+            "result": acceptance_result,
             "source_sha": source_sha,
             "pr41_base_sha": build_record.get("khaos_experiment_base_sha"),
             "dsh_sha": build_record.get("dsh_sha"),
@@ -2505,20 +2820,15 @@ def main() -> int:
                 trial_metadata.get("benchmark_dataset_sha256")
                 if isinstance(trial_metadata, dict) else None
             ),
-            "disposable_workspace_path": (
-                str(workspace) if args.mode == "real-model" and args.preserve_scratch else None
-            ),
-            "private_acceptance_path": (
-                trial_metadata.get("private_test_path")
-                if args.mode == "real-model" and args.preserve_scratch
-                and isinstance(trial_metadata, dict) else None
-            ),
+            "disposable_workspace_path": None,
+            "private_acceptance_path": None,
             "preserved_scratch": args.preserve_scratch,
-            "signed_app_path": str(app) if args.preserve_scratch else None,
+            "signed_app_path": None,
             "hostile_cordis_plugin": attack,
             "cordis_plugin_lifecycle": lifecycle,
             "agenthost_xpc_recovery": xpc_recovery,
             "signed_ui_evidence": ui_evidence,
+            "workspace_identity_binding": workspace_identity_report,
             "deep_code_signature_verified": True,
             "launcher_workspace_picker_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"},
             "launcher_tool_proposal_requested": args.mode in {"coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture", "semantic-result-fixture"},
@@ -2583,7 +2893,11 @@ def main() -> int:
             print(f"preserved_scratch={scratch}")
         else:
             temporary.cleanup()
-        return 0
+        identity_binding_failed = (
+            workspace_identity_report is not None
+            and workspace_identity_report.get("status") != "PASS"
+        )
+        return 2 if identity_binding_failed else 0
     except BaseException as error:
         failed_app = locals().get("app")
         if isinstance(failed_app, Path) and failed_app.exists():
@@ -2617,11 +2931,14 @@ def main() -> int:
             "mode": args.mode,
             "cancellation_case": args.cancellation_case,
             "source_sha": locals().get("source_sha"),
-            "scratch_directory": str(scratch),
+            "scratch_directory_sha256": hashlib.sha256(os.fsencode(str(scratch))).hexdigest(),
             "failure": f"{type(error).__name__}: {error}",
             "available_file_sha256": file_hashes,
             "app_bundle_preserved": (scratch / "Khaos DSH XPC Acceptance.app").exists(),
         }
+        if isinstance(locals().get("workspace_identity"), dict):
+            failure["workspace_identity_input"] = workspace_identity
+            failure["workspace_identity_binding"] = locals().get("workspace_identity_report")
         if args.mode in SIGNED_UI_MODES:
             try:
                 failed_task_records = launcher_task_records(failure_stdout)

@@ -11,8 +11,11 @@ from tools.build_dsh_xpc_acceptance_app import (
     apply_experimental_candidate_approval_identity,
     apply_experimental_launcher_semantic_trace,
     apply_experimental_telemetry_transport_client,
+    apply_experimental_workspace_identity_binding,
     candidate_b_fixed_script,
+    load_workspace_identity_manifest,
 )
+from tools.run_dsh_xpc_attack_acceptance import create_workspace_identity_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -78,6 +81,46 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             self.assertIn('maximum: 10_000', source)
             for field in ("tests_run", "failures", "errors", "skipped"):
                 self.assertIn(f'"{field}"', source)
+
+    def test_workspace_identity_manifest_is_owner_only_and_hash_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
+            manifest_path, generated = create_workspace_identity_manifest(workspace, "trial-a", root)
+
+            loaded = load_workspace_identity_manifest(manifest_path)
+            self.assertEqual(loaded, generated)
+            self.assertEqual(manifest_path.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn("workspace_path", loaded)
+
+            (workspace / "main.py").write_text("value = 2\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "fixture does not match"):
+                load_workspace_identity_manifest(manifest_path)
+
+    def test_workspace_identity_overlay_is_trial_bound_and_experimental_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
+            manifest_path, identity = create_workspace_identity_manifest(workspace, "trial-overlay", root)
+            loaded = load_workspace_identity_manifest(manifest_path)
+            source_root = root / "sources"
+            target = source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+            target.parent.mkdir(parents=True)
+            shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", target)
+
+            overlay = apply_experimental_workspace_identity_binding(source_root, loaded)
+            source = target.read_text(encoding="utf-8")
+
+        self.assertEqual(overlay["path"], "khaos/macos/TrustedWorkspaceLauncherMain.swift")
+        self.assertIn('private static let phase322TrialID = "trial-overlay"', source)
+        self.assertIn(identity["workspace_path_sha256"], source)
+        self.assertNotIn(str(workspace), source)
+        self.assertIn("approvalSHA256: approvalDigest", source)
+        self.assertIn("no Kernel request was submitted", source)
 
 
 if __name__ == "__main__":

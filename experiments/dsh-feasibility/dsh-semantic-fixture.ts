@@ -26,8 +26,11 @@ export function semanticCodingResponses() {
       return toolCallResponse('phase31-test-fee', 'run_tests', { profile: 'public' })
     },
     options => {
-      const test = JSON.parse(lastToolResult(options.messages)) as { ok?: unknown }
-      return test.ok === true
+      const test = JSON.parse(lastToolResult(options.messages)) as {
+        ok?: unknown
+        public_test_completion_hint?: unknown
+      }
+      return test.ok === true && typeof test.public_test_completion_hint === 'string'
         ? textResponse('The actual public tests passed after the controlled edit.')
         : textResponse('The actual public tests failed; no success is claimed.')
     },
