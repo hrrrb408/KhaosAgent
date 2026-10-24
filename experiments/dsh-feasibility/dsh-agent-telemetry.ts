@@ -29,7 +29,12 @@ const EVENTS = new Set([
   'KERNEL_OPERATION_STARTED',
   'KERNEL_OPERATION_COMPLETED',
   'LAUNCHER_TERMINAL_RESULT_DELIVERED',
+  'PUBLIC_TEST_RESULT_VERIFIED',
   'TOOL_RESULT_DELIVERED',
+  'TOOL_OPERATION_ABORTED',
+  'TOOL_RESULT_DISCARDED',
+  'NO_PROGRESS_DETECTED',
+  'TURN_END_OBSERVED',
   'AGENT_NEXT_TURN_STARTED',
   'SESSION_CONTINUITY_CHECK',
   'AGENT_TERMINATED',
@@ -39,10 +44,14 @@ const FIELDS = new Set([
   'agent_turn_id', 'agent_step_id', 'model_call_id', 'tool_call_id', 'tool_name',
   'operation_seq', 'invocation_sha256', 'argument_bytes', 'file_count',
   'write_operation', 'duration_ms', 'status', 'error_code', 'returncode',
+  'tool_operations_remaining', 'write_operations_remaining', 'repair_attempts_remaining',
   'can_continue', 'result_bytes', 'result_sha256', 'observed_tool_result',
   'launcher_result_sha256', 'dsh_event_seq', 'token_input', 'token_output', 'model_provider', 'model_id',
   'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
   'kernel_result', 'runner_status', 'commit_status', 'launcher_ok',
+  'turn_end_sequence', 'assistant_message_count', 'tool_result_count', 'turn_end_reason',
+  'last_message_role', 'last_message_text_only', 'unresolved_kernel_result',
+  'tests_run', 'failures', 'errors', 'skipped',
 ])
 
 function safeId(value: string): boolean {
@@ -66,7 +75,7 @@ export class DshAgentTelemetry {
     readonly benchmarkTaskId: string,
     private readonly sink: (record: Readonly<Record<string, unknown>>) => void,
   ) {
-    if (!safeId(trialId) || !safeId(sessionId) || !/^[A-D]$/u.test(benchmarkTaskId)) {
+    if (!safeId(trialId) || !safeId(sessionId) || !safeId(benchmarkTaskId)) {
       throw new Error('invalid_telemetry_identity')
     }
   }

@@ -1,0 +1,306 @@
+{
+  "dataset_sha256": "d163fd20cff2db44cb0dc5f5260542666b098bbce403a0aafd30fa8b3e46615d",
+  "datasets": {
+    "phase31_replay": {
+      "dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+      "max_repair_attempts": 3,
+      "max_tool_operations": 8,
+      "max_wall_time_seconds": 600,
+      "max_write_operations": 3,
+      "task_fixtures_and_hidden_tests_bound_by": "reports/dsh-phase3-1/benchmark-freeze.json",
+      "task_ids": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "task_prompts_preserved": true
+    },
+    "phase32_holdout": {
+      "dataset_sha256": "d163fd20cff2db44cb0dc5f5260542666b098bbce403a0aafd30fa8b3e46615d",
+      "max_repair_attempts": 3,
+      "max_tool_operations": 12,
+      "max_wall_time_seconds": 600,
+      "max_write_operations": 3,
+      "task_count": 8,
+      "task_ids": [
+        "H01",
+        "H02",
+        "H03",
+        "H04",
+        "H05",
+        "H06",
+        "H07",
+        "H08"
+      ],
+      "task_records": {
+        "H01": {
+          "canary_sha256": "cbd46fb7f4c06a6978ab55c270e49af82380ddbedc5e3284b8880f2516c2cdaf",
+          "hidden_test_sha256": "f356eef8d55730df7c6ec836c40271487dbcc4a97569f8ec69d90c6a886520e1",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "e8dcd853ed3c3b8a041474e46ab0412b0338729ab053ae6658a301192caeadd6",
+          "public_fixture_sha256": {
+            "labels.py": "0067dd7a97385123d81c1d6f27897b18aff87714ccd93555b43e6bd9283e302b",
+            "test_public.py": "2664f91ed84588662a03445cc820218ad307819267b64107466c7355d36fa916"
+          },
+          "read_scope": [
+            "labels.py",
+            "test_public.py"
+          ],
+          "task_id": "H01",
+          "title": "Whitespace-normalized labels",
+          "write_scope": [
+            "labels.py"
+          ]
+        },
+        "H02": {
+          "canary_sha256": "f465005117c4723642caf6475d80fac4a7bd658de24e1057e330760a63188e63",
+          "hidden_test_sha256": "8157062e5e08a2ea0d045d923f6e76ba9c9b216aa1ed55a4087e225544567207",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "2d9b6acc9449aca6c808febff4f19a9b01a8fcedbb053fec81a280e6309001ad",
+          "public_fixture_sha256": {
+            "shipping.py": "c8d97a23b142b39ae8e7d544aa8f98b36075ea9a82334c53a085c6ec8da49514",
+            "test_public.py": "1623bb4d9adcfc1d388b14ab0270f830bfe25703201fe385e4d0920cfac16305"
+          },
+          "read_scope": [
+            "shipping.py",
+            "test_public.py"
+          ],
+          "task_id": "H02",
+          "title": "Tiered shipping cost",
+          "write_scope": [
+            "shipping.py"
+          ]
+        },
+        "H03": {
+          "canary_sha256": "f84626a263aafd2e95d7e9c1e4911e20506c08433ef40f6ca554ba035c8c1be2",
+          "hidden_test_sha256": "46f4f2b20e818f1878e2ac92441a5ff5a509d3b5caaddb273b640d3df7dfa866",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "e45de5fa0351261ccdaeb1375a4fc4cb1a335851b1d82cf3c476ddda24c7789e",
+          "public_fixture_sha256": {
+            "test_public.py": "e36312a2cdbf5b41bd44346e454e7c3090415923c18e0dcdf6c893eba1ce4154",
+            "windows.py": "22e92b23de120262596553519c48ac1e6a385a8d69329111339f7385bf2ced3b"
+          },
+          "read_scope": [
+            "windows.py",
+            "test_public.py"
+          ],
+          "task_id": "H03",
+          "title": "Half-open time-window overlap",
+          "write_scope": [
+            "windows.py"
+          ]
+        },
+        "H04": {
+          "canary_sha256": "48f03be43f8382c32c1ef6802edbe656f482215c47331ab6908eeba49324de0b",
+          "hidden_test_sha256": "f02530e43996cca31170bb00b5a8fd855394f4d99fe141e961d775a06293dc48",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "09132c0a9d0a3c19b4bba030b672f2b1ea631271f60feb87941dece7fcbc60f6",
+          "public_fixture_sha256": {
+            "retry.py": "e8c8a0c536380e7f2a3f81572eb92dc42f68685205dacc5c2c2b07fa88fc2894",
+            "test_public.py": "513307862b010fb98cb64dff7fe6f577ed7c1052fe73914bd9936b31ef28e174"
+          },
+          "read_scope": [
+            "retry.py",
+            "test_public.py"
+          ],
+          "task_id": "H04",
+          "title": "Bounded retry limit parsing",
+          "write_scope": [
+            "retry.py"
+          ]
+        },
+        "H05": {
+          "canary_sha256": "d0ff01c663f23069a739d13a19d16ab9087043ead49120fdebd9192e355ebe4a",
+          "hidden_test_sha256": "36990425db29385e58e00ee940164cf6749dbfefb35f7951575eb186c56b90e4",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "5460af09a2ffe4c9fc1ef49bbb452b2ea3411ef131d161f059ff9cf07bec977f",
+          "public_fixture_sha256": {
+            "ratio.py": "bfb6e6d72a85aad4df46a7013cfecc7613875d957bed8272f74131e7d426ed59",
+            "test_public.py": "7356225c6c1b36224cdbd42fcb37622a106bfb81e12144eb6ce14a52f34f987f"
+          },
+          "read_scope": [
+            "ratio.py",
+            "test_public.py"
+          ],
+          "task_id": "H05",
+          "title": "Repair zero-denominator handling",
+          "write_scope": [
+            "ratio.py"
+          ]
+        },
+        "H06": {
+          "canary_sha256": "0ba55d69332f865a9d276e8ce4ec4da50590ac53d4c26256ea04a380973d1a6f",
+          "hidden_test_sha256": "06aecb3569525d00dda6ae3e2605eab5abaafcdbd5c864e987d3908ab3c6ac21",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "513b915a23fa8392029e245324df5e34ae98b2609d7f139b2396a6929ebfde03",
+          "public_fixture_sha256": {
+            "pagination.py": "41bc7c166d8c21db191d7232f701f3fdcf3680cfda04d296cac755a3dbcf87c1",
+            "test_public.py": "0824ea0aae77288d0f8ecc20a47c8c6d5ebd25a412ddcabd55a7c908a2a7ac2c"
+          },
+          "read_scope": [
+            "pagination.py",
+            "test_public.py"
+          ],
+          "task_id": "H06",
+          "title": "Repair page-number clamping",
+          "write_scope": [
+            "pagination.py"
+          ]
+        },
+        "H07": {
+          "canary_sha256": "4d2c0dd692459b6ddfb4f57df9da46f98a4ea72b91a7108d736bb28eba96144d",
+          "hidden_test_sha256": "e01ddd591fc644ec5aa168ae3331f372b9fcbb2ec481cf2292de2c158f68ee8b",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "d2b5c462bb2b3c9f58bcc9aff921949101bf8d2c3a50f39fa2360ea1d39dfc13",
+          "public_fixture_sha256": {
+            "event_log.py": "0edc37a92351c26406ffeff18b994054372cf8d631508b93ce9b5402bdd68d9f",
+            "test_public.py": "8fcacda47729d518233675d93c6bbe7bb9c75bde7634e226d170bf2afaf71d99"
+          },
+          "read_scope": [
+            "event_log.py",
+            "test_public.py"
+          ],
+          "task_id": "H07",
+          "title": "Multi-step event log",
+          "write_scope": [
+            "event_log.py"
+          ]
+        },
+        "H08": {
+          "canary_sha256": "7c0e8a348fc2cceaba643fcb5e561c434a649c5f74e6ad4135a3f930a51f04ec",
+          "hidden_test_sha256": "7115ee4d48337789525994802b3beb2bef74c190f02d56b4491409f85de1605c",
+          "max_repair_attempts": 3,
+          "max_tool_operations": 12,
+          "max_wall_time_seconds": 600,
+          "max_write_operations": 3,
+          "prompt_sha256": "80979c775eb0e2232dbc6672e81d0fcd0b4bd32e6482e213a42e7c9e2191f985",
+          "public_fixture_sha256": {
+            "seat_ledger.py": "5136f48c0e3823734af17f571b85320c28cff40cdc567f054e3b2948fd930cdd",
+            "test_public.py": "c5ce102ddcc747bfbf50aba8371f825c199b33d866e9c8914f2bafb657ca0800"
+          },
+          "read_scope": [
+            "seat_ledger.py",
+            "test_public.py"
+          ],
+          "task_id": "H08",
+          "title": "Multi-step seat ledger",
+          "write_scope": [
+            "seat_ledger.py"
+          ]
+        }
+      }
+    }
+  },
+  "experiment": {
+    "branch_base_sha": "8ddabbcfdfcc2af8899ca30a4717ec82c4014b21",
+    "implementation_commit_sha": "49511756dab3447a17c460f28381bae7de9d044d",
+    "phase": "3.2",
+    "phase31_dataset_sha256": "033f5d9c776f025e21642911b6d13e2afcc32b876a39fab377ae0a6279dc5091",
+    "phase31_freeze_sha256": "ff0075a1f44b21be91e685c153a6fb22bb4f02301a62496e930bbc81de35f65d",
+    "phase31_results_preserved": {
+      "first_pass_success": "4/8",
+      "hidden_test_success": "6/8",
+      "task_c_repair_success": "2/2",
+      "task_d_success": "0/2",
+      "trials": 8
+    },
+    "phase3_original_result_preserved": {
+      "first_pass_success": "0/8",
+      "hidden_test_success": "0/8"
+    },
+    "required_head_sha": "8ddabbcfdfcc2af8899ca30a4717ec82c4014b21"
+  },
+  "frozen_at_utc": "2026-10-24T01:27:11Z",
+  "runtime": {
+    "dsh_expected_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "dsh_sha": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "model_file_sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad",
+    "model_license_sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+    "model_quantization": "NOT_MEASURED",
+    "model_runtime_sha256": "134c1054f24057b12eeada8974e5e20815bba07a89ba2e79a3376c233a8b2fdd",
+    "model_upstream_identity": "UNKNOWN; Phase 3.1 did not record a verified upstream model name",
+    "node_archive_sha256": "1c3a9e78da501bbc1f0c99fbbb69bb7c722bc7a9bf30128b21ea502f3905892a",
+    "node_binary_sha256": "0d005c18e095027ca8f9fe1cc1126f767ee4ad7b004f4d6fb781ec4228a7c5d1",
+    "node_version": "v22.19.0",
+    "provider": "local_cpu_llama_cpp",
+    "remote_data_transfer": false
+  },
+  "schema": "khaos-dsh-phase3-2-benchmark-freeze-v1",
+  "source_sha256": {
+    "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift": "55b5a68caababfb6e04ae38ccc0232042f0eb8c1d16edda13a9e33217f6490e8",
+    "experiments/dsh-feasibility/DSHModelBridgePeerProbe.swift": "3153a3597715eb0a810ee962256f273be1a4f51046bddbd1ca72b1126172908b",
+    "experiments/dsh-feasibility/DSHModelBridgeProtocol.swift": "676b4122392e3c0c2dc81aaa1288c1e487378f49f198b92316ca629b4a5cc2f9",
+    "experiments/dsh-feasibility/DSHModelBridgeService.swift": "3ba50fee40654af74bff2f5b418cb0b99ca13f03b7faa5f06b4f3938607f6dc5",
+    "experiments/dsh-feasibility/dsh-agent-telemetry.ts": "ce1df05604f65dd6866c048acab7ad2d167e66aafd3e8a555a2337a794c8c86a",
+    "experiments/dsh-feasibility/dsh-agenthost-runtime.ts": "b6e84a227f260a64aaefc8c98afc1e3229265ab58303ee2f2f76e083a4a93d4b",
+    "experiments/dsh-feasibility/dsh-capability-lifecycle-probe.ts": "d510946aa2adcc65335bbeb1548802895a464bfdde8c70c40c5be12c7ee1115c",
+    "experiments/dsh-feasibility/dsh-semantic-fixture.ts": "b9f8677fd8f7d72e804403d81e69cad2fa43cfc53452d83b38706ed8d3524b8c",
+    "experiments/dsh-feasibility/dsh-tool-result.ts": "9b6626ac66a4e8bb92610c5b75952e93f5f6df9a5443b95749ce90616d8f05a6",
+    "experiments/dsh-feasibility/khaos-capability-adapter.ts": "4ef0003ee45fa96bc5370362b131af38bf2982f537968b893660c2378cf68db7",
+    "experiments/dsh-feasibility/khaos-local-model.ts": "8b98ae024536f07f97705bc58bf09fca2abb1b3b7b08be89412d932def98368e",
+    "experiments/dsh-feasibility/khaos-model-bridge.test.ts": "7267c92550174d39099ce7ce7b0e31bcdcf5d24e4f015bfc88f03b02cc44a118",
+    "experiments/dsh-feasibility/khaos-model-bridge.ts": "9381551b9d282ef8c43c898a69abe0117c27affc228060ffcf5bd42da7bdaa0f",
+    "experiments/dsh-feasibility/khaos-semantic-tools.spec.ts": "b9254642ad26bc4aad7bea74a04414b99e896c45520bda97975459057d21251b",
+    "experiments/dsh-feasibility/khaos-semantic-tools.ts": "4a9719948aca00d1fcbcbb2a9de83d8c81a713ec0dffe0d94c31a85f248d69ab",
+    "experiments/dsh-feasibility/malicious-cordis-plugin.ts": "293680aeec1d37e561cba88e0a894409a27ed24e556b02414e68ee8c14a78c51",
+    "experiments/dsh_phase3/benchmark.py": "73507dda793a29223e5b0ccbf9e249f73c82125e1232fa718aa1ca4e49837689",
+    "experiments/dsh_phase3/plugin_evolution/baseline.ts": "c64707b5e2eda8f8ab4748745cbe4f4ab57d81587871f063900c4e67c16ec0c5",
+    "experiments/dsh_phase3/plugin_evolution/candidate_v1.ts": "1f4e784588df0a7d20a36ac0f0fb07c2bb66935938aec5f479e1990a5c0c8579",
+    "experiments/dsh_phase3/plugin_evolution/malicious_candidate.ts": "152998b8c83942cb7972ed2393d9c7891ac5e628cf6c8d1c6cb01ad0ffd0d04d",
+    "experiments/dsh_phase3/plugin_evolution/runner.ts": "44ff30cdfbb3cf4e9ee73b0a39085e9aa49de525cce03a6ba434822be46bfc0a",
+    "experiments/dsh_phase3/plugin_evolution/tag-plugin.ts": "51ecbf725658c07ab64a426ae4fb8ea173a511c045f1f7cae2aba3b8fc2a2abf",
+    "experiments/dsh_phase3/test_acceptance_policy.py": "36376526389ff48d39c8f62ccf0bf05ca64eb232e69d708060cc713595f1ccaf",
+    "experiments/dsh_phase3/test_benchmark.py": "8dc4acbd1e266fa21915e4fc9a535a2727395ad3d2145df4a11381d5aacd3858",
+    "experiments/dsh_phase3_2/benchmark.py": "20fd6afc9227ebfd807425c16127ba407ad317698ed793618812f09d54fe250c",
+    "experiments/dsh_phase3_2/evaluate_trials.py": "ea0abe8cb2a42e3d5a7b168bcd957664688d527e2969865f79b79b6def22a7fa",
+    "experiments/dsh_phase3_2/sandboxed_eval.py": "47e044842aded91299823a25ca0994b4106e198927cf49f3e1360d76d63b4b4b",
+    "experiments/dsh_phase3_2/test_benchmark.py": "5930cc4028255db19e667edf948927bc1ab43f77496bd758fc600d0fe148b7fd",
+    "experiments/dsh_phase3_2/test_evaluate_trials.py": "6664ce7a485745d11522c91d9b3cac38e14e7ea2876ce849cfa3ce889c06bfec",
+    "tests/macos_xpc_probe/TrustedEditApprovalProbe.swift": "cf2141d8cd22f0fedc313e1d566e630cf8aace6a1aad126c629e99ea11b7938c",
+    "tests/signed_cancellation_fixture.py": "40a754e45578c6b4edf39a751dd2d0f84ec94950a67a71c44af936121f613506",
+    "tools/build_dsh_xpc_acceptance_app.py": "346fe22293c18d6795b43310ec9b0551ba4ae3679e77d8792a2382538f7470ac",
+    "tools/freeze_dsh_phase3_2_benchmark.py": "00063c304327cd5c4ec31370cee25d2462aba35cb24ae67b5ca900424dee7150",
+    "tools/run_dsh_feasibility_probe.py": "d5451999701fc6e2a05a65c0de60113409df50d78a354d947f4344bc92899734",
+    "tools/run_dsh_model_bridge_tests.py": "712fb5a4023705b6625de7c9928cb9cbc57ee54559ed0df8ad6a7815d64967e7",
+    "tools/run_dsh_plugin_evaluation.py": "1c116ef439579631a2b6e37d3ae8ee697bcb624f8d2e07710def18f9c0d005b8",
+    "tools/run_dsh_signed_runtime_probe.py": "bc921e86340890579b38265461e504e55146a5731e5ae07ad95236082602f8c8",
+    "tools/run_dsh_xpc_attack_acceptance.py": "69d1e30d288b6acf1e2e5221a7e0cb198e27d6dfb3ab679bfd1f4e1129b1bc91"
+  },
+  "trial_plan": {
+    "authorization": "Owner-delegated disposable experiment",
+    "minimum_total_trials": 24,
+    "operator": "codex_agent",
+    "owner_personally_clicked": false,
+    "phase31_a_to_d_comparison_trials": 8,
+    "phase31_task_d_replays": 2,
+    "phase32_holdout_trials": 16,
+    "phase32_stage_b_task_a_trials": 2,
+    "planned_total_trials_including_focused_and_d_replays": 28,
+    "trial_ids_per_task": [
+      "1",
+      "2"
+    ]
+  }
+}

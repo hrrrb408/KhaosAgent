@@ -146,6 +146,7 @@ def build_dsh_bundle(
             "dsh-capability-lifecycle-probe.ts",
             "khaos-capability-adapter.ts",
             "khaos-semantic-tools.ts",
+            "dsh-agent-lifecycle.ts",
             "dsh-semantic-fixture.ts",
             "dsh-agent-telemetry.ts",
             "dsh-tool-result.ts",

@@ -38,8 +38,14 @@ def main() -> int:
         shutil.copy2(source / "khaos-local-model.ts", staging / "khaos-local-model.ts")
         shutil.copy2(source / "dsh-agent-telemetry.ts", staging / "dsh-agent-telemetry.ts")
         shutil.copy2(source / "khaos-model-bridge.test.ts", staging / "khaos-model-bridge.test.ts")
+        shutil.copy2(source / "dsh-agent-lifecycle.ts", staging / "dsh-agent-lifecycle.ts")
+        shutil.copy2(source / "dsh-agent-lifecycle.test.ts", staging / "dsh-agent-lifecycle.test.ts")
         result = subprocess.run(
-            [str(node), "--import", "tsx", "--test", str(staging / "khaos-model-bridge.test.ts")],
+            [
+                str(node), "--import", "tsx", "--test",
+                str(staging / "khaos-model-bridge.test.ts"),
+                str(staging / "dsh-agent-lifecycle.test.ts"),
+            ],
             cwd=dsh_source,
             check=False,
             text=True,

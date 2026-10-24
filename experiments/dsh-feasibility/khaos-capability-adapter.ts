@@ -162,11 +162,10 @@ function parseLauncherTrace(value: unknown): LauncherOperationTrace {
     throw new Error('invalid Launcher trace')
   }
   const ids = [
-    record.trial_id, record.dsh_session_id, record.tool_call_id,
+    record.trial_id, record.dsh_session_id, record.benchmark_task_id, record.tool_call_id,
     record.launcher_task_id, record.launcher_request_id,
   ]
   if (!ids.every(item => typeof item === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/u.test(item))
-    || !['A', 'B', 'C', 'D'].includes(record.benchmark_task_id as string)
     || !['read_file', 'replace_text', 'run_tests'].includes(record.tool_name as string)
     || !Number.isSafeInteger(record.agent_turn_id) || (record.agent_turn_id as number) < 0
     || !Number.isSafeInteger(record.agent_step_id) || (record.agent_step_id as number) < 0

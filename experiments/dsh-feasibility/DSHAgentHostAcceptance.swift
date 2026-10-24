@@ -344,6 +344,10 @@ private final class DSHRuntimeProcess {
             "dsh_event_seq", "token_input", "token_output", "model_provider", "model_id",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256", "approval_status",
             "kernel_result", "runner_status", "commit_status", "launcher_ok",
+            "turn_end_sequence", "assistant_message_count", "tool_result_count", "turn_end_reason",
+            "last_message_role", "last_message_text_only", "unresolved_kernel_result",
+            "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
+            "tests_run", "failures", "errors", "skipped",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -353,7 +357,8 @@ private final class DSHRuntimeProcess {
             "TOOL_PROPOSAL_LOWERED",
             "LAUNCHER_PROPOSAL_SUBMITTED", "APPROVAL_ACCEPTED", "APPROVAL_DENIED",
             "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
-            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "TOOL_RESULT_DELIVERED",
+            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "PUBLIC_TEST_RESULT_VERIFIED", "TOOL_RESULT_DELIVERED",
+            "TOOL_OPERATION_ABORTED", "TOOL_RESULT_DISCARDED", "NO_PROGRESS_DETECTED", "TURN_END_OBSERVED",
             "AGENT_NEXT_TURN_STARTED", "SESSION_CONTINUITY_CHECK",
             "DSH_ASSISTANT_MESSAGE_COMMITTED", "AGENT_TERMINATED",
         ]
@@ -377,18 +382,35 @@ private final class DSHRuntimeProcess {
               let trialID = safeID(record["trial_id"]),
               let sessionID = safeID(record["dsh_session_id"]),
               let benchmarkTaskID = record["benchmark_task_id"] as? String,
-              ["A", "B", "C", "D"].contains(benchmarkTaskID),
+              safeID(benchmarkTaskID) != nil,
               boundedInteger("agent_turn_id", maximum: 1_000_000),
               boundedInteger("agent_step_id", maximum: 1_000_000),
-              boundedInteger("operation_seq", maximum: 8),
+              boundedInteger("operation_seq", maximum: 12),
               boundedInteger("argument_bytes", maximum: 32 * 1_024),
               boundedInteger("file_count", maximum: 8),
               boundedInteger("duration_ms", maximum: 600_000),
               boundedInteger("result_bytes", maximum: 4 * 1_024),
               boundedInteger("dsh_event_seq", maximum: 1_000_000),
+              boundedInteger("turn_end_sequence", maximum: 1_000_000),
+              boundedInteger("assistant_message_count", maximum: 128),
+              boundedInteger("tool_result_count", maximum: 128),
               boundedInteger("token_input", maximum: 1_000_000),
-              boundedInteger("token_output", maximum: 1_000_000) else {
+              boundedInteger("token_output", maximum: 1_000_000),
+              boundedInteger("tool_operations_remaining", maximum: 12),
+              boundedInteger("write_operations_remaining", maximum: 3),
+              boundedInteger("repair_attempts_remaining", maximum: 3),
+              boundedInteger("tests_run", maximum: 10_000),
+              boundedInteger("failures", maximum: 10_000),
+              boundedInteger("errors", maximum: 10_000),
+              boundedInteger("skipped", maximum: 10_000) else {
             return false
+        }
+        if event == "PUBLIC_TEST_RESULT_VERIFIED" {
+            guard record["tool_name"] as? String == "run_tests",
+                  let status = record["status"] as? String,
+                  ["passed", "failed", "invalid", "unverified", "mismatch"].contains(status) else {
+                return false
+            }
         }
         if event == "SESSION_STARTED" {
             guard telemetrySequence == 0, telemetryTrialID == nil, telemetrySessionID == nil,
@@ -411,12 +433,16 @@ private final class DSHRuntimeProcess {
             guard let digest = record[name] as? String,
                   digest.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil else { return false }
         }
-        for name in ["write_operation", "can_continue", "observed_tool_result", "launcher_ok"] where record[name] != nil {
+        for name in [
+            "write_operation", "can_continue", "observed_tool_result", "launcher_ok",
+            "last_message_text_only", "unresolved_kernel_result",
+        ] where record[name] != nil {
             guard record[name] is Bool else { return false }
         }
         for name in [
             "status", "error_code", "model_provider", "model_id", "approval_status",
             "kernel_result", "runner_status", "commit_status",
+            "turn_end_reason", "last_message_role",
         ] where record[name] != nil {
             guard let value = record[name] as? String, value.utf8.count <= 128,
                   value.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil else { return false }
@@ -1004,6 +1030,10 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                     "tool_result_count": diagnostics["toolResultCount"] ?? NSNull(),
                     "last_message_role": diagnostics["lastMessageRole"] ?? NSNull(),
                     "last_message_block_types": diagnostics["lastMessageBlockTypes"] ?? NSNull(),
+                    "terminal_status": diagnostics["terminalStatus"] ?? NSNull(),
+                    "incomplete_reason": diagnostics["incompleteReason"] ?? NSNull(),
+                    "turn_end_reason": diagnostics["turnEndReason"] ?? NSNull(),
+                    "turn_end_sequence": diagnostics["turnEndSequence"] ?? NSNull(),
                     "adapter_rejected_proposal_count": diagnostics["adapterRejectedProposalCount"] ?? NSNull(),
                     "agent_error_count": (diagnostics["agentErrors"] as? [Any])?.count ?? 0,
                 ]

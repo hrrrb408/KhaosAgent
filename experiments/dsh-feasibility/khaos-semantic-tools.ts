@@ -12,15 +12,37 @@ import {
 
 const MAX_PATH_BYTES = 128
 const MAX_TEXT_BYTES = 4 * 1024
-const MAX_OPERATIONS = 8
-const MAX_WRITES = 3
-const MAX_REPAIRS = 3
+const MAX_ALLOWED_OPERATIONS = 12
+const MAX_ALLOWED_WRITES = 3
+const MAX_ALLOWED_REPAIRS = 3
 const READ_SCRIPT = 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),end="")'
 // Avoid directory discovery so the fixed test profile stays within file-scoped read authority.
-const TEST_SCRIPT = 'import pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); raise SystemExit(not result.wasSuccessful())'
+const TEST_RESULT_MARKER = 'KHAOS_TEST_RESULT='
+const TEST_SCRIPT = 'import json,pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); successful=result.testsRun>0 and result.wasSuccessful(); print("KHAOS_TEST_RESULT="+json.dumps({"tests_run":result.testsRun,"failures":len(result.failures),"errors":len(result.errors),"skipped":len(result.skipped),"successful":successful},sort_keys=True,separators=(",",":"))); raise SystemExit(0 if successful else 2 if result.testsRun==0 else 1)'
 const TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export type SemanticToolName = typeof TOOL_NAMES[number]
+
+interface SemanticToolResult extends KhaosToolResult {
+  readonly remaining_budget: {
+    readonly tool_operations: number
+    readonly write_operations: number
+    readonly repair_attempts: number
+  }
+  readonly test_result?: PublicTestVerification
+  readonly public_test_completion_hint?: string
+  readonly no_progress?: 'recovery_feedback' | 'final_only'
+  readonly recovery_feedback?: string
+}
+
+export interface PublicTestVerification {
+  readonly status: 'passed' | 'failed' | 'invalid' | 'unverified' | 'mismatch'
+  readonly tests_run?: number
+  readonly failures?: number
+  readonly errors?: number
+  readonly skipped?: number
+  readonly error_code?: string
+}
 
 export interface KhaosCodingToolPolicy {
   readonly trialId: string
@@ -28,9 +50,10 @@ export interface KhaosCodingToolPolicy {
   readonly readFiles: readonly string[]
   readonly writeFiles: readonly string[]
   readonly fixedEditScript: string
+  readonly maxToolOperations: number
+  readonly maxWriteOperations: number
+  readonly maxRepairAttempts: number
 }
-
-type Phase = 'read' | 'edit' | 'verify' | 'repair' | 'complete'
 
 function bytes(value: string): number {
   return Buffer.byteLength(value, 'utf8')
@@ -99,19 +122,22 @@ function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex')
 }
 
-function operationSucceeded(result: KhaosToolResult): boolean {
-  return result.ok && (result.returncode === undefined || result.returncode === 0)
-}
-
 function validatePolicy(policy: KhaosCodingToolPolicy): void {
   const idValid = /^[A-Za-z0-9_.:-]{1,128}$/u.test(policy.trialId)
+  const taskIdValid = /^[A-Za-z0-9_.:-]{1,128}$/u.test(policy.taskId)
   const validList = (values: readonly string[]) => values.length > 0
     && values.length <= 8
     && new Set(values).size === values.length
     && values.every(safeRelativePath)
-  if (!idValid || !/^[A-D]$/u.test(policy.taskId)
+  if (!idValid || !taskIdValid
     || !validList(policy.readFiles) || !validList(policy.writeFiles)
     || !policy.writeFiles.every(path => policy.readFiles.includes(path))
+    || !Number.isSafeInteger(policy.maxToolOperations) || policy.maxToolOperations < 1
+    || policy.maxToolOperations > MAX_ALLOWED_OPERATIONS
+    || !Number.isSafeInteger(policy.maxWriteOperations) || policy.maxWriteOperations < 0
+    || policy.maxWriteOperations > MAX_ALLOWED_WRITES
+    || !Number.isSafeInteger(policy.maxRepairAttempts) || policy.maxRepairAttempts < 0
+    || policy.maxRepairAttempts > MAX_ALLOWED_REPAIRS
     || !policy.fixedEditScript.startsWith('exec(')
     || !policy.fixedEditScript.endsWith(')')
     || bytes(policy.fixedEditScript) > MAX_TEXT_BYTES) {
@@ -123,6 +149,16 @@ function proposalDigest(proposal: KhaosShellProposal): string {
   return sha256(JSON.stringify({ argv: proposal.argv, readScope: proposal.readScope, writeScope: proposal.writeScope }))
 }
 
+function observationDigest(result: KhaosToolResult): string {
+  return sha256(JSON.stringify({
+    ok: result.ok,
+    canContinue: result.canContinue,
+    returncode: result.returncode ?? null,
+    commitStatus: result.launcherTrace?.commit_status ?? null,
+    text: result.text,
+  }))
+}
+
 function outputSchema() {
   return {
     schema: {
@@ -132,10 +168,109 @@ function outputSchema() {
         canContinue: { type: 'boolean', required: true },
         text: { type: 'string', required: true },
         returncode: { type: 'integer' },
+        test_result: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['passed', 'failed', 'invalid', 'unverified', 'mismatch'], required: true },
+            tests_run: { type: 'integer' },
+            failures: { type: 'integer' },
+            errors: { type: 'integer' },
+            skipped: { type: 'integer' },
+            error_code: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
+        public_test_completion_hint: { type: 'string' },
+        no_progress: { type: 'string', enum: ['recovery_feedback', 'final_only'] },
+        recovery_feedback: { type: 'string' },
+        remaining_budget: {
+          type: 'object',
+          properties: {
+            tool_operations: { type: 'integer', required: true },
+            write_operations: { type: 'integer', required: true },
+            repair_attempts: { type: 'integer', required: true },
+          },
+          additionalProperties: false,
+          required: true,
+        },
       },
       additionalProperties: false,
     },
-    render: (_args: unknown, result: KhaosToolResult) => [{ type: 'text' as const, text: JSON.stringify(result) }],
+    render: (_args: unknown, result: SemanticToolResult) => [{ type: 'text' as const, text: JSON.stringify(result) }],
+  }
+}
+
+function exactResultRecord(value: unknown, expectedKeys: readonly string[]): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  return Object.keys(record).sort().join(',') === [...expectedKeys].sort().join(',')
+    ? record : undefined
+}
+
+function verifyPublicTestResult(result: KhaosToolResult): PublicTestVerification {
+  if (!Number.isSafeInteger(result.returncode)) {
+    return { status: 'unverified', error_code: 'runner_result_unknown' }
+  }
+  let output: Record<string, unknown> | undefined
+  try {
+    output = exactResultRecord(JSON.parse(result.text), [
+      'added', 'deleted', 'modified', 'returncode', 'stderr', 'stderr_truncated', 'stdout', 'stdout_truncated',
+    ])
+  } catch {
+    output = undefined
+  }
+  if (!output || output.returncode !== result.returncode
+    || typeof output.stdout !== 'string' || typeof output.stderr !== 'string'
+    || typeof output.stdout_truncated !== 'boolean' || typeof output.stderr_truncated !== 'boolean'
+    || !['added', 'modified', 'deleted'].every(key =>
+      Number.isSafeInteger(output?.[key]) && (output?.[key] as number) >= 0)) {
+    return { status: 'unverified', error_code: 'runner_result_unverified' }
+  }
+  if (output.stdout_truncated || output.stderr_truncated) {
+    return { status: 'unverified', error_code: 'runner_output_truncated' }
+  }
+  const marker = (output.stdout as string).split(/\r?\n/u)
+    .filter(line => line.startsWith(TEST_RESULT_MARKER)).at(-1)
+  if (!marker) return { status: 'unverified', error_code: 'test_summary_missing' }
+  let summary: Record<string, unknown> | undefined
+  try {
+    summary = exactResultRecord(JSON.parse(marker.slice(TEST_RESULT_MARKER.length)), [
+      'errors', 'failures', 'skipped', 'successful', 'tests_run',
+    ])
+  } catch {
+    summary = undefined
+  }
+  if (!summary
+    || !['tests_run', 'failures', 'errors', 'skipped'].every(key =>
+      Number.isSafeInteger(summary?.[key]) && (summary?.[key] as number) >= 0)
+    || typeof summary.successful !== 'boolean') {
+    return { status: 'unverified', error_code: 'test_summary_invalid' }
+  }
+  const testsRun = summary.tests_run as number
+  const failures = summary.failures as number
+  const errors = summary.errors as number
+  const skipped = summary.skipped as number
+  if (skipped > testsRun || failures + errors + skipped > testsRun) {
+    return { status: 'unverified', error_code: 'test_summary_invalid' }
+  }
+  if (testsRun === 0 || testsRun === skipped) {
+    return { status: 'invalid', tests_run: testsRun, failures, errors, skipped, error_code: 'zero_tests_executed' }
+  }
+  const summaryPassed = summary.successful === true && failures === 0 && errors === 0
+  const launcherPassed = result.returncode === 0 && result.ok
+  const summaryFailed = summary.successful === false && (failures > 0 || errors > 0)
+  const launcherFailed = result.returncode !== 0 && !result.ok
+  if ((summary.successful === false && !summaryFailed)
+    || summaryPassed !== launcherPassed || summaryFailed !== launcherFailed
+    || summaryPassed === summaryFailed) {
+    return { status: 'mismatch', tests_run: testsRun, failures, errors, skipped, error_code: 'test_result_mismatch' }
+  }
+  return {
+    status: summaryPassed ? 'passed' : 'failed',
+    tests_run: testsRun,
+    failures,
+    errors,
+    skipped,
   }
 }
 
@@ -163,25 +298,34 @@ export function createKhaosSemanticToolsPlugin(
   policy: KhaosCodingToolPolicy,
   telemetry: DshAgentTelemetry,
   setVisibleTools: (names: readonly SemanticToolName[]) => void,
+  onNoProgressLimit?: () => void,
+  onToolBudgetExhausted?: () => void,
 ) {
   validatePolicy(policy)
   const session = new KhaosProposalSession(port, () => undefined)
-  const readFiles = new Set(policy.readFiles)
   const seenCallIds = new Set<string>()
-  const completedReads = new Set<string>()
-  let phase: Phase = 'read'
+  let toolCallCount = 0
   let operationSequence = 0
   let writeOperations = 0
   let repairAttempts = 0
   let testRuns = 0
+  let workspaceRevision = 0
+  let lastObservation: {
+    readonly invocationSHA256: string
+    readonly resultSHA256: string
+    readonly workspaceRevision: number
+    readonly repeatedResultObserved: boolean
+  } | undefined
+  let finalOnly = false
   let closed = false
 
+  const toolAllowedByPolicy = (name: SemanticToolName): boolean => name !== 'replace_text'
+    || (writeOperations < policy.maxWriteOperations
+      && (testRuns === 0 || repairAttempts < policy.maxRepairAttempts))
+
   const visibleTools = (): readonly SemanticToolName[] => {
-    if (closed || phase === 'complete') return []
-    if (phase === 'read') return ['read_file']
-    if (phase === 'edit') return ['replace_text']
-    if (phase === 'verify') return ['run_tests']
-    return ['read_file', 'replace_text']
+    if (closed || finalOnly || toolCallCount >= policy.maxToolOperations) return []
+    return TOOL_NAMES.filter(toolAllowedByPolicy)
   }
 
   const execute = async (
@@ -189,19 +333,21 @@ export function createKhaosSemanticToolsPlugin(
     args: unknown,
     callId: string,
     signal: AbortSignal,
-  ): Promise<KhaosToolResult> => {
+  ): Promise<SemanticToolResult> => {
     if (closed || session.isClosed) throw new Error('semantic_tool_session_closed')
+    if (toolCallCount >= policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
+    toolCallCount += 1
+    setVisibleTools(visibleTools())
     if (!/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId) || seenCallIds.has(callId)) {
       if (/^[A-Za-z0-9_.:-]{1,128}$/u.test(callId)) {
         semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'duplicate_tool_call_id' })
       }
       throw new Error('duplicate_or_invalid_tool_call_id')
     }
-    if (seenCallIds.size >= MAX_OPERATIONS) throw new Error('semantic_operation_limit_exceeded')
     seenCallIds.add(callId)
-    if (!visibleTools().includes(toolName)) {
-      semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'tool_not_allowed_in_current_phase' })
-      throw new Error('tool_not_allowed_in_current_phase')
+    if (!toolAllowedByPolicy(toolName)) {
+      semanticEvent(telemetry, 'TOOL_ARGUMENT_REJECTED', toolName, callId, { error_code: 'tool_unavailable_or_budget_exhausted' })
+      throw new Error('tool_unavailable_or_budget_exhausted')
     }
     if (signal.aborted) throw new Error('semantic_tool_cancelled_before_submission')
 
@@ -209,17 +355,14 @@ export function createKhaosSemanticToolsPlugin(
     let pathCount = 0
     let proposal: KhaosShellProposal
     let correlation: KhaosProposalCorrelation
-    let readPath: string | undefined
     let testProfile = false
     try {
       if (toolName === 'read_file') {
         const record = exactObject(args, ['path'], 'read_file_arguments')
         if (typeof record.path !== 'string' || !safeRelativePath(record.path)
-          || !readFiles.has(record.path)
-          || (phase === 'read' && completedReads.has(record.path))) {
+          || !policy.readFiles.includes(record.path)) {
           throw new Error('path_not_in_read_scope')
         }
-        readPath = record.path
         argsBytes = bytes(record.path)
         pathCount = 1
         proposal = {
@@ -267,14 +410,41 @@ export function createKhaosSemanticToolsPlugin(
         pathCount = policy.readFiles.length
         testProfile = true
       }
-      const nextSequence = operationSequence + 1
       const digest = proposalDigest(proposal)
-      if (operationSequence >= MAX_OPERATIONS) throw new Error('semantic_operation_limit_exceeded')
-      if (toolName === 'replace_text') {
-        if (writeOperations >= MAX_WRITES) throw new Error('semantic_write_limit_exceeded')
-        if (testRuns > 0 && repairAttempts >= MAX_REPAIRS) throw new Error('semantic_repair_limit_exceeded')
+      const repeatedResult = lastObservation?.invocationSHA256 === digest
+        && lastObservation.workspaceRevision === workspaceRevision
+        && lastObservation.repeatedResultObserved
+      if (repeatedResult) {
+        finalOnly = true
+        onNoProgressLimit?.()
+        semanticEvent(telemetry, 'NO_PROGRESS_DETECTED', toolName, callId, {
+          invocation_sha256: digest,
+          result_sha256: lastObservation?.resultSHA256 as string,
+          status: 'final_only',
+        })
+        setVisibleTools([])
+        return {
+          ok: false,
+          canContinue: true,
+          text: 'The same operation already returned the same result twice without a workspace change. It was not submitted again. Give a concise final response; do not claim unverified success.',
+          no_progress: 'final_only',
+          remaining_budget: {
+            tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
+            write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),
+            repair_attempts: Math.max(0, policy.maxRepairAttempts - repairAttempts),
+          },
+        }
       }
-      if (toolName === 'run_tests' && testRuns >= MAX_OPERATIONS) throw new Error('semantic_test_limit_exceeded')
+      if (lastObservation?.invocationSHA256 !== digest
+        || lastObservation.workspaceRevision !== workspaceRevision) {
+        lastObservation = undefined
+      }
+      const nextSequence = operationSequence + 1
+      if (nextSequence > policy.maxToolOperations) throw new Error('semantic_operation_limit_exceeded')
+      if (toolName === 'replace_text') {
+        if (writeOperations >= policy.maxWriteOperations) throw new Error('semantic_write_limit_exceeded')
+        if (testRuns > 0 && repairAttempts >= policy.maxRepairAttempts) throw new Error('semantic_repair_limit_exceeded')
+      }
       semanticEvent(telemetry, 'TOOL_ARGUMENT_VALIDATED', toolName, callId, {
         argument_bytes: argsBytes,
         file_count: pathCount,
@@ -311,10 +481,12 @@ export function createKhaosSemanticToolsPlugin(
         error_code: error instanceof Error && /^[a-z0-9_]{1,80}$/u.test(error.message)
           ? error.message : 'semantic_tool_rejected',
       })
+      setVisibleTools(visibleTools())
       throw error
     }
 
     let result: KhaosToolResult
+    const invocationSHA256 = proposalDigest(proposal)
     try {
       result = await session.submit(proposal, callId, signal, correlation)
     } catch (error) {
@@ -327,6 +499,26 @@ export function createKhaosSemanticToolsPlugin(
           ? error.message : 'launcher_submission_failed',
       })
       throw error
+    }
+    const commitStatus = result.launcherTrace?.commit_status
+    if (toolName === 'replace_text' && commitStatus === 'committed') workspaceRevision += 1
+    const resultSHA256 = observationDigest(result)
+    const sameObservation = lastObservation?.invocationSHA256 === invocationSHA256
+      && lastObservation.workspaceRevision === workspaceRevision
+      && lastObservation.resultSHA256 === resultSHA256
+    const noProgress = sameObservation ? 'recovery_feedback' : undefined
+    if (noProgress) {
+      semanticEvent(telemetry, 'NO_PROGRESS_DETECTED', toolName, callId, {
+        invocation_sha256: invocationSHA256,
+        result_sha256: resultSHA256,
+        status: noProgress,
+      })
+    }
+    lastObservation = {
+      invocationSHA256,
+      resultSHA256,
+      workspaceRevision,
+      repeatedResultObserved: sameObservation,
     }
     telemetry.markLauncherResultReceived(callId, result.text)
     const launcherTrace = result.launcherTrace
@@ -368,23 +560,59 @@ export function createKhaosSemanticToolsPlugin(
         launcher_result_sha256: telemetry.launcherResultDigest(callId) as string,
       })
     }
-    const succeeded = operationSucceeded(result)
-    if (toolName === 'read_file' && succeeded && readPath) completedReads.add(readPath)
-    if (toolName === 'replace_text') {
-      phase = succeeded ? 'verify' : (testRuns > 0 ? 'repair' : 'edit')
-    } else if (toolName === 'run_tests') {
-      phase = succeeded ? 'complete' : 'repair'
-    } else if (phase === 'read' && policy.readFiles.every(path => completedReads.has(path))) {
-      // Task C requires observing the intentionally failing public suite before its first repair.
-      phase = policy.taskId === 'C' ? 'verify' : 'edit'
+    let effectiveOk = result.ok
+    let effectiveCanContinue = result.canContinue
+    let testResult: PublicTestVerification | undefined
+    if (toolName === 'run_tests') {
+      testResult = verifyPublicTestResult(result)
+      semanticEvent(telemetry, 'PUBLIC_TEST_RESULT_VERIFIED', toolName, callId, {
+        status: testResult.status,
+        ...(testResult.tests_run === undefined ? {} : { tests_run: testResult.tests_run }),
+        ...(testResult.failures === undefined ? {} : { failures: testResult.failures }),
+        ...(testResult.errors === undefined ? {} : { errors: testResult.errors }),
+        ...(testResult.skipped === undefined ? {} : { skipped: testResult.skipped }),
+        ...(testResult.error_code === undefined ? {} : { error_code: testResult.error_code }),
+      })
+      if (testResult.status === 'passed') {
+        effectiveOk = true
+      } else {
+        effectiveOk = false
+        const recoverableRunnerFailure = testResult.status === 'failed'
+          || (testResult.status === 'unverified'
+            && testResult.error_code === 'test_summary_missing'
+            && Number.isSafeInteger(result.returncode)
+            && result.returncode !== 0
+            && !result.ok)
+        if (!recoverableRunnerFailure) effectiveCanContinue = false
+      }
     }
-    if (!result.canContinue) closed = true
+    if (!effectiveCanContinue) {
+      closed = true
+      session.close()
+    }
+    if (toolCallCount >= policy.maxToolOperations
+      && !(toolName === 'run_tests' && testResult?.status === 'passed')) {
+      onToolBudgetExhausted?.()
+    }
     setVisibleTools(visibleTools())
     return {
-      ok: result.ok,
-      canContinue: result.canContinue,
+      ok: effectiveOk,
+      canContinue: effectiveCanContinue,
       text: result.text,
       ...(result.returncode === undefined ? {} : { returncode: result.returncode }),
+      ...(testResult === undefined ? {} : { test_result: testResult }),
+      ...(testResult?.status === 'passed' ? {
+        public_test_completion_hint: 'The public tests passed. Decide whether more authorized work is useful; if complete, give a final response. This does not verify hidden tests.',
+      } : {}),
+      ...(noProgress === undefined ? {} : {
+        no_progress: noProgress,
+        recovery_feedback: 'This identical request returned the same result without a workspace change. Use this result to choose one different useful operation or finish; do not repeat it unchanged.',
+      }),
+      remaining_budget: {
+        tool_operations: Math.max(0, policy.maxToolOperations - toolCallCount),
+        write_operations: Math.max(0, policy.maxWriteOperations - writeOperations),
+        repair_attempts: Math.max(0, policy.maxRepairAttempts - repairAttempts),
+      },
     }
   }
 
@@ -416,6 +644,7 @@ export function createKhaosSemanticToolsPlugin(
         execute: (args, exec) => execute('run_tests', args, String(exec.callId), exec.signal),
       })),
     ]
+    setVisibleTools(visibleTools())
     ctx.effect(() => () => {
       closed = true
       session.close()
@@ -432,5 +661,6 @@ export const semanticToolTestSupport = {
   proposalDigest,
   readScript: READ_SCRIPT,
   testScript: TEST_SCRIPT,
+  verifyPublicTestResult,
   toolNames: TOOL_NAMES,
 }
