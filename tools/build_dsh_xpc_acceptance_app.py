@@ -363,10 +363,9 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
         guard ["trial_id", "dsh_session_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
                 .allSatisfy(safeID),
               ["agent_turn_id", "agent_step_id"].allSatisfy({ safeInteger($0, minimum: 0, maximum: 1_000_000) }),
-              safeInteger("operation_seq", minimum: 1, maximum: 8),
+              safeInteger("operation_seq", minimum: 1, maximum: 12),
               ["benchmark_task_id", "tool_name", "approval_status", "kernel_result", "runner_status", "commit_status"]
                 .allSatisfy(safeStatus),
-              ["A", "B", "C", "D"].contains(record["benchmark_task_id"] as? String ?? ""),
               ["read_file", "replace_text", "run_tests"].contains(record["tool_name"] as? String ?? ""),
               ["invocation_sha256", "launcher_approval_sha256"].allSatisfy({ key in
                   (record[key] as? String)?.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
@@ -529,6 +528,7 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
             "token_input", "token_output", "model_provider", "model_id", "launcher_task_id",
             "launcher_request_id", "launcher_approval_sha256", "approval_status", "kernel_result",
             "runner_status", "commit_status", "launcher_ok",
+            "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -539,6 +539,13 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
             "LAUNCHER_TERMINAL_RESULT_DELIVERED", "TOOL_RESULT_DELIVERED", "AGENT_NEXT_TURN_STARTED",
             "SESSION_CONTINUITY_CHECK", "AGENT_TERMINATED",
         ]
+        func boundedTelemetryInteger(_ value: Any?, maximum: Int) -> Bool {
+            guard let number = value as? NSNumber,
+                  CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  number.doubleValue.isFinite,
+                  number.doubleValue.rounded(.towardZero) == number.doubleValue else { return false }
+            return number.int64Value >= 0 && number.int64Value <= Int64(maximum)
+        }
         var encodedRecords: [Data] = []
         var totalBytes = 0
         for record in records {
@@ -550,8 +557,11 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
                   let timestamp = record["timestamp_utc"] as? String,
                   trial.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil,
                   session.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil,
-                  ["A", "B", "C", "D"].contains(task),
+                  task.range(of: #"^[A-Za-z0-9_.:-]{1,128}$"#, options: .regularExpression) != nil,
                   timestamp.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"#, options: .regularExpression) != nil,
+                  (record["tool_operations_remaining"] == nil || boundedTelemetryInteger(record["tool_operations_remaining"], maximum: 12)),
+                  (record["write_operations_remaining"] == nil || boundedTelemetryInteger(record["write_operations_remaining"], maximum: 3)),
+                  (record["repair_attempts_remaining"] == nil || boundedTelemetryInteger(record["repair_attempts_remaining"], maximum: 3)),
                   record.values.allSatisfy({
                       if let text = $0 as? String {
                           return text.utf8.count <= 256 && !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)

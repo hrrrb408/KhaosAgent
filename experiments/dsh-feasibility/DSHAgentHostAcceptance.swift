@@ -381,7 +381,7 @@ private final class DSHRuntimeProcess {
               safeID(benchmarkTaskID) != nil,
               boundedInteger("agent_turn_id", maximum: 1_000_000),
               boundedInteger("agent_step_id", maximum: 1_000_000),
-              boundedInteger("operation_seq", maximum: 8),
+              boundedInteger("operation_seq", maximum: 12),
               boundedInteger("argument_bytes", maximum: 32 * 1_024),
               boundedInteger("file_count", maximum: 8),
               boundedInteger("duration_ms", maximum: 600_000),
