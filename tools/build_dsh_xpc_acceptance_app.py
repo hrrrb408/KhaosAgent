@@ -531,6 +531,8 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
             "runner_status", "commit_status", "launcher_ok",
             "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
             "tests_run", "failures", "errors", "skipped",
+            "turn_end_sequence", "assistant_message_count", "tool_result_count", "turn_end_reason",
+            "last_message_role", "last_message_text_only", "unresolved_kernel_result",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",

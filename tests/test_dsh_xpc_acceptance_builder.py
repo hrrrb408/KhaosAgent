@@ -77,9 +77,21 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
 
         for source in (host_source, launcher_source):
             self.assertIn('"PUBLIC_TEST_RESULT_VERIFIED"', source)
+            self.assertIn('"AGENT_TERMINATED"', source)
+            self.assertIn('"TURN_END_OBSERVED"', source)
             self.assertIn('record["tool_name"] as? String == "run_tests"', source)
             self.assertIn('maximum: 10_000', source)
             for field in ("tests_run", "failures", "errors", "skipped"):
+                self.assertIn(f'"{field}"', source)
+            for field in (
+                "turn_end_sequence",
+                "assistant_message_count",
+                "tool_result_count",
+                "turn_end_reason",
+                "last_message_role",
+                "last_message_text_only",
+                "unresolved_kernel_result",
+            ):
                 self.assertIn(f'"{field}"', source)
 
     def test_workspace_identity_manifest_is_owner_only_and_hash_bound(self) -> None:
