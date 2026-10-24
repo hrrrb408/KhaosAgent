@@ -345,6 +345,7 @@ private final class DSHRuntimeProcess {
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256", "approval_status",
             "kernel_result", "runner_status", "commit_status", "launcher_ok",
             "tool_operations_remaining", "write_operations_remaining", "repair_attempts_remaining",
+            "tests_run", "failures", "errors", "skipped",
         ]
         let allowedEvents: Set<String> = [
             "SESSION_STARTED", "MODEL_REQUEST_STARTED", "MODEL_RESPONSE_RECEIVED",
@@ -354,7 +355,7 @@ private final class DSHRuntimeProcess {
             "TOOL_PROPOSAL_LOWERED",
             "LAUNCHER_PROPOSAL_SUBMITTED", "APPROVAL_ACCEPTED", "APPROVAL_DENIED",
             "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
-            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "TOOL_RESULT_DELIVERED",
+            "LAUNCHER_TERMINAL_RESULT_DELIVERED", "PUBLIC_TEST_RESULT_VERIFIED", "TOOL_RESULT_DELIVERED",
             "AGENT_NEXT_TURN_STARTED", "SESSION_CONTINUITY_CHECK",
             "DSH_ASSISTANT_MESSAGE_COMMITTED", "AGENT_TERMINATED",
         ]
@@ -391,8 +392,19 @@ private final class DSHRuntimeProcess {
               boundedInteger("token_output", maximum: 1_000_000),
               boundedInteger("tool_operations_remaining", maximum: 12),
               boundedInteger("write_operations_remaining", maximum: 3),
-              boundedInteger("repair_attempts_remaining", maximum: 3) else {
+              boundedInteger("repair_attempts_remaining", maximum: 3),
+              boundedInteger("tests_run", maximum: 10_000),
+              boundedInteger("failures", maximum: 10_000),
+              boundedInteger("errors", maximum: 10_000),
+              boundedInteger("skipped", maximum: 10_000) else {
             return false
+        }
+        if event == "PUBLIC_TEST_RESULT_VERIFIED" {
+            guard record["tool_name"] as? String == "run_tests",
+                  let status = record["status"] as? String,
+                  ["passed", "failed", "invalid", "unverified", "mismatch"].contains(status) else {
+                return false
+            }
         }
         if event == "SESSION_STARTED" {
             guard telemetrySequence == 0, telemetryTrialID == nil, telemetrySessionID == nil,
