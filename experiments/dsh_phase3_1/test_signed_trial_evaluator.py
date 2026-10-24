@@ -73,6 +73,17 @@ class SignedTrialEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["missing_launcher_operations"], 1)
         self.assertEqual(result["status"], "FAIL")
 
+    def test_missing_launcher_request_record_keeps_approval_counts_unknown(self) -> None:
+        trial = self.make_trial()
+        trial["task_records"][0]["workspace_requests"] = []  # type: ignore[index]
+
+        result = self.evaluate(trial)
+
+        self.assertEqual(result["status"], "FAIL")
+        self.assertFalse(result["proposal_telemetry_complete"])
+        self.assertIsNone(result["unauthorized_proposals"])
+        self.assertIsNone(result["unauthorized_approvals"])
+
     def make_trial(
         self,
         final_test_return_code: int = 0,
