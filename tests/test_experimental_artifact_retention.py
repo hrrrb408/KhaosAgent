@@ -19,6 +19,7 @@ from tools.experimental_artifact_retention import (
     GIB,
     capture_candidate,
     capture_failure_bundle,
+    cleanup_invocation_scratch,
     disk_space_preflight,
     inventory_path,
     load_manifest,
@@ -394,6 +395,104 @@ class ExperimentalArtifactRetentionTests(unittest.TestCase):
         )
         self.assertFalse(changed)
         self.assertEqual(reason, "scratch_identity_changed")
+
+    def invocation_scratch(self, name: str = "khaos-dsh-xpc-attack-test") -> Path:
+        scratch = self.root / name
+        scratch.mkdir()
+        (scratch / "fixture.txt").write_text("small synthetic fixture", encoding="utf-8")
+        return scratch
+
+    def cleanup_invocation(self, scratch: Path, *, reference_check=clear_references) -> tuple[bool, str]:
+        identity = scratch.stat()
+        fingerprint = str(inventory_path(scratch)["tree_fingerprint_sha256"])
+        with patch.object(experimental_artifact_retention.tempfile, "gettempdir", return_value=str(self.root)):
+            return cleanup_invocation_scratch(
+                scratch,
+                identity.st_dev,
+                identity.st_ino,
+                expected_tree_fingerprint=fingerprint,
+                reference_check=reference_check,
+            )
+
+    def test_invocation_cleanup_uses_quarantine_and_removes_only_owned_scratch(self) -> None:
+        scratch = self.invocation_scratch()
+        outside = self.root / "unrelated"
+        outside.mkdir()
+        marker = outside / "keep.txt"
+        marker.write_text("keep", encoding="utf-8")
+
+        allowed, reason = self.cleanup_invocation(scratch)
+
+        self.assertTrue(allowed, reason)
+        self.assertFalse(scratch.exists())
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+
+    def test_invocation_cleanup_refuses_path_substitution_at_atomic_rename(self) -> None:
+        scratch = self.invocation_scratch()
+        original_rename = os.rename
+        parked = self.root / "parked-original"
+        substituted = False
+
+        def replace_before_rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None):
+            nonlocal substituted
+            if src == scratch.name and ".cleanup-" in dst and not substituted:
+                substituted = True
+                original_rename(src, parked.name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+                scratch.mkdir()
+                (scratch / "replacement.txt").write_text("untouched", encoding="utf-8")
+            return original_rename(src, dst, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+
+        identity = scratch.stat()
+        fingerprint = str(inventory_path(scratch)["tree_fingerprint_sha256"])
+        with patch.object(experimental_artifact_retention.tempfile, "gettempdir", return_value=str(self.root)):
+            with patch.object(experimental_artifact_retention.os, "rename", side_effect=replace_before_rename):
+                allowed, reason = cleanup_invocation_scratch(
+                    scratch,
+                    identity.st_dev,
+                    identity.st_ino,
+                    expected_tree_fingerprint=fingerprint,
+                    reference_check=clear_references,
+                )
+
+        self.assertTrue(substituted)
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "scratch_identity_changed_during_quarantine")
+        self.assertEqual((scratch / "replacement.txt").read_text(encoding="utf-8"), "untouched")
+        self.assertEqual((parked / "fixture.txt").read_text(encoding="utf-8"), "small synthetic fixture")
+
+    def test_invocation_cleanup_refuses_active_or_unknown_references(self) -> None:
+        for state, expected in (("REFERENCED", "scratch_open_reference_referenced"), ("UNKNOWN", "scratch_open_reference_unknown")):
+            with self.subTest(state=state):
+                scratch = self.invocation_scratch(f"khaos-dsh-xpc-attack-{state.lower()}")
+                allowed, reason = self.cleanup_invocation(
+                    scratch,
+                    reference_check=lambda _path, observed=state: (observed, [321] if observed == "REFERENCED" else []),
+                )
+                self.assertFalse(allowed)
+                self.assertEqual(reason, expected)
+                self.assertTrue((scratch / "fixture.txt").is_file())
+
+    def test_invocation_cleanup_refuses_non_owned_path_and_changed_tree(self) -> None:
+        arbitrary = self.invocation_scratch("other-prefix")
+        allowed, reason = self.cleanup_invocation(arbitrary)
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "scratch_name_not_invocation_owned")
+
+        scratch = self.invocation_scratch("khaos-dsh-xpc-attack-mutated")
+        identity = scratch.stat()
+        fingerprint = str(inventory_path(scratch)["tree_fingerprint_sha256"])
+        (scratch / "late.txt").write_text("changed", encoding="utf-8")
+        with patch.object(experimental_artifact_retention.tempfile, "gettempdir", return_value=str(self.root)):
+            allowed, reason = cleanup_invocation_scratch(
+                scratch,
+                identity.st_dev,
+                identity.st_ino,
+                expected_tree_fingerprint=fingerprint,
+                reference_check=clear_references,
+            )
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "scratch_contents_changed_after_evidence_capture")
+        self.assertTrue((scratch / "late.txt").is_file())
 
     def test_retention_record_binds_exact_invocation_scratch_identity(self) -> None:
         path = self.root / "scratch"

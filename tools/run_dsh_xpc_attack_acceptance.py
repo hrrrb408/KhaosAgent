@@ -35,6 +35,7 @@ from dsh_phase3_2.sandboxed_eval import run_suite as run_isolated_suite  # noqa:
 from tools.experimental_artifact_retention import (  # noqa: E402
     canonical_json,
     capture_failure_bundle,
+    cleanup_invocation_scratch,
     inventory_path,
     read_bounded_diagnostic_text,
     require_private_directory,
@@ -3280,16 +3281,15 @@ def main() -> int:
             print(f"preserved_scratch={scratch}")
             retention_status = "PRESERVED_BY_REQUEST" if args.preserve_scratch else "RETAINED_CLEANUP_CHECK_FAILED"
         else:
-            final_ready, final_reason = scratch_cleanup_state(
+            temporary._finalizer.detach()
+            final_ready, final_reason = cleanup_invocation_scratch(
                 scratch,
                 *scratch_identity,
                 expected_tree_fingerprint=str(scratch_inventory["tree_fingerprint_sha256"]),
             )
             if final_ready:
-                temporary.cleanup()
                 retention_status = "CLEANED_AFTER_EVIDENCE_PRESERVED"
             else:
-                temporary._finalizer.detach()
                 retention_status = "RETAINED_FINAL_CHECK_FAILED"
                 cleanup_reason = final_reason
                 print(f"preserved_scratch={scratch}")
@@ -3444,17 +3444,16 @@ def main() -> int:
             print(f"failed_evidence_record=NOT_WRITTEN:{type(record_error).__name__}", file=sys.stderr)
         if not args.preserve_scratch and stop_nodes_error is None \
                 and evidence_complete and cleanup_ready and failure_record_written:
-            final_ready, final_reason = scratch_cleanup_state(
+            temporary._finalizer.detach()
+            final_ready, final_reason = cleanup_invocation_scratch(
                 scratch,
                 *scratch_identity,
                 expected_tree_fingerprint=fingerprint,
             )
             if final_ready:
-                temporary.cleanup()
                 retention_status = "CLEANED_AFTER_EVIDENCE_PRESERVED"
                 cleanup_reason = final_reason
             else:
-                temporary._finalizer.detach()
                 retention_status = "RETAINED_FINAL_CHECK_FAILED"
                 cleanup_reason = final_reason
         else:

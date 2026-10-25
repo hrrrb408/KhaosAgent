@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import secrets
 import shutil
 import stat
 import subprocess
@@ -479,6 +480,131 @@ def scratch_cleanup_state(
     if state != "CLEAR" or pids:
         return False, "scratch_open_reference_" + state.lower()
     return True, "scratch_identity_verified_no_open_references"
+
+
+def cleanup_invocation_scratch(
+    scratch: Path,
+    expected_device: int,
+    expected_inode: int,
+    *,
+    expected_tree_fingerprint: str,
+    reference_check: Callable[[Path], tuple[str, list[int]]] = lsof_references,
+) -> tuple[bool, str]:
+    """Clean only this invocation's default-temp scratch after an identity-bound rename."""
+    if not getattr(shutil.rmtree, "avoids_symlink_attacks", False):
+        return False, "safe_recursive_cleanup_unavailable"
+    try:
+        temp_root = Path(tempfile.gettempdir()).resolve(strict=True)
+        parent = scratch.parent.resolve(strict=True)
+        parent_info = parent.lstat()
+    except OSError:
+        return False, "scratch_parent_unavailable"
+    if parent != temp_root or scratch.parent != parent:
+        return False, "scratch_parent_not_default_temp"
+    if not scratch.name.startswith("khaos-dsh-xpc-attack-"):
+        return False, "scratch_name_not_invocation_owned"
+    if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.getuid() \
+            or stat.S_IMODE(parent_info.st_mode) & 0o022:
+        return False, "scratch_parent_not_private"
+    if not expected_tree_fingerprint:
+        return False, "scratch_tree_identity_missing"
+
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    if not getattr(os, "O_DIRECTORY", 0) or not getattr(os, "O_NOFOLLOW", 0):
+        return False, "safe_directory_handles_unavailable"
+    try:
+        parent_fd = os.open(parent, directory_flags)
+    except OSError:
+        return False, "scratch_parent_open_failed"
+
+    quarantine_name = f".{scratch.name}.cleanup-{secrets.token_hex(8)}"
+    renamed = False
+    quarantined = parent / quarantine_name
+
+    def restore_quarantine() -> bool:
+        nonlocal renamed
+        if not renamed:
+            return True
+        try:
+            os.stat(scratch.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            try:
+                os.rename(quarantine_name, scratch.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                renamed = False
+                return True
+            except OSError:
+                return False
+        except OSError:
+            return False
+        return False
+
+    def refuse(reason: str) -> tuple[bool, str]:
+        if restore_quarantine():
+            return False, reason
+        return False, f"{reason}; scratch_preserved_at={quarantined}"
+
+    try:
+        opened_parent = os.fstat(parent_fd)
+        if (opened_parent.st_dev, opened_parent.st_ino) != (parent_info.st_dev, parent_info.st_ino):
+            return False, "scratch_parent_identity_changed"
+        ready, reason = scratch_cleanup_state(
+            scratch,
+            expected_device,
+            expected_inode,
+            expected_tree_fingerprint=expected_tree_fingerprint,
+            reference_check=reference_check,
+        )
+        if not ready:
+            return False, reason
+        try:
+            source_info = os.stat(scratch.name, dir_fd=parent_fd, follow_symlinks=False)
+        except OSError:
+            return False, "scratch_path_changed_before_quarantine"
+        if not stat.S_ISDIR(source_info.st_mode) \
+                or (source_info.st_dev, source_info.st_ino) != (expected_device, expected_inode):
+            return False, "scratch_identity_changed_before_quarantine"
+        try:
+            os.rename(scratch.name, quarantine_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+            renamed = True
+        except OSError:
+            return False, "scratch_quarantine_rename_failed"
+
+        try:
+            quarantine_info = os.stat(quarantine_name, dir_fd=parent_fd, follow_symlinks=False)
+        except OSError:
+            return refuse("scratch_quarantine_identity_unavailable")
+        if not stat.S_ISDIR(quarantine_info.st_mode) \
+                or (quarantine_info.st_dev, quarantine_info.st_ino) != (expected_device, expected_inode):
+            return refuse("scratch_identity_changed_during_quarantine")
+        ready, reason = scratch_cleanup_state(
+            quarantined,
+            expected_device,
+            expected_inode,
+            expected_tree_fingerprint=expected_tree_fingerprint,
+            reference_check=reference_check,
+        )
+        if not ready:
+            return refuse(reason)
+
+        # The unpredictable quarantine name makes the identity check and safe fd-based
+        # traversal a single bounded cleanup step; callers never delete the stale
+        # original pathname directly.
+        try:
+            current = os.stat(quarantine_name, dir_fd=parent_fd, follow_symlinks=False)
+        except OSError:
+            return refuse("scratch_quarantine_identity_unavailable")
+        if (current.st_dev, current.st_ino) != (expected_device, expected_inode):
+            return refuse("scratch_identity_changed_before_delete")
+        try:
+            shutil.rmtree(quarantine_name, dir_fd=parent_fd)
+        except OSError:
+            return refuse("scratch_delete_failed")
+        renamed = False
+        return True, "scratch_identity_rechecked_and_cleaned"
+    finally:
+        if renamed:
+            restore_quarantine()
+        os.close(parent_fd)
 
 
 def scratch_artifact_record(
