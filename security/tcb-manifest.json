@@ -1018,11 +1018,12 @@
     {
       "path": "tests/test_experimental_artifact_retention.py",
       "role": "build-governance",
-      "sha256": "4977efc2d513554affe505156ebbb975cca22819ff291051dd54273692ea21e6",
+      "sha256": "542b0a879995aa5c759abf7bdeeb4be1b9d10af388a7ee83606ccecca361588c",
       "source_mode": "0o644",
-      "boundary": "synthetic tests for experimental artifact inventory, preflight, and dry-run behavior; not runtime authority",
+      "boundary": "synthetic tests for experimental artifact inventory, preflight, dry-run, failure-evidence hashing, and retention behavior; not runtime authority",
       "tests": [
         "tests/test_experimental_artifact_retention.py",
+        "python3 -m unittest discover -s tests -p test_experimental_artifact_retention.py -v",
         "python3 tools/check_security_freeze.py"
       ]
     },

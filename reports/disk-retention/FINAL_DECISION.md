@@ -142,3 +142,42 @@ The three target directories that were present in the prior Manifest V2 are now 
 The final owner-only manifest contains exactly those three candidate IDs, retains their last-known identities, records the current missing state, and refuses all three. Its Dry Run confirms zero ready candidates and zero mutations. The manifest is **not a deletion authorization**, and there is no actionable approval request while these paths are missing. If an artifact with a similar name is found again, it requires a new identity-bound audit. The original GGUF and historical evidence archives remain protected.
 
 The current source diff remains limited to experimental Python retention tooling, tests, security test-inventory metadata and reports. No production trusted code, Kernel ABI, workspace authority, production AgentHost, sandbox policy or production dependency changed. CI results do not carry across commits; use the live PR #47 checks for the current exact HEAD. No real-model Gate B/C run was started.
+
+## M-Disk.1.4 — 2026-10-25
+
+```text
+M-Disk.1.4 Engineering: PASS (bounded investigation complete; historical attribution remains unknown)
+Historical Scratch Disappearance: UNKNOWN
+Last Proven Present: 2026-10-24T15:32:56.505129Z (post-test dry run, SHA-256 5eef8ab180130fc1dcbb13602ea8d90e3e46aba333956d6ffee60339f5955a16)
+First Proven Missing: 2026-10-25T05:16:03.681113Z (first retained missing-target manifest, SHA-256 a8351397ef65026b8ed1b18f53edf90efb79869748a81e65288dff9a30e1877c)
+Disappearance Window: 13h 43m 07.175984s
+Deletion Mechanism: UNKNOWN; a reboot falls inside the window, but no matching system record was available
+Unauthorized Cleanup: NOT_FOUND_IN_SCOPE
+Capture Manifest Mismatch: FIXED FOR FUTURE CAPTURES; HISTORICAL 3/3 BINDINGS REMAIN MISMATCHED
+Historical Evidence Integrity: PARTIAL
+Historical Conclusions Affected: Capture Manifest index binding and exact Kernel-result-to-DSH-session mapping for these old archives are NOT_PROVEN; no checked artifact contradicted a recorded result
+Artifact Retention Safety: PASS FOR THE FOUR SIGNED FAULT CONDITIONS PREVIOUSLY EXERCISED; NEW BYTE-BINDING FIX UNIT-TESTED
+Historical Targets Present: 0 / 3
+Historical Cleanup Targets Currently Actionable: 0
+Historical Files Deleted This Task: 0
+Independent Closure Archive: 21 / 21 FILE HASHES VERIFIED
+Saved Diagnostic Files Listed by Capture Manifests: 18 / 18 VERIFIED
+Focused Retention Tests: PASS (37 tests)
+Canonical Tests: PASS (457 tests, 853.818 seconds; log SHA-256 eec702ad7395ccdf75e846bf28eae73fe2f5fe25661ad8dc5bcb66c5bdd13a0a)
+Security Freeze: PASS (default; exact PR base 7ed01f726387755181cfbadad33967f35d9d2f72; 5 cumulative declared sensitive paths)
+Final-Head GitHub CI: PENDING until this report and code changes are pushed
+Kernel Authority / ABI / Workspace Scope / Production Trusted Runtime / Production Dependency Delta: 0
+Owner Review: PENDING
+Independent Code Owner Review: NOT PERFORMED
+Production Harness Migration: NOT AUTHORIZED
+Phase 3.2.2 Gate B/C: CONDITIONAL; not started
+PR #47: OPEN / DRAFT; exact base 7ed01f726387755181cfbadad33967f35d9d2f72
+```
+
+The maximum historical nominal allocation for the three missing roots was 56,237,832,203 logical bytes and 56,260,804,608 `st_blocks` bytes. Neither number proves APFS-exclusive reclaim, and the present target count is zero. The current sample reports about 446.7 GiB free on the Data volume, 479.7 GB not allocated in the APFS container, and no local snapshots. The earlier reported free-space increase is not attributed to these directories.
+
+The recorded Phase 3 driver revisions detached their own `TemporaryDirectory` finalizers on both the preserve and failure-record paths. That proves the original failed Scratch was intentionally retained, but does not establish who or what removed it later. The bounded exact-name system-log query timed out; no target process is currently observed. Attribution remains `UNKNOWN`.
+
+All three old Capture Manifest hash declarations equal the reproducibly reconstructed post-write self-entry digest, while the saved bytes have different hashes. The future-capture writer now returns and verifies the saved-byte digest. Historical archives remain immutable. Their independent seven-file-per-trial closure archive (21/21), source indexes, failure records, indexed build inputs/raw stdout/stderr (3/3 each), and Capture Manifest-listed diagnostic payloads (18/18) verify. The index's Capture Manifest binding is still wrong. Session telemetry in two trials consistently links tool-call IDs through result delivery, continuity checks and next turns; it does not share a request ID with the Launcher/Kernel event stream, so exact operation-level Kernel-to-session mapping remains `NOT_PROVEN`.
+
+The change modifies experimental Python retention tooling, its tests, security test-inventory metadata and these reports. Production code delta is zero; trusted code, Kernel authority/ABI, workspace authority, production runtime and dependencies are unchanged. No historical Scratch or archive was changed. Phase 3.2.2 Gate B/C remains conditional on owner acceptance of the unknown disappearance origin and must use new disposable workspaces and new evidence IDs. This task did not resume model evaluation.

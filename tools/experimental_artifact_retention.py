@@ -791,10 +791,16 @@ def capture_failure_bundle(
         "large_signed_app_and_model_copied": False,
     }
     save_bytes("capture-manifest.json", canonical_json(metadata))
+    capture_manifest_path = destination / "capture-manifest.json"
+    capture_manifest_sha256 = str(copied[-1]["sha256"])
+    saved_manifest, manifest_error = read_bounded_diagnostic_text(capture_manifest_path)
+    if manifest_error is not None \
+            or sha256_bytes(saved_manifest.encode("utf-8")) != capture_manifest_sha256:
+        raise ValueError("capture manifest changed after write")
     return {
         "status": "COMPLETE" if not missing_required and source_tree_stable else "INCOMPLETE",
         "directory": str(destination),
-        "capture_manifest_sha256": sha256_bytes(canonical_json(metadata)),
+        "capture_manifest_sha256": capture_manifest_sha256,
         "copied_file_count": len(copied),
         "copied_bytes": sum(int(item["bytes"]) for item in copied),
         "source_tree_fingerprint_sha256": inventory["tree_fingerprint_sha256"],

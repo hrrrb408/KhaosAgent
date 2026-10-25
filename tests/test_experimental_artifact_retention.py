@@ -43,6 +43,15 @@ class ExperimentalArtifactRetentionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name).resolve()
 
+    def _make_minimal_failure_scratch(self) -> Path:
+        scratch = self.root / "scratch"
+        scratch.mkdir()
+        (scratch / "launcher.stdout").write_text("stdout\n", encoding="utf-8")
+        (scratch / "launcher.stderr").write_text("stderr\n", encoding="utf-8")
+        (scratch / "agent-task.txt").write_text("synthetic task\n", encoding="utf-8")
+        (scratch / "build-inputs.json").write_text('{"source":"fixture"}\n', encoding="utf-8")
+        return scratch
+
     def tearDown(self) -> None:
         self.temp.cleanup()
 
@@ -568,6 +577,57 @@ class ExperimentalArtifactRetentionTests(unittest.TestCase):
         for path in destination.rglob("*"):
             if path.is_file():
                 self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+        manifest_path = destination / "capture-manifest.json"
+        manifest_bytes = manifest_path.read_bytes()
+        manifest = json.loads(manifest_bytes)
+        self.assertEqual(manifest["schema"], 1)
+        self.assertEqual(manifest_bytes, experimental_artifact_retention.canonical_json(manifest))
+        self.assertEqual(result["capture_manifest_sha256"], hashlib.sha256(manifest_bytes).hexdigest())
+        for item in manifest["copied_files"]:
+            copied = (destination / item["path"]).read_bytes()
+            self.assertEqual(item["bytes"], len(copied))
+            self.assertEqual(item["sha256"], hashlib.sha256(copied).hexdigest())
+        self.assertNotIn("capture-manifest.json", [item["path"] for item in manifest["copied_files"]])
+
+    def test_failure_bundle_rejects_capture_manifest_changed_after_write(self) -> None:
+        scratch = self._make_minimal_failure_scratch()
+        original_write = experimental_artifact_retention.write_private_file
+
+        def corrupt_manifest_after_save(path: Path, payload: bytes) -> None:
+            original_write(path, payload)
+            if path.name == "capture-manifest.json":
+                path.write_bytes(payload + b"tampered")
+
+        with patch.object(
+            experimental_artifact_retention,
+            "write_private_file",
+            side_effect=corrupt_manifest_after_save,
+        ):
+            with self.assertRaisesRegex(ValueError, "capture manifest changed after write"):
+                capture_failure_bundle(scratch, self.root / "diagnostics")
+
+    def test_capture_manifest_serialization_is_deterministic(self) -> None:
+        scratch = self._make_minimal_failure_scratch()
+        first = capture_failure_bundle(scratch, self.root / "diagnostics-first")
+        second = capture_failure_bundle(scratch, self.root / "diagnostics-second")
+
+        first_bytes = (self.root / "diagnostics-first/capture-manifest.json").read_bytes()
+        second_bytes = (self.root / "diagnostics-second/capture-manifest.json").read_bytes()
+        self.assertEqual(first_bytes, second_bytes)
+        self.assertEqual(first["capture_manifest_sha256"], second["capture_manifest_sha256"])
+
+    def test_failure_bundle_never_overwrites_existing_evidence(self) -> None:
+        scratch = self._make_minimal_failure_scratch()
+        destination = self.root / "diagnostics"
+        destination.mkdir()
+        sentinel = destination / "capture-manifest.json"
+        sentinel.write_bytes(b"preserve prior evidence")
+
+        with self.assertRaises(FileExistsError):
+            capture_failure_bundle(scratch, destination)
+
+        self.assertEqual(sentinel.read_bytes(), b"preserve prior evidence")
 
     def test_incomplete_failure_bundle_cannot_become_cleanup_evidence(self) -> None:
         scratch = self.root / "scratch"
