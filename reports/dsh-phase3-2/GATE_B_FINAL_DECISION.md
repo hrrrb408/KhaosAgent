@@ -32,10 +32,10 @@ Artifact Retention: PARTIAL (owner-only preflight retained; no trial artifacts c
 Historical Deletions: 0
 Canonical Tests: PASS (457 tests in 855.134 seconds; host-level run)
 Security Freeze: PASS (default inventory and exact PR #47 base)
-Exact-Head GitHub CI: PENDING on the new PR head; PR #47 base checks passed
+Exact-Head GitHub CI: PENDING when this report commit was created; current head status is tracked on PR checks
 Gate C Readiness: BLOCKED
 Production Harness Migration: NOT_AUTHORIZED
-New Draft PR: Pending creation
+New Draft PR: https://github.com/hrrrb408/KhaosAgent/pull/49
 ```
 
 The model hash and size, llama.cpp runtime hash, license hash, DSH commit, and active freeze digest match the frozen records. Disk preflight permits one build, but no build or inference started because the signature trust gate failed first. The global Node and pnpm versions differ from the frozen pins; the exact archived Node binary and archive were not revalidated.
