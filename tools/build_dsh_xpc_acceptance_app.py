@@ -355,7 +355,7 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
     private static func validExperimentalLauncherTrace(_ value: Any?) -> Bool {
         guard let record = value as? [String: Any] else { return false }
         let required: Set<String> = [
-            "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
+            "trial_id", "dsh_session_id", "runtime_trial_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
             "approval_status", "kernel_result", "runner_status", "commit_status",
@@ -383,7 +383,7 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
             guard let number = record[key] as? NSNumber else { return false }
             return CFGetTypeID(number) == CFBooleanGetTypeID()
         }
-        guard ["trial_id", "dsh_session_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
+        guard ["trial_id", "dsh_session_id", "runtime_trial_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
                 .allSatisfy(safeID),
               ["agent_turn_id", "agent_step_id"].allSatisfy({ safeInteger($0, minimum: 0, maximum: 1_000_000) }),
               safeInteger("operation_seq", minimum: 1, maximum: 12),

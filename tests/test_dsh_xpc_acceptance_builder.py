@@ -10,6 +10,7 @@ from unittest.mock import patch
 from tools.build_dsh_xpc_acceptance_app import (
     apply_experimental_candidate_approval_identity,
     apply_experimental_launcher_semantic_trace,
+    apply_experimental_tool_trace_protocol,
     apply_experimental_telemetry_transport_client,
     apply_experimental_workspace_runtime_binding,
     candidate_b_fixed_script,
@@ -95,6 +96,19 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
                 "unresolved_kernel_result",
             ):
                 self.assertIn(f'"{field}"', source)
+
+    def test_experimental_tool_result_trace_requires_runtime_trial_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source_root = Path(temporary)
+            target = source_root / "khaos/macos/AgentHostProtocol.swift"
+            target.parent.mkdir(parents=True)
+            shutil.copy2(ROOT / "khaos/macos/AgentHostProtocol.swift", target)
+            overlay = apply_experimental_tool_trace_protocol(source_root)
+            source = target.read_text(encoding="utf-8")
+
+        self.assertEqual(overlay["path"], "khaos/macos/AgentHostProtocol.swift")
+        self.assertIn('"runtime_trial_id"', source)
+        self.assertIn('"trial_id", "dsh_session_id", "runtime_trial_id", "tool_call_id"', source)
 
     def test_workspace_identity_manifest_is_owner_only_and_hash_bound(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
