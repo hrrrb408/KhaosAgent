@@ -32,6 +32,17 @@ sys.path.insert(0, str(ROOT / "experiments"))
 from dsh_phase3 import benchmark as phase3_benchmark  # noqa: E402
 from dsh_phase3_2 import benchmark as phase32_benchmark  # noqa: E402
 from dsh_phase3_2.sandboxed_eval import run_suite as run_isolated_suite  # noqa: E402
+from tools.experimental_artifact_retention import (  # noqa: E402
+    canonical_json,
+    capture_failure_bundle,
+    cleanup_invocation_scratch,
+    inventory_path,
+    read_bounded_diagnostic_text,
+    require_private_directory,
+    scratch_artifact_record,
+    scratch_cleanup_state,
+    write_private_file,
+)
 
 SIGNED_UI_MODES = frozenset({
     "coding", "fake-result", "cancellation", "node-crash", "xpc-crash", "real-model", "semantic-fixture",
@@ -2206,9 +2217,16 @@ def main() -> int:
     evidence_path = args.evidence_path.expanduser().absolute()
     if evidence_path.exists():
         parser.error("--evidence-path already exists; use a fresh path to preserve prior acceptance evidence")
-    evidence_path.parent.mkdir(parents=True, exist_ok=True)
+    if not evidence_path.parent.is_dir():
+        parser.error("--evidence-path parent must be an existing owner-only directory")
+    try:
+        require_private_directory(evidence_path.parent)
+    except (OSError, ValueError) as error:
+        parser.error(f"--evidence-path parent must be an owner-only canonical directory: {error}")
     temporary = tempfile.TemporaryDirectory(prefix="khaos-dsh-xpc-attack-")
     scratch = Path(temporary.name).resolve(strict=True)
+    scratch_info = scratch.lstat()
+    scratch_identity = (scratch_info.st_dev, scratch_info.st_ino)
     try:
         read_canary = scratch / "workspace-read-canary.txt"
         write_canary = scratch / "workspace-write-canary.txt"
@@ -3145,6 +3163,16 @@ def main() -> int:
         )
         if workspace_identity_report is not None and workspace_identity_report.get("status") != "PASS":
             acceptance_result = "FAIL"
+        scratch_inventory = inventory_path(scratch)
+        scratch_artifact = scratch_artifact_record(
+            scratch, *scratch_identity, inventory=scratch_inventory
+        )
+        cleanup_ready, cleanup_reason = scratch_cleanup_state(
+            scratch,
+            *scratch_identity,
+            expected_tree_fingerprint=str(scratch_inventory["tree_fingerprint_sha256"]),
+        )
+        cleanup_after_evidence = not args.preserve_scratch and cleanup_ready
         report = {
             "schema": 2,
             "result": acceptance_result,
@@ -3175,6 +3203,14 @@ def main() -> int:
             "disposable_workspace_path": None,
             "private_acceptance_path": None,
             "preserved_scratch": args.preserve_scratch,
+            "artifact_retention": {
+                "policy": "evidence first; cleanup only this invocation-owned scratch",
+                "requested": "PRESERVE" if args.preserve_scratch else "CLEANUP_IF_SAFE",
+                "scratch_artifact": scratch_artifact,
+                "pre_evidence_cleanup_check": cleanup_reason,
+                "cleanup_pending_evidence_write": cleanup_after_evidence,
+                "scratch_tree_fingerprint_sha256": scratch_inventory["tree_fingerprint_sha256"],
+            },
             "signed_app_path": None,
             "hostile_cordis_plugin": attack,
             "cordis_plugin_lifecycle": lifecycle,
@@ -3240,24 +3276,62 @@ def main() -> int:
         print(json.dumps(report, sort_keys=True, indent=2))
         print(f"evidence_path={evidence_path}")
         print(f"codesign_verification={codesign}")
-        if args.preserve_scratch:
+        if not cleanup_after_evidence:
             temporary._finalizer.detach()
             print(f"preserved_scratch={scratch}")
+            retention_status = "PRESERVED_BY_REQUEST" if args.preserve_scratch else "RETAINED_CLEANUP_CHECK_FAILED"
         else:
-            temporary.cleanup()
+            temporary._finalizer.detach()
+            final_ready, final_reason = cleanup_invocation_scratch(
+                scratch,
+                *scratch_identity,
+                expected_tree_fingerprint=str(scratch_inventory["tree_fingerprint_sha256"]),
+            )
+            if final_ready:
+                retention_status = "CLEANED_AFTER_EVIDENCE_PRESERVED"
+            else:
+                retention_status = "RETAINED_FINAL_CHECK_FAILED"
+                cleanup_reason = final_reason
+                print(f"preserved_scratch={scratch}")
+        retention_path = evidence_path.with_name(f"{evidence_path.stem}.retention.json")
+        if retention_path.exists():
+            retention_path = evidence_path.with_name(f"{evidence_path.stem}.retention-{time.time_ns()}.json")
+        try:
+            write_private_file(retention_path, canonical_json({
+                "schema": 1,
+                "status": retention_status,
+                "reason": cleanup_reason,
+                "evidence_path": str(evidence_path),
+                "scratch_artifact": scratch_artifact,
+                "scratch_tree_fingerprint_sha256": scratch_inventory["tree_fingerprint_sha256"],
+                "large_model_or_signed_app_copied_to_diagnostics": False,
+            }))
+            print(f"artifact_retention_record={retention_path}")
+        except OSError as retention_error:
+            print(f"artifact_retention_record=NOT_WRITTEN:{type(retention_error).__name__}", file=sys.stderr)
         identity_binding_failed = (
             workspace_identity_report is not None
             and workspace_identity_report.get("status") != "PASS"
         )
         return 2 if identity_binding_failed else 0
     except BaseException as error:
+        temporary._finalizer.detach()
         failed_app = locals().get("app")
+        stop_nodes_error: BaseException | None = None
         if isinstance(failed_app, Path) and failed_app.exists():
-            stop_nodes_for_app(failed_app)
+            try:
+                stop_nodes_for_app(failed_app)
+            except BaseException as process_error:
+                stop_nodes_error = process_error
         failure_path = evidence_path.with_name(f"{evidence_path.stem}.failed.json")
-        if failure_path.exists():
+        diagnostics_path = evidence_path.with_name(f"{evidence_path.stem}.failed-artifacts")
+        if failure_path.exists() or diagnostics_path.exists():
+            unique_suffix = f"{time.time_ns()}"
             failure_path = evidence_path.with_name(
-                f"{evidence_path.stem}.failed-{time.time_ns()}.json"
+                f"{evidence_path.stem}.failed-{unique_suffix}.json"
+            )
+            diagnostics_path = evidence_path.with_name(
+                f"{evidence_path.stem}.failed-artifacts-{unique_suffix}"
             )
         file_hashes = {}
         for name in (
@@ -3267,16 +3341,30 @@ def main() -> int:
             path = locals().get(name)
             if isinstance(path, Path) and path.is_file():
                 file_hashes[name] = sha256(path)
-        failure_stdout = (
-            stdout_path.read_text(encoding="utf-8", errors="replace")
-            if isinstance(locals().get("stdout_path"), Path) and stdout_path.is_file()
-            else ""
-        )
-        failure_stderr = (
-            stderr_path.read_text(encoding="utf-8", errors="replace")
-            if isinstance(locals().get("stderr_path"), Path) and stderr_path.is_file()
-            else ""
-        )
+        failure_log_errors: dict[str, str] = {}
+        failure_stdout = ""
+        failure_stderr = ""
+        for label, path in (("stdout", locals().get("stdout_path")), ("stderr", locals().get("stderr_path"))):
+            if not isinstance(path, Path):
+                failure_log_errors[label] = "missing_path"
+                continue
+            content, read_error = read_bounded_diagnostic_text(path)
+            if label == "stdout":
+                failure_stdout = content
+            else:
+                failure_stderr = content
+            if read_error:
+                failure_log_errors[label] = read_error
+        failure_message = f"{type(error).__name__}: {error}"
+        if api_key_value:
+            failure_message = failure_message.replace(api_key_value, "[REDACTED_API_KEY]")
+
+        def safe_error_summary(value: BaseException | None) -> str | None:
+            if value is None:
+                return None
+            summary = f"{type(value).__name__}: {value}"
+            return summary.replace(api_key_value, "[REDACTED_API_KEY]") if api_key_value else summary
+
         failure = {
             "schema": 2,
             "result": "FAILED_ATTEMPT",
@@ -3284,9 +3372,11 @@ def main() -> int:
             "cancellation_case": args.cancellation_case,
             "source_sha": locals().get("source_sha"),
             "scratch_directory_sha256": hashlib.sha256(os.fsencode(str(scratch))).hexdigest(),
-            "failure": f"{type(error).__name__}: {error}",
+            "failure": failure_message,
             "available_file_sha256": file_hashes,
             "app_bundle_preserved": (scratch / "Khaos DSH XPC Acceptance.app").exists(),
+            "owned_node_cleanup_error": safe_error_summary(stop_nodes_error),
+            "failure_log_read_errors": failure_log_errors,
         }
         if isinstance(locals().get("workspace_identity"), dict):
             failure["workspace_identity_input"] = workspace_identity
@@ -3304,11 +3394,98 @@ def main() -> int:
                 records=failed_task_records,
                 stderr=failure_stderr,
             )
-        failure_path.write_text(json.dumps(failure, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        os.chmod(failure_path, 0o600)
-        temporary._finalizer.detach()
+        capture_result: dict[str, object] | None = None
+        capture_error: BaseException | None = None
+        try:
+            external_build_record = locals().get("build_record_path")
+            capture_result = capture_failure_bundle(
+                scratch,
+                diagnostics_path,
+                api_key=api_key_value,
+                build_record_path=external_build_record if isinstance(external_build_record, Path) else None,
+            )
+        except BaseException as evidence_error:
+            capture_error = evidence_error
+        evidence_complete = capture_result is not None and capture_result.get("status") == "COMPLETE"
+        scratch_artifact = scratch_artifact_record(scratch, *scratch_identity)
+        fingerprint = (
+            str(capture_result["source_tree_fingerprint_sha256"])
+            if capture_result is not None and capture_result.get("source_tree_fingerprint_sha256")
+            else None
+        )
+        cleanup_ready = False
+        cleanup_reason = "evidence_capture_incomplete"
+        if evidence_complete and fingerprint is not None:
+            cleanup_ready, cleanup_reason = scratch_cleanup_state(
+                scratch,
+                *scratch_identity,
+                expected_tree_fingerprint=fingerprint,
+            )
+        if stop_nodes_error is not None:
+            cleanup_ready = False
+            cleanup_reason = "owned_node_cleanup_failed"
+        failure["artifact_retention"] = {
+            "evidence_bundle": capture_result,
+            "evidence_capture_error": safe_error_summary(capture_error),
+            "cleanup_status_before_failure_record": (
+                "CLEANUP_PENDING_FAILURE_RECORD" if cleanup_ready and not args.preserve_scratch
+                else "PRESERVED_BY_REQUEST" if args.preserve_scratch
+                else "RETAINED_EVIDENCE_OR_IDENTITY_UNRESOLVED"
+            ),
+            "cleanup_check": cleanup_reason,
+            "model_or_signed_app_archived": False,
+            "scratch_artifact": scratch_artifact,
+        }
+        failure_record_written = False
+        try:
+            write_private_file(failure_path, canonical_json(failure))
+            failure_record_written = True
+        except OSError as record_error:
+            print(f"failed_evidence_record=NOT_WRITTEN:{type(record_error).__name__}", file=sys.stderr)
+        if not args.preserve_scratch and stop_nodes_error is None \
+                and evidence_complete and cleanup_ready and failure_record_written:
+            temporary._finalizer.detach()
+            final_ready, final_reason = cleanup_invocation_scratch(
+                scratch,
+                *scratch_identity,
+                expected_tree_fingerprint=fingerprint,
+            )
+            if final_ready:
+                retention_status = "CLEANED_AFTER_EVIDENCE_PRESERVED"
+                cleanup_reason = final_reason
+            else:
+                retention_status = "RETAINED_FINAL_CHECK_FAILED"
+                cleanup_reason = final_reason
+        else:
+            temporary._finalizer.detach()
+            retention_status = (
+                "PRESERVED_BY_REQUEST" if args.preserve_scratch
+                else "RETAINED_EVIDENCE_IDENTITY_OR_PROCESS_UNRESOLVED"
+            )
+        if failure_record_written:
+            retention_path = evidence_path.with_name(f"{evidence_path.stem}.failed-retention.json")
+            if retention_path.exists():
+                retention_path = evidence_path.with_name(
+                    f"{evidence_path.stem}.failed-retention-{time.time_ns()}.json"
+                )
+            try:
+                write_private_file(retention_path, canonical_json({
+                    "schema": 1,
+                    "status": retention_status,
+                    "reason": cleanup_reason,
+                    "failure_evidence_path": str(failure_path),
+                    "scratch_artifact": scratch_artifact,
+                    "scratch_tree_fingerprint_sha256": fingerprint,
+                    "large_model_or_signed_app_copied_to_diagnostics": False,
+                }))
+            except OSError as retention_error:
+                print(f"artifact_retention_record=NOT_WRITTEN:{type(retention_error).__name__}", file=sys.stderr)
         print(json.dumps(failure, sort_keys=True, indent=2), file=sys.stderr)
         print(f"failed_attempt_evidence={failure_path}", file=sys.stderr)
+        if capture_result is not None:
+            print(f"failed_attempt_diagnostics={capture_result.get('directory')}", file=sys.stderr)
+        if retention_status != "CLEANED_AFTER_EVIDENCE_PRESERVED":
+            print(f"preserved_scratch={scratch}", file=sys.stderr)
         raise
 
 

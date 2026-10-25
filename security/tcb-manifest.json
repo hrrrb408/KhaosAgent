@@ -948,6 +948,17 @@
       "sha256": "a23f0b53f35aaf3282a3de1c363c5b2b8e2f75d659436525e74a1d42f13162c7"
     },
     {
+      "path": "tests/run_signed_retention_safety_acceptance.py",
+      "role": "build-governance",
+      "sha256": "08c541e35055efe289eeb62772b2cb4d3dd3a7c45040f18dd2a27007a409840e",
+      "source_mode": "0o644",
+      "boundary": "opt-in test-only signed experimental retention acceptance; touches only invocation-owned disposable Scratch and does not ship in runtime",
+      "tests": [
+        "python3 -m unittest discover -s tests -p test_experimental_artifact_retention.py -v",
+        "reports/disk-retention/SIGNED_RETENTION_SAFETY_CLOSURE.md"
+      ]
+    },
+    {
       "path": "tests/signed_cancellation_fixture.py",
       "role": "build-governance",
       "source_mode": "0o644",
@@ -1001,6 +1012,18 @@
       "tests": [
         "tests/test_dsh_xpc_acceptance_runner.py",
         "python3 -m unittest discover -s tests -p test_dsh_xpc_acceptance_runner.py -v",
+        "python3 tools/check_security_freeze.py"
+      ]
+    },
+    {
+      "path": "tests/test_experimental_artifact_retention.py",
+      "role": "build-governance",
+      "sha256": "542b0a879995aa5c759abf7bdeeb4be1b9d10af388a7ee83606ccecca361588c",
+      "source_mode": "0o644",
+      "boundary": "synthetic tests for experimental artifact inventory, preflight, dry-run, failure-evidence hashing, and retention behavior; not runtime authority",
+      "tests": [
+        "tests/test_experimental_artifact_retention.py",
+        "python3 -m unittest discover -s tests -p test_experimental_artifact_retention.py -v",
         "python3 tools/check_security_freeze.py"
       ]
     },
