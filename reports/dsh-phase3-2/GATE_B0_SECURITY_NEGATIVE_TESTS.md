@@ -1,7 +1,7 @@
 # Gate B.0 Security Negative Tests
 
 **Unit and evidence-validator status:** `PASS` on the corrected source.
-**Real signed enforcement:** the first signed attempt exposed a trace-schema mismatch; a fresh signed acceptance is pending. Unit tests are not substituted for signed UI evidence.
+**Real signed enforcement:** two earlier signed Trial A attempts reached the real scoped read and failed closed at successive result-schema boundaries. A corrected-source no-model app now passes signature and prebuilt validation, but no corrected signed trial was run because a separate Khaos workspace Picker was still open. Unit tests are not substituted for signed UI evidence.
 
 ## Coverage
 
@@ -19,8 +19,8 @@
 | Require the runtime trial identity in the experimental tool-result trace schema | `test_experimental_tool_result_trace_requires_runtime_trial_identity` | PASS |
 | Accept only a UUID-shaped runtime trial ID on the terminal-result telemetry event at both experimental Swift telemetry filters | `test_test_result_telemetry_contract_matches_both_experimental_boundaries` | PASS |
 
-The protected builder and runner modules contain 7 and 14 tests respectively. Their focused tests passed, and the complete canonical suite passed with 462 tests. The two-trial evidence evaluator additionally rejects shared app-tree changes, repeated approvals, repeated sessions/results, missing scope refusal, or a model invocation when the pair contract requires none.
+The protected builder and runner modules contain 8 and 14 tests respectively. Their focused tests passed, as did 19 pinned DSH semantic-tool tests and 17 DSH model bridge/lifecycle tests. The complete canonical suite at `520d659903fce78b489452bb5316f349f163e33f` passed all 463 tests. The two-trial evidence evaluator additionally rejects shared app-tree changes, repeated approvals, repeated sessions/results, missing scope refusal, or a model invocation when the pair contract requires none.
 
 ## Evidence boundary
 
-These tests exercise manifest parsing, identity/evidence joins, source overlay generation, and fail-closed pair validation with synthetic workspaces and injected evidence. They do not prove that the signed macOS Launcher, Picker, Kernel XPC, or Runner enforces the same behavior in a real operation. Two signed attempts reached the real scoped read and then failed closed at successive experimental result-schema boundaries; neither mutated the workspace or invoked a model. A corrected signed app must complete both disposable-workspace trials, including the intentional cross-workspace scope denial. Any signed case not completed remains `NOT_PROVEN`.
+These tests exercise manifest parsing, identity/evidence joins, source overlay generation, and fail-closed pair validation with synthetic workspaces and injected evidence. They do not prove that the signed macOS Launcher, Picker, Kernel XPC, or Runner enforces the same behavior in a real operation. Two signed attempts reached the real scoped read and then failed closed at successive experimental result-schema boundaries; neither mutated the workspace or invoked a model. The corrected app was verified but not launched because another Khaos workspace Picker remained open. Both disposable-workspace trials, including the intentional cross-workspace scope denial, remain `NOT_PROVEN`.
