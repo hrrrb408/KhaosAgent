@@ -128,7 +128,7 @@ Local snapshots: none observed
 Canonical Tests: PASS (454 tests, 854.760 seconds)
 Focused Retention Tests: PASS (34 tests)
 Security Freeze: PASS (default; exact PR base 7ed01f726387755181cfbadad33967f35d9d2f72)
-Final-Head GitHub CI: PENDING at report preparation; use PR #47 checks for the exact pushed HEAD
+GitHub CI: SHA-specific; the previously pushed HEAD `1fefb70c35f3d843c1ec69ca2cfd8ce4e9478510` passed `security-tests` and `security-freeze`. This report update creates a new HEAD, whose checks must be read from PR #47 before delivery.
 PR #47: OPEN / DRAFT; exact base 7ed01f726387755181cfbadad33967f35d9d2f72
 Owner Cleanup Approval: PENDING / NOT ACTIONABLE for missing paths
 Kernel Authority / ABI / Workspace Scope / Production Runtime / Production Dependency Delta: 0
@@ -141,4 +141,4 @@ The three target directories that were present in the prior Manifest V2 are now 
 
 The final owner-only manifest contains exactly those three candidate IDs, retains their last-known identities, records the current missing state, and refuses all three. Its Dry Run confirms zero ready candidates and zero mutations. The manifest is **not a deletion authorization**, and there is no actionable approval request while these paths are missing. If an artifact with a similar name is found again, it requires a new identity-bound audit. The original GGUF and historical evidence archives remain protected.
 
-The current source diff remains limited to experimental Python retention tooling, tests, security test-inventory metadata and reports. No production trusted code, Kernel ABI, workspace authority, production AgentHost, sandbox policy or production dependency changed. The final PR check must still be read from GitHub against the pushed exact HEAD. No real-model Gate B/C run was started.
+The current source diff remains limited to experimental Python retention tooling, tests, security test-inventory metadata and reports. No production trusted code, Kernel ABI, workspace authority, production AgentHost, sandbox policy or production dependency changed. CI results do not carry across commits; use the live PR #47 checks for the current exact HEAD. No real-model Gate B/C run was started.
