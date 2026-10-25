@@ -118,6 +118,39 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertEqual(overlay["path"], "khaos/macos/AgentHostProtocol.swift")
         self.assertIn('"runtime_trial_id"', source)
         self.assertIn('"trial_id", "dsh_session_id", "runtime_trial_id", "tool_call_id"', source)
+        self.assertIn('"launcher_result_sha256"', source)
+        self.assertIn('^[0-9a-f]{64}$', source)
+
+    def test_semantic_result_trace_binds_launcher_text_and_logs_parent_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source_root = Path(temporary)
+            target = source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+            target.parent.mkdir(parents=True)
+            shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", target)
+            apply_experimental_launcher_semantic_trace(source_root)
+            source = target.read_text(encoding="utf-8")
+
+        self.assertIn(
+            '"launcher_result_sha256": KernelWorkspaceXPC.sha256Hex(Data(outcome.text.utf8))',
+            source,
+        )
+        self.assertIn('"source": "trusted_launcher"', source)
+        self.assertIn('fputs("dsh-launcher-terminal=', source)
+        self.assertIn(
+            'fputs("dsh-launcher-terminal=\\(String(decoding: data, as: UTF8.self))\\n", stderr)',
+            source,
+        )
+        self.assertIn('Self.writeDshLauncherTerminalResult(outcome, taskID: taskID)', source)
+        self.assertLess(
+            source.index("guard let nextReply = hostTurn.reply else"),
+            source.index("Self.writeDshLauncherTerminalResult(outcome, taskID: taskID)"),
+        )
+
+        host_source = (ROOT / "experiments/dsh-feasibility/DSHAgentHostAcceptance.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('launcherTraceMatches($0, correlation: correlation, resultText: text)', host_source)
+        self.assertIn('trace["launcher_result_sha256"] as? String == resultDigest', host_source)
 
     def test_workspace_identity_manifest_is_owner_only_and_hash_bound(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -37,6 +37,7 @@ export interface LauncherOperationTrace {
   readonly launcher_task_id: string
   readonly launcher_request_id: string
   readonly launcher_approval_sha256: string
+  readonly launcher_result_sha256?: string
   readonly approval_status: string
   readonly kernel_result: string
   readonly runner_status: string
@@ -158,7 +159,7 @@ function parseLauncherTrace(value: unknown): LauncherOperationTrace {
     'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
     'kernel_result', 'runner_status', 'commit_status', 'launcher_ok', 'can_continue',
   ]
-  const optional = ['model_call_id', 'returncode']
+  const optional = ['model_call_id', 'returncode', 'launcher_result_sha256']
   if (required.some(key => !(key in record))
     || Object.keys(record).some(key => !required.includes(key) && !optional.includes(key))) {
     throw new Error('invalid Launcher trace')
@@ -176,6 +177,9 @@ function parseLauncherTrace(value: unknown): LauncherOperationTrace {
     || !Number.isSafeInteger(record.operation_seq) || (record.operation_seq as number) < 1
     || typeof record.invocation_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.invocation_sha256)
     || typeof record.launcher_approval_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.launcher_approval_sha256)
+    || (record.launcher_result_sha256 !== undefined
+      && (typeof record.launcher_result_sha256 !== 'string'
+        || !/^[0-9a-f]{64}$/u.test(record.launcher_result_sha256)))
     || !['ordinary', 'candidate_b_preview', 'denied', 'preview_incomplete', 'workspace_identity_rejected'].some(status =>
       record.approval_status === status || record.approval_status === `approved_${status}`)
     || typeof record.kernel_result !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.kernel_result)

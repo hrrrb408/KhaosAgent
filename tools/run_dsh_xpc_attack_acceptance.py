@@ -1007,23 +1007,42 @@ def evaluate_workspace_identity_binding(
             if event.get("launcher_task_id") == task_id
             and event.get("launcher_request_id") == request_id
         ]
+        observed_terminal = [
+            event for event in telemetry
+            if event.get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"
+            and event.get("launcher_task_id") == task_id
+            and event.get("runtime_trial_id") == runtime_trial_id
+            and event.get("launcher_request_id") == request_id
+        ]
         delivered = [
             event for event in telemetry
             if event.get("event") == "TOOL_RESULT_DELIVERED"
-            and len(terminal) == 1
-            and event.get("tool_call_id") == terminal[0].get("tool_call_id")
+            and len(observed_terminal) == 1
+            and event.get("tool_call_id") == observed_terminal[0].get("tool_call_id")
         ]
+        launcher_result_digest = terminal[0].get("launcher_result_sha256") if len(terminal) == 1 else None
         result_digest_valid = (
             len(terminal) == 1
-            and len(delivered) == 1
+            and terminal[0].get("source") == "trusted_launcher"
+            and terminal[0].get("event") == "LAUNCHER_TERMINAL_RESULT_DELIVERED"
             and terminal[0].get("runtime_trial_id") == runtime_trial_id
             and terminal[0].get("launcher_approval_sha256") == approval_sha256
-            and isinstance(terminal[0].get("result_sha256"), str)
-            and re.fullmatch(r"[0-9a-f]{64}", terminal[0]["result_sha256"]) is not None
-            and delivered[0].get("launcher_result_sha256") == terminal[0].get("result_sha256")
+            and terminal[0].get("approval_status") == request.get("approval")
+            and terminal[0].get("kernel_result") == request.get("kernel_result")
+            and terminal[0].get("runner_status") == request.get("runner_execution")
+            and terminal[0].get("commit_status") == request.get("commit_outcome")
+            and terminal[0].get("returncode") == request.get("runner_return_code")
+            and terminal[0].get("status") == "delivered"
+            and isinstance(launcher_result_digest, str)
+            and re.fullmatch(r"[0-9a-f]{64}", launcher_result_digest) is not None
+            and len(observed_terminal) == 1
+            and observed_terminal[0].get("launcher_approval_sha256") == approval_sha256
+            and observed_terminal[0].get("launcher_result_sha256") == launcher_result_digest
+            and len(delivered) == 1
+            and delivered[0].get("launcher_result_sha256") == launcher_result_digest
         )
         pair_valid = pair_valid and result_digest_valid
-        result_digest = terminal[0].get("result_sha256") if len(terminal) == 1 else None
+        result_digest = launcher_result_digest
         if not pair_valid:
             reasons.append("launcher_request_or_result_identity_mismatch")
         bindings.append({
@@ -1077,7 +1096,9 @@ def evaluate_workspace_identity_binding(
 def launcher_result_digest_matches(delivered: object, terminal: object) -> bool:
     if not isinstance(delivered, dict) or not isinstance(terminal, dict):
         return False
-    digest = terminal.get("result_sha256")
+    # result_sha256 hashes the DSH JSON content representation; launcher_result_sha256
+    # hashes the exact UTF-8 text supplied by the trusted Launcher.
+    digest = terminal.get("launcher_result_sha256")
     return (
         isinstance(digest, str)
         and re.fullmatch(r"[0-9a-f]{64}", digest) is not None

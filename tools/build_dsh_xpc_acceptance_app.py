@@ -359,7 +359,7 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
             "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
             "approval_status", "kernel_result", "runner_status", "commit_status",
-            "launcher_ok", "can_continue",
+            "launcher_ok", "can_continue", "launcher_result_sha256",
         ]
         let optional: Set<String> = ["model_call_id", "returncode"]
         guard required.isSubset(of: Set(record.keys)),
@@ -393,6 +393,9 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
               ["invocation_sha256", "launcher_approval_sha256"].allSatisfy({ key in
                   (record[key] as? String)?.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
               }),
+              (record["launcher_result_sha256"] as? String)?.range(
+                of: #"^[0-9a-f]{64}$"#, options: .regularExpression
+              ) != nil,
               safeBoolean("launcher_ok"), safeBoolean("can_continue"),
               record["model_call_id"] == nil || safeID("model_call_id"),
               record["returncode"] == nil || validExperimentalReturnCode(record["returncode"]) else {
@@ -708,9 +711,41 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
             "kernel_result": record.kernelResult,
             "runner_status": record.runnerExecution,
             "commit_status": record.commitOutcome,
+            "launcher_result_sha256": KernelWorkspaceXPC.sha256Hex(Data(outcome.text.utf8)),
         ]
         if let returncode = outcome.returncode { trace["returncode"] = returncode }
         return trace
+    }
+
+    private static func writeDshLauncherTerminalResult(
+        _ outcome: AgentToolOutcome,
+        taskID: UUID
+    ) {
+        guard let workspaceRecord = outcome.workspaceRecord,
+              let runtimeTrialID = phase322RuntimeTrialID(for: taskID) else { return }
+        let resultDigest = KernelWorkspaceXPC.sha256Hex(Data(outcome.text.utf8))
+        var record: [String: Any] = [
+            "event": "LAUNCHER_TERMINAL_RESULT_DELIVERED",
+            "source": "trusted_launcher",
+            "runtime_trial_id": runtimeTrialID.uuidString.lowercased(),
+            "launcher_task_id": taskID.uuidString.lowercased(),
+            "launcher_request_id": workspaceRecord.requestID,
+            "launcher_approval_sha256": workspaceRecord.approvalSHA256,
+            "approval_status": workspaceRecord.approval,
+            "kernel_result": workspaceRecord.kernelResult,
+            "runner_status": workspaceRecord.runnerExecution,
+            "commit_status": workspaceRecord.commitOutcome,
+            "result_bytes": outcome.text.utf8.count,
+            "launcher_result_sha256": resultDigest,
+            "status": "delivered",
+        ]
+        if let returncode = outcome.returncode { record["returncode"] = returncode }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: record,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ), data.count <= 2 * 1_024 else { return }
+        fputs("dsh-launcher-terminal=\(String(decoding: data, as: UTF8.self))\n", stderr)
+        fflush(stderr)
     }
 
     private static func writeDshLauncherEvent(
@@ -808,6 +843,25 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
         if transformed.count(old) != 1:
             raise RuntimeError("unexpected Launcher semantic-event injection site")
         transformed = transformed.replace(old, new)
+
+    delivered_result_marker = '''                    guard let nextReply = hostTurn.reply else {
+                        taskStopReason = "Agent Host returned no tool result reply"
+                        awaitingNextUser = true
+                        continue
+                    }
+                    let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
+'''
+    delivered_result_replacement = '''                    guard let nextReply = hostTurn.reply else {
+                        taskStopReason = "Agent Host returned no tool result reply"
+                        awaitingNextUser = true
+                        continue
+                    }
+                    Self.writeDshLauncherTerminalResult(outcome, taskID: taskID)
+                    let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
+'''
+    if transformed.count(delivered_result_marker) != 1:
+        raise RuntimeError("expected one successful tool-result delivery checkpoint")
+    transformed = transformed.replace(delivered_result_marker, delivered_result_replacement)
 
     cancelled_result = '''                            try host.sendToolResultAsync(
                                 ok: outcome.ok,

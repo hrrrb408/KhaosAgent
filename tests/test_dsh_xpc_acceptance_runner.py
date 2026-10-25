@@ -17,6 +17,7 @@ from tools.run_dsh_xpc_attack_acceptance import (
     evaluate_workspace_trial_pair,
     launcher_task_records,
     load_workspace_identity_evidence,
+    launcher_result_digest_matches,
     semantic_agent_completion_evidence,
     semantic_operation_result_matches,
     semantic_result_observation,
@@ -209,9 +210,11 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             "request_id": request_id,
             "workspace_session_id": session_id,
             "invocation_sha256": "e" * 64,
+            "approval": "approved_ordinary",
             "kernel_result": "output",
             "runner_execution": "completed",
             "runner_return_code": 0,
+            "commit_outcome": "committed",
         }
         common = {
             "runtime_trial_id": runtime_trial_id,
@@ -243,18 +246,35 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             "tool_call_id": call_id,
             "launcher_result_sha256": result_digest,
         }
-        terminal = {
+        observed_terminal = {
+            "event": "LAUNCHER_TERMINAL_RESULT_DELIVERED",
             "runtime_trial_id": runtime_trial_id,
             "launcher_task_id": task_id,
             "launcher_request_id": request_id,
             "launcher_approval_sha256": "e" * 64,
             "tool_call_id": call_id,
-            "result_sha256": result_digest,
+            "launcher_result_sha256": result_digest,
+        }
+        terminal = {
+            "event": "LAUNCHER_TERMINAL_RESULT_DELIVERED",
+            "source": "trusted_launcher",
+            "status": "delivered",
+            "runtime_trial_id": runtime_trial_id,
+            "launcher_task_id": task_id,
+            "launcher_request_id": request_id,
+            "launcher_approval_sha256": "e" * 64,
+            "approval_status": "approved_ordinary",
+            "kernel_result": "output",
+            "runner_status": "completed",
+            "commit_status": "committed",
+            "returncode": 0,
+            "launcher_result_sha256": result_digest,
         }
         stderr = "\n".join([
             "dsh-workspace-identity=" + json.dumps(event) for event in events
         ] + [
             "dsh-launcher-terminal=" + json.dumps(terminal),
+            "dsh-telemetry=" + json.dumps(observed_terminal),
             "dsh-telemetry=" + json.dumps(telemetry),
         ])
         report = evaluate_workspace_identity_binding(
@@ -287,6 +307,7 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             stderr="\n".join([
                 *["dsh-workspace-identity=" + json.dumps(event) for event in unknown_state],
                 "dsh-launcher-terminal=" + json.dumps(terminal),
+                "dsh-telemetry=" + json.dumps(observed_terminal),
                 "dsh-telemetry=" + json.dumps(telemetry),
             ]),
         )
@@ -338,6 +359,7 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             stderr="\n".join([
                 *["dsh-workspace-identity=" + json.dumps(event) for event in events],
                 "dsh-launcher-terminal=" + json.dumps(terminal),
+                "dsh-telemetry=" + json.dumps(observed_terminal),
                 "dsh-telemetry=" + json.dumps(telemetry),
                 "dsh-telemetry=" + json.dumps(mismatch_telemetry),
             ]),
@@ -354,7 +376,8 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             }],
             stderr="\n".join([
                 *["dsh-workspace-identity=" + json.dumps(event) for event in events],
-                "dsh-launcher-terminal=" + json.dumps({**terminal, "result_sha256": "0" * 64}),
+                "dsh-launcher-terminal=" + json.dumps({**terminal, "launcher_result_sha256": "0" * 64}),
+                "dsh-telemetry=" + json.dumps(observed_terminal),
                 "dsh-telemetry=" + json.dumps(telemetry),
             ]),
         )
@@ -363,6 +386,35 @@ class DSHXPCAcceptanceEvidenceTests(unittest.TestCase):
             "launcher_request_or_result_identity_mismatch",
             mismatched_result["failure_reasons"],
         )
+
+        mismatched_outcome = evaluate_workspace_identity_binding(
+            identity=identity,
+            task_records=[{
+                "task_id": task_id,
+                "runtime_trial_id": runtime_trial_id,
+                "workspace_requests": [request],
+            }],
+            stderr="\n".join([
+                *["dsh-workspace-identity=" + json.dumps(event) for event in events],
+                "dsh-launcher-terminal=" + json.dumps({**terminal, "runner_status": "failed"}),
+                "dsh-telemetry=" + json.dumps(observed_terminal),
+                "dsh-telemetry=" + json.dumps(telemetry),
+            ]),
+        )
+        self.assertEqual(mismatched_outcome["status"], "FAIL")
+        self.assertIn(
+            "launcher_request_or_result_identity_mismatch",
+            mismatched_outcome["failure_reasons"],
+        )
+
+        self.assertTrue(launcher_result_digest_matches(
+            {"launcher_result_sha256": result_digest, "result_sha256": "0" * 64},
+            {"launcher_result_sha256": result_digest, "result_sha256": "1" * 64},
+        ))
+        self.assertFalse(launcher_result_digest_matches(
+            {"launcher_result_sha256": "0" * 64},
+            {"launcher_result_sha256": result_digest},
+        ))
 
     def test_workspace_identity_loader_rejects_workspace_manifest_replay_and_replacement(self):
         with tempfile.TemporaryDirectory() as temporary:

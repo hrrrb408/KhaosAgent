@@ -1,9 +1,9 @@
 # Gate B.0 Signing Owner Action
 
-**Owner action required:** `NO`.
+**Owner signing action required:** `NO`.
 
-The current user has a valid Apple Development identity with an accessible signing key. The repository builder produced the corrected-source no-model Gate B.0 app at `520d659903fce78b489452bb5316f349f163e33f`; deep/strict signature verification and exact-source prebuilt-app validation passed. No `.gguf` file was bundled. No certificate import, password entry, Keychain permission change, trust override, or system setting change is needed for signing.
+The current user has a valid Apple Development identity and an accessible signing key. The repository builder produced a no-model Gate B.0 app at source SHA `a387aeee94a3da224ddc2f809a6a6e01b7520023`; deep/strict signature verification and exact-source prebuilt validation passed. The bundle contained no `.gguf` file, and its app-tree digest remained unchanged across both workspace attempts.
 
-Signed workspace acceptance still needs the UI action-time confirmations described in `GATE_B0_SIGNED_ACCEPTANCE.md`; these are workspace and per-operation approvals, not signing-identity repair.
+No certificate import, password entry, Keychain permission change, trust override, system setting change, or private-key inspection is needed. The historical `CSSMERR_TP_NOT_TRUSTED` source remains unknown because the prior identity-count command used an unsupported option.
 
-The precise cause of the earlier `CSSMERR_TP_NOT_TRUSTED` remains unknown. The prior identity-count diagnostic used an unsupported `security find-identity -Z` option and therefore did not establish that the identity was absent.
+The post-trial result-correlation correction has not been built or exercised in a new signed app. That is a signed-acceptance evidence limitation, not a signing-identity recovery action.

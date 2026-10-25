@@ -1,28 +1,29 @@
 # Gate B.0 Signing Diagnosis
 
 **Date:** 2026-10-25
-**Status:** `PARTIAL` root-cause diagnosis; current signing identity is `VALID`.
+
+**Status:** `PARTIAL`; current signing identity is valid, while the historical `CSSMERR_TP_NOT_TRUSTED` cause remains unknown.
 
 ## Findings
 
-- The current user keychain contains one valid Apple Development signing identity for Team `UBAP6LN5AM`. Its certificate is valid from 2026-01-06 through 2027-01-06 and chains to Apple's WWDR authority. `security find-identity -v -p codesigning` reports one valid identity in the user login keychain. The System keychain reports zero identities; that result does not describe the login keychain or the complete user search list.
-- The historical diagnostic's `security find-identity -Z` invocation is unsupported by the installed macOS `security` command. It printed usage text, so its adjacent `0 valid identities` conclusion was not a valid measurement of the keychain. The current supported invocation finds the identity.
-- Existing signed Khaos bundles and nested XPC services pass deep/strict verification with the same Team. The corrected-source Gate B.0 app was built at `520d659903fce78b489452bb5316f349f163e33f` with the repository signing path, passed deep/strict verification, and passed exact-source prebuilt-app validation. Its tree digest was `cfa5f75d08e629a3753d203844beda4f8002149028a22d87aa9f7a4643fd3521`; no `.gguf` file was present.
-- These successful signing operations establish that the selected certificate and its corresponding private key are currently usable for this build. No private-key material was read or exported, and no trust settings were changed.
-- The earlier literal `CSSMERR_TP_NOT_TRUSTED` has no captured, valid underlying trust diagnostic. Current successful signing and chain verification do not prove what caused that historical error.
+- The current user login keychain contains one valid Apple Development identity for Team `UBAP6LN5AM`. Its certificate is valid from 2026-01-06 through 2027-01-06 and chains to Apple's WWDR authority. The supported `security find-identity -v -p codesigning` command finds the identity.
+- The historical `security find-identity -Z` invocation is unsupported by the installed macOS `security` command. Its adjacent `0 valid identities` result was not a valid measurement and does not prove that all keychains lacked an identity.
+- Existing signed Khaos bundles and nested XPC services pass deep/strict verification. One no-model Gate B.0 app built from source SHA `a387aeee94a3da224ddc2f809a6a6e01b7520023` passed deep/strict signature verification and exact-source prebuilt validation. Team: `UBAP6LN5AM`. Its app-tree digest was `3a161d1abd6051a3d9d30a04c14ee2ac2c9475b591205ae1d1093aca4d08393c`; no `.gguf` file was present. The same unchanged tree was used for both signed workspace attempts.
+- These signing operations show that the selected certificate and corresponding private key were usable for this build. No private-key material was read or exported, and no trust settings were changed.
+- The exact historical diagnostic that produced `CSSMERR_TP_NOT_TRUSTED` was not preserved with a valid underlying trust result. Current successful signing does not identify that earlier cause.
 
 ## Classification
 
 | Candidate cause | Finding |
 |---|---|
 | `CERTIFICATE_TRUST_FAILURE` | Not reproduced; current signed chain verifies. Historical cause remains unknown. |
-| `SIGNING_IDENTITY_MISSING` | False for the current user login keychain. The old zero count came from an unsupported command option. |
-| `PRIVATE_KEY_UNAVAILABLE` | False for the selected identity during the fresh successful app signing operation. The key itself was not inspected. |
-| `KEYCHAIN_ACCESS_DENIED` | Not observed in current supported identity discovery or signing. |
+| `SIGNING_IDENTITY_MISSING` | False for the current login keychain. The earlier zero count used an unsupported command option. |
+| `PRIVATE_KEY_UNAVAILABLE` | False for the selected identity during the successful build; the key itself was not inspected. |
+| `KEYCHAIN_ACCESS_DENIED` | Not observed in supported identity discovery or signing. |
 | `BUNDLE_SIGNATURE_INVALID` | False for the fresh Gate B.0 app and the checked prior bundles. |
-| `EXECUTION_ENVIRONMENT_MISMATCH` | Not established; no controlled host-versus-sandbox comparison reproduced the old error. |
+| `EXECUTION_ENVIRONMENT_MISMATCH` | Not established; the old failure was not reproduced in a controlled host-versus-sandbox comparison. |
 | `UNKNOWN` | Applies to the precise historical source of `CSSMERR_TP_NOT_TRUSTED`. |
 
 ## Conclusion
 
-Signing capability is recovered for the current experiment. Root cause is **PARTIAL**, not proven: the prior `0 valid identities` evidence was invalid, while the exact historical trust error remains unexplained. No owner signing repair is currently required. This diagnosis does not substitute for the separate signed two-workspace acceptance.
+Signing capability is available for the experiment, so no owner signing repair is required. Root-cause status remains `PARTIAL`: the prior identity-count evidence was invalid, but the precise historical trust error is unexplained. The signed A/B attempts used the app built at `a387aeee`; the later result-correlation instrumentation has not been built into a new signed app and is not covered by those attempts.

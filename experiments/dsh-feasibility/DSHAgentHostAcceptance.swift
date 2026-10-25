@@ -852,7 +852,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 if let correlation = pendingSemanticCorrelation {
                     let launcherTrace = frame["launcher_trace"] as? [String: Any]
                     guard !phase31Task || launcherTrace.map({
-                        launcherTraceMatches($0, correlation: correlation)
+                        launcherTraceMatches($0, correlation: correlation, resultText: text)
                     }) == true else {
                         return response(.failure("dsh_launcher_trace_mismatch"))
                     }
@@ -1120,6 +1120,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             for key in [
                 "runtime_trial_id", "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
                 "approval_status", "kernel_result", "runner_status", "commit_status", "returncode",
+                "launcher_result_sha256",
             ] {
                 record[key] = launcherTrace[key]
             }
@@ -1134,8 +1135,12 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
 
     private func launcherTraceMatches(
         _ trace: [String: Any],
-        correlation: [String: Any]
+        correlation: [String: Any],
+        resultText: String
     ) -> Bool {
+        let resultDigest = SHA256.hash(data: Data(resultText.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
         [
             "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "model_call_id", "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
@@ -1148,6 +1153,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             && trace["kernel_result"] is String
             && trace["runner_status"] is String
             && trace["commit_status"] is String
+            && trace["launcher_result_sha256"] as? String == resultDigest
     }
 
     private func response(_ reply: AgentHostReply) -> Data? {

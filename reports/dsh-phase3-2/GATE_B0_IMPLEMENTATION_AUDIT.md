@@ -1,44 +1,49 @@
 # Gate B.0 Implementation Audit
 
 **Date:** 2026-10-25
+
 **Implementation:** Experimental signed DSH acceptance path only.
 
 ## Change summary
 
-The builder now creates a generic signed app whose receipt has no trial or workspace identity. At runtime, the experimental Trusted Launcher binds a fresh trial to the actual user-selected security-scoped workspace session. It records the canonical workspace digest, device/inode, and marker identity, and checks them around approval and Kernel result handling. The external owner-only manifest and marker are correlation evidence; neither grants access. The existing Kernel still receives the bookmark, exact scopes, request ID, and approval-bound invocation.
+The experimental builder now produces a generic signed app with no trial or workspace identity in its receipt. At runtime, the experimental Trusted Launcher binds a fresh trial to the actual user-selected security-scoped workspace session. It records the canonical workspace digest, device/inode, and marker identity, and checks them around approval and Kernel result handling. The owner-only manifest and marker are correlation evidence; neither grants access. The existing Kernel still receives the bookmark, exact scopes, request ID, and approval-bound invocation.
 
-The runner can reuse a prebuilt app only after deep/strict signature and signer checks, current source and builder receipt checks, the pinned DSH and no-model mode checks, and generic runtime-binding receipt validation. The bundle is checked before and after a trial and is not modified. Fresh Trial, Task, Workspace Session, and request identifiers plus result-digest joins prevent evidence from one task being accepted as another task's result. Cancellation and failed identity checks invalidate the experimental binding.
+The runner reuses a prebuilt app only after deep/strict signature and signer checks, current source and builder receipt checks, pinned DSH/no-model checks, and generic runtime-binding receipt validation. The bundle is checked before and after each trial and is not modified. New Trial, Task, Workspace Session, and request identifiers plus result-digest joins keep evidence separate. Cancellation and failed identity checks invalidate the experimental binding.
+
+The signed trials exposed a terminal-result evidence defect. The correction now computes the SHA-256 of the exact UTF-8 `AgentToolOutcome.text` in the Trusted Launcher, includes it in bounded trace metadata, checks it against the received text at the experimental Host boundary, and writes a trusted parent-process terminal event only after an AgentHost reply arrives. The runner joins that raw-text digest to DSH terminal and tool-result events. The prior evaluator compared the JSON-content `result_sha256` to the raw-text `launcher_result_sha256`; the corrected evaluator compares like-for-like raw-text digests.
 
 ## Security boundary
 
-The change does not alter the production Kernel, ABI, workspace scopes, production trusted runtime, dependency set, or production IPC. Runtime binding supplements the existing Picker/bookmark and Kernel approval/scope enforcement. DSH cannot select or authorize a directory on its own. The code-level audit and unit tests establish the experimental verifier behavior; real macOS Picker/XPC/Kernel/Runner outcomes require the separate signed acceptance report.
+Production Kernel source, ABI, workspace scopes, production trusted runtime, dependencies, production processes, IPC operations, and persistent state are unchanged. Runtime binding supplements the existing Picker/bookmark flow and Kernel approval/scope enforcement. DSH cannot select or authorize a directory. The signed evidence failures are retained, and the new terminal-result trace behavior has not been exercised in a signed app.
 
 ## Required change accounting
 
 ```text
 Production code delta: 0
 Trusted code delta: 0 in production; experimental signed Launcher overlay behavior changed
-New architecture concepts: 1 experimental per-trial workspace identity binding; none in production
+New architecture concepts: 0 production; existing experimental per-trial workspace binding and result correlation strengthened
 New trusted processes: 0
 New IPC operations: 0
-New persistent state: none in production; bounded owner-only disposable trial marker/manifest
+New persistent state: none in production; existing bounded owner-only disposable trial marker/manifest only
 New dependencies: 0
-Removed duplication / abstractions: removed trial-specific path-bound identity injection; no new forwarding abstraction
+Removed duplication / abstractions: none; reused KernelWorkspaceXPC.sha256Hex for result correlation
 ```
 
-## Verification to date
+The result hash and terminal event are non-authoritative evidence fields. They cannot change the Kernel's scope, approval, execution, or result.
 
-- Builder tests after the terminal-result telemetry correction: 8 passed.
-- Runner tests: 14 passed.
+## Verification
+
+- Focused builder tests: 9 passed.
+- Focused runner/evidence tests: 14 passed.
 - Pinned DSH semantic-tool tests: 19 passed.
-- DSH model bridge/lifecycle tests: 17 passed.
-- Full canonical suite at `520d659903fce78b489452bb5316f349f163e33f`: 463 passed, 0 failed, 883.223 seconds.
-- Default Security Freeze: passed at the same source SHA with 0 sensitive changes. Exact-base Security Freeze against `e27aed3ee3f40e7a008517ab7d8242bebe25a7c2`: passed with 5 declared sensitive changes; independent approval remains external.
-- A corrected-source no-model app was built at `520d659903fce78b489452bb5316f349f163e33f` and passed deep/strict signature verification plus exact-source prebuilt validation. No `.gguf` file was present. A subsequent report-only commit moved `HEAD`, so the app's exact-source receipt requires a rebuild before it can be used for a trial on the final PR head.
-- The first signed Trial A attempt approved one `fee.py` read, then the Host returned `invalid_request` because the experimental trace allowlist omitted the newly required `runtime_trial_id`. It made no workspace changes and invoked no model. The failed input and result remain preserved and are not reused as acceptance.
-- The next signed attempt passed that request-trace decoder and completed one scoped read, but DSH terminal-result telemetry then failed the Host's independent telemetry allowlist. The Node event carried `runtime_trial_id`, while the experimental Swift Host/client telemetry filters omitted it; `DSHRuntimeProcess` failed closed with `invalid_frame`. It made no workspace changes and invoked no model. The event path is now covered by UUID validation at both telemetry boundaries; the corrected-source app has since been built and validated, but its signed trials were not started.
-- Corrected signed Trial A and Trial B outcomes: not run. A separate Khaos acceptance app still had an open workspace Picker, and the test instructions prohibit opening a second Picker concurrently. No new workspace selection or Runner approval was made. The corrected app is preserved for a later trial; unit evidence does not count as signed acceptance.
+- Pinned DSH model bridge/lifecycle tests: 17 passed.
+- Generated Launcher overlay and experimental Host Swift syntax parsing passed.
+- Canonical suite: 464 passed in 843.146 seconds (`python3 -m unittest discover -s tests -v`).
+- Default Security Freeze passed with `sensitive changes=0`.
+- Exact PR #47 base Security Freeze passed with `sensitive changes=5`.
+- Final-head PR CI: pending push of this revision.
+- Independent security review of the experimental Launcher behavior remains pending and is not established by tests or CI.
 
-## Review boundary
+## Signed trial record
 
-The experimental Launcher has a trusted behavior delta even though production trusted source is unchanged. Independent security review remains required and is not established by this audit or by green tests.
+One signed app at source SHA `a387aeee94a3da224ddc2f809a6a6e01b7520023` was reused unchanged for Trial A `stage-a-8` and Trial B `stage-a-9`. Trial A completed the five expected operations, passed the two public tests and three independent hidden checks, and changed only the intended `fee.py`; its evidence verdict was still `FAIL` because request results could not be joined to a trusted parent terminal digest. Trial B received a nonzero Runner result and disclosed no canary or changed the workspace, but its exact cross-workspace refusal correlation was false and its AgentLoop ended incomplete at the one-operation budget. Both signed results remain failed evidence; the instrumentation correction above was made afterward and is not signed-tested.

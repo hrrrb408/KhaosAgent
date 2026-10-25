@@ -1,35 +1,38 @@
 # Gate B.0 Final Decision
 
-**Checkpoint:** 2026-10-25; corrected signed app and canonical suite passed, but signed UI trials and final-head CI are pending.
-**Engineering status:** `PARTIAL`; the signed multi-workspace acceptance is blocked at the UI gate.
+**Checkpoint:** 2026-10-25; experimental runtime binding and result-correlation implementation are present. The corrected result path has unit evidence but no post-correction signed exercise.
 
-| Required output | Status at this checkpoint |
+**Engineering status:** `PARTIAL`; signed multi-workspace acceptance remains blocked by failed A/B evidence and the untested post-trial result-correlation correction.
+
+| Required output | Status |
 |---|---|
 | Gate B.0 Engineering | PARTIAL |
-| Signing Root Cause | PARTIAL; historical `CSSMERR_TP_NOT_TRUSTED` origin unknown |
+| Signing Root Cause | PARTIAL; historical `CSSMERR_TP_NOT_TRUSTED` source unknown |
 | Signing Identity | VALID |
-| Small Signed App | PASS at `520d659`; report-only final-head commit requires a fresh exact-source app before trial |
+| Small Signed App | PASS at source SHA `a387aeee`; one unchanged no-model app used for both workspace attempts |
 | Actual Experimental Source Changes | YES |
 | Runtime Workspace Binding | IMPLEMENTED in experimental Launcher overlay |
-| Prebuilt App Reuse | IMPLEMENTED with fail-closed signature and receipt validation |
+| Prebuilt App Reuse | IMPLEMENTED with fail-closed signer and receipt validation |
 | Workspace Isolation Unit Tests | PASS |
 | Stale Authorization Replay Tests | PASS |
 | Workspace Replacement Tests | PASS |
-| Cross-Trial Result Isolation | PASS in synthetic evidence-validator tests; signed replay not attempted |
+| Cross-Trial Result Isolation | PASS in synthetic evidence-validator tests; signed result replay NOT_RUN |
 | Experimental Launcher Trusted Delta | DECLARED |
-| Signed Multi-Workspace Acceptance | BLOCKED before Trial A; prior Trial A attempt FAILED |
+| Signed Multi-Workspace Acceptance | BLOCKED; both signed records have formal FAIL verdicts |
 | One App / Two Workspaces | NOT_PROVEN |
-| Large GGUF Copies | 0 REQUIRED |
-| Real Model Invocations | 0 REQUIRED |
+| Large GGUF Copies | 0 |
+| Real Model Invocations | 0 |
 | Historical Files Deleted | 0 |
-| Canonical Tests | 463 PASS at `520d659903fce78b489452bb5316f349f163e33f` |
-| Security Freeze | Default PASS (0 sensitive changes); exact-base PASS (5 declared sensitive changes) |
-| Final-Head GitHub CI | PENDING |
+| Canonical Tests | PASS — 464 tests in 843.146 seconds |
+| Security Freeze | Default PASS; exact-base PASS (5 declared sensitive changes) |
+| Final-Head GitHub CI | PENDING push and exact-head checks |
 | Independent Security Review | PENDING / NOT_PERFORMED |
-| Gate B Real-Model Readiness | BLOCKED pending signed acceptance and independent review |
-| Owner Action Required | YES for resolving the separate open Picker and action-time per-operation approvals; no signing repair is needed |
-| Updated PR | #48 |
+| Gate B Real-Model Readiness | BLOCKED |
+| Owner Action Required | NO signing repair required |
+| Updated PR | #48; draft and unmerged |
 
 ## Decision basis
 
-The implementation and unit-level negative tests are complete, and a valid signing identity is available. Two signed Trial A attempts exposed successive experimental result-schema gaps; both failed closed after one scoped read, with no workspace mutation or model invocation. The corrected trace, Host telemetry, and client telemetry allowlists validate the runtime ID at their respective boundaries. A no-model app at source SHA `520d659` passed deep/strict signature and exact-source prebuilt validation, and the 463-test canonical suite plus both Security Freeze checks pass. A subsequent report-only commit moved `HEAD`, so that app cannot be reused at the final PR head. The actual two-workspace signed trial was not started because a separate Khaos Picker was open and the acceptance procedure forbids concurrent Pickers. A fresh final-head app, UI trials, exact-head CI, and independent security review remain pending. This is not an Engineering PASS and must not be presented as signed multi-workspace acceptance.
+The signing identity is usable, and one small signed app was used unchanged with two independently selected workspaces. Trial A completed its five signed operations, passed its two public tests and three hidden checks, and changed only the intended source file. Trial B returned a nonzero Runner result without disclosing the out-of-scope canary or changing its workspace. These observations are retained, but both acceptance records failed result-identity validation; Trial B also ended incomplete, so they do not establish signed multi-workspace acceptance.
+
+The experimental source now binds the exact Launcher result text digest and emits a parent-process terminal record after a Host reply. Focused builder, runner, pinned DSH, and Swift syntax checks pass. This correction was made after the signed attempts and has not been signed-tested. No real model was invoked, no `.gguf` was copied, and the production Kernel/ABI/runtime authority did not change. Independent security review remains required. Do not present Gate B real-model readiness or One App / Two Workspaces as PASS.

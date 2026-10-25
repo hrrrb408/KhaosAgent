@@ -1,26 +1,32 @@
 # Gate B.0 Security Negative Tests
 
-**Unit and evidence-validator status:** `PASS` on the corrected source.
-**Real signed enforcement:** two earlier signed Trial A attempts reached the real scoped read and failed closed at successive result-schema boundaries. A corrected-source no-model app now passes signature and prebuilt validation, but no corrected signed trial was run because a separate Khaos workspace Picker was still open. Unit tests are not substituted for signed UI evidence.
+**Unit/evidence-validator status:** `PASS` in focused tests.
+
+**Signed multi-workspace acceptance:** `NOT_PROVEN`; both observed trial records have an overall `FAIL` verdict.
 
 ## Coverage
 
-| Required behavior | Unit/evidence test | Result |
+| Required behavior | Evidence | Result |
 |---|---|---|
-| Create independent workspace identities and allow ordinary file edits without changing directory identity | `test_workspace_identity_manifest_is_owner_only_and_hash_bound` | PASS |
-| Refuse Trial A manifest or marker when used for another workspace/trial | `test_workspace_identity_marker_replay_and_directory_inode_replacement_are_refused`; `test_workspace_identity_loader_rejects_workspace_manifest_replay_and_replacement` | PASS |
-| Refuse workspace directory inode replacement | `test_workspace_identity_marker_replay_and_directory_inode_replacement_are_refused` | PASS |
-| Refuse marker modification and symlink replacement | `test_workspace_identity_loader_rejects_workspace_manifest_replay_and_replacement` | PASS |
-| Refuse stale approval, changed session identity, unknown binding state, stale result, and result digest mismatch | `test_workspace_identity_evidence_joins_runtime_trial_approval_and_result` | PASS |
-| Refuse a cross-workspace symlink fixture that is not a valid owner-owned canary | `test_cross_workspace_symlink_setup_rejects_invalid_canary_and_records_only_hash` | PASS |
-| Refuse reused approval across a two-trial evidence pair; require cross-workspace refusal evidence | `test_signed_workspace_trial_pair_rejects_reused_authority_and_missing_scope_refusal` | PASS |
-| Refuse a failed prebuilt signature and an app with mismatched signed receipt identity | `test_prebuilt_app_signature_and_identity_mismatches_fail_closed` | PASS |
-| Keep app overlay generic and independent of workspace path | `test_workspace_runtime_overlay_is_path_independent_and_experimental_only` | PASS |
-| Require the runtime trial identity in the experimental tool-result trace schema | `test_experimental_tool_result_trace_requires_runtime_trial_identity` | PASS |
-| Accept only a UUID-shaped runtime trial ID on the terminal-result telemetry event at both experimental Swift telemetry filters | `test_test_result_telemetry_contract_matches_both_experimental_boundaries` | PASS |
+| Independent workspace identities and ordinary file edits without changing directory identity | `test_workspace_identity_manifest_is_owner_only_and_hash_bound` | PASS |
+| Trial/manifest/marker replay across workspaces | `test_workspace_identity_marker_replay_and_directory_inode_replacement_are_refused`; `test_workspace_identity_loader_rejects_workspace_manifest_replay_and_replacement` | PASS |
+| Workspace directory inode replacement | `test_workspace_identity_marker_replay_and_directory_inode_replacement_are_refused` | PASS |
+| Marker modification and symlink replacement | `test_workspace_identity_loader_rejects_workspace_manifest_replay_and_replacement` | PASS |
+| Stale approval, changed session, unknown binding state, stale result, and result digest mismatch | `test_workspace_identity_evidence_joins_runtime_trial_approval_and_result` | PASS |
+| Require terminal evidence emitted by the parent Trusted Launcher | `test_workspace_identity_evidence_joins_runtime_trial_approval_and_result` | PASS |
+| Join the trusted raw-text digest with DSH terminal and tool-result delivery digests | `test_workspace_identity_evidence_joins_runtime_trial_approval_and_result`; semantic fixture digest matcher test | PASS |
+| Refuse missing, wrong-source, replayed, or mismatched result evidence | `test_workspace_identity_evidence_joins_runtime_trial_approval_and_result`; `test_signed_workspace_trial_pair_rejects_reused_authority_and_missing_scope_refusal` | PASS |
+| Refuse an invalid owner-owned cross-workspace canary setup | `test_cross_workspace_symlink_setup_rejects_invalid_canary_and_records_only_hash` | PASS |
+| Refuse failed prebuilt signature or mismatched signed receipt identity | `test_prebuilt_app_signature_and_identity_mismatches_fail_closed` | PASS |
+| Keep the runtime overlay generic and independent of a workspace path | `test_workspace_runtime_overlay_is_path_independent_and_experimental_only` | PASS |
+| Validate the bounded runtime-trial result trace and parent terminal-event injection | Builder overlay tests | PASS |
 
-The protected builder and runner modules contain 8 and 14 tests respectively. Their focused tests passed, as did 19 pinned DSH semantic-tool tests and 17 DSH model bridge/lifecycle tests. The complete canonical suite at `520d659903fce78b489452bb5316f349f163e33f` passed all 463 tests. The two-trial evidence evaluator additionally rejects shared app-tree changes, repeated approvals, repeated sessions/results, missing scope refusal, or a model invocation when the pair contract requires none.
+The focused builder and runner modules passed 9 and 14 tests. The pinned DSH semantic-tool suite passed 19 tests, and its model-bridge/lifecycle suite passed 17 tests. Generated Launcher and experimental Host Swift passed syntax parsing. The canonical suite passed all 464 tests in 843.146 seconds. Default Security Freeze passed with `sensitive changes=0`; the exact PR #47 base check passed with `sensitive changes=5`.
 
-## Evidence boundary
+## Signed UI evidence
 
-These tests exercise manifest parsing, identity/evidence joins, source overlay generation, and fail-closed pair validation with synthetic workspaces and injected evidence. They do not prove that the signed macOS Launcher, Picker, Kernel XPC, or Runner enforces the same behavior in a real operation. Two signed attempts reached the real scoped read and then failed closed at successive experimental result-schema boundaries; neither mutated the workspace or invoked a model. The corrected app was verified but not launched because another Khaos workspace Picker remained open. Both disposable-workspace trials, including the intentional cross-workspace scope denial, remain `NOT_PROVEN`.
+One signed no-model app was reused with two separately selected workspaces and retained the same app-tree digest. Trial A approved the intended `fee.py`/`test_public.py` reads, the bounded `fee.py` edit, reread, and public test run. The Runner operations succeeded; the public and independent hidden tests passed, and only the intended source file changed. The formal trial still failed because the parent Launcher terminal digest record was missing from captured stderr.
+
+Trial B approved one `fee.py` read attempt against the owner-staged cross-workspace symlink. The Runner returned 1, no canary was disclosed, and the workspace remained unchanged. The evidence recorded a denial signal, but exact refusal correlation was false and the one-operation task ended incomplete. The formal trial failed and does not establish the signed cross-workspace refusal result.
+
+The new result-correlation instrumentation and evaluator tests are source/unit evidence only; the new behavior has not been exercised by a signed app. No model was invoked and no `.gguf` was copied. Independent review remains pending.
