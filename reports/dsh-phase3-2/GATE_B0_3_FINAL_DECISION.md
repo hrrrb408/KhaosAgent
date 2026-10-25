@@ -30,7 +30,7 @@
 | Historical files deleted | 0 |
 | Canonical tests | PASS; `python3 -m unittest discover -s tests -v`, 467 tests in 862.580s |
 | Security Freeze | PASS against default and PR #48 base `e27aed3ee3f40e7a008517ab7d8242bebe25a7c2` |
-| Exact-head GitHub CI | PENDING final PR update |
+| Exact-head GitHub CI | PASS on implementation HEAD `108db524abdf95def9d2fb9979079b8260a9083a`: `security-tests` ran 467 tests and `security-freeze` passed; run IDs `40214374024` and `40214374193` |
 | Experimental trusted behavior review | PARTIAL; signing prerequisite blocks runtime review |
 | Independent Security Review | PENDING |
 | Gate B real-model readiness | BLOCKED |
