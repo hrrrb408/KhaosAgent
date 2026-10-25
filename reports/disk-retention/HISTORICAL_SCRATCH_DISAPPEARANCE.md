@@ -1,6 +1,6 @@
 # M-Disk.1.4 — Historical Scratch Disappearance
 
-Date: 2026-10-25  
+Date: 2026-10-25
 Investigation: bounded, read-only; no historical path was modified.
 
 ## Timeline
