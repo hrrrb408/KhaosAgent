@@ -23,6 +23,7 @@ export interface KhaosToolResult {
 }
 
 export interface LauncherOperationTrace {
+  readonly runtime_trial_id: string
   readonly trial_id: string
   readonly dsh_session_id: string
   readonly benchmark_task_id: string
@@ -151,6 +152,7 @@ function parseLauncherTrace(value: unknown): LauncherOperationTrace {
   }
   const record = value as Record<string, unknown>
   const required = [
+    'runtime_trial_id',
     'trial_id', 'dsh_session_id', 'benchmark_task_id', 'agent_turn_id', 'agent_step_id',
     'tool_call_id', 'tool_name', 'operation_seq', 'invocation_sha256',
     'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
@@ -162,17 +164,19 @@ function parseLauncherTrace(value: unknown): LauncherOperationTrace {
     throw new Error('invalid Launcher trace')
   }
   const ids = [
-    record.trial_id, record.dsh_session_id, record.benchmark_task_id, record.tool_call_id,
+    record.runtime_trial_id, record.trial_id, record.dsh_session_id, record.benchmark_task_id, record.tool_call_id,
     record.launcher_task_id, record.launcher_request_id,
   ]
   if (!ids.every(item => typeof item === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/u.test(item))
+    || typeof record.runtime_trial_id !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(record.runtime_trial_id)
     || !['read_file', 'replace_text', 'run_tests'].includes(record.tool_name as string)
     || !Number.isSafeInteger(record.agent_turn_id) || (record.agent_turn_id as number) < 0
     || !Number.isSafeInteger(record.agent_step_id) || (record.agent_step_id as number) < 0
     || !Number.isSafeInteger(record.operation_seq) || (record.operation_seq as number) < 1
     || typeof record.invocation_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.invocation_sha256)
     || typeof record.launcher_approval_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(record.launcher_approval_sha256)
-    || !['ordinary', 'candidate_b_preview', 'denied', 'preview_incomplete'].some(status =>
+    || !['ordinary', 'candidate_b_preview', 'denied', 'preview_incomplete', 'workspace_identity_rejected'].some(status =>
       record.approval_status === status || record.approval_status === `approved_${status}`)
     || typeof record.kernel_result !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.kernel_result)
     || typeof record.runner_status !== 'string' || !/^[a-z0-9_.:-]{1,128}$/u.test(record.runner_status)

@@ -1109,7 +1109,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         record["result_sha256"] = digest
         if let launcherTrace {
             for key in [
-                "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
+                "runtime_trial_id", "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
                 "approval_status", "kernel_result", "runner_status", "commit_status", "returncode",
             ] {
                 record[key] = launcherTrace[key]
@@ -1131,6 +1131,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "model_call_id", "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
         ].allSatisfy { trace[$0] as? NSObject == correlation[$0] as? NSObject }
+            && (trace["runtime_trial_id"] as? String).map({ UUID(uuidString: $0) != nil }) == true
             && trace["launcher_task_id"] is String
             && trace["launcher_request_id"] is String
             && trace["launcher_approval_sha256"] is String

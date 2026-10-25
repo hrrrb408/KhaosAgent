@@ -524,6 +524,7 @@ export function createKhaosSemanticToolsPlugin(
     const launcherTrace = result.launcherTrace
     if (launcherTrace) {
       const matchesProposal = launcherTrace.trial_id === telemetry.trialId
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(launcherTrace.runtime_trial_id)
         && launcherTrace.dsh_session_id === telemetry.sessionId
         && launcherTrace.benchmark_task_id === policy.taskId
         && launcherTrace.agent_turn_id === correlation?.turn
@@ -538,6 +539,7 @@ export function createKhaosSemanticToolsPlugin(
         && launcherTrace.returncode === result.returncode
       if (!matchesProposal) throw new Error('launcher_trace_mismatch')
       telemetry.emit('LAUNCHER_TERMINAL_RESULT_DELIVERED', {
+        runtime_trial_id: launcherTrace.runtime_trial_id,
         agent_turn_id: launcherTrace.agent_turn_id,
         agent_step_id: launcherTrace.agent_step_id,
         ...(launcherTrace.model_call_id ? { model_call_id: launcherTrace.model_call_id } : {}),

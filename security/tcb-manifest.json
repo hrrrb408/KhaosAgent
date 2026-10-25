@@ -82,7 +82,7 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext 架构设计文档.md",
+      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
@@ -994,7 +994,7 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_builder.py",
       "role": "build-governance",
-      "sha256": "17e49e38301a81bba87b986f097ecc7c4d269c1d7ebf8ea45a8da26e457c3f22",
+      "sha256": "63a36f5562cf28123dbc298d52294e0e40f5b875355c9fe48d83508085d5d2ce",
       "source_mode": "0o644",
       "boundary": "test-only DSH acceptance builder regression; validates fixed Candidate B probe decoding and does not ship in runtime",
       "tests": [
@@ -1006,7 +1006,7 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_runner.py",
       "role": "build-governance",
-      "sha256": "d832954867667d7a99b58677224457ba15a40c7adf91012048c156847f2eda2c",
+      "sha256": "317d822328085b500adefa7811e82e71ec512c5891b84775d230438bd161f81d",
       "source_mode": "0o644",
       "boundary": "test-only signed DSH acceptance result verifier regression; validates observed runtime events and does not ship in runtime",
       "tests": [

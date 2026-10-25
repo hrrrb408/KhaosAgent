@@ -23,6 +23,12 @@ export function semanticCodingResponses() {
     options => {
       const edit = JSON.parse(lastToolResult(options.messages)) as { ok?: unknown }
       if (edit.ok !== true) return textResponse('The actual scoped edit did not complete successfully.')
+      return toolCallResponse('phase322-read-fee-after-edit', 'read_file', { path: 'fee.py' })
+    },
+    options => {
+      if (!lastToolResultText(options.messages).includes('return round(amount * rate, 2)')) {
+        return textResponse('The actual post-edit fee.py read did not contain the approved edit.')
+      }
       return toolCallResponse('phase31-test-fee', 'run_tests', { profile: 'public' })
     },
     options => {
@@ -37,7 +43,32 @@ export function semanticCodingResponses() {
   ]
 }
 
-export type SemanticLoopFixtureCase = 'coding' | 'repair' | 'repeated-read' | 'budget-exhaustion'
+export function semanticCrossWorkspaceReadResponses() {
+  return [
+    toolCallResponse('phase322-cross-workspace-read', 'read_file', { path: 'fee.py' }),
+    options => {
+      const result = JSON.parse(lastToolResult(options.messages)) as {
+        ok?: unknown
+        returncode?: unknown
+        text?: unknown
+      }
+      const leaked = typeof result.text === 'string'
+        && result.text.includes('GATE_B0_CROSS_WORKSPACE_CANARY:')
+      const refused = result.ok === false
+        || (typeof result.returncode === 'number' && result.returncode !== 0)
+      return refused && !leaked
+        ? textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT denied')
+        : textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT not-proven')
+    },
+  ]
+}
+
+export type SemanticLoopFixtureCase =
+  | 'coding'
+  | 'repair'
+  | 'repeated-read'
+  | 'budget-exhaustion'
+  | 'cross-workspace-read'
 
 export type SemanticResultFixtureCase =
   | 'task-a-failure'
@@ -53,7 +84,7 @@ const RESULT_FIXTURE_CASES: readonly SemanticResultFixtureCase[] = [
   'task-a-failure', 'pass', 'zero-tests', 'fake-success', 'import-error', 'slow-cancel',
 ]
 const LOOP_FIXTURE_CASES: readonly SemanticLoopFixtureCase[] = [
-  'coding', 'repair', 'repeated-read', 'budget-exhaustion',
+  'coding', 'repair', 'repeated-read', 'budget-exhaustion', 'cross-workspace-read',
 ]
 
 export function isSemanticFixtureCase(value: unknown): value is SemanticFixtureCase {
@@ -147,6 +178,7 @@ export function semanticFixtureResponses(testCase: SemanticFixtureCase) {
     case 'repair': return semanticRepairResponses()
     case 'repeated-read': return repeatedReadResponses()
     case 'budget-exhaustion': return budgetExhaustionResponses()
+    case 'cross-workspace-read': return semanticCrossWorkspaceReadResponses()
     case 'coding': return semanticCodingResponses()
   }
 }

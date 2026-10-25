@@ -48,6 +48,7 @@ const FIELDS = new Set([
   'can_continue', 'result_bytes', 'result_sha256', 'observed_tool_result',
   'launcher_result_sha256', 'dsh_event_seq', 'token_input', 'token_output', 'model_provider', 'model_id',
   'launcher_task_id', 'launcher_request_id', 'launcher_approval_sha256', 'approval_status',
+  'runtime_trial_id',
   'kernel_result', 'runner_status', 'commit_status', 'launcher_ok',
   'turn_end_sequence', 'assistant_message_count', 'tool_result_count', 'turn_end_reason',
   'last_message_role', 'last_message_text_only', 'unresolved_kernel_result',

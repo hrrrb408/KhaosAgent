@@ -11,11 +11,13 @@ from tools.build_dsh_xpc_acceptance_app import (
     apply_experimental_candidate_approval_identity,
     apply_experimental_launcher_semantic_trace,
     apply_experimental_telemetry_transport_client,
-    apply_experimental_workspace_identity_binding,
+    apply_experimental_workspace_runtime_binding,
     candidate_b_fixed_script,
-    load_workspace_identity_manifest,
 )
-from tools.run_dsh_xpc_attack_acceptance import create_workspace_identity_manifest
+from tools.run_dsh_xpc_attack_acceptance import (
+    create_workspace_identity_manifest,
+    load_workspace_identity_evidence,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -102,51 +104,82 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
             manifest_path, generated = create_workspace_identity_manifest(workspace, "trial-a", root)
 
-            loaded, selected_path = load_workspace_identity_manifest(manifest_path)
+            loaded = load_workspace_identity_evidence(manifest_path, workspace)
             self.assertEqual(loaded, generated)
-            self.assertEqual(selected_path, workspace.resolve())
             self.assertEqual(manifest_path.stat().st_mode & 0o777, 0o600)
             self.assertNotIn("workspace_path", loaded)
 
             (workspace / "main.py").write_text("value = 2\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "fixture does not match"):
-                load_workspace_identity_manifest(manifest_path)
+            self.assertEqual(
+                load_workspace_identity_evidence(manifest_path, workspace),
+                loaded,
+                "fixture contents may change after the runtime identity marker is established",
+            )
 
-    def test_workspace_identity_overlay_is_trial_bound_and_experimental_only(self) -> None:
+    def test_workspace_identity_marker_replay_and_directory_inode_replacement_are_refused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             workspace = root / "workspace"
             workspace.mkdir()
-            (workspace / "main.py").write_text("value = 1\n", encoding="utf-8")
-            manifest_path, identity = create_workspace_identity_manifest(workspace, "trial-overlay", root)
-            loaded, selected_path = load_workspace_identity_manifest(manifest_path)
+            (workspace / "fee.py").write_text("value = 1\n", encoding="utf-8")
+            old_manifest, _ = create_workspace_identity_manifest(workspace, "trial-old", root)
+            marker = workspace / ".khaos-phase322-identity.json"
+            old_marker = root / "old-marker.json"
+            marker.rename(old_marker)
+            new_manifest, _ = create_workspace_identity_manifest(workspace, "trial-new", root)
+            self.assertEqual(load_workspace_identity_evidence(new_manifest, workspace)["trial_id"], "trial-new")
+            with self.assertRaisesRegex(ValueError, "marker digest mismatch|marker contents"):
+                load_workspace_identity_evidence(old_manifest, workspace)
+
+            other = root / "replace-directory"
+            other.mkdir()
+            (other / "fee.py").write_text("value = 2\n", encoding="utf-8")
+            replaced_manifest, _ = create_workspace_identity_manifest(other, "trial-directory", root)
+            moved = root / "replace-directory-old"
+            other.rename(moved)
+            other.mkdir()
+            (other / "fee.py").write_text("value = 2\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "directory identity changed"):
+                load_workspace_identity_evidence(replaced_manifest, other)
+
+    def test_workspace_runtime_overlay_is_path_independent_and_experimental_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
             source_root = root / "sources"
             target = source_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
             target.parent.mkdir(parents=True)
             shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", target)
 
             apply_experimental_launcher_semantic_trace(source_root)
-            overlay = apply_experimental_workspace_identity_binding(source_root, loaded, selected_path)
+            overlay = apply_experimental_workspace_runtime_binding(source_root)
             source = target.read_text(encoding="utf-8")
 
+            second_root = root / "second-sources"
+            second_target = second_root / "khaos/macos/TrustedWorkspaceLauncherMain.swift"
+            second_target.parent.mkdir(parents=True)
+            shutil.copy2(ROOT / "khaos/macos/TrustedWorkspaceLauncherMain.swift", second_target)
+            apply_experimental_launcher_semantic_trace(second_root)
+            second_overlay = apply_experimental_workspace_runtime_binding(second_root)
+
         self.assertEqual(overlay["path"], "khaos/macos/TrustedWorkspaceLauncherMain.swift")
-        self.assertIn('private static let phase322TrialID = "trial-overlay"', source)
-        self.assertIn(identity["workspace_path_sha256"], source)
-        self.assertIn(str(workspace), source)
-        self.assertIn("initialDirectory: URL(fileURLWithPath: phase322ExpectedWorkspacePath", source)
-        self.assertIn("canonicalPath == phase322ExpectedWorkspacePath", source)
-        self.assertIn("Darwin.realpath(source, &resolvedPath)", source)
-        self.assertIn("Data(canonicalPath.utf8)", source)
+        self.assertEqual(overlay["experimental_sha256"], second_overlay["experimental_sha256"])
+        self.assertIn("let trialID = UUID()", source)
+        self.assertIn("phase322BeginTrial(taskID: taskID)", source)
+        self.assertIn("phase322EndTrial(taskID: taskID)", source)
         self.assertIn("resolvingBookmarkData: selection.bookmark", source)
-        self.assertIn("options: [],", source)
-        accepted = 'writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")'
-        self.assertEqual(source.count(accepted), 1)
-        self.assertLess(source.index(accepted), source.index("handle.start { observation in"))
-        self.assertIn('"bookmark_resolved": resolvedScopeURL != nil', source)
-        self.assertIn('"directory_identity_matches": directoryIdentityMatches', source)
-        self.assertIn("approvalSHA256: approvalDigest", source)
-        self.assertIn("no Kernel request was submitted", source)
-        self.assertEqual(source.count('checkpoint: "after_approval"'), 1)
+        self.assertIn("workspaceURL.startAccessingSecurityScopedResource()", source)
+        self.assertIn("workspaceURL.stopAccessingSecurityScopedResource()", source)
+        self.assertIn("Darwin.realpath(source, &resolvedPath)", source)
+        self.assertIn("O_NOFOLLOW", source)
+        self.assertIn('checkpoint: "before_approval"', source)
+        self.assertIn('checkpoint: "after_approval"', source)
+        self.assertIn('checkpoint: "after_kernel_result"', source)
+        self.assertIn("phase322ReadMarker(directoryFD: directoryFD)", source)
+        self.assertIn("selection.identity", source)
+        self.assertIn("bookmarkSHA256", source)
+        self.assertNotIn("phase322ExpectedWorkspacePath", source)
+        self.assertNotIn("phase322ExpectedWorkspaceSHA256", source)
+        self.assertNotIn('private static let phase322TrialID =', source)
 
 
 if __name__ == "__main__":
