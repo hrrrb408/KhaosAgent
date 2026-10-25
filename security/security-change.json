@@ -4,12 +4,13 @@
     "security/freeze-baseline.json",
     "security/security-change.json",
     "security/tcb-manifest.json",
+    "tests/run_signed_retention_safety_acceptance.py",
     "tests/test_experimental_artifact_retention.py"
   ],
-  "motivation": "Add synthetic regression coverage for exact artifact manifests, evidence-first retention, and disk preflight on the independent M-Disk.1 branch stacked on the exact PR #46 head.",
-  "invariants": "The manifest auditor is read-only and has no historical deletion path. The test file validates metadata, path identity, evidence gates, process references, and preflight behavior with small fixtures. Khaos Kernel, ABI, workspace authority, signed production products, and plugin scopes are unchanged.",
-  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 production trusted-runtime delta, 0 production dependency delta. No historical artifact was removed, moved, truncated, or overwritten.",
-  "real_os_tests": "The final canonical suite passed 449 tests in 826.008 seconds; it includes the repository's real macOS Seatbelt tests and headless signed Seed XPC check. The 29 new retention tests, 6 existing DSH builder tests, and 10 existing DSH runner tests passed. No large GGUF build, signed DSH model App, or interactive DSH lifecycle run was performed. Default and exact-base Security Freeze checks passed; final-head GitHub CI is tracked by the Draft PR.",
-  "trusted_delta": "No production trusted code changed. Changes are limited to experimental Python tooling, build-governance test inventory, and reports. No new trusted process, IPC operation, persistent production state, or dependency.",
-  "baseline_decision": "Bind the M-Disk.1 protected test and Security Freeze metadata to exact PR #46 HEAD 7ed01f726387755181cfbadad33967f35d9d2f72. This declaration is a review aid, not an approval; cleanup authorization remains pending and no candidate is currently eligible."
+  "motivation": "Close M-Disk.1.2/1.3 signed fail-closed retention acceptance and exact three-candidate historical readiness. The checked historical targets are missing, so this change creates no deletion authorization.",
+  "invariants": "The signed runner exercises only invocation-owned disposable workspaces through the existing Trusted Launcher, Kernel and Runner. Retention checks stay in experimental Python tooling. Evidence failure, path identity change, active reference and unknown reference refuse cleanup. Kernel authority, ABI, workspace scope, production AgentHost, sandbox policy and production dependencies are unchanged.",
+  "authority_delta": "0 Kernel authority, 0 Kernel ABI, 0 workspace-scope authority, 0 production trusted-runtime delta, 0 production dependency delta. Historical paths were not accessed or mutated by this run; their current absence has unknown cause.",
+  "real_os_tests": "Four locally signed macOS UI trials on Khaos source cdc8f41867f7700ed482ae116e8486a2dc76a53e used the existing Launcher/Kernel/Runner and each actual Runner exit code 1. They covered controlled archive failure, path/inode substitution, an lsof-reported live reference, and injected unknown reference. The canonical suite passed 454 tests in 854.760 seconds on macOS; the focused retention suite passed 34 tests. Default and exact PR-base Security Freeze checks pass. Final-head GitHub CI is pending after push. No GGUF was rebuilt or bundled.",
+  "trusted_delta": "No production trusted code changed. The added acceptance driver and tests are build-governance inputs only; no new trusted process, IPC operation, persistent production state or dependency.",
+  "baseline_decision": "Bind the updated test-governance manifest to exact PR #47 base 7ed01f726387755181cfbadad33967f35d9d2f72. This declaration is not an independent security approval or cleanup authorization. Independent Code Owner review remains NOT PERFORMED."
 }

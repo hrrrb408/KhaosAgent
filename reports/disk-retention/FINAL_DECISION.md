@@ -101,3 +101,44 @@ The signed lifecycle is partial. A clean-worktree XPC recovery run proved a comm
 The full canonical suite passed 449 tests in 818.730 seconds. The two post-acceptance and post-canonical Dry Runs each checked 27 candidates, returned 24 pending owner approval and three refused, and performed zero mutations. The post-canonical output has null estimated reclaim and expected exit code 2 because three entries are refused. Current disk availability is 388 GiB on the Data volume and 417.1 GB not allocated in the APFS container; these overlapping views are not additive. Between the pre-canonical and post-canonical APFS samples, container in-use capacity rose by 62,234,624 bytes (about 59.4 MiB); that interval change is not attributed solely to the tests. No local snapshots were found. Historical files remain untouched.
 
 The M-Disk.1.1 follow-up delta from starting HEAD `5b2ef3eedaaa59392b6e710f87b4556c02cf8960` is documentation only: nine report files and no source, test, security declaration, manifest, or runtime changes. The overall PR #47 still contains its prior experimental Python retention tooling and tests; it does not change production Kernel authority or runtime. A 32 MiB clean detached build worktree and a 24 MiB verified Node toolchain/archive directory remain under temporary storage outside the 27 historical candidates; they were not cleaned. One separate 24 KiB incomplete-evidence preflight Scratch is retained for diagnosis. Keep large Phase 3.2.2 Gate B/C model runs paused until exact-head CI is green and remaining signed lifecycle gaps are closed or explicitly accepted. No cleanup or production-migration authorization is inferred.
+
+## M-Disk.1.2/1.3 follow-up — 2026-10-25
+
+The signed retention checks that were previously missing have now been exercised using four one-shot locally signed macOS UI runs. The runs used a synthetic fake-success command with an actual exit code of `1`; each went through the existing Trusted Launcher, Kernel and Runner. Archive failure, directory identity substitution, a real `lsof` process reference, and an injected unknown reference all caused cleanup refusal. A separate unit test verifies that an `lsof` process-launch error is `UNKNOWN` and blocks cleanup. The acceptance driver is experimental test code and does not add Kernel authority.
+
+```text
+M-Disk.1.3 Engineering: PARTIAL
+Signed Retention Lifecycle: PASS (four bounded signed scenarios)
+Evidence Archive Failure: PASS (controlled incomplete archive; cleanup refused)
+Scratch Identity Substitution: PASS (replacement unchanged)
+Active Process Reference: PASS (lsof found one synthetic PID; no force-kill)
+Unknown Process Reference: PASS (controlled unknown; lsof OSError unit test refuses)
+Historical Large Scratch Present: 0 / 3
+Historical Large Scratch Ready: 0 / 3 (all current target paths missing; cause unknown)
+Historical Evidence: preserved in independent owner-only closure archive; legacy capture-manifest hash binding mismatch disclosed
+New Owner Manifest SHA-256: 7241ce17046e58d0c8fd0451f226e95c2453bc0510ec1978a94c72f1334f08dc
+Exact Three-Candidate Dry Run SHA-256: a061f03b712b0f54e7b3a32eda16625e5aa3df77dedc0d48de265c0435cde79d
+Dry Run: PASS (3 REFUSE / 0 READY / 0 mutations; expected exit 2)
+Last recorded size of missing roots: 56,237,832,203 logical / 56,260,804,608 st_blocks bytes
+Actual APFS-exclusive reclaim: UNKNOWN; no current target is actionable
+Historical removals performed by this run: 0; disappearance cause of the three roots: UNKNOWN
+Original model source: present by metadata, 18,556,689,568 bytes; content not reread or hashed
+Current disk: Data 926 GiB total / 455 GiB used / 446 GiB available; APFS 515,315,507,200 bytes in use / 479,347,077,120 not allocated
+Local snapshots: none observed
+Canonical Tests: PASS (454 tests, 854.760 seconds)
+Focused Retention Tests: PASS (34 tests)
+Security Freeze: PASS (default; exact PR base 7ed01f726387755181cfbadad33967f35d9d2f72)
+Final-Head GitHub CI: PENDING at report preparation; use PR #47 checks for the exact pushed HEAD
+PR #47: OPEN / DRAFT; exact base 7ed01f726387755181cfbadad33967f35d9d2f72
+Owner Cleanup Approval: PENDING / NOT ACTIONABLE for missing paths
+Kernel Authority / ABI / Workspace Scope / Production Runtime / Production Dependency Delta: 0
+Independent Code Owner Review: NOT PERFORMED
+Production Harness Migration: NOT AUTHORIZED
+Phase 3.2.2 Gate B/C: CONDITIONAL; not started by this task
+```
+
+The three target directories that were present in the prior Manifest V2 are now absent. This run did not delete, move, traverse or mutate their contents; the cause and timing of their disappearance cannot be established from available records. The prior report showed 388 GiB available and 417,123,098,624 bytes not allocated in the APFS container. Current availability is approximately 58 GiB higher, which is correlated but not proof of the missing Scratch roots' contribution. The reported historical ~40 GB change remains unattributed.
+
+The final owner-only manifest contains exactly those three candidate IDs, retains their last-known identities, records the current missing state, and refuses all three. Its Dry Run confirms zero ready candidates and zero mutations. The manifest is **not a deletion authorization**, and there is no actionable approval request while these paths are missing. If an artifact with a similar name is found again, it requires a new identity-bound audit. The original GGUF and historical evidence archives remain protected.
+
+The current source diff remains limited to experimental Python retention tooling, tests, security test-inventory metadata and reports. No production trusted code, Kernel ABI, workspace authority, production AgentHost, sandbox policy or production dependency changed. The final PR check must still be read from GitHub against the pushed exact HEAD. No real-model Gate B/C run was started.

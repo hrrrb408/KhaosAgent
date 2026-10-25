@@ -22,6 +22,7 @@ from tools.experimental_artifact_retention import (
     cleanup_invocation_scratch,
     disk_space_preflight,
     inventory_path,
+    lsof_references,
     load_manifest,
     preflight_required_bytes,
     read_bounded_diagnostic_text,
@@ -240,6 +241,26 @@ class ExperimentalArtifactRetentionTests(unittest.TestCase):
         )
         self.assertEqual(report[0]["status"], "REFUSE")
         self.assertIn("active_reference_unknown", report[0]["reasons"])
+
+    def test_lsof_execution_failure_is_unknown_and_blocks_cleanup(self) -> None:
+        scratch = self.root / "scratch"
+        scratch.mkdir()
+        identity = scratch.stat()
+        fingerprint = str(inventory_path(scratch)["tree_fingerprint_sha256"])
+        with patch.object(experimental_artifact_retention.shutil, "which", return_value="/usr/sbin/lsof"):
+            with patch.object(experimental_artifact_retention.subprocess, "run", side_effect=OSError("synthetic lsof failure")):
+                state, pids = lsof_references(scratch)
+                allowed, reason = scratch_cleanup_state(
+                    scratch,
+                    identity.st_dev,
+                    identity.st_ino,
+                    expected_tree_fingerprint=fingerprint,
+                    reference_check=lsof_references,
+                )
+        self.assertEqual((state, pids), ("UNKNOWN", []))
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "scratch_open_reference_unknown")
+        self.assertTrue(scratch.is_dir())
 
     def test_missing_evidence_and_unproven_rebuild_are_refused(self) -> None:
         path = self.root / "scratch"

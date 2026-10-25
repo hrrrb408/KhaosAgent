@@ -948,6 +948,17 @@
       "sha256": "a23f0b53f35aaf3282a3de1c363c5b2b8e2f75d659436525e74a1d42f13162c7"
     },
     {
+      "path": "tests/run_signed_retention_safety_acceptance.py",
+      "role": "build-governance",
+      "sha256": "08c541e35055efe289eeb62772b2cb4d3dd3a7c45040f18dd2a27007a409840e",
+      "source_mode": "0o644",
+      "boundary": "opt-in test-only signed experimental retention acceptance; touches only invocation-owned disposable Scratch and does not ship in runtime",
+      "tests": [
+        "python3 -m unittest discover -s tests -p test_experimental_artifact_retention.py -v",
+        "reports/disk-retention/SIGNED_RETENTION_SAFETY_CLOSURE.md"
+      ]
+    },
+    {
       "path": "tests/signed_cancellation_fixture.py",
       "role": "build-governance",
       "source_mode": "0o644",
@@ -1007,7 +1018,7 @@
     {
       "path": "tests/test_experimental_artifact_retention.py",
       "role": "build-governance",
-      "sha256": "88f2fa01da3bc13b02f5bcca0b8ac1f4f402888c45dde661f7698a9eff120c87",
+      "sha256": "4977efc2d513554affe505156ebbb975cca22819ff291051dd54273692ea21e6",
       "source_mode": "0o644",
       "boundary": "synthetic tests for experimental artifact inventory, preflight, and dry-run behavior; not runtime authority",
       "tests": [
