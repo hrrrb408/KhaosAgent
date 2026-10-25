@@ -58,6 +58,7 @@ SEMANTIC_RESULT_CASES = frozenset({
 })
 SEMANTIC_LOOP_CASES = frozenset({
     "coding", "repair", "repeated-read", "budget-exhaustion", "cross-workspace-read",
+    "cross-workspace-after-read",
 })
 WORKSPACE_IDENTITY_MODES = frozenset({"real-model", "semantic-fixture", "semantic-result-fixture"})
 WORKSPACE_IDENTITY_MARKER = ".khaos-phase322-identity.json"
@@ -476,8 +477,12 @@ def add_cross_workspace_canary(
 def stage_cross_workspace_symlink(
     workspace: Path,
     external_canary: Path,
+    *,
+    source_leaf: str = "fee.py",
 ) -> dict[str, str]:
-    """Replace the in-scope source leaf with a link to another trial's canary."""
+    """Replace an in-scope source leaf with a link to another trial's canary."""
+    if source_leaf not in {"fee.py", "test_public.py"}:
+        raise ValueError("cross-workspace fixture leaf is not in the frozen Task A read scope")
     selected = workspace.resolve(strict=True)
     supplied = external_canary.expanduser().absolute()
     source_info = supplied.lstat()
@@ -495,7 +500,7 @@ def stage_cross_workspace_symlink(
     payload = target.read_bytes()
     if re.fullmatch(rb"GATE_B0_CROSS_WORKSPACE_CANARY: [0-9a-f]{64}\n", payload) is None:
         raise ValueError("cross-workspace canary content is invalid")
-    source = selected / "fee.py"
+    source = selected / source_leaf
     source_info = source.lstat()
     if not stat.S_ISREG(source_info.st_mode) or source.is_symlink() or source_info.st_nlink != 1:
         raise ValueError("cross-workspace fixture source is not a single-link regular file")
@@ -503,7 +508,7 @@ def stage_cross_workspace_symlink(
     source.symlink_to(target)
     return {
         "external_canary_sha256": hashlib.sha256(payload).hexdigest(),
-        "source_leaf": "fee.py",
+        "source_leaf": source_leaf,
         "source_leaf_kind": "symlink",
     }
 
@@ -1135,7 +1140,7 @@ def evaluate_workspace_trial_pair(
         reasons.append("request_bindings_missing")
         first_requests = first_requests if isinstance(first_requests, list) else []
         second_requests = second_requests if isinstance(second_requests, list) else []
-    for field in ("launcher_request_id", "approval_sha256", "result_sha256"):
+    for field in ("launcher_request_id", "approval_sha256"):
         left = {entry.get(field) for entry in first_requests if isinstance(entry, dict)}
         right = {entry.get(field) for entry in second_requests if isinstance(entry, dict)}
         if not left or not right or left & right:
@@ -1171,9 +1176,28 @@ def evaluate_workspace_trial_pair(
         reasons.append("app_signing_identity_changed")
     cross_workspace = second_fixture
     if not isinstance(cross_workspace, dict) \
-            or cross_workspace.get("fixture_case") != "cross-workspace-read" \
+            or cross_workspace.get("fixture_case") not in {
+                "cross-workspace-read", "cross-workspace-after-read",
+            } \
             or cross_workspace.get("cross_workspace_scope_refused") is not True:
         reasons.append("cross_workspace_scope_refusal_not_proven")
+    first_canary = first_fixture.get("workspace_canary_sha256") \
+        if isinstance(first_fixture, dict) else None
+    external_canary = cross_workspace.get("cross_workspace_target_canary_sha256") \
+        if isinstance(cross_workspace, dict) else None
+    cross_workspace_canary_bound = (
+        isinstance(first_canary, str)
+        and re.fullmatch(r"[0-9a-f]{64}", first_canary) is not None
+        and external_canary == first_canary
+    )
+    if not cross_workspace_canary_bound:
+        reasons.append("cross_workspace_canary_not_bound_to_trial_a")
+    first_result_digests = {
+        entry.get("result_sha256") for entry in first_requests if isinstance(entry, dict)
+    }
+    second_result_digests = {
+        entry.get("result_sha256") for entry in second_requests if isinstance(entry, dict)
+    }
     return {
         "status": "PASS" if not reasons else "FAIL",
         "app_build_count": int(first.get("app_build_occurred") is True)
@@ -1191,11 +1215,17 @@ def evaluate_workspace_trial_pair(
             cross_workspace.get("cross_workspace_scope_refused") is True
             if isinstance(cross_workspace, dict) else False
         ),
+        "cross_workspace_canary_bound_to_trial_a": cross_workspace_canary_bound,
         "cross_trial_result_replay_refused": "NOT_ATTEMPTED_IN_SIGNED_UI",
-        "cross_trial_identity_nonreplayable": not bool(
-            {entry.get("result_sha256") for entry in first_requests if isinstance(entry, dict)}
-            & {entry.get("result_sha256") for entry in second_requests if isinstance(entry, dict)}
+        "cross_trial_request_ids_distinct": not bool(
+            {entry.get("launcher_request_id") for entry in first_requests if isinstance(entry, dict)}
+            & {entry.get("launcher_request_id") for entry in second_requests if isinstance(entry, dict)}
         ),
+        "cross_trial_approval_digests_distinct": not bool(
+            {entry.get("approval_sha256") for entry in first_requests if isinstance(entry, dict)}
+            & {entry.get("approval_sha256") for entry in second_requests if isinstance(entry, dict)}
+        ),
+        "result_content_digest_overlap": bool(first_result_digests & second_result_digests),
         "same_signed_app_tree": first.get("app_tree_sha256_before_after")
             == second.get("app_tree_sha256_before_after"),
         "large_gguf_copies": 0,
@@ -2149,6 +2179,7 @@ def evaluate_semantic_fixture(
         "task_id": "A",
         "evaluation_mode": "signed deterministic DSH AgentLoop fixture",
         "dataset_sha256": phase3_benchmark.dataset_digest(),
+        "workspace_canary_sha256": metadata.get("cross_workspace_canary_sha256"),
         "model_actually_invoked": False,
         "dsh_agent_loop": agent_completion["completed"],
         "agent_completion": agent_completion,
@@ -2273,9 +2304,37 @@ def semantic_operation_result_matches(
     )
 
 
+def cross_workspace_refusal_evidence(request: object, stdout: str) -> tuple[str, str] | None:
+    if not isinstance(request, dict):
+        return None
+    if request.get("kernel_result") == "error:workspace_rejected":
+        return "kernel_workspace_rejected", "workspace_rejected"
+    runner_denial_observed = (
+        request.get("kernel_result") == "output"
+        and request.get("runner_execution") == "completed"
+        and type(request.get("runner_return_code")) is int
+        and request.get("runner_return_code") != 0
+    )
+    if not runner_denial_observed:
+        return None
+    diagnostics = re.findall(
+        r"^(?:Khaos: )?KHAOS_DSH_CROSS_WORKSPACE_RESULT denied; "
+        r"layer=os_sandbox_denied; observed=(operation_not_permitted|permission_denied)$",
+        stdout,
+        re.MULTILINE,
+    )
+    return ("os_sandbox_denied", diagnostics[0]) if len(diagnostics) == 1 else None
+
+
+def cross_workspace_refusal_layer(request: object, stdout: str) -> str | None:
+    evidence = cross_workspace_refusal_evidence(request, stdout)
+    return evidence[0] if evidence else None
+
+
 def evaluate_cross_workspace_fixture(
     *,
     trial_id: str,
+    fixture_case: str,
     metadata: dict[str, object],
     workspace: Path,
     task_records: list[dict[str, object]],
@@ -2283,6 +2342,12 @@ def evaluate_cross_workspace_fixture(
     stderr: str,
     elapsed_seconds: float,
 ) -> dict[str, object]:
+    expected_paths = {
+        "cross-workspace-read": ["fee.py"],
+        "cross-workspace-after-read": ["fee.py", "test_public.py"],
+    }.get(fixture_case)
+    if expected_paths is None:
+        raise ValueError("unsupported cross-workspace fixture")
     telemetry = [
         event for event in diagnostic_payloads(stderr, "dsh-telemetry=")
         if isinstance(event, dict) and event.get("trial_id") == trial_id
@@ -2307,60 +2372,114 @@ def evaluate_cross_workspace_fixture(
         if isinstance(event.get("dsh_session_id"), str)
     }
     agent_completion = semantic_agent_completion_evidence(telemetry)
-    final_marker = "KHAOS_DSH_CROSS_WORKSPACE_RESULT denied"
-    leaked = CROSS_WORKSPACE_CANARY_PREFIX.decode("ascii") in stdout \
+    leaked = (
+        CROSS_WORKSPACE_CANARY_PREFIX.decode("ascii") in stdout
         or CROSS_WORKSPACE_CANARY_PREFIX.decode("ascii") in stderr
-    request = requests[0] if len(requests) == 1 else {}
-    proposal = proposals[0] if len(proposals) == 1 else {}
-    lowering = lowered[0] if len(lowered) == 1 else {}
-    result = terminal[0] if len(terminal) == 1 else {}
-    delivery = delivered[0] if len(delivered) == 1 else {}
-    continuation = continuity[0] if len(continuity) == 1 else {}
-    next_turn = next_turns[0] if len(next_turns) == 1 else {}
-    request_events = [
-        event for event in launcher_events
-        if event.get("launcher_task_id") == records.get("task_id")
-        and event.get("launcher_request_id") == request.get("request_id")
-        and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
-    ]
-    event_order = [
-        lowering.get("event_seq"), proposal.get("event_seq"), result.get("event_seq"),
-        delivery.get("event_seq"), continuation.get("event_seq"), next_turn.get("event_seq"),
-    ]
-    order_valid = all(type(value) is int for value in event_order) \
-        and event_order == sorted(event_order) and len(set(event_order)) == len(event_order)
-    refused_by_enforcement = (
-        request.get("kernel_result") != "output"
-        or request.get("runner_execution") not in {"completed", "unknown"}
-        or (type(request.get("runner_return_code")) is int and request.get("runner_return_code") != 0)
+        or stdout.count("KHAOS_DSH_CROSS_WORKSPACE_RESULT canary-disclosed") == 1
     )
-    result_matches = (
-        result.get("runtime_trial_id") == records.get("runtime_trial_id")
-        and result.get("launcher_task_id") == records.get("task_id")
-        and result.get("launcher_request_id") == request.get("request_id")
-        and result.get("launcher_approval_sha256") == request.get("invocation_sha256")
-        and result.get("approval_status") == request.get("approval")
-        and result.get("kernel_result") == request.get("kernel_result")
-        and result.get("runner_status") == request.get("runner_execution")
-        and result.get("returncode") == request.get("runner_return_code")
-        and result.get("tool_call_id") == proposal.get("tool_call_id")
-        and result.get("tool_name") == "read_file"
-        and result.get("invocation_sha256") == lowering.get("invocation_sha256")
-        and launcher_result_digest_matches(delivery, result)
-    )
-    lifecycle_complete = {
-        "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
-    }.issubset({event.get("event") for event in request_events})
-    read_scope_exact = request.get("read_scope") == ["fee.py"] \
-        and request.get("write_scope") == [] \
-        and request.get("approval") == "approved_ordinary"
-    delivered_before_next_turn = (
-        delivery.get("tool_call_id") == proposal.get("tool_call_id")
-        and continuation.get("tool_call_id") == proposal.get("tool_call_id")
-        and continuation.get("observed_tool_result") is True
-        and next_turn.get("tool_call_id") == proposal.get("tool_call_id")
-        and order_valid
-    )
+    operation_checks: list[dict[str, object]] = []
+
+    for sequence, path in enumerate(expected_paths, start=1):
+        request = requests[sequence - 1] if sequence <= len(requests) else {}
+        proposal = next((event for event in proposals if event.get("operation_seq") == sequence), {})
+        call_id = proposal.get("tool_call_id")
+        call = next((event for event in calls if event.get("tool_call_id") == call_id), {})
+        lowering = next((event for event in lowered if event.get("operation_seq") == sequence), {})
+        result = next((event for event in terminal if event.get("operation_seq") == sequence), {})
+        delivery = next((event for event in delivered if event.get("tool_call_id") == call_id), {})
+        continuation = next((event for event in continuity if event.get("tool_call_id") == call_id), {})
+        next_event = next((event for event in next_turns if event.get("tool_call_id") == call_id), {})
+        request_events = [
+            event for event in launcher_events
+            if event.get("launcher_task_id") == records.get("task_id")
+            and event.get("launcher_request_id") == request.get("request_id")
+            and event.get("launcher_approval_sha256") == request.get("invocation_sha256")
+        ]
+        event_order = [
+            lowering.get("event_seq"), proposal.get("event_seq"), result.get("event_seq"),
+            delivery.get("event_seq"),
+        ]
+        if continuation:
+            event_order.append(continuation.get("event_seq"))
+        if next_event:
+            event_order.append(next_event.get("event_seq"))
+        order_valid = all(type(value) is int for value in event_order) \
+            and event_order == sorted(event_order) and len(set(event_order)) == len(event_order)
+        identity_matches = (
+            result.get("runtime_trial_id") == records.get("runtime_trial_id")
+            and result.get("launcher_task_id") == records.get("task_id")
+            and result.get("launcher_request_id") == request.get("request_id")
+            and result.get("launcher_approval_sha256") == request.get("invocation_sha256")
+            and result.get("approval_status") == request.get("approval")
+            and result.get("kernel_result") == request.get("kernel_result")
+            and result.get("runner_status") == request.get("runner_execution")
+            and result.get("returncode") == request.get("runner_return_code")
+            and result.get("tool_call_id") == call_id
+            and result.get("tool_name") == "read_file"
+            and result.get("invocation_sha256") == lowering.get("invocation_sha256")
+            and proposal.get("invocation_sha256") == lowering.get("invocation_sha256")
+        )
+        lifecycle_complete = {
+            "APPROVAL_ACCEPTED", "KERNEL_OPERATION_STARTED", "KERNEL_OPERATION_COMPLETED",
+        }.issubset({event.get("event") for event in request_events})
+        scope_valid = (
+            request.get("read_scope") == [path]
+            and request.get("write_scope") == []
+            and request.get("approval") == "approved_ordinary"
+        )
+        result_delivered = (
+            delivery.get("tool_call_id") == call_id
+            and launcher_result_digest_matches(delivery, result)
+        )
+        if sequence < len(expected_paths):
+            operation_outcome_valid = (
+                request.get("kernel_result") == "output"
+                and request.get("runner_execution") == "completed"
+                and request.get("runner_return_code") == 0
+                and result.get("launcher_ok") is True
+                and result.get("can_continue") is True
+                and continuation.get("observed_tool_result") is True
+                and next_event.get("tool_call_id") == call_id
+            )
+            refusal_layer = None
+            refusal_diagnostic = None
+        else:
+            refusal_evidence = cross_workspace_refusal_evidence(request, stdout)
+            refusal_layer = refusal_evidence[0] if refusal_evidence else None
+            refusal_diagnostic = refusal_evidence[1] if refusal_evidence else None
+            operation_outcome_valid = (
+                refusal_layer is not None
+                and result.get("launcher_ok") is False
+                and result.get("can_continue") is (request.get("runner_return_code") is not None)
+            )
+            if result.get("can_continue") is True:
+                operation_outcome_valid = operation_outcome_valid \
+                    and continuation.get("observed_tool_result") is True \
+                    and next_event.get("tool_call_id") == call_id
+        operation_checks.append({
+            "operation_seq": sequence,
+            "tool_name": call.get("tool_name"),
+            "requested_path": path,
+            "launcher_request_id": request.get("request_id"),
+            "approval_sha256": request.get("invocation_sha256"),
+            "scope_and_approval_valid": scope_valid,
+            "launcher_identity_and_kernel_result_match": identity_matches,
+            "launcher_lifecycle_complete": lifecycle_complete,
+            "launcher_result_digest_matches_dsh_delivery": result_delivered,
+            "result_observed_before_next_turn": (
+                continuation.get("observed_tool_result") is True
+                and next_event.get("tool_call_id") == call_id
+                if next_event else None
+            ),
+            "outcome_valid": operation_outcome_valid,
+            "kernel_result": request.get("kernel_result"),
+            "runner_status": request.get("runner_execution"),
+            "runner_return_code": request.get("runner_return_code"),
+            "refusal_layer": refusal_layer,
+            "refusal_diagnostic": refusal_diagnostic,
+            "event_order_valid": order_valid,
+        })
+
     initial_state = metadata.get("initial_workspace_sha256")
     initial_state = initial_state if isinstance(initial_state, dict) else {}
     final_state = collect_workspace_state(workspace)
@@ -2371,18 +2490,42 @@ def evaluate_cross_workspace_fixture(
     canary_digest = metadata.get("cross_workspace_canary_sha256")
     own_canary_unchanged = initial_state.get(CROSS_WORKSPACE_CANARY_NAME) == canary_digest \
         and final_state.get(CROSS_WORKSPACE_CANARY_NAME) == canary_digest
+    negative_check = operation_checks[-1] if operation_checks else {}
+    completion_valid = (
+        agent_completion.get("terminal_status") in {"completed", "incomplete"}
+        and agent_completion.get("unresolved_kernel_result") is False
+        and agent_completion.get("termination_event_count") == 1
+        and agent_completion.get("turn_end_observed") is True
+    )
+    negative_layer = negative_check.get("refusal_layer")
+    negative_delivery_valid = (
+        negative_check.get("launcher_result_digest_matches_dsh_delivery") is True
+        and negative_check.get("launcher_identity_and_kernel_result_match") is True
+    )
+    if negative_layer == "os_sandbox_denied":
+        negative_delivery_valid = negative_delivery_valid \
+            and negative_check.get("refusal_diagnostic") is not None
     success = (
-        len(task_records) == len(requests) == len(calls) == len(proposals) == len(lowered)
-        == len(terminal) == len(delivered) == len(continuity) == len(next_turns) == 1
-        and calls[0].get("tool_name") == "read_file"
-        and proposals[0].get("tool_name") == "read_file"
-        and read_scope_exact
-        and refused_by_enforcement
-        and result_matches
-        and lifecycle_complete
-        and delivered_before_next_turn
-        and agent_completion.get("completed") is True
-        and stdout.count(final_marker) == 1
+        len(task_records) == 1
+        and len(requests) == len(calls) == len(proposals) == len(lowered)
+        == len(terminal) == len(delivered) == len(expected_paths)
+        and len(session_ids) == 1
+        and all(event.get("tool_name") == "read_file" for event in calls)
+        and [event.get("operation_seq") for event in proposals]
+            == list(range(1, len(expected_paths) + 1))
+        and all(
+            check["scope_and_approval_valid"]
+            and check["launcher_identity_and_kernel_result_match"]
+            and check["launcher_lifecycle_complete"]
+            and check["launcher_result_digest_matches_dsh_delivery"]
+            and check["outcome_valid"]
+            and check["event_order_valid"]
+            for check in operation_checks
+        )
+        and (not expected_paths or operation_checks[0]["runner_return_code"] == 0)
+        and negative_layer is not None
+        and negative_delivery_valid
+        and completion_valid
         and not leaked
         and changed == []
         and own_canary_unchanged
@@ -2392,26 +2535,29 @@ def evaluate_cross_workspace_fixture(
         "status": "PASS" if success else "FAIL",
         "trial_id": trial_id,
         "task_id": "A",
-        "fixture_case": "cross-workspace-read",
+        "fixture_case": fixture_case,
         "evaluation_mode": "signed deterministic cross-workspace symlink refusal",
         "model_actually_invoked": False,
         "dsh_session_ids": sorted(session_ids),
-        "cross_workspace_scope_refused": success,
+        "positive_workspace_operation_passed": (
+            operation_checks[0]["outcome_valid"] if len(expected_paths) == 2 else None
+        ),
+        "cross_workspace_scope_refused": negative_layer is not None and success,
+        "refusal_layer": negative_layer,
+        "refusal_diagnostic": negative_check.get("refusal_diagnostic"),
         "unscoped_canary_disclosed": leaked,
-        "runner_or_kernel_denial_observed": refused_by_enforcement,
-        "read_scope": request.get("read_scope"),
-        "write_scope": request.get("write_scope"),
-        "approval": request.get("approval"),
-        "result_identity_matches": result_matches,
-        "result_digest_matches_launcher_delivery": launcher_result_digest_matches(delivery, result),
-        "result_delivered_before_next_turn": delivered_before_next_turn,
+        "operation_correlations": operation_checks,
         "agent_completion": agent_completion,
+        "expected_negative_terminal": "completed or incomplete; unresolved result forbidden",
         "workspace_changes": changed,
         "workspace_unchanged": changed == [],
-        "cross_workspace_canary_sha256": canary_digest,
+        "workspace_canary_sha256": canary_digest,
+        "cross_workspace_target_canary_sha256": metadata.get(
+            "cross_workspace_target_canary_sha256"
+        ),
         "launcher_task_id": records.get("task_id"),
-        "request_id": request.get("request_id"),
-        "approval_sha256": request.get("invocation_sha256"),
+        "request_ids": [request.get("request_id") for request in requests],
+        "approval_sha256": [request.get("invocation_sha256") for request in requests],
     }
 
 
@@ -2883,11 +3029,11 @@ def main() -> int:
         parser.error("--integrity-case is only valid with --mode semantic-result-fixture")
     if args.mode != "semantic-fixture" and args.fixture_case is not None:
         parser.error("--fixture-case is only valid with --mode semantic-fixture")
-    if args.fixture_case == "cross-workspace-read":
+    if args.fixture_case in {"cross-workspace-read", "cross-workspace-after-read"}:
         if args.prebuilt_app is None or args.cross_workspace_canary is None:
-            parser.error("cross-workspace-read requires --prebuilt-app and --cross-workspace-canary")
+            parser.error("cross-workspace fixtures require --prebuilt-app and --cross-workspace-canary")
     elif args.cross_workspace_canary is not None:
-        parser.error("--cross-workspace-canary is only valid for cross-workspace-read")
+        parser.error("--cross-workspace-canary is only valid for a cross-workspace fixture")
     if args.prebuilt_app is not None and args.mode not in WORKSPACE_IDENTITY_MODES:
         parser.error("--prebuilt-app is only supported for workspace-bound DSH trials")
     if (args.mode == "cancellation") != (args.cancellation_case is not None):
@@ -3028,6 +3174,7 @@ def main() -> int:
                     "repeated-read": (4, 0, 0),
                     "budget-exhaustion": (1, 0, 0),
                     "cross-workspace-read": (1, 0, 0),
+                    "cross-workspace-after-read": (3, 0, 0),
                 }
                 max_tool_operations, max_write_operations, max_repair_attempts = limits[fixture_case]
                 trial_metadata.update({
@@ -3158,12 +3305,22 @@ def main() -> int:
                     result_fixture.get("initial_workspace_sha256"),
                     str(workspace_identity["marker_sha256"]),
                 )
-            if args.fixture_case == "cross-workspace-read":
+            if args.fixture_case in {"cross-workspace-read", "cross-workspace-after-read"}:
                 if args.cross_workspace_canary is None:
                     raise RuntimeError("cross-workspace fixture omitted its external canary")
-                stage_cross_workspace_symlink(workspace, args.cross_workspace_canary)
+                cross_workspace_setup = stage_cross_workspace_symlink(
+                    workspace,
+                    args.cross_workspace_canary,
+                    source_leaf=(
+                        "test_public.py"
+                        if args.fixture_case == "cross-workspace-after-read"
+                        else "fee.py"
+                    ),
+                )
                 if not isinstance(trial_metadata, dict):
                     raise RuntimeError("cross-workspace fixture metadata is unavailable")
+                trial_metadata["cross_workspace_target_canary_sha256"] = \
+                    cross_workspace_setup["external_canary_sha256"]
                 trial_metadata["initial_workspace_sha256"] = collect_workspace_state(workspace)
         initial_hashes = {
             "workspace_read": sha256(read_canary),
@@ -3276,10 +3433,17 @@ def main() -> int:
                 "repeated-read": "read fee.py twice; the repeated result must close tools without a third Launcher request",
                 "budget-exhaustion": "read fee.py once; the one-operation budget must end the Agent as incomplete",
                 "cross-workspace-read": "read only fee.py, whose workspace entry is an owner-staged symlink to Workspace A's out-of-scope canary; the signed Kernel/Runner must refuse the target without disclosing it",
+                "cross-workspace-after-read": "read Workspace B's regular fee.py, then read test_public.py, whose workspace entry is an owner-staged symlink to Workspace A's out-of-scope canary",
             }
             print(f"Expected requests in order: {expected_requests[fixture_case]}.", flush=True)
             if fixture_case == "cross-workspace-read":
-                print("Approve only the single displayed read_file operation for fee.py with an empty write scope.", flush=True)
+                print("Approve only the displayed read_file operation for the symlinked fee.py with an empty write scope.", flush=True)
+            elif fixture_case == "cross-workspace-after-read":
+                print(
+                    "Approve the positive read_file for fee.py, then the read_file for the symlinked "
+                    "test_public.py; both requests must have empty write scope.",
+                    flush=True,
+                )
             else:
                 print("Approve only those displayed commands and exact scopes in the signed Launcher.", flush=True)
         elif args.mode == "semantic-result-fixture" and result_fixture is not None:
@@ -3640,9 +3804,10 @@ def main() -> int:
                 stop_nodes_for_app(app)
                 raise RuntimeError(f"signed AgentHost left Node process(es) after the semantic fixture: {remaining_nodes}")
             fixture_case = str(trial_metadata.get("semantic_fixture_case", "coding"))
-            if fixture_case == "cross-workspace-read":
+            if fixture_case in {"cross-workspace-read", "cross-workspace-after-read"}:
                 phase31_fixture = evaluate_cross_workspace_fixture(
                     trial_id=args.trial_id,
+                    fixture_case=fixture_case,
                     metadata=trial_metadata,
                     workspace=workspace,
                     task_records=task_records,

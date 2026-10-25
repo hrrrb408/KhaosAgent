@@ -47,20 +47,42 @@ export function semanticCrossWorkspaceReadResponses() {
   return [
     toolCallResponse('phase322-cross-workspace-read', 'read_file', { path: 'fee.py' }),
     options => {
-      const result = JSON.parse(lastToolResult(options.messages)) as {
-        ok?: unknown
-        returncode?: unknown
-        text?: unknown
-      }
-      const leaked = typeof result.text === 'string'
-        && result.text.includes('GATE_B0_CROSS_WORKSPACE_CANARY:')
-      const refused = result.ok === false
-        || (typeof result.returncode === 'number' && result.returncode !== 0)
-      return refused && !leaked
-        ? textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT denied')
-        : textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT not-proven')
+      return crossWorkspaceResultResponse(options.messages)
     },
   ]
+}
+
+export function semanticCrossWorkspaceAfterReadResponses() {
+  return [
+    toolCallResponse('phase322-workspace-b-positive-read', 'read_file', { path: 'fee.py' }),
+    options => lastToolResultText(options.messages).includes('return amount * rate')
+      ? toolCallResponse('phase322-workspace-b-cross-read', 'read_file', { path: 'test_public.py' })
+      : textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT positive-not-proven'),
+    options => crossWorkspaceResultResponse(options.messages),
+  ]
+}
+
+function crossWorkspaceResultResponse(messages: Parameters<typeof lastToolResult>[0]) {
+  const result = JSON.parse(lastToolResult(messages)) as {
+    ok?: unknown
+    returncode?: unknown
+    text?: unknown
+  }
+  const text = typeof result.text === 'string' ? result.text : ''
+  const leaked = text.includes('GATE_B0_CROSS_WORKSPACE_CANARY:')
+  const kernelRejected = !result.ok && text.includes('workspace_rejected')
+  const sandboxDiagnostic = /operation not permitted/iu.test(text)
+    ? 'operation_not_permitted'
+    : /permission denied/iu.test(text) ? 'permission_denied' : undefined
+  const sandboxDenied = !result.ok && result.returncode === 1 && sandboxDiagnostic !== undefined
+  const layer = kernelRejected
+    ? 'kernel_workspace_rejected'
+    : sandboxDenied ? 'os_sandbox_denied' : undefined
+  const diagnostic = kernelRejected ? 'workspace_rejected' : sandboxDiagnostic
+  if (leaked) return textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT canary-disclosed')
+  return layer
+    ? textResponse(`KHAOS_DSH_CROSS_WORKSPACE_RESULT denied; layer=${layer}; observed=${diagnostic}`)
+    : textResponse('KHAOS_DSH_CROSS_WORKSPACE_RESULT not-proven')
 }
 
 export type SemanticLoopFixtureCase =
@@ -69,6 +91,7 @@ export type SemanticLoopFixtureCase =
   | 'repeated-read'
   | 'budget-exhaustion'
   | 'cross-workspace-read'
+  | 'cross-workspace-after-read'
 
 export type SemanticResultFixtureCase =
   | 'task-a-failure'
@@ -85,6 +108,7 @@ const RESULT_FIXTURE_CASES: readonly SemanticResultFixtureCase[] = [
 ]
 const LOOP_FIXTURE_CASES: readonly SemanticLoopFixtureCase[] = [
   'coding', 'repair', 'repeated-read', 'budget-exhaustion', 'cross-workspace-read',
+  'cross-workspace-after-read',
 ]
 
 export function isSemanticFixtureCase(value: unknown): value is SemanticFixtureCase {
@@ -179,6 +203,7 @@ export function semanticFixtureResponses(testCase: SemanticFixtureCase) {
     case 'repeated-read': return repeatedReadResponses()
     case 'budget-exhaustion': return budgetExhaustionResponses()
     case 'cross-workspace-read': return semanticCrossWorkspaceReadResponses()
+    case 'cross-workspace-after-read': return semanticCrossWorkspaceAfterReadResponses()
     case 'coding': return semanticCodingResponses()
   }
 }
