@@ -36,6 +36,7 @@ Removed duplication / abstractions: removed trial-specific path-bound identity i
 - Default and exact-base Security Freeze checks: passed before the trace-schema correction; reruns are pending.
 - A pre-correction signed app passed deep/strict signature and prebuilt-app validation. A fresh app built from the corrected source is pending.
 - The first signed Trial A attempt approved one `fee.py` read, then the Host returned `invalid_request` because the experimental trace allowlist omitted the newly required `runtime_trial_id`. It made no workspace changes and invoked no model. The failed input and result remain preserved and are not reused as acceptance.
+- The next signed attempt passed that request-trace decoder and completed one scoped read, but DSH terminal-result telemetry then failed the Host's independent telemetry allowlist. The Node event carried `runtime_trial_id`, while the experimental Swift Host/client telemetry filters omitted it; `DSHRuntimeProcess` failed closed with `invalid_frame`. It made no workspace changes and invoked no model. The event path is now covered by UUID validation at both telemetry boundaries; a fresh signed build is pending.
 - Corrected signed Trial A and Trial B outcomes: pending; unit evidence does not count as signed acceptance.
 
 ## Review boundary

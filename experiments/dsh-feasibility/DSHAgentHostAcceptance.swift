@@ -336,7 +336,7 @@ private final class DSHRuntimeProcess {
 
     private func acceptTelemetry(_ record: [String: Any]) -> Bool {
         let allowedKeys: Set<String> = [
-            "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "benchmark_task_id",
+            "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "runtime_trial_id", "benchmark_task_id",
             "agent_turn_id", "agent_step_id", "model_call_id", "tool_call_id", "tool_name",
             "operation_seq", "invocation_sha256", "argument_bytes", "file_count",
             "write_operation", "duration_ms", "status", "error_code", "returncode",
@@ -403,6 +403,15 @@ private final class DSHRuntimeProcess {
               boundedInteger("failures", maximum: 10_000),
               boundedInteger("errors", maximum: 10_000),
               boundedInteger("skipped", maximum: 10_000) else {
+            return false
+        }
+        if event == "LAUNCHER_TERMINAL_RESULT_DELIVERED" {
+            guard let runtimeTrialID = record["runtime_trial_id"] as? String,
+                  runtimeTrialID.range(
+                    of: #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"#,
+                    options: .regularExpression
+                  ) != nil else { return false }
+        } else if record["runtime_trial_id"] != nil {
             return false
         }
         if event == "PUBLIC_TEST_RESULT_VERIFIED" {

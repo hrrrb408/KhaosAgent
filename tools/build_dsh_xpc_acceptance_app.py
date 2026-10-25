@@ -544,6 +544,7 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
         }
         let allowedFields: Set<String> = [
             "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "benchmark_task_id",
+            "runtime_trial_id",
             "agent_turn_id", "agent_step_id", "model_call_id", "tool_call_id", "tool_name",
             "operation_seq", "invocation_sha256", "argument_bytes", "file_count", "write_operation",
             "duration_ms", "status", "error_code", "returncode", "can_continue", "result_bytes",
@@ -610,6 +611,15 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
                       ["passed", "failed", "invalid", "unverified", "mismatch"].contains(status) else {
                     return nil
                 }
+            }
+            if event == "LAUNCHER_TERMINAL_RESULT_DELIVERED" {
+                guard let runtimeTrialID = record["runtime_trial_id"] as? String,
+                      runtimeTrialID.range(
+                        of: #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"#,
+                        options: .regularExpression
+                      ) != nil else { return nil }
+            } else if record["runtime_trial_id"] != nil {
+                return nil
             }
             totalBytes += encoded.count
             guard totalBytes <= 40 * 1_024 else { return nil }

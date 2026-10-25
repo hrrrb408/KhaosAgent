@@ -17,9 +17,10 @@
 | Refuse a failed prebuilt signature and an app with mismatched signed receipt identity | `test_prebuilt_app_signature_and_identity_mismatches_fail_closed` | PASS |
 | Keep app overlay generic and independent of workspace path | `test_workspace_runtime_overlay_is_path_independent_and_experimental_only` | PASS |
 | Require the runtime trial identity in the experimental tool-result trace schema | `test_experimental_tool_result_trace_requires_runtime_trial_identity` | PASS |
+| Accept only a UUID-shaped runtime trial ID on the terminal-result telemetry event at both experimental Swift telemetry filters | `test_test_result_telemetry_contract_matches_both_experimental_boundaries` | PASS |
 
 The protected builder and runner modules contain 7 and 14 tests respectively. Their focused tests passed, and the complete canonical suite passed with 462 tests. The two-trial evidence evaluator additionally rejects shared app-tree changes, repeated approvals, repeated sessions/results, missing scope refusal, or a model invocation when the pair contract requires none.
 
 ## Evidence boundary
 
-These tests exercise manifest parsing, identity/evidence joins, source overlay generation, and fail-closed pair validation with synthetic workspaces and injected evidence. They do not prove that the signed macOS Launcher, Picker, Kernel XPC, or Runner enforces the same behavior in a real operation. The first signed run did prove that an unrecognized extra trace field fails closed, but it did not deliver the result to DSH. A corrected signed app must complete both disposable-workspace trials, including the intentional cross-workspace scope denial. Any signed case not completed remains `NOT_PROVEN`.
+These tests exercise manifest parsing, identity/evidence joins, source overlay generation, and fail-closed pair validation with synthetic workspaces and injected evidence. They do not prove that the signed macOS Launcher, Picker, Kernel XPC, or Runner enforces the same behavior in a real operation. Two signed attempts reached the real scoped read and then failed closed at successive experimental result-schema boundaries; neither mutated the workspace or invoked a model. A corrected signed app must complete both disposable-workspace trials, including the intentional cross-workspace scope denial. Any signed case not completed remains `NOT_PROVEN`.

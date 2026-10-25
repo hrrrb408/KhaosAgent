@@ -97,6 +97,15 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
             ):
                 self.assertIn(f'"{field}"', source)
 
+        host_telemetry = host_source.split("private func acceptTelemetry", 1)[1].split("func exchange", 1)[0]
+        self.assertIn('"runtime_trial_id"', host_telemetry)
+        self.assertIn('event == "LAUNCHER_TERMINAL_RESULT_DELIVERED"', host_telemetry)
+        self.assertIn('record["runtime_trial_id"] as? String', host_telemetry)
+        client_telemetry = launcher_source.split("private func acceptExperimentalTelemetry", 1)[1]
+        self.assertIn('"runtime_trial_id"', client_telemetry)
+        self.assertIn('event == "LAUNCHER_TERMINAL_RESULT_DELIVERED"', client_telemetry)
+        self.assertIn('record["runtime_trial_id"] as? String', client_telemetry)
+
     def test_experimental_tool_result_trace_requires_runtime_trial_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source_root = Path(temporary)

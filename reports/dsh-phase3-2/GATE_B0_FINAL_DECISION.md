@@ -1,6 +1,6 @@
 # Gate B.0 Final Decision
 
-**Checkpoint:** 2026-10-25; corrected signed acceptance and final CI are pending.
+**Checkpoint:** 2026-10-25; another corrected signed build and final CI are pending.
 **Engineering status:** `PARTIAL` until the corrected signed acceptance and final-head checks complete.
 
 | Required output | Status at this checkpoint |
@@ -32,4 +32,4 @@
 
 ## Decision basis
 
-The implementation and unit-level negative tests are complete, and a valid signing identity is available. The first actual signed Trial A exposed a strict experimental tool-result schema mismatch: the Launcher added `runtime_trial_id`, but the decoder did not allow it. The result was refused as `invalid_request`; no workspace mutation or model invocation occurred. The corrected schema and regression test pass focused tests, but the corrected signed app, two independent signed trials, final canonical suite, final Security Freeze checks, exact-head CI, and independent security review remain outstanding. This is not an Engineering PASS and must not be presented as signed multi-workspace acceptance.
+The implementation and unit-level negative tests are complete, and a valid signing identity is available. Two signed Trial A attempts exposed successive experimental result-schema gaps: the tool-result decoder first omitted `runtime_trial_id`; after that fix, the Host and Launcher-client telemetry filters omitted it on the DSH terminal-result event. Both failed closed after one scoped read, with no workspace mutation or model invocation. The trace, Host telemetry, and client telemetry allowlists now validate the runtime ID at their respective boundaries. The fresh signed build, two independent signed trials, final canonical suite, final Security Freeze checks, exact-head CI, and independent security review remain outstanding. This is not an Engineering PASS and must not be presented as signed multi-workspace acceptance.
