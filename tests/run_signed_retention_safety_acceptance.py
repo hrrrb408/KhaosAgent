@@ -146,7 +146,6 @@ def main() -> int:
         return temporary
 
     patches = [patch.object(acceptance.tempfile, "TemporaryDirectory", side_effect=capture_tempdir)]
-    original_capture = acceptance.capture_failure_bundle
     original_cleanup = acceptance.cleanup_invocation_scratch
 
     if args.case == "archive-failure":
