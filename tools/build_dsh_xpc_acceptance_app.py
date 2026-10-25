@@ -1059,7 +1059,7 @@ def apply_experimental_workspace_runtime_binding(source_root: Path) -> dict[str,
               phase322CanonicalPath(workspaceURL.path) == canonicalBefore else { return nil }
         var namedDirectoryInfo = stat()
         let namedDirectoryStatus = workspaceURL.path.withCString {
-            Darwin.stat($0, &namedDirectoryInfo)
+            Darwin.fstatat(AT_FDCWD, $0, &namedDirectoryInfo, 0)
         }
         guard namedDirectoryStatus == 0,
               namedDirectoryInfo.st_dev == directoryInfo.st_dev,
@@ -1115,7 +1115,7 @@ def apply_experimental_workspace_runtime_binding(source_root: Path) -> dict[str,
             phase322IdentityLock.unlock()
         }
 
-        var event: [String: Any] = [
+        let event: [String: Any] = [
             "runtime_trial_id": trialID.uuidString.lowercased(),
             "launcher_task_id": taskID.uuidString.lowercased(),
             "launcher_request_id": requestID,
@@ -1169,7 +1169,7 @@ private struct Phase322WorkspaceIdentity: Equatable {
     type_marker = "enum TrustedWorkspaceLauncherMain {\n"
     if transformed.count(type_marker) != 1:
         raise RuntimeError("expected one Launcher type declaration")
-    transformed = transformed.replace(type_marker, phase322_structs + type_marker)
+    transformed = transformed.replace(type_marker, type_marker + phase322_structs)
 
     session_marker = "    private static func runAgentSession() throws {\n"
     if transformed.count(session_marker) != 1:

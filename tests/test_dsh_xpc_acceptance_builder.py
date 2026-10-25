@@ -163,6 +163,11 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
 
         self.assertEqual(overlay["path"], "khaos/macos/TrustedWorkspaceLauncherMain.swift")
         self.assertEqual(overlay["experimental_sha256"], second_overlay["experimental_sha256"])
+        self.assertLess(
+            source.index("@main\nenum TrustedWorkspaceLauncherMain {"),
+            source.index("private struct Phase322MarkerSnapshot"),
+            "runtime binding support types must remain nested under the original Launcher entry point",
+        )
         self.assertIn("let trialID = UUID()", source)
         self.assertIn("phase322BeginTrial(taskID: taskID)", source)
         self.assertIn("phase322EndTrial(taskID: taskID)", source)
@@ -175,6 +180,7 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         self.assertIn('checkpoint: "after_approval"', source)
         self.assertIn('checkpoint: "after_kernel_result"', source)
         self.assertIn("phase322ReadMarker(directoryFD: directoryFD)", source)
+        self.assertIn("Darwin.fstatat(AT_FDCWD, $0, &namedDirectoryInfo, 0)", source)
         self.assertIn("selection.identity", source)
         self.assertIn("bookmarkSHA256", source)
         self.assertNotIn("phase322ExpectedWorkspacePath", source)
