@@ -1141,7 +1141,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         let resultDigest = SHA256.hash(data: Data(resultText.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
-        [
+        return [
             "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "model_call_id", "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
         ].allSatisfy { trace[$0] as? NSObject == correlation[$0] as? NSObject }

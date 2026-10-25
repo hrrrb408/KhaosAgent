@@ -151,6 +151,7 @@ class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
         )
         self.assertIn('launcherTraceMatches($0, correlation: correlation, resultText: text)', host_source)
         self.assertIn('trace["launcher_result_sha256"] as? String == resultDigest', host_source)
+        self.assertIn("        return [\n", host_source)
 
     def test_workspace_identity_manifest_is_owner_only_and_hash_bound(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
