@@ -134,6 +134,13 @@ function publicTestResult(input: {
 }
 
 describe('Khaos semantic Cordis tools', () => {
+  it('loads public-test native modules from the signed bundled Python runtime', () => {
+    expect(semanticToolTestSupport.testScript).toContain('sys.version_info')
+    expect(semanticToolTestSupport.testScript).toContain('dynload_suffix')
+    expect(semanticToolTestSupport.testScript).toContain('sys.path.append(sys.prefix+dynload_suffix)')
+    expect(semanticToolTestSupport.testScript).not.toContain('sys.exec_prefix+dynload_suffix')
+  })
+
   it('accepts only a non-empty, internally consistent public test result', () => {
     expect(semanticToolTestSupport.verifyPublicTestResult(
       publicTestResult({ testsRun: 2, returncode: 0, ok: true }),
