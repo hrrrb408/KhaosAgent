@@ -1,16 +1,22 @@
 # Gate B.0.3 Cross-Trial Replay
 
-**Automated negative checks: PASS. Signed replay attempts: NOT_RUN.**
+**Automated negative checks: PASS. Signed replay attempts: NOT_RUN.** Trial B did not establish the required cross-workspace refusal. The objective therefore requires stopping subsequent signed experiments; no signed replay, replacement, missing-parent, or wrong-digest attempt was made.
 
-| Case | Automated result | Signed result |
+| Case | Automated evidence | Signed result |
 |---|---|---|
-| Stale Trial/runtime identity | Foreign runtime trial is rejected by the workspace identity evaluator | NOT_RUN |
-| Reused old approval digest | Paired-trial evaluator rejects approval digest reuse | NOT_RUN |
-| Old result injected into another trial with matching content digest | Rejected because the foreign runtime identity does not match | NOT_RUN |
-| Workspace marker or directory identity replacement | Existing builder/runner tests reject marker replay and inode replacement | NOT_RUN |
-| Missing parent terminal event | Evaluator rejects the request/result binding | NOT_RUN |
-| Wrong result text digest | Evaluator rejects parent/Host/DSH digest mismatch | NOT_RUN |
+| Stale Trial/runtime identity | Workspace identity evaluator rejects foreign runtime-trial/session bindings | NOT_RUN |
+| Reused Trial A approval digest | Paired-trial evaluator detects approval digest reuse | NOT_RUN |
+| Cross-trial result injection, including same content digest | Identity binding rejects foreign-trial delivery; identical content digest alone is accepted when request/trial identities differ | NOT_RUN |
+| Workspace identity replacement | Builder/runner tests reject marker replay, workspace substitution, and inode replacement | NOT_RUN |
+| Missing parent terminal event | Result-binding evaluator fails when the trusted parent terminal record is absent | NOT_RUN |
+| Wrong result text digest | Host/parent/DSH digest mismatch is rejected by automated evaluator tests | NOT_RUN |
 
-Result-text digests may repeat when two authorized reads return identical content. Digest equality alone is not replay evidence; the trial, request, approval, workspace session, parent terminal, and DSH delivery bindings must all match. The pair report now records whether content digests overlap while separately requiring distinct request IDs and approval digests.
+## Runtime observations relevant to replay
 
-These are deterministic unit/evaluator checks. No signed Trial A/B session existed in this run, so none of the six negative cases received signed UI coverage.
+The two signed workspaces had distinct runtime trial IDs, Launcher task IDs, workspace-session IDs, directory inodes, marker hashes, request IDs, and approval digests. Trial A and Trial B's authorized `fee.py` reads produced the same result-text digest, as expected for identical file contents. The two requests and approvals were different. The pair evaluator separately records `result_content_digest_overlap=true`; it does not treat content-hash equality by itself as replay.
+
+The official pair report remains **FAIL** because Trial B's symlink result did not identify an enforcement refusal. Its cross-trial signed replay field is `NOT_ATTEMPTED_IN_SIGNED_UI`. Automated tests do not substitute for the six signed cases above.
+
+## Focused automated suite
+
+`python3 -m unittest discover -s tests -p 'test_dsh_xpc_acceptance_*.py' -v`: **30 PASS**. The cases include stale approval, foreign runtime identity, reused approval digest, mismatched result digest, absent parent terminal, workspace marker replacement, wrong canary binding, and fail-closed handling of an unclassified `rc=1`.
