@@ -43,6 +43,92 @@ REMOTE_MODEL_DISCLOSURE_SOURCE = "khaos/macos/TrustedWorkspaceLauncherMain.swift
 EXPERIMENTAL_MODEL_ID = "glm-5.3"
 LOCAL_MODEL_ID = "bundled-cpu"
 DSH_MODEL_BRIDGE_ID = "org.khaos.Seed.DSHModelBridge"
+CS_RUNTIME = 0x00010000
+
+
+def parse_code_directory_flags(output: str) -> list[int]:
+    flags = [int(match, 16) for match in re.findall(
+        r"CodeDirectory\b[^\n]*\bflags=0x([0-9a-fA-F]+)", output
+    )]
+    if not flags:
+        raise RuntimeError("codesign did not report a CodeDirectory flags value")
+    return flags
+
+
+def inspect_signed_code(path: Path) -> dict[str, object]:
+    output = run(["codesign", "-d", "--verbose=4", str(path)]).stdout
+    flags = parse_code_directory_flags(output)
+    team_ids = set(re.findall(r"^TeamIdentifier=(.+)$", output, re.MULTILINE))
+    if len(team_ids) != 1 or "not set" in team_ids:
+        raise RuntimeError(f"{path.name} does not have one certificate Team ID")
+    return {
+        "code_directory_flags": [f"0x{value:x}" for value in flags],
+        "team_id": team_ids.pop(),
+    }
+
+
+def require_hardened_runtime(path: Path) -> dict[str, object]:
+    signature = inspect_signed_code(path)
+    flags = [int(value, 16) for value in signature["code_directory_flags"]]
+    if any(value & CS_RUNTIME == 0 for value in flags):
+        raise RuntimeError(f"{path.name} is missing the Hardened Runtime CodeDirectory flag")
+    return signature
+
+
+def sign_hardened_code(
+    path: Path,
+    identity: str,
+    keychain: Path | None,
+    *,
+    entitlements: Path | None = None,
+) -> dict[str, object]:
+    command = ["codesign", "--force"]
+    if keychain is not None:
+        command.extend(("--keychain", str(keychain.expanduser().resolve(strict=True))))
+    command.extend(("--options", "runtime", "--timestamp=none", "--sign", identity))
+    if entitlements is not None:
+        command.extend(("--entitlements", str(entitlements)))
+    command.append(str(path))
+    run(command)
+    return require_hardened_runtime(path)
+
+
+def sign_embedded_python_runtime(
+    framework: Path,
+    identity: str,
+    keychain: Path | None,
+) -> dict[str, object]:
+    versions = framework / "Versions"
+    version_root = (versions / "Current").resolve(strict=True)
+    if version_root.parent != versions.resolve(strict=True):
+        raise RuntimeError("embedded Python framework Current version escapes its bundle")
+    version = version_root.name
+    python_app = version_root / "Resources/Python.app"
+    code_objects = sorted({
+        *version_root.rglob("*.so"),
+        *version_root.rglob("*.dylib"),
+        version_root / "Python",
+        version_root / "bin" / f"python{version}",
+        python_app / "Contents/MacOS/Python",
+    })
+    if not code_objects or any(not path.is_file() for path in code_objects):
+        raise RuntimeError("embedded Python framework has missing native code")
+
+    team_id: str | None = None
+    for path in code_objects:
+        signature = sign_hardened_code(path, identity, keychain)
+        signed_team = signature["team_id"]
+        if team_id is None:
+            team_id = str(signed_team)
+        elif signed_team != team_id:
+            raise RuntimeError("embedded Python native code has inconsistent signing teams")
+
+    for bundle in (python_app, framework):
+        signature = sign_hardened_code(bundle, identity, keychain)
+        if signature["team_id"] != team_id:
+            raise RuntimeError("embedded Python bundle has a different signing team")
+
+    return {"native_code_count": len(code_objects), "team_id": team_id}
 
 
 def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -1730,6 +1816,16 @@ def main() -> int:
             model_license=local_model[2] if local_model is not None else None,
         )
 
+        python_framework = (
+            app / "Contents/XPCServices/KernelProduction.xpc/Contents/Frameworks/Python.framework"
+        )
+        python_signature = sign_embedded_python_runtime(
+            python_framework,
+            identity,
+            args.keychain,
+        )
+        hardened_runtime_signatures: dict[str, object] = {}
+
         host = app / "Contents/XPCServices/KhaosAgentHost.xpc"
         host_resources = host / "Contents/Resources"
         host_info_path = host / "Contents/Info.plist"
@@ -1767,6 +1863,7 @@ def main() -> int:
             "--entitlements", str(node_entitlements), "--identifier",
             "org.khaos.Seed.AgentHost.DSHAcceptanceRuntime", str(node),
         ])
+        hardened_runtime_signatures["DSH Node"] = require_hardened_runtime(node)
 
         launcher_info_path = app / "Contents/Info.plist"
         with launcher_info_path.open("rb") as stream:
@@ -1832,10 +1929,11 @@ def main() -> int:
                 "com.apple.security.network.client": True,
             }))
             run(sign + [
-                "--sign", identity,
+                "--options", "runtime", "--timestamp=none", "--sign", identity,
                 "--entitlements", str(bridge_entitlements),
                 str(bridge),
             ])
+            hardened_runtime_signatures["DSHModelBridge.xpc"] = require_hardened_runtime(bridge)
             bridge_requirement = seed_builder._designated_requirement(
                 bridge_binary,
                 DSH_MODEL_BRIDGE_ID,
@@ -1849,8 +1947,34 @@ def main() -> int:
         with host_info_path.open("wb") as stream:
             plistlib.dump(host_info, stream, sort_keys=True)
 
+        service = app / "Contents/XPCServices/KernelProduction.xpc"
+        broker = app / "Contents/XPCServices/KernelSnapshotBroker.xpc"
         host_entitlements = app.parent / "agent-host-entitlements.plist"
-        run(sign + ["--sign", identity, "--entitlements", str(host_entitlements), str(host)])
+        service_entitlements = app.parent / "service-entitlements.plist"
+        broker_entitlements = app.parent / "broker-entitlements.plist"
+        hardened_runtime_signatures["KernelProduction.xpc"] = sign_hardened_code(
+            service,
+            identity,
+            args.keychain,
+            entitlements=service_entitlements,
+        )
+        hardened_runtime_signatures["KernelSnapshotBroker.xpc"] = sign_hardened_code(
+            broker,
+            identity,
+            args.keychain,
+            entitlements=broker_entitlements,
+        )
+        hardened_runtime_signatures["KhaosAgentHost.xpc"] = sign_hardened_code(
+            host,
+            identity,
+            args.keychain,
+            entitlements=host_entitlements,
+        )
+        if args.model_provider != "local":
+            model_bridge_probe = host_resources / "dsh-model-bridge-peer-probe"
+            hardened_runtime_signatures["DSH model bridge peer probe"] = require_hardened_runtime(
+                model_bridge_probe
+            )
 
         node_entitlement_values = signed_entitlements(node)
         host_entitlement_values = signed_entitlements(host)
@@ -1870,6 +1994,16 @@ def main() -> int:
         }
         if args.model_provider != "local" and not build_record["signed_network_entitlement_check"]["model_bridge_network_client"]:
             raise RuntimeError("signed model bridge is missing network.client")
+        build_record["hardened_runtime"] = {
+            "signing_option": "codesign --options runtime",
+            "code_directory_flags": hardened_runtime_signatures,
+            "embedded_python_native_code_count": python_signature["native_code_count"],
+            "embedded_python_team_id": python_signature["team_id"],
+            "embedded_python_library_validation": (
+                "all native code in Python.framework is signed by one Apple Development Team ID"
+            ),
+            "outer_app_runtime_required": True,
+        }
 
         embedded = {
             str(path.relative_to(app)): seed_builder._sha256_file(path)
@@ -1881,8 +2015,14 @@ def main() -> int:
         build_record_path = app / "Contents/Resources/build-inputs.json"
         build_record_path.write_text(json.dumps(build_record, sort_keys=True, indent=2) + "\n")
         app_entitlements = app.parent / "app-entitlements.plist"
-        run(sign + ["--sign", identity, "--entitlements", str(app_entitlements), str(app)])
+        hardened_runtime_signatures["KhaosSeed.app"] = sign_hardened_code(
+            app,
+            identity,
+            args.keychain,
+            entitlements=app_entitlements,
+        )
         seed_builder.verify_app(app, identity)
+        app_runtime_signature = hardened_runtime_signatures["KhaosSeed.app"]
         if args.model_provider != "local":
             run([
                 "codesign", "--verify", "--deep", "--strict",
@@ -1902,6 +2042,18 @@ def main() -> int:
         print(f"host_source_override_sha256={replacement_hash}")
         print(f"node_sha256={digest(output_app / 'Contents/XPCServices/KhaosAgentHost.xpc/Contents/Resources/node')}")
         print(f"dsh_runtime_bundle_sha256={runtime_hash}")
+        print("hardened_runtime=PASS")
+        for code, signature in hardened_runtime_signatures.items():
+            if code == "KhaosSeed.app":
+                continue
+            values = ",".join(signature["code_directory_flags"])
+            print(f"hardened_runtime[{code}]={values}")
+        print(
+            "hardened_runtime[KhaosSeed.app]="
+            + ",".join(app_runtime_signature["code_directory_flags"])
+        )
+        print(f"embedded_python_native_code_count={python_signature['native_code_count']}")
+        print(f"embedded_python_team_id={python_signature['team_id']}")
         print(f"agent_host_binary_sha256={digest(host_binary)}")
         if args.model_provider != "local":
             print(f"model_bridge_binary_sha256={digest(output_app / 'Contents/XPCServices/DSHModelBridge.xpc/Contents/MacOS/DSHModelBridge')}")

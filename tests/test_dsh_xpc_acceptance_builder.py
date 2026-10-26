@@ -14,6 +14,9 @@ from tools.build_dsh_xpc_acceptance_app import (
     apply_experimental_telemetry_transport_client,
     apply_experimental_workspace_runtime_binding,
     candidate_b_fixed_script,
+    parse_code_directory_flags,
+    sign_embedded_python_runtime,
+    sign_hardened_code,
 )
 from tools.run_dsh_xpc_attack_acceptance import (
     create_workspace_identity_manifest,
@@ -24,6 +27,103 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DSHXPCAcceptanceBuilderTests(unittest.TestCase):
+    def test_code_directory_flags_parse_every_architecture_and_fail_closed(self) -> None:
+        output = "\n".join((
+            "CodeDirectory v=20400 size=512 flags=0x10000(runtime) hashes=12+2",
+            "CodeDirectory v=20400 size=512 flags=0x10000(runtime) hashes=12+2",
+        ))
+        self.assertEqual(parse_code_directory_flags(output), [0x10000, 0x10000])
+        self.assertEqual(
+            parse_code_directory_flags("CodeDirectory v=20400 size=512 flags=0x0(none)"),
+            [0],
+        )
+        with self.assertRaisesRegex(RuntimeError, "did not report"):
+            parse_code_directory_flags("Signature size=2048")
+
+    def test_hardened_signing_uses_identity_keychain_entitlements_and_checks_result(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            keychain = root / "codesign.keychain-db"
+            keychain.touch()
+            entitlements = root / "service-entitlements.plist"
+            entitlements.write_text("<plist/>", encoding="utf-8")
+            target = root / "KernelProduction.xpc"
+            commands: list[list[str]] = []
+
+            def fake_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    "CodeDirectory v=20400 size=512 flags=0x10000(runtime) hashes=12+2\n"
+                    "TeamIdentifier=TEAM123456\n",
+                    "",
+                )
+
+            with patch("tools.build_dsh_xpc_acceptance_app.run", side_effect=fake_run):
+                signature = sign_hardened_code(
+                    target,
+                    "Apple Development: Example",
+                    keychain,
+                    entitlements=entitlements,
+                )
+
+        self.assertEqual(signature["code_directory_flags"], ["0x10000"])
+        self.assertEqual(signature["team_id"], "TEAM123456")
+        self.assertEqual(commands[0], [
+            "codesign", "--force", "--keychain", str(keychain.resolve()),
+            "--options", "runtime", "--timestamp=none", "--sign",
+            "Apple Development: Example", "--entitlements", str(entitlements), str(target),
+        ])
+        self.assertEqual(commands[1], ["codesign", "-d", "--verbose=4", str(target)])
+
+    def test_hardened_signing_rejects_missing_runtime_flag(self) -> None:
+        with patch(
+            "tools.build_dsh_xpc_acceptance_app.run",
+            return_value=subprocess.CompletedProcess(
+                ["codesign"],
+                0,
+                "CodeDirectory v=20400 size=512 flags=0x0(none) hashes=12+2\n"
+                "TeamIdentifier=TEAM123456\n",
+                "",
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "missing the Hardened Runtime"):
+                sign_hardened_code(Path("AgentHost.xpc"), "identity", None)
+
+    def test_embedded_python_native_code_is_signed_runtime_first_and_same_team(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            framework = Path(temporary).resolve() / "Python.framework"
+            version_root = framework / "Versions/3.13"
+            native_module = version_root / "lib/python3.13/lib-dynload/probe.so"
+            python_binary = version_root / "Python"
+            command_line = version_root / "bin/python3.13"
+            app_executable = version_root / "Resources/Python.app/Contents/MacOS/Python"
+            for path in (native_module, python_binary, command_line, app_executable):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"fixture")
+            (framework / "Versions").mkdir(parents=True, exist_ok=True)
+            (framework / "Versions/Current").symlink_to("3.13")
+
+            commands: list[list[str]] = []
+            signature_output = (
+                "CodeDirectory v=20400 size=512 flags=0x10000(runtime) hashes=12+2\n"
+                "TeamIdentifier=TEAM123456\n"
+            )
+
+            def fake_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                return subprocess.CompletedProcess(command, 0, signature_output, "")
+
+            with patch("tools.build_dsh_xpc_acceptance_app.run", side_effect=fake_run):
+                result = sign_embedded_python_runtime(framework, "identity", None)
+
+        self.assertEqual(result, {"native_code_count": 4, "team_id": "TEAM123456"})
+        signed_paths = [Path(command[-1]) for command in commands if command[1] == "--force"]
+        self.assertEqual(signed_paths[-2:], [version_root / "Resources/Python.app", framework])
+        sign_commands = [command for command in commands if command[1] == "--force"]
+        self.assertTrue(all("--options" in command and "runtime" in command for command in sign_commands))
+
     def test_candidate_b_probe_decodes_completed_process_stdout(self) -> None:
         probe = Path("TrustedEditApprovalProbe")
         completed = subprocess.CompletedProcess(
