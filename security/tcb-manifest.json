@@ -82,7 +82,7 @@
       ]
     },
     {
-      "path": "docs/Khaos vNext 架构设计文档.md",
+      "path": "docs/Khaos vNext \u67b6\u6784\u8bbe\u8ba1\u6587\u6863.md",
       "role": "build-governance",
       "boundary": "normative architecture constitution; constrains future authority changes; not executable runtime code",
       "tests": [
@@ -994,9 +994,9 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_builder.py",
       "role": "build-governance",
-      "sha256": "17e49e38301a81bba87b986f097ecc7c4d269c1d7ebf8ea45a8da26e457c3f22",
+      "sha256": "032ab956fe1e4c0b32d213e50aa31fd8958d2607f7aa64c4cb2ad14f868f842d",
       "source_mode": "0o644",
-      "boundary": "test-only DSH acceptance builder regression; validates fixed Candidate B probe decoding and does not ship in runtime",
+      "boundary": "test-only DSH acceptance builder regression; validates experimental result-digest and parent terminal binding, explicit Host result-validator return, Hardened Runtime CodeDirectory enforcement, and same-team signing of embedded Python native code; does not ship in runtime",
       "tests": [
         "tests/test_dsh_xpc_acceptance_builder.py",
         "python3 -m unittest discover -s tests -p test_dsh_xpc_acceptance_builder.py -v",
@@ -1006,9 +1006,9 @@
     {
       "path": "tests/test_dsh_xpc_acceptance_runner.py",
       "role": "build-governance",
-      "sha256": "d832954867667d7a99b58677224457ba15a40c7adf91012048c156847f2eda2c",
+      "sha256": "b31d537101b186dabe5cab8ee7e3b0ce515f2ca9e9add188e33ce1a5d80b5d3c",
       "source_mode": "0o644",
-      "boundary": "test-only signed DSH acceptance result verifier regression; validates observed runtime events and does not ship in runtime",
+      "boundary": "test-only signed DSH acceptance verifier regression; binds parent result evidence to exact request and trial identities, rejects foreign-trial results even when content digests match, and validates positive-read plus cross-workspace refusal evidence; does not ship in runtime",
       "tests": [
         "tests/test_dsh_xpc_acceptance_runner.py",
         "python3 -m unittest discover -s tests -p test_dsh_xpc_acceptance_runner.py -v",

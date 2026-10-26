@@ -336,7 +336,7 @@ private final class DSHRuntimeProcess {
 
     private func acceptTelemetry(_ record: [String: Any]) -> Bool {
         let allowedKeys: Set<String> = [
-            "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "benchmark_task_id",
+            "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "runtime_trial_id", "benchmark_task_id",
             "agent_turn_id", "agent_step_id", "model_call_id", "tool_call_id", "tool_name",
             "operation_seq", "invocation_sha256", "argument_bytes", "file_count",
             "write_operation", "duration_ms", "status", "error_code", "returncode",
@@ -403,6 +403,15 @@ private final class DSHRuntimeProcess {
               boundedInteger("failures", maximum: 10_000),
               boundedInteger("errors", maximum: 10_000),
               boundedInteger("skipped", maximum: 10_000) else {
+            return false
+        }
+        if event == "LAUNCHER_TERMINAL_RESULT_DELIVERED" {
+            guard let runtimeTrialID = record["runtime_trial_id"] as? String,
+                  runtimeTrialID.range(
+                    of: #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"#,
+                    options: .regularExpression
+                  ) != nil else { return false }
+        } else if record["runtime_trial_id"] != nil {
             return false
         }
         if event == "PUBLIC_TEST_RESULT_VERIFIED" {
@@ -843,7 +852,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
                 if let correlation = pendingSemanticCorrelation {
                     let launcherTrace = frame["launcher_trace"] as? [String: Any]
                     guard !phase31Task || launcherTrace.map({
-                        launcherTraceMatches($0, correlation: correlation)
+                        launcherTraceMatches($0, correlation: correlation, resultText: text)
                     }) == true else {
                         return response(.failure("dsh_launcher_trace_mismatch"))
                     }
@@ -1109,8 +1118,9 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
         record["result_sha256"] = digest
         if let launcherTrace {
             for key in [
-                "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
+                "runtime_trial_id", "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
                 "approval_status", "kernel_result", "runner_status", "commit_status", "returncode",
+                "launcher_result_sha256",
             ] {
                 record[key] = launcherTrace[key]
             }
@@ -1125,12 +1135,17 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
 
     private func launcherTraceMatches(
         _ trace: [String: Any],
-        correlation: [String: Any]
+        correlation: [String: Any],
+        resultText: String
     ) -> Bool {
-        [
+        let resultDigest = SHA256.hash(data: Data(resultText.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return [
             "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "model_call_id", "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
         ].allSatisfy { trace[$0] as? NSObject == correlation[$0] as? NSObject }
+            && (trace["runtime_trial_id"] as? String).map({ UUID(uuidString: $0) != nil }) == true
             && trace["launcher_task_id"] is String
             && trace["launcher_request_id"] is String
             && trace["launcher_approval_sha256"] is String
@@ -1138,6 +1153,7 @@ private final class DSHAgentHostSession: NSObject, AgentHostSessionEndpoint {
             && trace["kernel_result"] is String
             && trace["runner_status"] is String
             && trace["commit_status"] is String
+            && trace["launcher_result_sha256"] as? String == resultDigest
     }
 
     private func response(_ reply: AgentHostReply) -> Data? {

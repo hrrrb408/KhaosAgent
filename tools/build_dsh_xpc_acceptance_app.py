@@ -43,6 +43,92 @@ REMOTE_MODEL_DISCLOSURE_SOURCE = "khaos/macos/TrustedWorkspaceLauncherMain.swift
 EXPERIMENTAL_MODEL_ID = "glm-5.3"
 LOCAL_MODEL_ID = "bundled-cpu"
 DSH_MODEL_BRIDGE_ID = "org.khaos.Seed.DSHModelBridge"
+CS_RUNTIME = 0x00010000
+
+
+def parse_code_directory_flags(output: str) -> list[int]:
+    flags = [int(match, 16) for match in re.findall(
+        r"CodeDirectory\b[^\n]*\bflags=0x([0-9a-fA-F]+)", output
+    )]
+    if not flags:
+        raise RuntimeError("codesign did not report a CodeDirectory flags value")
+    return flags
+
+
+def inspect_signed_code(path: Path) -> dict[str, object]:
+    output = run(["codesign", "-d", "--verbose=4", str(path)]).stdout
+    flags = parse_code_directory_flags(output)
+    team_ids = set(re.findall(r"^TeamIdentifier=(.+)$", output, re.MULTILINE))
+    if len(team_ids) != 1 or "not set" in team_ids:
+        raise RuntimeError(f"{path.name} does not have one certificate Team ID")
+    return {
+        "code_directory_flags": [f"0x{value:x}" for value in flags],
+        "team_id": team_ids.pop(),
+    }
+
+
+def require_hardened_runtime(path: Path) -> dict[str, object]:
+    signature = inspect_signed_code(path)
+    flags = [int(value, 16) for value in signature["code_directory_flags"]]
+    if any(value & CS_RUNTIME == 0 for value in flags):
+        raise RuntimeError(f"{path.name} is missing the Hardened Runtime CodeDirectory flag")
+    return signature
+
+
+def sign_hardened_code(
+    path: Path,
+    identity: str,
+    keychain: Path | None,
+    *,
+    entitlements: Path | None = None,
+) -> dict[str, object]:
+    command = ["codesign", "--force"]
+    if keychain is not None:
+        command.extend(("--keychain", str(keychain.expanduser().resolve(strict=True))))
+    command.extend(("--options", "runtime", "--timestamp=none", "--sign", identity))
+    if entitlements is not None:
+        command.extend(("--entitlements", str(entitlements)))
+    command.append(str(path))
+    run(command)
+    return require_hardened_runtime(path)
+
+
+def sign_embedded_python_runtime(
+    framework: Path,
+    identity: str,
+    keychain: Path | None,
+) -> dict[str, object]:
+    versions = framework / "Versions"
+    version_root = (versions / "Current").resolve(strict=True)
+    if version_root.parent != versions.resolve(strict=True):
+        raise RuntimeError("embedded Python framework Current version escapes its bundle")
+    version = version_root.name
+    python_app = version_root / "Resources/Python.app"
+    code_objects = sorted({
+        *version_root.rglob("*.so"),
+        *version_root.rglob("*.dylib"),
+        version_root / "Python",
+        version_root / "bin" / f"python{version}",
+        python_app / "Contents/MacOS/Python",
+    })
+    if not code_objects or any(not path.is_file() for path in code_objects):
+        raise RuntimeError("embedded Python framework has missing native code")
+
+    team_id: str | None = None
+    for path in code_objects:
+        signature = sign_hardened_code(path, identity, keychain)
+        signed_team = signature["team_id"]
+        if team_id is None:
+            team_id = str(signed_team)
+        elif signed_team != team_id:
+            raise RuntimeError("embedded Python native code has inconsistent signing teams")
+
+    for bundle in (python_app, framework):
+        signature = sign_hardened_code(bundle, identity, keychain)
+        if signature["team_id"] != team_id:
+            raise RuntimeError("embedded Python bundle has a different signing team")
+
+    return {"native_code_count": len(code_objects), "team_id": team_id}
 
 
 def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -355,11 +441,11 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
     private static func validExperimentalLauncherTrace(_ value: Any?) -> Bool {
         guard let record = value as? [String: Any] else { return false }
         let required: Set<String> = [
-            "trial_id", "dsh_session_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
+            "trial_id", "dsh_session_id", "runtime_trial_id", "benchmark_task_id", "agent_turn_id", "agent_step_id",
             "tool_call_id", "tool_name", "operation_seq", "invocation_sha256",
             "launcher_task_id", "launcher_request_id", "launcher_approval_sha256",
             "approval_status", "kernel_result", "runner_status", "commit_status",
-            "launcher_ok", "can_continue",
+            "launcher_ok", "can_continue", "launcher_result_sha256",
         ]
         let optional: Set<String> = ["model_call_id", "returncode"]
         guard required.isSubset(of: Set(record.keys)),
@@ -383,7 +469,7 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
             guard let number = record[key] as? NSNumber else { return false }
             return CFGetTypeID(number) == CFBooleanGetTypeID()
         }
-        guard ["trial_id", "dsh_session_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
+        guard ["trial_id", "dsh_session_id", "runtime_trial_id", "tool_call_id", "launcher_task_id", "launcher_request_id"]
                 .allSatisfy(safeID),
               ["agent_turn_id", "agent_step_id"].allSatisfy({ safeInteger($0, minimum: 0, maximum: 1_000_000) }),
               safeInteger("operation_seq", minimum: 1, maximum: 12),
@@ -393,6 +479,9 @@ def apply_experimental_tool_trace_protocol(source_root: Path) -> dict[str, str]:
               ["invocation_sha256", "launcher_approval_sha256"].allSatisfy({ key in
                   (record[key] as? String)?.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
               }),
+              (record["launcher_result_sha256"] as? String)?.range(
+                of: #"^[0-9a-f]{64}$"#, options: .regularExpression
+              ) != nil,
               safeBoolean("launcher_ok"), safeBoolean("can_continue"),
               record["model_call_id"] == nil || safeID("model_call_id"),
               record["returncode"] == nil || validExperimentalReturnCode(record["returncode"]) else {
@@ -544,6 +633,7 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
         }
         let allowedFields: Set<String> = [
             "event", "event_seq", "timestamp_utc", "trial_id", "dsh_session_id", "benchmark_task_id",
+            "runtime_trial_id",
             "agent_turn_id", "agent_step_id", "model_call_id", "tool_call_id", "tool_name",
             "operation_seq", "invocation_sha256", "argument_bytes", "file_count", "write_operation",
             "duration_ms", "status", "error_code", "returncode", "can_continue", "result_bytes",
@@ -610,6 +700,15 @@ def apply_experimental_telemetry_transport_client(source_root: Path) -> dict[str
                       ["passed", "failed", "invalid", "unverified", "mismatch"].contains(status) else {
                     return nil
                 }
+            }
+            if event == "LAUNCHER_TERMINAL_RESULT_DELIVERED" {
+                guard let runtimeTrialID = record["runtime_trial_id"] as? String,
+                      runtimeTrialID.range(
+                        of: #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"#,
+                        options: .regularExpression
+                      ) != nil else { return nil }
+            } else if record["runtime_trial_id"] != nil {
+                return nil
             }
             totalBytes += encoded.count
             guard totalBytes <= 40 * 1_024 else { return nil }
@@ -687,8 +786,10 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
         _ outcome: AgentToolOutcome,
         taskID: UUID
     ) -> [String: Any]? {
-        guard let record = outcome.workspaceRecord else { return nil }
+        guard let record = outcome.workspaceRecord,
+              let runtimeTrialID = phase322RuntimeTrialID(for: taskID) else { return nil }
         var trace: [String: Any] = [
+            "runtime_trial_id": runtimeTrialID.uuidString.lowercased(),
             "launcher_task_id": taskID.uuidString.lowercased(),
             "launcher_request_id": record.requestID,
             "launcher_approval_sha256": record.approvalSHA256,
@@ -696,9 +797,41 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
             "kernel_result": record.kernelResult,
             "runner_status": record.runnerExecution,
             "commit_status": record.commitOutcome,
+            "launcher_result_sha256": KernelWorkspaceXPC.sha256Hex(Data(outcome.text.utf8)),
         ]
         if let returncode = outcome.returncode { trace["returncode"] = returncode }
         return trace
+    }
+
+    private static func writeDshLauncherTerminalResult(
+        _ outcome: AgentToolOutcome,
+        taskID: UUID
+    ) {
+        guard let workspaceRecord = outcome.workspaceRecord,
+              let runtimeTrialID = phase322RuntimeTrialID(for: taskID) else { return }
+        let resultDigest = KernelWorkspaceXPC.sha256Hex(Data(outcome.text.utf8))
+        var record: [String: Any] = [
+            "event": "LAUNCHER_TERMINAL_RESULT_DELIVERED",
+            "source": "trusted_launcher",
+            "runtime_trial_id": runtimeTrialID.uuidString.lowercased(),
+            "launcher_task_id": taskID.uuidString.lowercased(),
+            "launcher_request_id": workspaceRecord.requestID,
+            "launcher_approval_sha256": workspaceRecord.approvalSHA256,
+            "approval_status": workspaceRecord.approval,
+            "kernel_result": workspaceRecord.kernelResult,
+            "runner_status": workspaceRecord.runnerExecution,
+            "commit_status": workspaceRecord.commitOutcome,
+            "result_bytes": outcome.text.utf8.count,
+            "launcher_result_sha256": resultDigest,
+            "status": "delivered",
+        ]
+        if let returncode = outcome.returncode { record["returncode"] = returncode }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: record,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ), data.count <= 2 * 1_024 else { return }
+        fputs("dsh-launcher-terminal=\(String(decoding: data, as: UTF8.self))\n", stderr)
+        fflush(stderr)
     }
 
     private static func writeDshLauncherEvent(
@@ -796,6 +929,25 @@ def apply_experimental_launcher_semantic_trace(source_root: Path) -> dict[str, s
         if transformed.count(old) != 1:
             raise RuntimeError("unexpected Launcher semantic-event injection site")
         transformed = transformed.replace(old, new)
+
+    delivered_result_marker = '''                    guard let nextReply = hostTurn.reply else {
+                        taskStopReason = "Agent Host returned no tool result reply"
+                        awaitingNextUser = true
+                        continue
+                    }
+                    let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
+'''
+    delivered_result_replacement = '''                    guard let nextReply = hostTurn.reply else {
+                        taskStopReason = "Agent Host returned no tool result reply"
+                        awaitingNextUser = true
+                        continue
+                    }
+                    Self.writeDshLauncherTerminalResult(outcome, taskID: taskID)
+                    let replyAllowed = AgentHostProtocol.replyAllowedAfterToolResult(
+'''
+    if transformed.count(delivered_result_marker) != 1:
+        raise RuntimeError("expected one successful tool-result delivery checkpoint")
+    transformed = transformed.replace(delivered_result_marker, delivered_result_replacement)
 
     cancelled_result = '''                            try host.sendToolResultAsync(
                                 ok: outcome.ok,
@@ -921,406 +1073,398 @@ def apply_experimental_candidate_approval_identity(source_root: Path) -> dict[st
     }
 
 
-def load_workspace_identity_manifest(path: Path) -> tuple[dict[str, object], Path]:
-    supplied_manifest = path.expanduser().absolute()
-    manifest_info = supplied_manifest.lstat()
-    if (
-        not supplied_manifest.is_file()
-        or supplied_manifest.is_symlink()
-        or manifest_info.st_uid != os.geteuid()
-        or manifest_info.st_mode & 0o777 != 0o600
-    ):
-        raise ValueError("workspace identity manifest must be an owner-only regular file")
-    manifest_path = supplied_manifest.resolve(strict=True)
-    raw = manifest_path.read_bytes()
-    if len(raw) > 16 * 1_024:
-        raise ValueError("workspace identity manifest exceeds its input bound")
-    value = json.loads(raw)
-    required = {
-        "schema_version", "trial_id", "workspace_path", "workspace_path_sha256",
-        "workspace_device", "workspace_inode", "marker_name", "marker_sha256", "fixture_files",
-    }
-    if not isinstance(value, dict) or set(value) != required or value.get("schema_version") != 1:
-        raise ValueError("workspace identity manifest has an invalid shape")
-    trial_id = value.get("trial_id")
-    if not isinstance(trial_id, str) or re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", trial_id) is None:
-        raise ValueError("workspace identity trial id is invalid")
-    workspace_path = value.get("workspace_path")
-    if not isinstance(workspace_path, str):
-        raise ValueError("workspace identity path is invalid")
-    selected = Path(workspace_path)
-    if not selected.is_absolute() or selected.resolve(strict=True) != selected:
-        raise ValueError("workspace identity path is not canonical")
-    info = selected.lstat()
-    if not selected.is_dir() or selected.is_symlink() or info.st_uid != os.geteuid():
-        raise ValueError("workspace identity path is not a real directory")
-    path_digest = hashlib.sha256(os.fsencode(str(selected))).hexdigest()
-    if value.get("workspace_path_sha256") != path_digest:
-        raise ValueError("workspace identity path digest mismatch")
-    for key in ("workspace_device", "workspace_inode"):
-        if not isinstance(value.get(key), int) or isinstance(value.get(key), bool):
-            raise ValueError("workspace identity directory metadata is invalid")
-    if value.get("workspace_device") != info.st_dev or value.get("workspace_inode") != info.st_ino:
-        raise ValueError("workspace identity directory inode mismatch")
-    marker_name = value.get("marker_name")
-    if marker_name != ".khaos-phase322-identity.json":
-        raise ValueError("workspace identity marker name is invalid")
-    marker = selected / marker_name
-    marker_info = marker.lstat()
-    if (
-        marker.is_symlink()
-        or not marker.is_file()
-        or marker_info.st_nlink != 1
-        or marker_info.st_size > 4_096
-        or marker_info.st_uid != os.geteuid()
-        or marker_info.st_mode & 0o777 != 0o600
-    ):
-        raise ValueError("workspace identity marker is not a bounded regular file")
-    if digest(marker) != value.get("marker_sha256"):
-        raise ValueError("workspace identity marker digest mismatch")
-    fixture_files = value.get("fixture_files")
-    if not isinstance(fixture_files, dict) or not 1 <= len(fixture_files) <= 16:
-        raise ValueError("workspace identity fixture list is invalid")
-    for name, entry in fixture_files.items():
-        if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None \
-                or name == marker_name or not isinstance(entry, dict) \
-                or set(entry) != {"sha256", "bytes"}:
-            raise ValueError("workspace identity fixture entry is invalid")
-        if not isinstance(entry["sha256"], str) or re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) is None \
-                or not isinstance(entry["bytes"], int) or isinstance(entry["bytes"], bool) \
-                or not 0 <= entry["bytes"] <= 8 * 1_024 * 1_024:
-            raise ValueError("workspace identity fixture digest or size is invalid")
-        fixture = selected / name
-        fixture_info = fixture.lstat()
-        if (
-            fixture.is_symlink()
-            or not fixture.is_file()
-            or fixture_info.st_nlink != 1
-            or fixture_info.st_size != entry["bytes"]
-            or digest(fixture) != entry["sha256"]
-        ):
-            raise ValueError("workspace identity fixture does not match its manifest")
-    if not isinstance(value.get("marker_sha256"), str) \
-            or re.fullmatch(r"[0-9a-f]{64}", value["marker_sha256"]) is None:
-        raise ValueError("workspace identity marker digest is invalid")
-    return (
-        {
-            "manifest_sha256": hashlib.sha256(raw).hexdigest(),
-            "trial_id": trial_id,
-            "workspace_path_sha256": path_digest,
-            "workspace_device": info.st_dev,
-            "workspace_inode": info.st_ino,
-            "marker_name": marker_name,
-            "marker_sha256": value["marker_sha256"],
-            "fixture_files": fixture_files,
-        },
-        selected,
-    )
-
-
-def apply_experimental_workspace_identity_binding(
-    source_root: Path,
-    identity: dict[str, object],
-    workspace_path: Path,
-) -> dict[str, str]:
+def apply_experimental_workspace_runtime_binding(source_root: Path) -> dict[str, str]:
     relative_path = "khaos/macos/TrustedWorkspaceLauncherMain.swift"
     path = source_root / relative_path
     original = path.read_text(encoding="utf-8")
     transformed = original
-    fixture_entries = identity["fixture_files"]
-    if not isinstance(fixture_entries, dict):
-        raise RuntimeError("validated workspace fixture entries are missing")
-    fixture_literals = ",\n".join(
-        f"        {json.dumps(name)}: ({json.dumps(entry['sha256'])}, {entry['bytes']} )"
-        for name, entry in sorted(fixture_entries.items())
-    )
-    helper = f'''
-    private static let phase322TrialID = {json.dumps(identity["trial_id"])}
-    private static let phase322ExpectedWorkspacePath = {json.dumps(str(workspace_path))}
-    private static let phase322ExpectedPathSHA256 = {json.dumps(identity["workspace_path_sha256"])}
-    private static let phase322ExpectedDevice = UInt64({identity["workspace_device"]})
-    private static let phase322ExpectedInode = UInt64({identity["workspace_inode"]})
-    private static let phase322MarkerName = {json.dumps(identity["marker_name"])}
-    private static let phase322ExpectedMarkerSHA256 = {json.dumps(identity["marker_sha256"])}
-    private static let phase322ExpectedFixtures: [String: (String, Int)] = [
-{fixture_literals}
-    ]
+    helper = r'''
+    private static let phase322MarkerName = ".khaos-phase322-identity.json"
     private static let phase322IdentityLock = NSLock()
-    private static var phase322VerifiedWorkspaceSessions = Set<UUID>()
+    private static var phase322TrialIDs: [UUID: UUID] = [:]
+    private static var phase322WorkspaceIdentities: [UUID: Phase322WorkspaceIdentity] = [:]
+    private static var phase322FailedTrials = Set<UUID>()
 
-    private static func phase322ReadRegularFile(
-        directoryFD: Int32,
-        name: String,
-        maximumBytes: Int
-    ) -> Data? {{
-        let descriptor = name.withCString {{ Darwin.openat(directoryFD, $0, O_RDONLY | O_NOFOLLOW) }}
-        guard descriptor >= 0 else {{ return nil }}
-        defer {{ Darwin.close(descriptor) }}
+    private static func phase322BeginTrial(taskID: UUID) -> UUID {
+        let trialID = UUID()
+        phase322IdentityLock.lock()
+        phase322TrialIDs[taskID] = trialID
+        phase322WorkspaceIdentities.removeValue(forKey: taskID)
+        phase322FailedTrials.remove(taskID)
+        phase322IdentityLock.unlock()
+        return trialID
+    }
+
+    private static func phase322EndTrial(taskID: UUID) {
+        phase322IdentityLock.lock()
+        phase322TrialIDs.removeValue(forKey: taskID)
+        phase322WorkspaceIdentities.removeValue(forKey: taskID)
+        phase322FailedTrials.remove(taskID)
+        phase322IdentityLock.unlock()
+    }
+
+    private static func phase322RuntimeTrialID(for taskID: UUID) -> UUID? {
+        phase322IdentityLock.lock()
+        defer { phase322IdentityLock.unlock() }
+        return phase322TrialIDs[taskID]
+    }
+
+    private static func phase322RejectTrial(taskID: UUID) {
+        phase322IdentityLock.lock()
+        phase322WorkspaceIdentities.removeValue(forKey: taskID)
+        phase322FailedTrials.insert(taskID)
+        phase322IdentityLock.unlock()
+    }
+
+    private static func phase322CanonicalPath(_ path: String) -> String? {
+        path.withCString { source -> String? in
+            var resolvedPath = [CChar](repeating: 0, count: Int(PATH_MAX))
+            guard Darwin.realpath(source, &resolvedPath) != nil else { return nil }
+            return String(cString: resolvedPath)
+        }
+    }
+
+    private static func phase322ReadMarker(
+        directoryFD: Int32
+    ) -> Phase322MarkerSnapshot? {
+        let descriptor = phase322MarkerName.withCString {
+            Darwin.openat(directoryFD, $0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard descriptor >= 0 else { return nil }
+        defer { Darwin.close(descriptor) }
+
         var before = stat()
         guard Darwin.fstat(descriptor, &before) == 0,
               before.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
               before.st_nlink == 1,
-              before.st_size >= 0,
-              before.st_size <= Int64(maximumBytes) else {{ return nil }}
+              before.st_uid == getuid(),
+              before.st_mode & 0o777 == 0o600,
+              before.st_size > 0,
+              before.st_size <= 4_096 else { return nil }
+
         var data = Data()
-        var buffer = [UInt8](repeating: 0, count: min(4_096, maximumBytes + 1))
-        while true {{
-            let amount = buffer.withUnsafeMutableBytes {{ bytes in
+        var buffer = [UInt8](repeating: 0, count: 1_024)
+        while true {
+            let amount = buffer.withUnsafeMutableBytes { bytes in
                 Darwin.read(descriptor, bytes.baseAddress, bytes.count)
-            }}
-            guard amount >= 0 else {{ return nil }}
-            if amount == 0 {{ break }}
-            guard data.count + amount <= maximumBytes else {{ return nil }}
+            }
+            guard amount >= 0 else { return nil }
+            if amount == 0 { break }
+            guard data.count + amount <= 4_096 else { return nil }
             data.append(contentsOf: buffer.prefix(amount))
-        }}
+        }
+
         var after = stat()
         guard Darwin.fstat(descriptor, &after) == 0,
               before.st_dev == after.st_dev,
               before.st_ino == after.st_ino,
               before.st_size == after.st_size,
-              data.count == Int(after.st_size) else {{ return nil }}
-        return data
-    }}
+              before.st_uid == after.st_uid,
+              before.st_mode == after.st_mode,
+              before.st_nlink == after.st_nlink,
+              data.count == Int(after.st_size) else { return nil }
+        var namedMarker = stat()
+        let namedStatus = phase322MarkerName.withCString {
+            Darwin.fstatat(directoryFD, $0, &namedMarker, AT_SYMLINK_NOFOLLOW)
+        }
+        guard namedStatus == 0,
+              namedMarker.st_dev == after.st_dev,
+              namedMarker.st_ino == after.st_ino else { return nil }
+        return Phase322MarkerSnapshot(
+            sha256: KernelWorkspaceXPC.sha256Hex(data),
+            device: UInt64(after.st_dev),
+            inode: UInt64(after.st_ino)
+        )
+    }
+
+    private static func phase322WorkspaceSnapshot(
+        _ selection: TrustedWorkspaceSelection,
+        trialID: UUID,
+        taskID: UUID
+    ) -> Phase322WorkspaceIdentity? {
+        var bookmarkIsStale = false
+        guard let resolvedURL = try? URL(
+            resolvingBookmarkData: selection.bookmark,
+            options: [],
+            relativeTo: nil,
+            bookmarkDataIsStale: &bookmarkIsStale
+        ), !bookmarkIsStale else { return nil }
+
+        let workspaceURL = resolvedURL.standardizedFileURL
+        let selectedURL = selection.scopeURL.standardizedFileURL
+        guard workspaceURL.path == selectedURL.path,
+              workspaceURL.startAccessingSecurityScopedResource() else { return nil }
+        defer { workspaceURL.stopAccessingSecurityScopedResource() }
+
+        guard let canonicalBefore = phase322CanonicalPath(workspaceURL.path) else { return nil }
+        let directoryFD = workspaceURL.path.withCString {
+            Darwin.open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard directoryFD >= 0 else { return nil }
+        defer { Darwin.close(directoryFD) }
+
+        var directoryInfo = stat()
+        guard Darwin.fstat(directoryFD, &directoryInfo) == 0,
+              directoryInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
+              phase322CanonicalPath(workspaceURL.path) == canonicalBefore else { return nil }
+        var namedDirectoryInfo = stat()
+        let namedDirectoryStatus = workspaceURL.path.withCString {
+            Darwin.fstatat(AT_FDCWD, $0, &namedDirectoryInfo, 0)
+        }
+        guard namedDirectoryStatus == 0,
+              namedDirectoryInfo.st_dev == directoryInfo.st_dev,
+              namedDirectoryInfo.st_ino == directoryInfo.st_ino else { return nil }
+        guard let marker = phase322ReadMarker(directoryFD: directoryFD),
+              phase322CanonicalPath(workspaceURL.path) == canonicalBefore else { return nil }
+
+        return Phase322WorkspaceIdentity(
+            trialID: trialID,
+            taskID: taskID,
+            workspaceSessionID: selection.identity,
+            bookmarkSHA256: KernelWorkspaceXPC.sha256Hex(selection.bookmark),
+            canonicalPath: canonicalBefore,
+            pathSHA256: KernelWorkspaceXPC.sha256Hex(Data(canonicalBefore.utf8)),
+            directoryDevice: UInt64(directoryInfo.st_dev),
+            directoryInode: UInt64(directoryInfo.st_ino),
+            markerSHA256: marker.sha256,
+            markerDevice: marker.device,
+            markerInode: marker.inode
+        )
+    }
 
     private static func phase322ValidateWorkspaceIdentity(
         _ selection: TrustedWorkspaceSelection,
         taskID: UUID,
         requestID: String,
         checkpoint: String,
-        approvalSHA256: String? = nil,
-        verifyInitialFiles: Bool
-    ) -> Bool {{
-        var bookmarkIsStale = false
-        let resolvedScopeURL = try? URL(
-            resolvingBookmarkData: selection.bookmark,
-            options: [],
-            relativeTo: nil,
-            bookmarkDataIsStale: &bookmarkIsStale
-        )
-        let workspaceURL = resolvedScopeURL ?? selection.scopeURL
-        let scopeStarted = !bookmarkIsStale && workspaceURL.startAccessingSecurityScopedResource()
-        defer {{
-            if scopeStarted {{ workspaceURL.stopAccessingSecurityScopedResource() }}
-        }}
-        let selectedPath = workspaceURL.standardizedFileURL.path
-        let canonicalPath = selectedPath.withCString {{ source -> String? in
-            var resolvedPath = [CChar](repeating: 0, count: Int(PATH_MAX))
-            guard Darwin.realpath(source, &resolvedPath) != nil else {{ return nil }}
-            return String(cString: resolvedPath)
-        }} ?? ""
-        let selectedPathSHA256 = KernelWorkspaceXPC.sha256Hex(Data(canonicalPath.utf8))
-        var directoryInfo = stat()
-        let directoryFD = selectedPath.withCString {{ Darwin.open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }}
-        let directoryOpened = directoryFD >= 0
-        var valid = scopeStarted
-            && directoryOpened
-            && canonicalPath == phase322ExpectedWorkspacePath
-            && selectedPathSHA256 == phase322ExpectedPathSHA256
-        var directoryIdentityMatches = false
-        var markerSHA256 = "unavailable"
-        var markerReadable = false
-        var fixtureFilesVerified = false
-        if directoryOpened {{
-            defer {{ Darwin.close(directoryFD) }}
-            directoryIdentityMatches = Darwin.fstat(directoryFD, &directoryInfo) == 0
-                && directoryInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR)
-                && UInt64(directoryInfo.st_dev) == phase322ExpectedDevice
-                && UInt64(directoryInfo.st_ino) == phase322ExpectedInode
-            valid = valid && directoryIdentityMatches
-            if let markerData = phase322ReadRegularFile(
-                directoryFD: directoryFD,
-                name: phase322MarkerName,
-                maximumBytes: 4_096
-            ) {{
-                markerSHA256 = KernelWorkspaceXPC.sha256Hex(markerData)
-                markerReadable = true
-            }}
-            valid = valid && markerSHA256 == phase322ExpectedMarkerSHA256
+        approvalSHA256: String
+    ) -> Bool {
+        phase322IdentityLock.lock()
+        let trialID = phase322TrialIDs[taskID]
+        let existing = phase322WorkspaceIdentities[taskID]
+        let alreadyFailed = phase322FailedTrials.contains(taskID)
+        phase322IdentityLock.unlock()
+        guard let trialID else { return false }
 
+        let candidate = alreadyFailed
+            ? nil
+            : phase322WorkspaceSnapshot(selection, trialID: trialID, taskID: taskID)
+        let matchesBaseline = candidate.map { current in
+            existing.map { $0 == current } ?? true
+        } ?? false
+        var valid = candidate != nil && matchesBaseline
+        if valid, existing == nil, let candidate {
             phase322IdentityLock.lock()
-            let alreadyVerified = phase322VerifiedWorkspaceSessions.contains(selection.identity)
+            if phase322TrialIDs[taskID] == trialID,
+               phase322WorkspaceIdentities[taskID] == nil,
+               !phase322FailedTrials.contains(taskID) {
+                phase322WorkspaceIdentities[taskID] = candidate
+            } else {
+                valid = false
+            }
             phase322IdentityLock.unlock()
-            if verifyInitialFiles && !alreadyVerified {{
-                fixtureFilesVerified = phase322ExpectedFixtures.allSatisfy {{ name, expected in
-                    guard let contents = phase322ReadRegularFile(
-                        directoryFD: directoryFD,
-                        name: name,
-                        maximumBytes: expected.1
-                    ) else {{ return false }}
-                    return contents.count == expected.1
-                        && KernelWorkspaceXPC.sha256Hex(contents) == expected.0
-                }}
-                valid = valid && fixtureFilesVerified
-            }} else {{
-                fixtureFilesVerified = alreadyVerified
-            }}
-            if valid {{
-                phase322IdentityLock.lock()
-                phase322VerifiedWorkspaceSessions.insert(selection.identity)
-                phase322IdentityLock.unlock()
-            }}
-        }}
-        var event: [String: Any] = [
-            "trial_id": phase322TrialID,
+        }
+
+        let event: [String: Any] = [
+            "runtime_trial_id": trialID.uuidString.lowercased(),
             "launcher_task_id": taskID.uuidString.lowercased(),
             "launcher_request_id": requestID,
             "workspace_session_id": selection.identity.uuidString.lowercased(),
             "checkpoint": checkpoint,
-            "selected_path_sha256": selectedPathSHA256,
-            "bookmark_resolved": resolvedScopeURL != nil,
-            "bookmark_stale": bookmarkIsStale,
-            "scope_access_started": scopeStarted,
-            "directory_opened": directoryOpened,
-            "directory_identity_matches": directoryIdentityMatches,
-            "marker_readable": markerReadable,
-            "marker_sha256": markerSHA256,
-            "fixture_files_verified": fixtureFilesVerified,
+            "selected_path_sha256": candidate?.pathSHA256 ?? "unavailable",
+            "directory_device": candidate?.directoryDevice ?? 0,
+            "directory_inode": candidate?.directoryInode ?? 0,
+            "directory_identity_matches": matchesBaseline,
+            "marker_readable": candidate != nil,
+            "marker_sha256": candidate?.markerSHA256 ?? "unavailable",
+            "marker_device": candidate?.markerDevice ?? 0,
+            "marker_inode": candidate?.markerInode ?? 0,
             "snapshot_identity": "NOT_AVAILABLE",
             "status": valid ? "verified" : "rejected",
+            "approval_sha256": approvalSHA256,
         ]
-        if let approvalSHA256 {{ event["approval_sha256"] = approvalSHA256 }}
         if let data = try? JSONSerialization.data(
             withJSONObject: event,
             options: [.sortedKeys, .withoutEscapingSlashes]
-        ), data.count <= 2 * 1_024 {{
-            fputs("dsh-workspace-identity=\\(String(decoding: data, as: UTF8.self))\\n", stderr)
+        ), data.count <= 2 * 1_024 {
+            fputs("dsh-workspace-identity=\(String(decoding: data, as: UTF8.self))\n", stderr)
             fflush(stderr)
-        }}
+        }
+        if !valid { phase322RejectTrial(taskID: taskID) }
         return valid
-    }}
+    }
 
 '''
-    marker = "    private static func runAgentSession() throws {\n"
-    if transformed.count(marker) != 1:
-        raise RuntimeError("expected one Launcher session entry for workspace identity overlay")
-    transformed = transformed.replace(marker, helper + marker)
+    phase322_structs = '''private struct Phase322MarkerSnapshot {
+    let sha256: String
+    let device: UInt64
+    let inode: UInt64
+}
 
-    function_marker = '''    ) -> AgentToolOutcome {
-        guard (directoryListing
-'''
-    function_replacement = '''    ) -> AgentToolOutcome {
-        let phase322FirstWorkspaceRequest: Bool
-        if case nil = workspace {
-            phase322FirstWorkspaceRequest = true
-        } else {
-            phase322FirstWorkspaceRequest = false
-        }
-        guard (directoryListing
-'''
-    if transformed.count(function_marker) != 1:
-        raise RuntimeError("expected one Agent tool entry for workspace identity overlay")
-    transformed = transformed.replace(function_marker, function_replacement)
+private struct Phase322WorkspaceIdentity: Equatable {
+    let trialID: UUID
+    let taskID: UUID
+    let workspaceSessionID: UUID
+    let bookmarkSHA256: String
+    let canonicalPath: String
+    let pathSHA256: String
+    let directoryDevice: UInt64
+    let directoryInode: UInt64
+    let markerSHA256: String
+    let markerDevice: UInt64
+    let markerInode: UInt64
+}
 
-    selection_marker = '''        guard let selection = workspace,
-              let bundleID = Bundle.main.bundleIdentifier else {
-            return AgentToolOutcome(
-                ok: false,
-                canContinue: false,
-                text: "Trusted workspace session is unavailable.",
-                returncode: nil,
-                executionSeconds: 0,
-                stopReason: "trusted workspace session unavailable"
-            )
-        }
-
-        let invocation: Data
 '''
-    selection_replacement = '''        guard let selection = workspace,
-              let bundleID = Bundle.main.bundleIdentifier else {
-            return AgentToolOutcome(
-                ok: false,
-                canContinue: false,
-                text: "Trusted workspace session is unavailable.",
-                returncode: nil,
-                executionSeconds: 0,
-                stopReason: "trusted workspace session unavailable"
-            )
-        }
-        guard phase322ValidateWorkspaceIdentity(
+    type_marker = "enum TrustedWorkspaceLauncherMain {\n"
+    if transformed.count(type_marker) != 1:
+        raise RuntimeError("expected one Launcher type declaration")
+    transformed = transformed.replace(type_marker, type_marker + phase322_structs)
+
+    session_marker = "    private static func runAgentSession() throws {\n"
+    if transformed.count(session_marker) != 1:
+        raise RuntimeError("expected one Agent session entry")
+    transformed = transformed.replace(session_marker, helper + session_marker)
+
+    task_marker = "            let taskID = UUID()\n"
+    task_replacement = '''            let taskID = UUID()
+            workspace = nil
+            _ = phase322BeginTrial(taskID: taskID)
+            defer {
+                phase322EndTrial(taskID: taskID)
+                workspace = nil
+            }
+'''
+    if transformed.count(task_marker) != 1:
+        raise RuntimeError("expected one Agent task identity creation point")
+    transformed = transformed.replace(task_marker, task_replacement)
+
+    record_marker = '            "task_id": taskID.uuidString.lowercased(),\n'
+    if transformed.count(record_marker) != 1:
+        raise RuntimeError("expected one Launcher task-record identity field")
+    transformed = transformed.replace(
+        record_marker,
+        record_marker
+        + '            "runtime_trial_id": phase322RuntimeTrialID(for: taskID)?.uuidString.lowercased() ?? "unavailable",\n',
+    )
+
+    request_marker = '''        var frozenRequest = AgentWorkspaceRequest(
+            requestID: requestID,
+            request: request,
+            invocation: invocation,
+            approvalSHA256: approvalDigest,
+            workspaceSessionID: selection.identity,
+            connectionID: nil
+        )
+'''
+    request_replacement = request_marker + '''        guard phase322ValidateWorkspaceIdentity(
             selection,
             taskID: taskID,
             requestID: requestID.token,
             checkpoint: "before_approval",
-            verifyInitialFiles: phase322FirstWorkspaceRequest
+            approvalSHA256: approvalDigest
         ) else {
-            selection.scopeURL.stopAccessingSecurityScopedResource()
             workspace = nil
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "workspace_identity_rejected",
+                cancellationRequested: false,
+                cancellationResult: "not_requested",
+                kernelResult: "not_submitted:workspace_identity_mismatch",
+                runnerExecution: "not_started",
+                workspaceResult: nil,
+                commitOutcome: "not_committed"
+            )
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
-                text: "Launcher rejected the workspace because its signed experiment identity did not match.",
+                text: "Launcher could not verify the selected workspace identity. The request was not submitted.",
                 returncode: nil,
                 executionSeconds: 0,
-                stopReason: "workspace identity mismatch"
+                stopReason: "workspace identity verification failed",
+                workspaceRecord: record
             )
         }
-
-        let invocation: Data
 '''
-    if transformed.count(selection_marker) != 1:
-        raise RuntimeError("expected one Agent workspace selection binding point")
-    transformed = transformed.replace(selection_marker, selection_replacement)
+    if transformed.count(request_marker) != 1:
+        raise RuntimeError("expected one frozen workspace request before approval")
+    transformed = transformed.replace(request_marker, request_replacement)
 
-    picker_marker = '''                let selected = try TrustedWorkspacePicker.selectWorkspace(
-                    message: "Choose the workspace for this reviewed Agent tool request."
-                )'''
-    picker_replacement = '''                let selected = try TrustedWorkspacePicker.selectWorkspace(
-                    initialDirectory: URL(fileURLWithPath: phase322ExpectedWorkspacePath, isDirectory: true),
-                    message: "Choose the workspace for this reviewed Agent tool request."
-                )'''
-    if transformed.count(picker_marker) != 1:
-        raise RuntimeError("expected one semantic workspace picker location")
-    transformed = transformed.replace(picker_marker, picker_replacement)
-
-    approval_marker = '''        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")
-        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")
-        let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
-'''
+    approval_marker = '        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")\n'
     approval_replacement = '''        guard phase322ValidateWorkspaceIdentity(
             selection,
             taskID: taskID,
             requestID: requestID.token,
             checkpoint: "after_approval",
-            approvalSHA256: approvalDigest,
-            verifyInitialFiles: false
+            approvalSHA256: approvalDigest
         ) else {
+            workspace = nil
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "approved_\\(approvalKind)",
+                cancellationRequested: false,
+                cancellationResult: "not_requested",
+                kernelResult: "not_submitted:workspace_identity_changed",
+                runnerExecution: "not_started",
+                workspaceResult: nil,
+                commitOutcome: "not_committed"
+            )
             return AgentToolOutcome(
                 ok: false,
                 canContinue: false,
-                text: "Launcher rejected the workspace because its identity changed after approval; no Kernel request was submitted.",
+                text: "Launcher rejected the approved request because the workspace identity changed. No Kernel request was submitted.",
                 returncode: nil,
                 executionSeconds: 0,
-                stopReason: "workspace identity changed after approval"
+                stopReason: "workspace identity changed after approval",
+                workspaceRecord: record
             )
         }
-        writeAgentDiagnostic("tool=approved kind=\\(approvalKind)")
-        writeDshLauncherEvent("APPROVAL_ACCEPTED", taskID: taskID, requestID: requestID.token, approvalSHA256: approvalDigest, status: "approved_\\(approvalKind)")
-        let progress = AgentTaskProgress<KernelWorkspaceCommandObservation>(
 '''
     if transformed.count(approval_marker) != 1:
-        raise RuntimeError("expected one post-approval identity recheck point")
-    transformed = transformed.replace(approval_marker, approval_replacement)
+        raise RuntimeError("expected one approval acceptance point")
+    transformed = transformed.replace(approval_marker, approval_replacement + approval_marker)
 
     result_marker = "        let elapsed = observation.submittedAt.map {\n"
-    result_replacement = '''        _ = phase322ValidateWorkspaceIdentity(
+    result_replacement = '''        guard phase322ValidateWorkspaceIdentity(
             selection,
             taskID: taskID,
             requestID: requestID.token,
             checkpoint: "after_kernel_result",
-            approvalSHA256: approvalDigest,
-            verifyInitialFiles: false
-        )
-        let elapsed = observation.submittedAt.map {
+            approvalSHA256: approvalDigest
+        ) else {
+            workspace = nil
+            let record = agentWorkspaceRequestRecord(
+                frozenRequest,
+                approval: "approved_\\(approvalKind)",
+                cancellationRequested: waited.cancellationRequested,
+                cancellationResult: cancellationLabel(observation.cancellation),
+                kernelResult: "result_withheld:workspace_identity_mismatch",
+                runnerExecution: "unknown",
+                workspaceResult: nil,
+                commitOutcome: "unknown"
+            )
+            return AgentToolOutcome(
+                ok: false,
+                canContinue: false,
+                text: "The Kernel returned, but Launcher rejected the workspace identity. The result was withheld and the workspace outcome is unknown.",
+                returncode: nil,
+                executionSeconds: 0,
+                stopReason: "workspace identity changed after Kernel result",
+                taskCancelled: waited.cancellationRequested,
+                workspaceRecord: record
+            )
+        }
 '''
     if transformed.count(result_marker) != 1:
-        raise RuntimeError("expected one post-Kernel-result identity observation point")
-    transformed = transformed.replace(result_marker, result_replacement)
+        raise RuntimeError("expected one Kernel result boundary")
+    transformed = transformed.replace(result_marker, result_replacement + result_marker)
+
     path.write_text(transformed, encoding="utf-8")
     return {
         "path": relative_path,
         "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
         "experimental_sha256": digest(path),
-        "reason": "bind only the disposable signed experiment to one path digest, directory identity, marker, and frozen initial fixtures; recheck identity before each submission and after approval",
+        "reason": "bind the actual security-scoped Picker selection to a fresh task Trial ID and recheck the same directory, bookmark, and marker identity before approval, after approval, and before result delivery",
     }
 
 
@@ -1347,27 +1491,12 @@ def main() -> int:
         action="store_true",
         help="embed the test-only fixed Candidate B script used by semantic coding tools",
     )
-    parser.add_argument("--workspace-identity-manifest", type=Path)
     parser.add_argument("--pnpm", default="pnpm")
     parser.add_argument("--keychain", type=Path)
     parser.add_argument("--local-model-app", type=Path,
                         help="signed local Khaos app supplying its existing CPU-only llama.cpp model")
     parser.add_argument("--python-executable", type=Path, default=Path(sys.executable))
     args = parser.parse_args()
-
-    workspace_identity = None
-    workspace_identity_path = None
-    if args.workspace_identity_manifest is not None:
-        if not args.semantic_tools:
-            parser.error("workspace identity binding is only valid for semantic-tool experiments")
-        try:
-            workspace_identity, workspace_identity_path = load_workspace_identity_manifest(
-                args.workspace_identity_manifest
-            )
-        except (OSError, ValueError, json.JSONDecodeError) as error:
-            parser.error(f"invalid disposable workspace identity manifest: {error}")
-    elif args.semantic_tools:
-        parser.error("semantic-tool experiments require a disposable workspace identity manifest")
 
     if platform.system() != "Darwin":
         parser.error("the signed XPC acceptance app requires macOS")
@@ -1520,16 +1649,12 @@ def main() -> int:
         source_hashes[launcher_trace_overlay["path"]] = launcher_trace_overlay["experimental_sha256"]
         candidate_approval_identity_overlay = apply_experimental_candidate_approval_identity(source_root)
         source_hashes[candidate_approval_identity_overlay["path"]] = candidate_approval_identity_overlay["experimental_sha256"]
-        workspace_identity_overlay = None
-        if workspace_identity is not None:
-            if workspace_identity_path is None:
-                raise RuntimeError("validated workspace identity path is unavailable")
-            workspace_identity_overlay = apply_experimental_workspace_identity_binding(
-                source_root,
-                workspace_identity,
-                workspace_identity_path,
-            )
-            source_hashes[workspace_identity_overlay["path"]] = workspace_identity_overlay["experimental_sha256"]
+        workspace_runtime_overlay = (
+            apply_experimental_workspace_runtime_binding(source_root)
+            if args.semantic_tools else None
+        )
+        if workspace_runtime_overlay is not None:
+            source_hashes[workspace_runtime_overlay["path"]] = workspace_runtime_overlay["experimental_sha256"]
         disclosure_override = (
             apply_experimental_model_disclosure(source_root)
             if args.model_provider != "local" else None
@@ -1606,7 +1731,8 @@ def main() -> int:
             "khaos_source_sha": source_sha,
             "agent_action_diagnostics": False,
             "test_only_sources_sha256": test_sources,
-            "disposable_workspace_identity": workspace_identity,
+            "workspace_binding_mode": "runtime-per-trial-v1" if args.semantic_tools else None,
+            "disposable_workspace_identity": None,
             "probe_fixture_sha256": {
                 key: digest(path) for key, path in probe_paths.items()
             },
@@ -1622,7 +1748,7 @@ def main() -> int:
             "experimental_source_overrides": (
                 [protocol_overlay, protocol_trace_overlay, model_bridge_client_overlay,
                  telemetry_client_overlay, launcher_trace_overlay, candidate_approval_identity_overlay]
-                + ([workspace_identity_overlay] if workspace_identity_overlay is not None else [])
+                + ([workspace_runtime_overlay] if workspace_runtime_overlay is not None else [])
                 + ([disclosure_override] if disclosure_override is not None else [])
             ),
             "dsh_model_data_policy": (
@@ -1690,6 +1816,16 @@ def main() -> int:
             model_license=local_model[2] if local_model is not None else None,
         )
 
+        python_framework = (
+            app / "Contents/XPCServices/KernelProduction.xpc/Contents/Frameworks/Python.framework"
+        )
+        python_signature = sign_embedded_python_runtime(
+            python_framework,
+            identity,
+            args.keychain,
+        )
+        hardened_runtime_signatures: dict[str, object] = {}
+
         host = app / "Contents/XPCServices/KhaosAgentHost.xpc"
         host_resources = host / "Contents/Resources"
         host_info_path = host / "Contents/Info.plist"
@@ -1727,6 +1863,7 @@ def main() -> int:
             "--entitlements", str(node_entitlements), "--identifier",
             "org.khaos.Seed.AgentHost.DSHAcceptanceRuntime", str(node),
         ])
+        hardened_runtime_signatures["DSH Node"] = require_hardened_runtime(node)
 
         launcher_info_path = app / "Contents/Info.plist"
         with launcher_info_path.open("rb") as stream:
@@ -1792,10 +1929,11 @@ def main() -> int:
                 "com.apple.security.network.client": True,
             }))
             run(sign + [
-                "--sign", identity,
+                "--options", "runtime", "--timestamp=none", "--sign", identity,
                 "--entitlements", str(bridge_entitlements),
                 str(bridge),
             ])
+            hardened_runtime_signatures["DSHModelBridge.xpc"] = require_hardened_runtime(bridge)
             bridge_requirement = seed_builder._designated_requirement(
                 bridge_binary,
                 DSH_MODEL_BRIDGE_ID,
@@ -1809,8 +1947,34 @@ def main() -> int:
         with host_info_path.open("wb") as stream:
             plistlib.dump(host_info, stream, sort_keys=True)
 
+        service = app / "Contents/XPCServices/KernelProduction.xpc"
+        broker = app / "Contents/XPCServices/KernelSnapshotBroker.xpc"
         host_entitlements = app.parent / "agent-host-entitlements.plist"
-        run(sign + ["--sign", identity, "--entitlements", str(host_entitlements), str(host)])
+        service_entitlements = app.parent / "service-entitlements.plist"
+        broker_entitlements = app.parent / "broker-entitlements.plist"
+        hardened_runtime_signatures["KernelProduction.xpc"] = sign_hardened_code(
+            service,
+            identity,
+            args.keychain,
+            entitlements=service_entitlements,
+        )
+        hardened_runtime_signatures["KernelSnapshotBroker.xpc"] = sign_hardened_code(
+            broker,
+            identity,
+            args.keychain,
+            entitlements=broker_entitlements,
+        )
+        hardened_runtime_signatures["KhaosAgentHost.xpc"] = sign_hardened_code(
+            host,
+            identity,
+            args.keychain,
+            entitlements=host_entitlements,
+        )
+        if args.model_provider != "local":
+            model_bridge_probe = host_resources / "dsh-model-bridge-peer-probe"
+            hardened_runtime_signatures["DSH model bridge peer probe"] = require_hardened_runtime(
+                model_bridge_probe
+            )
 
         node_entitlement_values = signed_entitlements(node)
         host_entitlement_values = signed_entitlements(host)
@@ -1830,6 +1994,16 @@ def main() -> int:
         }
         if args.model_provider != "local" and not build_record["signed_network_entitlement_check"]["model_bridge_network_client"]:
             raise RuntimeError("signed model bridge is missing network.client")
+        build_record["hardened_runtime"] = {
+            "signing_option": "codesign --options runtime",
+            "code_directory_flags": hardened_runtime_signatures,
+            "embedded_python_native_code_count": python_signature["native_code_count"],
+            "embedded_python_team_id": python_signature["team_id"],
+            "embedded_python_library_validation": (
+                "all native code in Python.framework is signed by one Apple Development Team ID"
+            ),
+            "outer_app_runtime_required": True,
+        }
 
         embedded = {
             str(path.relative_to(app)): seed_builder._sha256_file(path)
@@ -1841,8 +2015,14 @@ def main() -> int:
         build_record_path = app / "Contents/Resources/build-inputs.json"
         build_record_path.write_text(json.dumps(build_record, sort_keys=True, indent=2) + "\n")
         app_entitlements = app.parent / "app-entitlements.plist"
-        run(sign + ["--sign", identity, "--entitlements", str(app_entitlements), str(app)])
+        hardened_runtime_signatures["KhaosSeed.app"] = sign_hardened_code(
+            app,
+            identity,
+            args.keychain,
+            entitlements=app_entitlements,
+        )
         seed_builder.verify_app(app, identity)
+        app_runtime_signature = hardened_runtime_signatures["KhaosSeed.app"]
         if args.model_provider != "local":
             run([
                 "codesign", "--verify", "--deep", "--strict",
@@ -1862,6 +2042,18 @@ def main() -> int:
         print(f"host_source_override_sha256={replacement_hash}")
         print(f"node_sha256={digest(output_app / 'Contents/XPCServices/KhaosAgentHost.xpc/Contents/Resources/node')}")
         print(f"dsh_runtime_bundle_sha256={runtime_hash}")
+        print("hardened_runtime=PASS")
+        for code, signature in hardened_runtime_signatures.items():
+            if code == "KhaosSeed.app":
+                continue
+            values = ",".join(signature["code_directory_flags"])
+            print(f"hardened_runtime[{code}]={values}")
+        print(
+            "hardened_runtime[KhaosSeed.app]="
+            + ",".join(app_runtime_signature["code_directory_flags"])
+        )
+        print(f"embedded_python_native_code_count={python_signature['native_code_count']}")
+        print(f"embedded_python_team_id={python_signature['team_id']}")
         print(f"agent_host_binary_sha256={digest(host_binary)}")
         if args.model_provider != "local":
             print(f"model_bridge_binary_sha256={digest(output_app / 'Contents/XPCServices/DSHModelBridge.xpc/Contents/MacOS/DSHModelBridge')}")

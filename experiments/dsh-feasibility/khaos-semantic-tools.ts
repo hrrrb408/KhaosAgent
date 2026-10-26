@@ -18,7 +18,14 @@ const MAX_ALLOWED_REPAIRS = 3
 const READ_SCRIPT = 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),end="")'
 // Avoid directory discovery so the fixed test profile stays within file-scoped read authority.
 const TEST_RESULT_MARKER = 'KHAOS_TEST_RESULT='
-const TEST_SCRIPT = 'import json,pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); successful=result.testsRun>0 and result.wasSuccessful(); print("KHAOS_TEST_RESULT="+json.dumps({"tests_run":result.testsRun,"failures":len(result.failures),"errors":len(result.errors),"skipped":len(result.skipped),"successful":successful},sort_keys=True,separators=(",",":"))); raise SystemExit(0 if successful else 2 if result.testsRun==0 else 1)'
+// The Runner's scratch python3 symlink can leave the embedded runtime's
+// Homebrew exec_prefix in sys.path. Use only the app-bundled native modules,
+// which are signed with the app's Team ID and pass Hardened Runtime validation.
+const TEST_SCRIPT = [
+  'import sys; version="%d.%d"%sys.version_info[:2]; dynload_suffix="/lib/python"+version+"/lib-dynload";',
+  'sys.path=[path for path in sys.path if not path.endswith(dynload_suffix)]; sys.path.append(sys.prefix+dynload_suffix);',
+  'import json,pathlib,sys,types,unittest; module_name=sys.argv[1][:-3]; source=types.ModuleType(module_name); exec(compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"),sys.argv[1],"exec"),source.__dict__); sys.modules[module_name]=source; test=types.ModuleType("test_public"); exec(compile(pathlib.Path("test_public.py").read_text(encoding="utf-8"),"test_public.py","exec"),test.__dict__); result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(test)); successful=result.testsRun>0 and result.wasSuccessful(); print("KHAOS_TEST_RESULT="+json.dumps({"tests_run":result.testsRun,"failures":len(result.failures),"errors":len(result.errors),"skipped":len(result.skipped),"successful":successful},sort_keys=True,separators=(",",":"))); raise SystemExit(0 if successful else 2 if result.testsRun==0 else 1)',
+].join(' ')
 const TOOL_NAMES = ['read_file', 'replace_text', 'run_tests'] as const
 
 export type SemanticToolName = typeof TOOL_NAMES[number]
@@ -524,6 +531,7 @@ export function createKhaosSemanticToolsPlugin(
     const launcherTrace = result.launcherTrace
     if (launcherTrace) {
       const matchesProposal = launcherTrace.trial_id === telemetry.trialId
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(launcherTrace.runtime_trial_id)
         && launcherTrace.dsh_session_id === telemetry.sessionId
         && launcherTrace.benchmark_task_id === policy.taskId
         && launcherTrace.agent_turn_id === correlation?.turn
@@ -538,6 +546,7 @@ export function createKhaosSemanticToolsPlugin(
         && launcherTrace.returncode === result.returncode
       if (!matchesProposal) throw new Error('launcher_trace_mismatch')
       telemetry.emit('LAUNCHER_TERMINAL_RESULT_DELIVERED', {
+        runtime_trial_id: launcherTrace.runtime_trial_id,
         agent_turn_id: launcherTrace.agent_turn_id,
         agent_step_id: launcherTrace.agent_step_id,
         ...(launcherTrace.model_call_id ? { model_call_id: launcherTrace.model_call_id } : {}),

@@ -1006,7 +1006,9 @@ async function handle(input: HostInput): Promise<void> {
 function launcherTraceMatches(value: unknown, correlation: KhaosProposalCorrelation): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const trace = value as Record<string, unknown>
-  return trace.trial_id === correlation.trialId
+  return typeof trace.runtime_trial_id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(trace.runtime_trial_id)
+    && trace.trial_id === correlation.trialId
     && trace.dsh_session_id === correlation.sessionId
     && trace.benchmark_task_id === correlation.benchmarkTaskId
     && trace.agent_turn_id === correlation.turn
